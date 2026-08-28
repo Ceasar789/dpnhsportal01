@@ -1,0 +1,2919 @@
+// ============================================
+// FILE: src/pages/dashboards/TeacherDashboard.jsx
+// UPDATED: Full Supabase CRUD + Real-time + Role-based News
+// ============================================
+
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
+import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../config/supabase';
+import AssessmentsTab from './AssessmentsTab';
+import {
+  Users, UserPlus, BookOpen, FileText, GraduationCap, 
+  CalendarCheck, Megaphone, Search, Trash2, Edit, X, Check,
+  AlertCircle, Plus, Download, Upload, MoreHorizontal, ChevronDown,
+  FileUp, Eye, Save, RefreshCw, Clock, Calendar, Mail, Activity,
+  Moon, Sun, LogOut, Menu, LayoutDashboard, ClipboardList, ChevronRight, Bell,
+  Loader2
+} from 'lucide-react';
+
+// ============================================
+// THEME CONTEXT (preserved from your original)
+// ============================================
+export const ThemeContext = createContext({ dark: false, toggleDark: () => {} });
+const useTheme = () => useContext(ThemeContext);
+
+// ============================================
+// TOAST HELPER
+// ============================================
+const useToast = () => {
+  const [toast, setToast] = useState(null);
+  const showToast = useCallback((msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+  return { toast, showToast };
+};
+
+// ============================================
+// SHARED COMPONENTS (Your originals preserved)
+// ============================================
+
+const Card = ({ children, className = '', style = {} }) => {
+  const { dark } = useTheme();
+  return (
+    <div className={`rounded-xl ${className}`}
+      style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, ...style }}>
+      {children}
+    </div>
+  );
+};
+
+const Input = ({ className = '', ...props }) => {
+  const { dark } = useTheme();
+  return (
+    <input className={`w-full h-10 px-3 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+      style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}
+      {...props}
+    />
+  );
+};
+
+const Table = ({ headers, children }) => {
+  const { dark } = useTheme();
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
+            {headers.map(h => (
+              <th key={h} className="px-5 py-3 text-left text-xs font-semibold tracking-wider uppercase"
+                style={{ color: dark ? '#64748b' : '#94a3b8' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody style={{ borderTop: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+          {children}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const TR = ({ children }) => {
+  const { dark } = useTheme();
+  return (
+    <tr className="transition-colors" style={{ borderBottom: `1px solid ${dark ? '#334155' : '#f1f5f9'}` }}
+      onMouseEnter={e => e.currentTarget.style.backgroundColor = dark ? '#0f172a' : '#f8fafc'}
+      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+      {children}
+    </tr>
+  );
+};
+
+const TD = ({ children, className = '' }) => {
+  const { dark } = useTheme();
+  return (
+    <td className={`px-5 py-3.5 text-sm ${className}`} style={{ color: dark ? '#cbd5e1' : '#475569' }}>
+      {children}
+    </td>
+  );
+};
+
+const Modal = ({ title, onClose, children }) => {
+  const { dark } = useTheme();
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="rounded-xl w-full max-w-md shadow-2xl"
+        style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
+          <h2 className="text-lg font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const StatCard = ({ label, value, sub, subColor, icon: Icon, loading }) => {
+  const { dark } = useTheme();
+  return (
+    <Card className="p-5">
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{label}</p>
+        {Icon && (
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: dark ? '#0f172a' : '#eff6ff' }}>
+            <Icon size={16} style={{ color: '#3b82f6' }} />
+          </div>
+        )}
+        {loading && <Loader2 size={16} className="animate-spin text-blue-500" />}
+      </div>
+      <p className="text-3xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{loading ? '—' : value}</p>
+      <p className="text-xs" style={{ color: subColor || (dark ? '#64748b' : '#94a3b8') }}>{sub}</p>
+    </Card>
+  );
+};
+
+const Badge = ({ children, color, bg }) => (
+  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: bg, color }}>
+    {children}
+  </span>
+);
+
+const Btn = ({ children, onClick, className = '', variant = 'default', disabled }) => {
+  const variants = {
+    default: { backgroundColor: '#1e3a5f', color: '#ffffff' },
+    outline: { backgroundColor: 'transparent', color: '#64748b', border: '1px solid #e2e8f0' },
+    primary: { backgroundColor: '#2563eb', color: '#ffffff' },
+    danger: { backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+  };
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 ${className}`}
+      style={{ ...variants[variant], opacity: disabled ? 0.5 : 1 }}>
+      {children}
+    </button>
+  );
+};
+
+// ============================================
+// TEACHER LAYOUT (Your original design preserved)
+// ============================================
+const TeacherLayout = ({ children }) => {
+  const { dark, toggleDark } = useTheme();
+  const { logout, userData } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const navItems = [
+    { path: '/teacher-dashboard', icon: LayoutDashboard, label: 'Overview' },
+    { path: '/teacher-dashboard/students', icon: Users, label: 'Students' },
+    { path: '/teacher-dashboard/lesson-plans', icon: BookOpen, label: 'Lesson Plans' },
+    { path: '/teacher-dashboard/worksheets', icon: ClipboardList, label: 'Worksheets' },
+    { path: '/teacher-dashboard/assignments', icon: FileText, label: 'Assessments' },
+    { path: '/teacher-dashboard/grades', icon: GraduationCap, label: 'Grades' },
+    { path: '/teacher-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
+    { path: '/teacher-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
+  ];
+
+  const mainBg = dark ? '#0f172a' : '#f1f5f9';
+  const headerBorder = dark ? '#334155' : '#e2e8f0';
+  const textPrimary = dark ? '#f1f5f9' : '#1a2b4a';
+  const textMuted = dark ? '#94a3b8' : '#64748b';
+
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userData?.uid)
+        .eq('is_read', false);
+      setNotifCount(count || 0);
+    };
+    
+    if (userData?.uid) fetchNotifs();
+    
+    const channel = supabase
+      .channel('teacher-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, fetchNotifs)
+      .subscribe();
+      
+    return () => supabase.removeChannel(channel);
+  }, [userData]);
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* SIDEBAR - Your original design */}
+      <aside className={`
+          fixed lg:static inset-y-0 left-0 z-50 w-64 flex flex-col
+          transform transition-transform duration-300 ease-in-out shadow-sm
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+        style={{ backgroundColor: dark ? '#1e293b' : '#ffffff' }}>
+        
+        <div className="p-5 border-b flex items-center gap-3" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
+          <div className="w-10 h-10 rounded-full border flex items-center justify-center flex-shrink-0 overflow-hidden"
+            style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', borderColor: dark ? '#334155' : '#e2e8f0' }}>
+            <img src="/capstonelogo.png" alt="School Logo" className="w-full h-full object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<span class="font-bold text-[#1e3a5f] text-lg">D</span>';
+              }}
+            />
+          </div>
+          <div>
+            <p className="font-bold text-sm leading-tight" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Dela Paz National High School</p>
+            <p className="text-[10px]" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Teacher Portal</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-4 px-3">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            const Icon = item.icon;
+            return (
+              <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all mb-0.5
+                  ${isActive ? 'bg-blue-50 text-[#1e3a5f] font-semibold' : 'hover:bg-gray-50 hover:text-[#1a2b4a]'}
+                `}
+                style={{
+                  color: isActive ? '#1e3a5f' : (dark ? '#94a3b8' : '#64748b'),
+                  backgroundColor: isActive ? (dark ? '#0f172a' : '#eff6ff') : 'transparent'
+                }}>
+                <Icon size={18} />
+                <span>{item.label}</span>
+                {isActive && <ChevronRight size={14} className="ml-auto text-[#1e3a5f]" />}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-5 border-t" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
+          <div className="flex items-center gap-2 px-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+            <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>All systems online</span>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0"
+          style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', borderColor: headerBorder }}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg transition-colors" style={{ color: dark ? '#94a3b8' : '#94a3b8' }}>
+              <Menu size={20} />
+            </button>
+            <div className="hidden sm:block">
+              <h1 className="text-lg font-bold" style={{ color: textPrimary }}>
+                {navItems.find(n => n.path === location.pathname)?.label || 'Dashboard'}
+              </h1>
+              <p className="text-sm" style={{ color: textMuted }}>
+                Academic Year 2025–2026 · Last updated: today
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button className="p-2 rounded-full transition-colors relative" style={{ color: dark ? '#94a3b8' : '#94a3b8' }}>
+              <Bell size={18} />
+              {notifCount > 0 && (
+                <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                  {notifCount}
+                </span>
+              )}
+            </button>
+            <button onClick={toggleDark} className="p-2 rounded-full transition-colors" style={{ color: dark ? '#fbbf24' : '#64748b' }}>
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold cursor-default"
+              style={{ backgroundColor: '#1e3a5f', color: '#FEB300' }} title={userData?.name || 'Teacher'}>
+              {(userData?.name || 'T')[0].toUpperCase()}
+            </div>
+            <button onClick={handleLogout}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border"
+              style={{ color: dark ? '#94a3b8' : '#64748b', borderColor: dark ? '#334155' : '#e2e8f0', backgroundColor: 'transparent' }}>
+              <LogOut size={15} /> Logout
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto" style={{ backgroundColor: mainBg }}>
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// TEACHER OVERVIEW TAB — Enhanced Dashboard
+// ============================================
+const TeacherOverviewTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalLessonPlans: 0,
+    totalResources: 0,
+    aiSuggestionsUsed: 0,
+    upcomingClassesToday: 0,
+    upcomingClassesWeek: 0
+  });
+  const [recentLessonPlans, setRecentLessonPlans] = useState([]);
+  const [upcomingClasses, setUpcomingClasses] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [aiActivity, setAiActivity] = useState({
+    totalSuggestions: 0,
+    lastAILesson: null,
+    mostUsedFeature: 'Lesson Plan Generator'
+  });
+  const [loading, setLoading] = useState(true);
+
+  const fetchOverviewData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch total lesson plans
+      const { count: lessonCount, data: lessonPlans } = await supabase
+        .from('lesson_plans')
+        .select('*', { count: 'exact' })
+        .eq('teacher_id', userData?.uid)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      setRecentLessonPlans(lessonPlans || []);
+
+      // 2. Fetch total resources/worksheets
+      const { count: resourceCount } = await supabase
+        .from('worksheets')
+        .select('*', { count: 'exact', head: true })
+        .eq('teacher_id', userData?.uid);
+
+      // 3. Fetch AI usage data
+      const { count: aiSuggestions, data: aiPlans } = await supabase
+        .from('lesson_plans')
+        .select('*', { count: 'exact' })
+        .eq('teacher_id', userData?.uid)
+        .eq('ai_generated', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      // Get AI usage log for most used feature
+      const { data: aiUsageData } = await supabase
+        .from('ai_usage_log')
+        .select('feature_type')
+        .eq('user_id', userData?.uid)
+        .eq('status', 'success')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const featureCounts = {};
+      aiUsageData?.forEach(log => {
+        featureCounts[log.feature_type] = (featureCounts[log.feature_type] || 0) + 1;
+      });
+      const mostUsedFeature = Object.keys(featureCounts).length > 0 
+        ? Object.entries(featureCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0]
+        : 'Lesson Plan Generator';
+
+      setAiActivity({
+        totalSuggestions: aiSuggestions || 0,
+        lastAILesson: aiPlans?.[0] || null,
+        mostUsedFeature: mostUsedFeature ? mostUsedFeature.replace(/_/g, ' ') : 'Lesson Plan Generator'
+      });
+
+      // 4. Fetch class schedules
+      const { data: schedules } = await supabase
+        .from('schedules')
+        .select('*, sections(name, grade_level)')
+        .eq('teacher_id', userData?.uid)
+        .order('start_time', { ascending: true })
+        .limit(5);
+
+      // 5. Format classes data for display
+      const today = new Date();
+      const currentHour = today.getHours();
+      
+      const formattedClasses = (schedules || []).map((schedule, idx) => {
+        const [startHour, startMin] = (schedule.start_time || '09:00').split(':');
+        const scheduleHour = parseInt(startHour);
+        let status = 'upcoming';
+        if (scheduleHour <= currentHour && scheduleHour + 1 > currentHour) {
+          status = 'current';
+        } else if (scheduleHour < currentHour) {
+          status = 'finished';
+        }
+
+        return {
+          id: schedule.id,
+          subject: schedule.subject,
+          gradeSection: schedule.sections?.grade_level || 'N/A',
+          time: `${schedule.start_time || '09:00'} AM`,
+          room: schedule.room_number || 'Room —',
+          status: status
+        };
+      });
+
+      // If no schedules, use fallback classes
+      const classesToShow = formattedClasses.length > 0 ? formattedClasses : [
+        { id: 1, subject: 'English 101', gradeSection: 'Grade 9-A', time: '08:00 AM', room: 'Room 201', status: 'current' },
+        { id: 2, subject: 'Mathematics 102', gradeSection: 'Grade 9-B', time: '09:30 AM', room: 'Room 205', status: 'upcoming' },
+        { id: 3, subject: 'Science Lab', gradeSection: 'Grade 10-A', time: '11:00 AM', room: 'Lab Room', status: 'upcoming' },
+      ];
+
+      setUpcomingClasses(classesToShow);
+
+      // 6. Fetch real notifications
+      const { data: notificationsData } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userData?.uid)
+        .order('created_at', { ascending: false })
+        .limit(4);
+
+      // If no notifications, provide sample ones
+      const notificationsToShow = notificationsData && notificationsData.length > 0 
+        ? notificationsData.map(notif => ({
+            ...notif,
+            type: notif.notification_type,
+            timestamp: notif.created_at
+          }))
+        : [
+            { id: 1, title: 'New AI suggestion available', message: 'AI has generated suggestions for your next lesson', timestamp: new Date(Date.now() - 15 * 60000), type: 'ai' },
+            { id: 2, title: 'Lesson Plan due today', message: 'Complete your pending lesson plans', timestamp: new Date(Date.now() - 45 * 60000), type: 'deadline' },
+            { id: 3, title: 'Upcoming class starts soon', message: 'Prepare materials for your next class', timestamp: new Date(Date.now() - 90 * 60000), type: 'class' },
+            { id: 4, title: 'New resource available', message: 'Your uploaded worksheet is processed and ready', timestamp: new Date(Date.now() - 120 * 60000), type: 'resource' },
+          ];
+
+      setNotifications(notificationsToShow);
+
+      // Calculate totals
+      const upcomingToday = classesToShow.filter(c => c.status === 'current' || c.status === 'upcoming').length;
+      const upcomingWeek = classesToShow.length;
+
+      setStats({
+        totalLessonPlans: lessonCount || 0,
+        totalResources: resourceCount || 0,
+        aiSuggestionsUsed: aiSuggestions || 0,
+        upcomingClassesToday: upcomingToday,
+        upcomingClassesWeek: upcomingWeek
+      });
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching overview data:', error);
+      showToast('Error loading dashboard data: ' + error.message, 'error');
+      setLoading(false);
+    }
+  }, [userData, showToast]);
+
+  useEffect(() => {
+    fetchOverviewData();
+    
+    const channels = [
+      supabase.channel('teacher-overview-lesson-plans').on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_plans' }, fetchOverviewData).subscribe(),
+      supabase.channel('teacher-overview-worksheets').on('postgres_changes', { event: '*', schema: 'public', table: 'worksheets' }, fetchOverviewData).subscribe(),
+      supabase.channel('teacher-overview-schedules').on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, fetchOverviewData).subscribe(),
+      supabase.channel('teacher-overview-notifications').on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetchOverviewData).subscribe(),
+    ];
+    
+    return () => channels.forEach(ch => supabase.removeChannel(ch));
+  }, [fetchOverviewData]);
+
+  const getStatusColor = (status) => {
+    if (status === 'Draft') return { color: '#d97706', bg: 'rgba(217,119,6,0.12)' };
+    if (status === 'Completed') return { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' };
+    return { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' };
+  };
+
+  const getClassStatusIndicator = (status) => {
+    if (status === 'current') return '🟢';
+    if (status === 'upcoming') return '🔵';
+    return '🔴';
+  };
+
+  const formatTime = (date) => {
+    return new Date(date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+      
+      {/* HEADER */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Dashboard Overview</h2>
+        <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Academic Year 2025–2026 · Last updated: today</p>
+      </div>
+
+      {/* 1. QUICK STATISTICS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Total Lesson Plans" value={stats.totalLessonPlans} sub="Created & updated" icon={BookOpen} loading={loading} />
+        <StatCard label="Resources Uploaded" value={stats.totalResources} sub="Instructional materials" icon={Upload} loading={loading} />
+        <StatCard label="AI Suggestions Used" value={stats.aiSuggestionsUsed} sub="AI-generated lessons" icon={Megaphone} subColor="#16a34a" loading={loading} />
+        <StatCard label="Upcoming Classes" value={stats.upcomingClassesToday} sub={`${stats.upcomingClassesWeek} this week`} icon={Calendar} subColor="#16a34a" loading={loading} />
+      </div>
+
+      {/* 2. QUICK ACTIONS */}
+      <Card className="p-5 mb-8">
+        <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Quick Actions</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Btn onClick={() => navigate('/teacher-dashboard/lesson-plans')} className="w-full justify-center">
+            <Plus size={16} /> Create Lesson Plan
+          </Btn>
+          <Btn onClick={() => navigate('/teacher-dashboard/worksheets')} className="w-full justify-center" variant="outline">
+            <Upload size={16} /> Upload Resource
+          </Btn>
+          <Btn onClick={() => navigate('/teacher-dashboard/lesson-plans')} className="w-full justify-center" variant="outline">
+            <Megaphone size={16} /> AI Generator
+          </Btn>
+          <Btn onClick={() => navigate('/teacher-dashboard/lesson-plans')} className="w-full justify-center" variant="outline">
+            <FileText size={16} /> View All Plans
+          </Btn>
+        </div>
+      </Card>
+
+      {/* 3. NOTIFICATIONS PANEL & AI ACTIVITY - Two columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* NOTIFICATIONS */}
+        <div className="lg:col-span-2">
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Bell size={16} style={{ color: '#3b82f6' }} />
+              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Notifications</h3>
+            </div>
+            <div className="space-y-3">
+              {notifications.length === 0 ? (
+                <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No new notifications</p>
+              ) : notifications.map((notif) => (
+                <div key={notif.id} className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: notif.type === 'ai' ? 'rgba(59,130,246,0.1)' : notif.type === 'deadline' ? 'rgba(239,68,68,0.1)' : notif.type === 'class' ? 'rgba(16,185,129,0.1)' : 'rgba(34,197,94,0.1)' }}>
+                    {notif.type === 'ai' ? <Megaphone size={18} style={{ color: '#3b82f6' }} /> : notif.type === 'deadline' ? <AlertCircle size={18} style={{ color: '#ef4444' }} /> : notif.type === 'class' ? <Calendar size={18} style={{ color: '#10b981' }} /> : <Check size={18} style={{ color: '#22c55e' }} />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{notif.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{notif.message}</p>
+                    <p className="text-xs mt-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{formatTime(notif.timestamp)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* AI ACTIVITY SUMMARY */}
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Megaphone size={16} style={{ color: '#3b82f6' }} />
+            <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: dark ? '#64748b' : '#94a3b8' }}>AI Activity</h3>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Total AI Suggestions</p>
+              <p className="text-3xl font-bold" style={{ color: '#3b82f6' }}>{stats.aiSuggestionsUsed}</p>
+            </div>
+            <div className="h-px" style={{ backgroundColor: dark ? '#334155' : '#e2e8f0' }} />
+            <div>
+              <p className="text-xs uppercase tracking-wider mb-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Last AI Generated Lesson</p>
+              <p className="text-sm" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
+                {aiActivity.lastAILesson ? aiActivity.lastAILesson.title : 'None yet'}
+              </p>
+              {aiActivity.lastAILesson && (
+                <p className="text-xs mt-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                  {new Date(aiActivity.lastAILesson.created_at).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            <div className="h-px" style={{ backgroundColor: dark ? '#334155' : '#e2e8f0' }} />
+            <div>
+              <p className="text-xs uppercase tracking-wider mb-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Most Used Feature</p>
+              <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{aiActivity.mostUsedFeature}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* 4. RECENT LESSON PLANS */}
+      <Card className="p-5 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Recent Lesson Plans</h3>
+          <button onClick={() => navigate('/teacher-dashboard/lesson-plans')} className="text-xs font-semibold text-blue-500 hover:text-blue-700">View All →</button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
+                {['Title', 'Subject', 'Grade Level', 'Date Created', 'Last Updated', 'Status'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold tracking-wider uppercase" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody style={{ borderTop: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+              {loading ? (
+                <tr><td colSpan={6} className="text-center py-8"><Loader2 className="animate-spin text-blue-500 mx-auto" size={20} /></td></tr>
+              ) : recentLessonPlans.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No lesson plans yet</td></tr>
+              ) : recentLessonPlans.map((plan, idx) => (
+                <TR key={plan.id}>
+                  <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{plan.title || '—'}</span></TD>
+                  <TD>{plan.subject || '—'}</TD>
+                  <TD>{plan.grade_level || '—'}</TD>
+                  <TD>{new Date(plan.created_at).toLocaleDateString()}</TD>
+                  <TD>{new Date(plan.updated_at || plan.created_at).toLocaleDateString()}</TD>
+                  <TD>
+                    <Badge color={getStatusColor(plan.status || 'Draft').color} bg={getStatusColor(plan.status || 'Draft').bg}>
+                      {plan.status || 'Draft'}
+                    </Badge>
+                  </TD>
+                </TR>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* 5. UPCOMING CLASSES SCHEDULE */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Upcoming Classes Schedule</h3>
+          <button onClick={() => navigate('/teacher-dashboard/attendance')} className="text-xs font-semibold text-blue-500 hover:text-blue-700">View Calendar →</button>
+        </div>
+        <div className="space-y-3">
+          {upcomingClasses.map((cls) => (
+            <div key={cls.id} className="flex items-start gap-3 p-3 rounded-lg" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
+              <div className="text-2xl mt-1">{getClassStatusIndicator(cls.status)}</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{cls.subject}</p>
+                  <p className="text-sm font-medium" style={{ color: '#3b82f6' }}>{cls.time}</p>
+                </div>
+                <div className="flex gap-3 text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                  <span>{cls.gradeSection}</span>
+                  <span>•</span>
+                  <span>{cls.room}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// ============================================
+// STUDENTS TAB — Full Supabase CRUD
+// ============================================
+const StudentsTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+  const [studentList, setStudentList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [formData, setFormData] = useState({ lrn: '', name: '', email: '', status: 'Active' });
+  const [saving, setSaving] = useState(false);
+
+  const fetchStudents = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Get sections where this teacher is the adviser
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('sections')
+        .select('id')
+        .eq('adviser_id', userData?.uid);
+      
+      if (sectionsError) throw sectionsError;
+      
+      const sectionIds = sectionsData?.map(s => s.id) || [];
+      
+      if (sectionIds.length === 0) {
+        setStudentList([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Get students enrolled in those sections
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('section_students')
+        .select('student_id, students(*, profiles(*))')
+        .in('section_id', sectionIds)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      
+      if (studentsError) throw studentsError;
+      
+      // Map student data to include both students and profiles info
+      const mappedStudents = (studentsData || []).map(item => ({
+        id: item.students?.id,
+        lrn: item.students?.lrn,
+        name: item.students?.profiles?.name,
+        email: item.students?.profiles?.email,
+        status: item.status === 'active' ? 'Active' : 'Inactive',
+        ...item.students?.profiles
+      }));
+      
+      setStudentList(mappedStudents);
+    } catch (error) {
+      showToast('Error loading students: ' + error.message, 'error');
+    }
+    setLoading(false);
+  }, [userData, showToast]);
+
+  useEffect(() => {
+    fetchStudents();
+    const channel = supabase
+      .channel('teacher-students')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchStudents)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [fetchStudents]);
+
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email) return;
+    setSaving(true);
+    
+    try {
+      // In a real app, students are created via the student signup process
+      // This creates a student record linked to this teacher's section
+      // For now, we'll just show an error since students need to be enrolled via sections
+      showToast('Note: Students are enrolled through the Sections management. Please create a section first and add students to it.', 'error');
+    } catch (error) {
+      showToast('Error: ' + error.message, 'error');
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteStudent = async (id) => {
+    if (!confirm('Delete this student?')) return;
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) showToast('Error deleting: ' + error.message, 'error');
+    else {
+      showToast('Student deleted');
+      fetchStudents();
+    }
+  };
+
+  const filtered = studentList.filter(s =>
+    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || s.lrn?.includes(searchQuery)
+  );
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Students — My Advisory</h1>
+        <Btn onClick={() => setShowAddModal(true)}><Plus size={16} /> Add Student</Btn>
+      </div>
+
+      <div className="relative mb-6">
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
+        <input type="text" placeholder="Search students..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          className="w-full h-10 pl-10 pr-4 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }} />
+      </div>
+
+      <Card>
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
+        ) : (
+          <Table headers={['#', 'Name', 'LRN', 'Email', 'Status', 'Actions']}>
+            {filtered.map((s, i) => (
+              <TR key={s.id}>
+                <TD>{i + 1}</TD>
+                <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{s.name}</span></TD>
+                <TD>{s.lrn || '—'}</TD>
+                <TD>{s.email}</TD>
+                <TD>
+                  <Badge color={s.status === 'Active' ? '#16a34a' : '#dc2626'}
+                    bg={s.status === 'Active' ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'}>
+                    {s.status}
+                  </Badge>
+                </TD>
+                <TD>
+                  <div className="flex gap-3">
+                    <button className="text-xs text-blue-500 hover:text-blue-700 font-medium">Edit</button>
+                    <button onClick={() => handleDeleteStudent(s.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
+                  </div>
+                </TD>
+              </TR>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No students found</td></tr>
+            )}
+          </Table>
+        )}
+      </Card>
+
+      {showAddModal && (
+        <Modal title="Add New Student" onClose={() => setShowAddModal(false)}>
+          <form onSubmit={handleAddStudent} className="flex flex-col gap-4">
+            {[
+              { label: 'LRN', key: 'lrn', type: 'text' },
+              { label: 'Full Name', key: 'name', type: 'text' },
+              { label: 'Email', key: 'email', type: 'email' },
+            ].map(({ label, key, type }) => (
+              <div key={key}>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{label}</label>
+                <Input type={type} required value={formData[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })} />
+              </div>
+            ))}
+            <button type="submit" disabled={saving} className="w-full h-10 rounded-lg text-white text-sm font-semibold hover:opacity-90 mt-1 flex items-center justify-center gap-2"
+              style={{ backgroundColor: '#1e3a5f' }}>
+              {saving && <Loader2 size={16} className="animate-spin" />} Add Student
+            </button>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// LESSON PLANS TAB — Full Supabase CRUD
+// ============================================
+const LessonPlansTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+
+  // --- List of saved plans ---
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- Upload / generation state ---
+  const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+
+  // --- ILAW output state ---
+  const [ilawOutput, setIlawOutput] = useState('');
+  const [currentPlanMeta, setCurrentPlanMeta] = useState(null); // { title, file_name, file_url, file_path }
+  const [savedPlanId, setSavedPlanId] = useState(null);
+
+  // --- View mode: 'list' | 'editor' ---
+  const [view, setView] = useState('list');
+
+  // --- Edit existing plan modal ---
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [editForm, setEditForm] = useState({ title: '', subject: '', duration: '', strategy: '', objectives: '' });
+  const [saving, setSaving] = useState(false);
+
+  // ── Fetch saved plans ──────────────────────────────────────
+  const fetchPlans = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('lesson_plans')
+        .select('*')
+        .eq('teacher_id', userData?.uid)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setPlans(data || []);
+    } catch (err) {
+      showToast('Error loading plans: ' + err.message, 'error');
+    }
+    setLoading(false);
+  }, [userData, showToast]);
+
+  useEffect(() => {
+    fetchPlans();
+    const channel = supabase
+      .channel('teacher-lesson-plans-v2')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_plans' }, fetchPlans)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [fetchPlans]);
+
+  // ── Convert PDF file to base64 ─────────────────────────────
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  // ── Call Gemini API with PDF ───────────────────────────────
+  const callGeminiWithPDF = async (base64PDF, fileName) => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) throw new Error('VITE_GEMINI_API_KEY not set in .env');
+
+    const prompt = `You are an expert Filipino teacher assistant. Analyze the uploaded PDF document and generate a complete ILAW Lesson Plan following DepEd Order No. 3, s. 2026.
+
+The ILAW framework stands for:
+I - Intentions (Learning Competency, Learning Objectives per day, Learner Context per day)
+L - Learning Experience (Pre-Lesson, Flow, Learning Resources, Integration Opportunities — each per day)
+A - Assessment (Formative Assessment per day)
+W - Ways Forward (Extended Learning opportunities and Reflections per day)
+
+Most fields are organized as a 5-day week (Monday to Friday). If the PDF content only reasonably covers fewer days, you may still fill all 5 columns with a sensible session breakdown so the lesson spans the week.
+
+Based on the PDF content, generate the lesson plan in this EXACT HTML format (keep all class names exactly as shown, do not add or rename any class):
+
+<div class="ilaw-lesson-plan">
+
+<div class="ilaw-letterhead">
+<p>Republic of the Philippines</p>
+<p>Department of Education</p>
+<p>Region IVA-CALABARZON</p>
+<p>City Schools Division of Biñan City</p>
+<p class="ilaw-school-name">Dela Paz National High School</p>
+<p class="ilaw-school-address">P. Paterno St., Dela Paz, Biñan City, Laguna</p>
+</div>
+
+<h2 class="ilaw-title">ILAW Lesson Plan in [Subject from PDF, e.g. TLE 9]</h2>
+
+<table class="ilaw-info-table">
+<tr><th>Name of Lesson</th><td>[Extract or infer from PDF]</td><th>Teaching Date</th><td>[Infer a plausible date range, or write "To be specified"]</td></tr>
+<tr><th>Learning Area/s</th><td>[Subject area from PDF]</td><th>Term No. and Week No.</th><td>[Infer, or write "To be specified"]</td></tr>
+<tr><th>Designed by Teacher/s</th><td colspan="3">[Leave as "____________________"]</td></tr>
+<tr><th>Designed for which Grade Level and Section</th><td colspan="3">[Grade level if mentioned in PDF, else "To be specified"]</td></tr>
+<tr><th>No. of Sessions</th><td colspan="3">5 Sessions (1 Week)</td></tr>
+<tr><th>References (books, websites, toolkits, etc.)</th><td colspan="3">[List references from PDF, or "Based on uploaded material"]</td></tr>
+<tr><th>Declaration of AI use</th><td colspan="3">AI (Gemini) was used to analyze the uploaded reference material and generate a structured first draft of this lesson plan, which the teacher reviewed and edited.</td></tr>
+</table>
+
+<div class="ilaw-section ilaw-I">
+<div class="ilaw-section-header">I — INTENTIONS</div>
+<div class="ilaw-section-intro">Start by deciding what you want learners to master by the end of the lesson — keep it clear and simple.</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Learning Competency</span>
+<span class="ilaw-label-hint">Competency/ies from the curriculum being targeted, and the content or performance standards applicable.</span>
+<p>[Extract main competency from PDF content]</p>
+</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Learning Objectives</span>
+<span class="ilaw-label-hint">Smaller knowledge, skills, or tasks from the competency that learners will work on and show by end of session.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Objective for Mon]</td><td>[Objective for Tue]</td><td>[Objective for Wed]</td><td>[Objective for Thu]</td><td>[Objective for Fri]</td></tr>
+</table>
+</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Learner Context</span>
+<span class="ilaw-label-hint">Observations of learners and how they've been performing recently — strengths, interests, possible barriers.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Context note]</td><td>[Context note]</td><td>[Context note]</td><td>[Context note]</td><td>[Context note]</td></tr>
+</table>
+</div>
+</div>
+
+<div class="ilaw-section ilaw-L">
+<div class="ilaw-section-header">L — LEARNING EXPERIENCE</div>
+<div class="ilaw-section-intro">Identify activities and interactions to help learners gain knowledge, skills, or understanding in a purposeful way.</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Pre-Lesson</span>
+<span class="ilaw-label-hint">How you will help learners get ready for the lesson.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Activity]</td><td>[Activity]</td><td>[Activity]</td><td>[Activity]</td><td>[Activity]</td></tr>
+</table>
+</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Flow</span>
+<span class="ilaw-label-hint">Activities to implement across sessions to meet the learning objectives.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Flow of activities]</td><td>[Flow of activities]</td><td>[Flow of activities]</td><td>[Flow of activities]</td><td>[Flow of activities]</td></tr>
+</table>
+</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Learning Resources</span>
+<span class="ilaw-label-hint">Resources that will help reach the objectives — must be available and inclusive.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Resources]</td><td>[Resources]</td><td>[Resources]</td><td>[Resources]</td><td>[Resources]</td></tr>
+</table>
+</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Opportunities for Integration</span>
+<span class="ilaw-label-hint">Possibilities to meaningfully anchor other learning areas, special topics, or technology. Write N/A if none.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Integration or N/A]</td><td>[Integration or N/A]</td><td>[Integration or N/A]</td><td>[Integration or N/A]</td><td>[Integration or N/A]</td></tr>
+</table>
+</div>
+</div>
+
+<div class="ilaw-section ilaw-A">
+<div class="ilaw-section-header">A — ASSESSMENT</div>
+<div class="ilaw-section-intro">Assessments reveal what learners have gained and what they still need help with.</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Formative Assessment</span>
+<span class="ilaw-label-hint">Task, activity, or questions to evaluate learning and provide feedback, with appropriate accommodations.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Assessment]</td><td>[Assessment]</td><td>[Assessment]</td><td>[Assessment]</td><td>[Assessment]</td></tr>
+</table>
+</div>
+</div>
+
+<div class="ilaw-section ilaw-W">
+<div class="ilaw-section-header">W — WAYS FORWARD</div>
+<div class="ilaw-section-intro">Meaningful learning can also happen beyond the classroom — pause and reflect on what happened today.</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Extended Learning Opportunities</span>
+<span class="ilaw-label-hint">Other learning experiences outside class hours to reinforce, spark curiosity, or support areas of difficulty.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Extension]</td><td>[Extension]</td><td>[Extension]</td><td>[Extension]</td><td>[Extension]</td></tr>
+</table>
+</div>
+<div class="ilaw-field">
+<span class="ilaw-label">Reflections</span>
+<span class="ilaw-label-hint">What to change for next session, and what to share with co-teachers, parents, or school leaders.</span>
+<table class="ilaw-week-table">
+<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+<tr><td>[Reflection prompt]</td><td>[Reflection prompt]</td><td>[Reflection prompt]</td><td>[Reflection prompt]</td><td>[Reflection prompt]</td></tr>
+</table>
+</div>
+</div>
+
+<div class="ilaw-signatures">
+<span class="ilaw-sig-tag">Prepared by:</span>
+<div class="ilaw-sig-row">
+<div class="ilaw-sig-col">
+<p class="ilaw-sig-name">WILSON R. DALISAY</p>
+<p class="ilaw-sig-position">Teacher II</p>
+</div>
+<div class="ilaw-sig-col">
+<p class="ilaw-sig-name">REXES MARLON A. TEODORO</p>
+<p class="ilaw-sig-position">TLE Coordinator</p>
+<span class="ilaw-sig-tag" style="margin-bottom:0;">Checked by</span>
+</div>
+</div>
+<div class="ilaw-sig-noted">
+<span class="ilaw-sig-tag">Noted:</span>
+<p class="ilaw-sig-name">MARIA BEATRIZ T. MANAIG</p>
+<p class="ilaw-sig-position">School Principal II</p>
+</div>
+</div>
+
+</div>
+
+IMPORTANT:
+- Fill in ALL bracketed placeholders based on actual PDF content — never leave literal placeholder text like "[Extract...]" in the output.
+- Keep the weekly tables to exactly 5 columns (Monday–Friday) in every case.
+- Do NOT include markdown code blocks or backticks in your response.
+- Do NOT change, translate, or omit the letterhead, the signature names, or any class name.
+- Return ONLY the HTML, nothing else.
+- Make the lesson plan detailed and specific to the PDF content, written in clear professional English appropriate for a DepEd lesson plan.`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
+                  { text: prompt },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 16384,
+            },
+          }),
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData?.error?.message || `Gemini API error (${response.status})`);
+      }
+
+      const data = await response.json();
+      console.log('🔍 Gemini raw response:', data); // Debug: see full response
+
+      const candidate = data?.candidates?.[0];
+      if (!candidate) throw new Error('No candidates in Gemini response — check console for raw response');
+      
+      const finishReason = candidate?.finishReason;
+      if (finishReason === 'MAX_TOKENS') {
+        throw new Error('Output was cut off (MAX_TOKENS). Try increasing maxOutputTokens.');
+      }
+
+      const text = candidate?.content?.parts?.[0]?.text || '';
+      if (!text) throw new Error('Empty response text from Gemini — check console for raw response');
+
+      return text.replace(/```html/gi, '').replace(/```/g, '').trim();
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Gemini API timed out after 60 seconds. Try a smaller PDF or simpler prompt.');
+      }
+      throw err;
+    }
+  };
+
+  // ── Handle PDF upload → Gemini → ILAW output ──────────────
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      showToast('Please upload a valid PDF file', 'error');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      showToast('File too large. Max 20MB.', 'error');
+      return;
+    }
+
+    setUploading(true);
+    setGenerating(false);
+    setIlawOutput('');
+    setSavedPlanId(null);
+
+    try {
+      // 1. Convert to base64
+      setUploadProgress('📄 Reading PDF...');
+      const base64 = await fileToBase64(file);
+
+      // 2. Upload to Supabase storage
+      setUploadProgress('☁️ Uploading to storage...');
+      const fileExt = 'pdf';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const filePath = `${userData?.uid}/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('lesson-pdfs')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw new Error('Storage upload failed: ' + uploadError.message);
+
+      const { data: urlData } = supabase.storage.from('lesson-pdfs').getPublicUrl(filePath);
+      const publicUrl = urlData?.publicUrl;
+
+      setCurrentPlanMeta({
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        file_name: file.name,
+        file_url: publicUrl,
+        file_path: filePath,
+      });
+
+      // 3. Send to Gemini
+      setUploading(false);
+      setGenerating(true);
+      setUploadProgress('🤖 Gemini AI is analyzing your PDF and generating ILAW lesson plan...');
+
+      const html = await callGeminiWithPDF(base64, file.name);
+      setIlawOutput(html);
+      setView('editor');
+      showToast('✅ ILAW Lesson Plan generated! You can now edit and save it.', 'success');
+    } catch (err) {
+      console.error('PDF Upload Error:', err);
+      showToast('Error: ' + err.message, 'error');
+    }
+
+    setUploading(false);
+    setGenerating(false);
+    setUploadProgress('');
+    e.target.value = '';
+  };
+
+  // ── Save generated ILAW plan to Supabase ──────────────────
+  const handleSaveIlawPlan = async () => {
+    if (!ilawOutput || !currentPlanMeta) {
+      showToast('Nothing to save yet', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        title: currentPlanMeta.title,
+        subject: 'ILAW Lesson Plan',
+        teacher_id: userData?.uid,
+        file_url: currentPlanMeta.file_url,
+        file_name: currentPlanMeta.file_name,
+        file_path: currentPlanMeta.file_path,
+        objectives: ilawOutput, // store full HTML in objectives field
+        ai_generated: true,
+        status: 'draft',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (savedPlanId) {
+        // Update existing
+        const { error } = await supabase
+          .from('lesson_plans')
+          .update({ objectives: ilawOutput, updated_at: new Date().toISOString() })
+          .eq('id', savedPlanId);
+        if (error) throw error;
+        showToast('✅ Changes saved!', 'success');
+      } else {
+        // Insert new
+        const { data, error } = await supabase
+          .from('lesson_plans')
+          .insert([payload])
+          .select();
+        if (error) throw error;
+        setSavedPlanId(data?.[0]?.id);
+        showToast('✅ Lesson plan saved!', 'success');
+      }
+      fetchPlans();
+    } catch (err) {
+      showToast('Error saving: ' + err.message, 'error');
+    }
+    setSaving(false);
+  };
+
+  // ── Print ──────────────────────────────────────────────────
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>ILAW Lesson Plan</title>
+        <style>
+          body { font-family: Arial, sans-serif; font-size: 11px; color: #111; margin: 0; padding: 10mm; }
+          .ilaw-lesson-plan { max-width: 100%; }
+          .ilaw-title { text-align: center; font-size: 16px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; }
+          .ilaw-info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+          .ilaw-info-table th, .ilaw-info-table td { border: 1px solid #6b7280; padding: 5px 7px; font-size: 11px; }
+          .ilaw-info-table th { background: #f3f4f6; font-weight: 700; width: 30%; }
+          .ilaw-section { margin-bottom: 14px; border: 1px solid #6b7280; border-radius: 4px; overflow: hidden; }
+          .ilaw-section-header { background: #1e3a5f; color: white; padding: 6px 10px; font-weight: 900; font-size: 12px; }
+          .ilaw-I .ilaw-section-header { background: #1e3a5f; }
+          .ilaw-L .ilaw-section-header { background: #065f46; }
+          .ilaw-A .ilaw-section-header { background: #7c3aed; }
+          .ilaw-W .ilaw-section-header { background: #92400e; }
+          .ilaw-field { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+          .ilaw-field:last-child { border-bottom: none; }
+          .ilaw-label { font-weight: 700; color: #374151; display: block; margin-bottom: 3px; }
+          .ilaw-field p, .ilaw-field ul, .ilaw-field ol { margin: 2px 0; padding-left: 16px; }
+          .ilaw-field li { margin-bottom: 2px; }
+          .ilaw-signatures { display: flex; gap: 16px; margin-top: 16px; }
+          .ilaw-sig-box { flex: 1; border: 1px solid #6b7280; padding: 8px; text-align: center; }
+          .ilaw-sig-line { border-top: 1px solid #111; margin: 30px 8px 4px; }
+          .ilaw-sig-name { font-weight: 700; font-size: 11px; margin: 0; }
+          .ilaw-sig-position { font-size: 10px; color: #374151; margin: 2px 0 0; }
+          @page { size: A4; margin: 8mm; }
+        </style>
+      </head>
+      <body>${ilawOutput}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 500);
+  };
+
+  // ── Download as .doc ───────────────────────────────────────
+  const handleDownload = () => {
+    const title = currentPlanMeta?.title || 'ILAW_Lesson_Plan';
+    const html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="UTF-8"><title>${title}</title>
+<style>
+body{font-family:Arial,sans-serif;font-size:11pt;}
+.ilaw-section-header{background:#1e3a5f;color:white;padding:6px 10px;font-weight:bold;}
+.ilaw-L .ilaw-section-header{background:#065f46;}
+.ilaw-A .ilaw-section-header{background:#7c3aed;}
+.ilaw-W .ilaw-section-header{background:#92400e;}
+.ilaw-field{padding:6px 10px;}
+.ilaw-label{font-weight:bold;}
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid #6b7280;padding:5px 7px;}
+th{background:#f3f4f6;}
+</style>
+</head>
+<body>${ilawOutput}</body>
+</html>`;
+    const blob = new Blob(['\ufeff' + html], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, '_')}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('📥 Downloaded as Word document!', 'success');
+  };
+
+  // ── Load saved plan into editor ────────────────────────────
+  const handleViewPlan = (plan) => {
+    setIlawOutput(plan.objectives || '');
+    setCurrentPlanMeta({
+      title: plan.title,
+      file_name: plan.file_name,
+      file_url: plan.file_url,
+      file_path: plan.file_path,
+    });
+    setSavedPlanId(plan.id);
+    setView('editor');
+  };
+
+  // ── Delete plan ────────────────────────────────────────────
+  const handleDeletePlan = async (id) => {
+    if (!confirm('Delete this lesson plan?')) return;
+    const { error } = await supabase.from('lesson_plans').delete().eq('id', id);
+    if (error) showToast('Error: ' + error.message, 'error');
+    else {
+      showToast('Lesson plan deleted');
+      if (savedPlanId === id) {
+        setView('list');
+        setIlawOutput('');
+        setSavedPlanId(null);
+      }
+      fetchPlans();
+    }
+  };
+
+  // ── Quick create (manual) ──────────────────────────────────
+  const [quickForm, setQuickForm] = useState({ title: '', subject: '', duration: '', strategy: '', objectives: '' });
+
+  const handleQuickCreate = async (e) => {
+    e.preventDefault();
+    if (!quickForm.title?.trim() || !quickForm.subject?.trim()) {
+      showToast('Title and Subject are required', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('lesson_plans').insert([{
+        ...quickForm,
+        teacher_id: userData?.uid,
+        ai_generated: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }]);
+      if (error) throw error;
+      showToast('Lesson plan created!');
+      setQuickForm({ title: '', subject: '', duration: '', strategy: '', objectives: '' });
+      fetchPlans();
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+    setSaving(false);
+  };
+
+  // ── ILAW output styles ─────────────────────────────────────
+  const ilawStyles = `
+  .ilaw-lesson-plan { font-family: Arial, sans-serif; font-size: 12px; color: ${dark ? '#e2e8f0' : '#111827'}; line-height: 1.5; }
+
+  .ilaw-letterhead { text-align: center; margin-bottom: 10px; }
+  .ilaw-letterhead p { margin: 0; font-size: 12px; color: ${dark ? '#cbd5e1' : '#374151'}; }
+  .ilaw-letterhead .ilaw-school-name { font-weight: 900; font-size: 13px; text-transform: uppercase; color: ${dark ? '#f1f5f9' : '#111827'}; margin-top: 2px; }
+  .ilaw-letterhead .ilaw-school-address { font-style: italic; }
+  .ilaw-title { text-align: center; font-size: 15px; font-weight: 900; margin: 12px 0 14px; text-transform: uppercase; color: ${dark ? '#f1f5f9' : '#1e3a5f'}; }
+
+  .ilaw-info-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  .ilaw-info-table th, .ilaw-info-table td { border: 1px solid ${dark ? '#475569' : '#6b7280'}; padding: 6px 8px; font-size: 11.5px; vertical-align: top; }
+  .ilaw-info-table th { background: ${dark ? '#1e293b' : '#f3f4f6'}; font-weight: 700; width: 26%; text-align: left; color: ${dark ? '#f1f5f9' : '#111'}; }
+  .ilaw-info-table td { color: ${dark ? '#cbd5e1' : '#374151'}; }
+
+  .ilaw-section { margin-bottom: 14px; border: 1px solid ${dark ? '#475569' : '#6b7280'}; border-radius: 8px; overflow: hidden; }
+  .ilaw-section-header { background: #1e3a5f; color: white; padding: 8px 12px; font-weight: 900; font-size: 12.5px; letter-spacing: 0.3px; }
+  .ilaw-L .ilaw-section-header { background: #065f46; }
+  .ilaw-A .ilaw-section-header { background: #5b21b6; }
+  .ilaw-W .ilaw-section-header { background: #92400e; }
+  .ilaw-section-intro { padding: 8px 12px; font-style: italic; font-size: 11px; background: ${dark ? '#0f172a' : '#f9fafb'}; color: ${dark ? '#94a3b8' : '#6b7280'}; border-bottom: 1px solid ${dark ? '#334155' : '#e5e7eb'}; }
+
+  .ilaw-field { padding: 8px 12px; border-bottom: 1px solid ${dark ? '#334155' : '#e5e7eb'}; background: ${dark ? '#1e293b' : '#ffffff'}; }
+  .ilaw-field:last-child { border-bottom: none; }
+  .ilaw-label { font-weight: 700; color: ${dark ? '#94a3b8' : '#374151'}; display: block; margin-bottom: 4px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .ilaw-label-hint { font-weight: 400; text-transform: none; font-style: italic; font-size: 10px; display: block; color: ${dark ? '#64748b' : '#9ca3af'}; margin-bottom: 4px; letter-spacing: 0; }
+  .ilaw-field p { margin: 4px 0; color: ${dark ? '#cbd5e1' : '#374151'}; line-height: 1.6; }
+  .ilaw-field ul, .ilaw-field ol { margin: 4px 0; padding-left: 20px; color: ${dark ? '#cbd5e1' : '#374151'}; }
+  .ilaw-field li { margin-bottom: 4px; line-height: 1.55; }
+  .ilaw-field strong { color: ${dark ? '#f1f5f9' : '#111827'}; }
+
+  .ilaw-week-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  .ilaw-week-table th, .ilaw-week-table td { border: 1px solid ${dark ? '#475569' : '#6b7280'}; padding: 6px 7px; font-size: 11px; vertical-align: top; text-align: left; }
+  .ilaw-week-table th { background: ${dark ? '#1e293b' : '#f3f4f6'}; font-weight: 700; color: ${dark ? '#f1f5f9' : '#111'}; text-align: center; width: 18.66%; }
+  .ilaw-week-table td { color: ${dark ? '#cbd5e1' : '#374151'}; }
+
+  .ilaw-signatures { margin-top: 18px; font-size: 12px; color: ${dark ? '#cbd5e1' : '#374151'}; }
+  .ilaw-sig-row { display: flex; justify-content: space-between; margin-top: 22px; }
+  .ilaw-sig-col { width: 46%; }
+  .ilaw-sig-tag { font-style: italic; margin-bottom: 26px; display: block; }
+  .ilaw-sig-name { font-weight: 700; margin: 0; text-transform: uppercase; color: ${dark ? '#f1f5f9' : '#111'}; border-top: 1px solid ${dark ? '#cbd5e1' : '#111'}; padding-top: 3px; display: inline-block; }
+  .ilaw-sig-position { font-style: italic; font-size: 11px; margin: 2px 0 0; }
+  .ilaw-sig-noted { margin-top: 22px; }
+`;
+
+  // ══════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* ── HEADER ── */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          {view === 'editor' && (
+            <button onClick={() => setView('list')} className="flex items-center gap-1 text-sm font-medium hover:opacity-70 transition"
+              style={{ color: dark ? '#94a3b8' : '#64748b' }}>
+              ← Back to list
+            </button>
+          )}
+          <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+            {view === 'editor' ? (currentPlanMeta?.title || 'ILAW Lesson Plan') : 'Lesson Plans'}
+          </h1>
+          <Badge color="#16a34a" bg="rgba(22,163,74,0.12)">AI-Powered · Gemini</Badge>
+        </div>
+
+        {view === 'editor' && ilawOutput && (
+          <div className="flex gap-2 flex-wrap">
+            <Btn variant="outline" onClick={handlePrint}><Eye size={15} /> Print</Btn>
+            <Btn variant="outline" onClick={handleDownload}><Download size={15} /> Download</Btn>
+            <Btn onClick={handleSaveIlawPlan} disabled={saving}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              {savedPlanId ? 'Save Changes' : 'Save Plan'}
+            </Btn>
+          </div>
+        )}
+      </div>
+
+      {/* ══════════════ LIST VIEW ══════════════ */}
+      {view === 'list' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Left: upload + saved plans */}
+          <div className="lg:col-span-2 space-y-5">
+
+            {/* Upload card */}
+            <Card className="p-8 text-center" style={{ border: `2px dashed ${dark ? '#475569' : '#cbd5e1'}` }}>
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ backgroundColor: dark ? '#0f172a' : '#eff6ff' }}>
+                {(uploading || generating) ? (
+                  <Loader2 size={28} className="text-blue-500 animate-spin" />
+                ) : (
+                  <Upload size={28} className="text-blue-500" />
+                )}
+              </div>
+
+              {(uploading || generating) ? (
+                <>
+                  <p className="font-semibold mb-2 text-blue-500">{uploadProgress}</p>
+                  <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                    Please wait — this may take 15–30 seconds
+                  </p>
+                  <div className="mt-4 w-full bg-gray-200 rounded-full h-1.5">
+                    <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: generating ? '80%' : '40%' }} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="font-bold text-lg mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                    Upload PDF → AI generates ILAW Lesson Plan
+                  </p>
+                  <p className="text-sm mb-5" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                    Upload your syllabus, textbook chapter, or curriculum guide. Gemini AI will analyze it and generate a complete DepEd ILAW-formatted lesson plan.
+                  </p>
+                  <input type="file" accept=".pdf" id="pdfUpload" className="hidden" onChange={handlePdfUpload} />
+                  <Btn variant="primary" onClick={() => document.getElementById('pdfUpload')?.click()}>
+                    <FileUp size={16} /> Choose PDF to Upload
+                  </Btn>
+                  <p className="text-xs mt-3" style={{ color: dark ? '#475569' : '#cbd5e1' }}>Max 20MB · PDF only</p>
+                </>
+              )}
+            </Card>
+
+            {/* Saved plans list */}
+            {loading ? (
+              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-blue-500" /></div>
+            ) : plans.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>No lesson plans yet. Upload a PDF above to get started.</p>
+              </Card>
+            ) : (
+              plans.map(plan => (
+                <Card key={plan.id} className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-base truncate" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{plan.title}</h3>
+                      <p className="text-xs mt-0.5" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                        {plan.subject} · {new Date(plan.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 ml-3 flex-shrink-0">
+                      {plan.ai_generated && <Badge color="#3b82f6" bg="rgba(59,130,246,0.12)">AI</Badge>}
+                      <Badge
+                        color={plan.status === 'draft' ? '#d97706' : '#16a34a'}
+                        bg={plan.status === 'draft' ? 'rgba(217,119,6,0.12)' : 'rgba(22,163,74,0.12)'}>
+                        {plan.status || 'draft'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {plan.file_name && (
+                    <div className="flex items-center gap-2 mb-3 p-2 rounded-lg"
+                      style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                      <FileText size={14} style={{ color: '#3b82f6' }} />
+                      <span className="text-xs truncate" style={{ color: '#3b82f6' }}>{plan.file_name}</span>
+                      {plan.file_url && (
+                        <a href={plan.file_url} target="_blank" rel="noopener noreferrer"
+                          className="text-xs ml-auto flex-shrink-0" style={{ color: '#64748b' }}>Open ↗</a>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Btn variant="outline" className="flex-1" onClick={() => handleViewPlan(plan)}>
+                      <Eye size={14} /> View & Edit
+                    </Btn>
+                    <button onClick={() => handleDeletePlan(plan.id)}
+                      className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+                      style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Right: Quick Create */}
+          <Card className="p-5 h-fit">
+            <h2 className="text-sm font-semibold uppercase tracking-wider mb-4"
+              style={{ color: dark ? '#64748b' : '#94a3b8' }}>Quick Create (Manual)</h2>
+            <form onSubmit={handleQuickCreate} className="space-y-3">
+              <Input placeholder="Title" required value={quickForm.title}
+                onChange={e => setQuickForm({ ...quickForm, title: e.target.value })} />
+              <Input placeholder="Subject" required value={quickForm.subject}
+                onChange={e => setQuickForm({ ...quickForm, subject: e.target.value })} />
+              <Input placeholder="Duration (e.g. 60 minutes)" value={quickForm.duration}
+                onChange={e => setQuickForm({ ...quickForm, duration: e.target.value })} />
+              <Input placeholder="Strategy (e.g. Cooperative Learning)" value={quickForm.strategy}
+                onChange={e => setQuickForm({ ...quickForm, strategy: e.target.value })} />
+              <textarea placeholder="Objectives (one per line)" rows={4} value={quickForm.objectives}
+                onChange={e => setQuickForm({ ...quickForm, objectives: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }} />
+              <button type="submit" disabled={saving}
+                className="w-full h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: '#1e3a5f' }}>
+                {saving && <Loader2 size={16} className="animate-spin" />} Create Plan
+              </button>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* ══════════════ EDITOR VIEW ══════════════ */}
+      {view === 'editor' && (
+        <div className="space-y-4">
+
+          {/* Toolbar */}
+          <Card className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
+                📄 {currentPlanMeta?.file_name || 'Manual Plan'}
+              </span>
+              <div className="ml-auto flex gap-2 flex-wrap">
+                <Btn variant="outline" onClick={handlePrint}><Eye size={14} /> Print</Btn>
+                <Btn variant="outline" onClick={handleDownload}><Download size={14} /> Download .doc</Btn>
+                <Btn onClick={handleSaveIlawPlan} disabled={saving}>
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  {savedPlanId ? 'Save Changes' : 'Save Plan'}
+                </Btn>
+              </div>
+            </div>
+          </Card>
+
+          {/* Editable ILAW output */}
+          <Card className="p-6">
+            <p className="text-xs mb-3 font-medium" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+              ✏️ Click anywhere in the lesson plan below to edit it directly
+            </p>
+            <style>{ilawStyles}</style>
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              onInput={e => setIlawOutput(e.currentTarget.innerHTML)}
+              className="outline-none min-h-96"
+              style={{
+                padding: '16px',
+                borderRadius: '10px',
+                border: `1px dashed ${dark ? '#475569' : '#cbd5e1'}`,
+                backgroundColor: dark ? '#0f172a' : '#fafafa',
+              }}
+              dangerouslySetInnerHTML={{ __html: ilawOutput || '<p style="color:#94a3b8">No content yet. Upload a PDF to generate.</p>' }}
+            />
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// WORKSHEETS TAB — Full Supabase CRUD
+// ============================================
+const WorksheetsTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [worksheets, setWorksheets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
+  const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', status: 'Draft' });
+  const [saving, setSaving] = useState(false);
+
+  const filters = ['All', 'English', 'Math', 'Science', 'Filipino', 'Araling Panlipunan'];
+
+  const fetchWorksheets = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('worksheets')
+      .select('*')
+      .eq('teacher_id', userData?.uid)
+      .order('created_at', { ascending: false });
+    
+    if (error) showToast('Error: ' + error.message, 'error');
+    else setWorksheets(data || []);
+    setLoading(false);
+  }, [userData, showToast]);
+
+  useEffect(() => {
+    fetchWorksheets();
+    const channel = supabase
+      .channel('teacher-worksheets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'worksheets' }, fetchWorksheets)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [fetchWorksheets]);
+
+  const handleAddWorksheet = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    const { error } = await supabase.from('worksheets').insert([{
+      ...formData,
+      teacher_id: userData?.uid,
+      created_at: new Date().toISOString()
+    }]);
+    
+    if (error) showToast('Error: ' + error.message, 'error');
+    else {
+      showToast('Worksheet created');
+      setFormData({ title: '', subject: '', pages: '', items: '', status: 'Draft' });
+      setShowAddModal(false);
+      fetchWorksheets();
+    }
+    setSaving(false);
+  };
+
+  const handleDistribute = async (id) => {
+    const { error } = await supabase.from('worksheets').update({ status: 'Distributed', updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) showToast('Error: ' + error.message, 'error');
+    else {
+      showToast('Worksheet distributed to students');
+      fetchWorksheets();
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this worksheet?')) return;
+    const { error } = await supabase.from('worksheets').delete().eq('id', id);
+    if (error) showToast('Error: ' + error.message, 'error');
+    else {
+      showToast('Worksheet deleted');
+      fetchWorksheets();
+    }
+  };
+
+  const handlePreview = (worksheet) => {
+    setPreviewingWorksheet(worksheet);
+    setShowPreviewModal(true);
+  };
+
+  const downloadWorksheet = (worksheet) => {
+    if (worksheet.file_url) {
+      window.open(worksheet.file_url, '_blank');
+      showToast(`Downloaded: ${worksheet.file_name || worksheet.title}`);
+    } else {
+      showToast('No file available for download', 'error');
+    }
+  };
+
+  const handleUploadWorksheet = async (e) => {
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    setSaving(true);
+    
+    try {
+      // Validate file type
+      const validTypes = ['.pdf', '.docx', '.doc', '.xlsx'];
+      const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+      
+      if (!validTypes.includes(fileExt)) {
+        throw new Error(`Invalid file type. Supported: PDF, DOCX, DOC, XLSX`);
+      }
+      
+      if (file.size > 50 * 1024 * 1024) {
+        throw new Error('File size exceeds 50MB limit');
+      }
+
+      const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}${fileExt}`;
+      const filePath = `${userData?.uid}/${fileName}`;
+      
+      // Upload file to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('worksheets')
+        .upload(filePath, file, { 
+          cacheControl: '3600', 
+          upsert: false 
+        });
+      
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      if (!uploadData?.path) {
+        throw new Error('File upload did not return a valid path');
+      }
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('worksheets')
+        .getPublicUrl(filePath);
+      
+      const publicUrl = urlData?.publicUrl;
+      if (!publicUrl) {
+        throw new Error('Could not generate public URL for uploaded file');
+      }
+      
+      // Extract title from filename
+      const titleFromFile = file.name.replace(/\.[^/.]+$/, '');
+      
+      // Insert into database
+      const { data: insertData, error: dbError } = await supabase.from('worksheets').insert([{
+        title: titleFromFile || 'Worksheet',
+        subject: 'Uploaded Document',
+        file_url: publicUrl,
+        file_name: file.name,
+        file_path: filePath,
+        pages: 'N/A',
+        items: 0,
+        teacher_id: userData?.uid,
+        status: 'Draft',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }]).select();
+      
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw new Error(`Database error: ${dbError.message}`);
+      }
+
+      if (!insertData || insertData.length === 0) {
+        throw new Error('Failed to save worksheet to database');
+      }
+      
+      showToast(`Worksheet "${file.name}" uploaded successfully!`, 'success');
+      fetchWorksheets();
+      e.target.value = '';
+    } catch (error) {
+      console.error('Worksheet Upload Error:', error);
+      showToast(`Error uploading worksheet: ${error.message}`, 'error');
+    }
+    setSaving(false);
+  };
+
+  const filtered = activeFilter === 'All' ? worksheets : worksheets.filter(w => w.subject === activeFilter);
+  const stats = {
+    total: worksheets.length,
+    distributed: worksheets.filter(w => w.status === 'Distributed').length,
+    drafts: worksheets.filter(w => w.status === 'Draft').length
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Worksheets</h1>
+        <div className="flex gap-3">
+          <Btn onClick={() => setShowAddModal(true)}><Plus size={16} /> Create</Btn>
+          <input type="file" accept=".pdf,.docx,.doc,.xlsx" id="worksheetUpload" className="hidden" onChange={handleUploadWorksheet} />
+          <Btn variant="primary" onClick={() => document.getElementById('worksheetUpload')?.click()}><Upload size={16} /> Upload</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        {[
+          { label: 'Total Worksheets', value: stats.total },
+          { label: 'Distributed', value: stats.distributed, color: '#16a34a' },
+          { label: 'Drafts', value: stats.drafts, color: '#d97706' },
+        ].map((stat, idx) => (
+          <Card key={idx} className="p-4">
+            <p className="text-xs mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{stat.label}</p>
+            <p className="text-2xl font-bold" style={{ color: stat.color || (dark ? '#f1f5f9' : '#1a2b4a') }}>{stat.value}</p>
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        {filters.map(f => (
+          <button key={f} onClick={() => setActiveFilter(f)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: activeFilter === f ? '#1e3a5f' : (dark ? '#1e293b' : '#ffffff'),
+              border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
+              color: activeFilter === f ? '#ffffff' : (dark ? '#94a3b8' : '#64748b')
+            }}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {loading ? (
+          <div className="col-span-3 flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
+        ) : filtered.map((ws, idx) => (
+          <Card key={ws.id} className="p-4">
+            <div className="flex justify-between items-start mb-3">
+              <div className="w-10 h-14 rounded flex items-center justify-center"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
+                <FileText size={20} style={{ color: '#3b82f6' }} />
+              </div>
+              <Badge color={ws.status === 'Distributed' ? '#16a34a' : '#d97706'} 
+                bg={ws.status === 'Distributed' ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
+                {ws.status}
+              </Badge>
+            </div>
+            <h3 className="text-sm font-semibold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{ws.title}</h3>
+            <p className="text-xs mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{ws.subject} · {ws.pages || '—'} pages · {ws.items || '—'} items</p>
+            <div className="flex gap-2">
+              {ws.status === 'Draft' && (
+                <button onClick={() => handleDistribute(ws.id)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
+                  style={{ backgroundColor: '#1e3a5f', color: '#ffffff' }}>Distribute</button>
+              )}
+              <button onClick={() => handlePreview(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                {ws.file_url ? 'View' : 'Preview'}
+              </button>
+              {ws.file_url && (
+                <button onClick={() => downloadWorksheet(ws)} className="h-8 px-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                  style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}>
+                  <Download size={12} /> Download
+                </button>
+              )}
+              <button onClick={() => handleDelete(ws.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
+                style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </Card>
+        ))}
+        {!loading && filtered.length === 0 && (
+          <div className="col-span-3 text-center py-10" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No worksheets found</div>
+        )}
+      </div>
+
+      {showAddModal && (
+        <Modal title="Create Worksheet" onClose={() => setShowAddModal(false)}>
+          <form onSubmit={handleAddWorksheet} className="flex flex-col gap-4">
+            <Input placeholder="Title" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+            <select value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})}
+              className="w-full h-10 px-3 rounded-lg text-sm outline-none"
+              style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+              <option value="">Select Subject</option>
+              {filters.slice(1).map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <Input placeholder="Pages" value={formData.pages} onChange={e => setFormData({...formData, pages: e.target.value})} />
+            <Input placeholder="Items" value={formData.items} onChange={e => setFormData({...formData, items: e.target.value})} />
+            <button type="submit" disabled={saving} className="w-full h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: '#1e3a5f' }}>
+              {saving && <Loader2 size={16} className="animate-spin" />} Create Worksheet
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {showPreviewModal && previewingWorksheet && (
+        <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)}>
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>File Information</p>
+              <div className="grid grid-cols-2 gap-3" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', padding: '12px', borderRadius: '8px' }}>
+                <div>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>File Name</p>
+                  <p className="text-sm font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{previewingWorksheet.file_name || previewingWorksheet.title}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Subject</p>
+                  <p className="text-sm" style={{ color: dark ? '#cbd5e1' : '#475569' }}>{previewingWorksheet.subject}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Status</p>
+                  <Badge color={previewingWorksheet.status === 'Distributed' ? '#16a34a' : '#d97706'} 
+                    bg={previewingWorksheet.status === 'Distributed' ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
+                    {previewingWorksheet.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Created</p>
+                  <p className="text-sm" style={{ color: dark ? '#cbd5e1' : '#475569' }}>{new Date(previewingWorksheet.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+            {previewingWorksheet.file_url ? (
+              <div className="h-48 rounded-lg flex items-center justify-center" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `2px solid ${dark ? '#334155' : '#cbd5e1'}` }}>
+                <div className="text-center">
+                  <FileText size={48} style={{ color: '#3b82f6' }} className="mx-auto mb-2" />
+                  <p style={{ color: dark ? '#cbd5e1' : '#475569' }}>Document loaded and ready</p>
+                  <p className="text-xs mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Click Download to open file</p>
+                </div>
+              </div>
+            ) : (
+              <div className="h-48 rounded-lg flex items-center justify-center" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `2px dashed ${dark ? '#334155' : '#cbd5e1'}` }}>
+                <div className="text-center">
+                  <FileText size={48} style={{ color: '#64748b' }} className="mx-auto mb-2" />
+                  <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>No file attached</p>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              {previewingWorksheet.file_url && (
+                <button onClick={() => downloadWorksheet(previewingWorksheet)} className="flex-1 h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#3b82f6' }}>
+                  <Download size={16} /> Download File
+                </button>
+              )}
+              <button onClick={() => setShowPreviewModal(false)} className="flex-1 h-10 rounded-lg text-white text-sm font-semibold"
+                style={{ backgroundColor: '#1e3a5f' }}>Close</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// ASSIGNMENTS TAB — Full Supabase CRUD
+// ============================================
+const AssignmentsTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [assignments, setAssignments] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewingAssignment, setReviewingAssignment] = useState(null);
+  const [formData, setFormData] = useState({ title: '', subject: '', due_date: '', description: '' });
+  const [saving, setSaving] = useState(false);
+
+  const filters = ['All', 'Open', 'Due today', 'Graded', 'Draft'];
+
+  const fetchAssignments = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Get sections where this teacher teaches
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('sections')
+        .select('id')
+        .eq('adviser_id', userData?.uid);
+      
+      if (sectionsError) throw sectionsError;
+      
+      const sectionIds = sectionsData?.map(s => s.id) || [];
+      
+      // Get assignments for these sections
+      let assignmentsQuery = supabase
+        .from('assignments')
+        .select('*, assignment_submissions(id)')
+        .eq('teacher_id', userData?.uid)
+        .order('due_date', { ascending: true });
+      
+      if (sectionIds.length > 0) {
+        assignmentsQuery = assignmentsQuery.in('section_id', sectionIds);
+      }
+      
+      const { data: assignmentsData, error: assignmentsError } = await assignmentsQuery;
+      
+      if (assignmentsError) throw assignmentsError;
+      
+      // Calculate submission counts
+      const enrichedAssignments = (assignmentsData || []).map(a => ({
+        ...a,
+        submitted_count: a.assignment_submissions?.length || 0,
+        status: a.status === 'active' ? 'Open' : a.status === 'closed' ? 'Closed' : 'Archived'
+      }));
+      
+      setAssignments(enrichedAssignments);
+      
+      // Get recent submissions
+      const { data: submissionsData, error: submissionsError } = await supabase
+        .from('assignment_submissions')
+        .select('id, assignment_id, student_id, profiles(name), file_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(4);
+      
+      if (submissionsError) throw submissionsError;
+      
+      const mappedSubmissions = (submissionsData || []).map(s => ({
+        ...s,
+        student_name: s.profiles?.name || 'Unknown'
+      }));
+      
+      setSubmissions(mappedSubmissions);
+    } catch (error) {
+      showToast('Error loading assignments: ' + error.message, 'error');
+    }
+    setLoading(false);
+  }, [userData, showToast]);
+
+  useEffect(() => {
+    fetchAssignments();
+    const channels = [
+      supabase.channel('teacher-assignments').on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, fetchAssignments).subscribe(),
+      supabase.channel('teacher-submissions').on('postgres_changes', { event: '*', schema: 'public', table: 'assignment_submissions' }, fetchAssignments).subscribe()
+    ];
+    return () => channels.forEach(ch => supabase.removeChannel(ch));
+  }, [fetchAssignments]);
+
+  const handleAddAssignment = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    const { error } = await supabase.from('assignments').insert([{
+      ...formData,
+      teacher_id: userData?.uid,
+      status: 'Open',
+      created_at: new Date().toISOString()
+    }]);
+    
+    if (error) showToast('Error: ' + error.message, 'error');
+    else {
+      showToast('Assignment created');
+      setFormData({ title: '', subject: '', due_date: '', description: '' });
+      setShowAddModal(false);
+      fetchAssignments();
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this assignment?')) return;
+    const { error } = await supabase.from('assignments').delete().eq('id', id);
+    if (error) showToast('Error: ' + error.message, 'error');
+    else {
+      showToast('Assignment deleted');
+      fetchAssignments();
+    }
+  };
+
+  const handleReview = (assignment) => {
+    setReviewingAssignment(assignment);
+    setShowReviewModal(true);
+  };
+
+  const handleGradeSubmission = async (submissionId, grade) => {
+    if (!grade) {
+      showToast('Please select a grade', 'error');
+      return;
+    }
+    
+    try {
+      const gradeValue = grade === 'A' ? 95 : grade === 'B' ? 85 : grade === 'C' ? 75 : grade === 'D' ? 65 : 50;
+      const { error } = await supabase.from('assignment_submissions').update({ 
+        grade,
+        grade_value: gradeValue,
+        points_earned: gradeValue,
+        feedback: `Graded as ${grade} by teacher on ${new Date().toLocaleDateString()}`,
+        graded_at: new Date().toISOString(),
+        graded_by: userData?.uid,
+        updated_at: new Date().toISOString() 
+      }).eq('id', submissionId);
+
+      if (error) throw error;
+      showToast(`Submission graded as ${grade} and saved!`);
+      fetchAssignments();
+    } catch (error) {
+      showToast('Error: ' + error.message, 'error');
+    }
+  };
+
+  const filtered = activeFilter === 'All' ? assignments : assignments.filter(a => {
+    if (activeFilter === 'Due today') return a.status === 'Due Today';
+    return a.status === activeFilter;
+  });
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Assignments</h1>
+        <Btn onClick={() => setShowAddModal(true)}><Plus size={16} /> New assignment</Btn>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        {filters.map(f => (
+          <button key={f} onClick={() => setActiveFilter(f)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: activeFilter === f ? '#1e3a5f' : (dark ? '#1e293b' : '#ffffff'),
+              border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
+              color: activeFilter === f ? '#ffffff' : (dark ? '#94a3b8' : '#64748b')
+            }}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      <Card className="mb-6">
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
+        ) : (
+          <Table headers={['Title', 'Subject', 'Due Date', 'Submitted', 'Status', 'Actions']}>
+            {filtered.map((a, i) => (
+              <TR key={a.id}>
+                <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{a.title}</span></TD>
+                <TD>{a.subject}</TD>
+                <TD style={{ color: a.status === 'Due Today' ? '#ef4444' : undefined }}>
+                  {new Date(a.due_date).toLocaleDateString()}
+                </TD>
+                <TD>
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: dark ? '#334155' : '#e2e8f0' }}>
+                      <div className="h-full rounded-full bg-blue-500" style={{ width: `${(a.submitted_count || 0) / 38 * 100}%` }} />
+                    </div>
+                    <span className="text-xs">{a.submitted_count || 0}/38</span>
+                  </div>
+                </TD>
+                <TD><Badge color={a.status === 'Due Today' ? '#ef4444' : a.status === 'Graded' ? '#16a34a' : '#d97706'} 
+                  bg={a.status === 'Due Today' ? 'rgba(239,68,68,0.12)' : a.status === 'Graded' ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
+                  {a.status}
+                </Badge></TD>
+                <TD>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleReview(a)} className="text-xs text-blue-500 hover:text-blue-700 font-medium">Review</button>
+                    <button onClick={() => handleDelete(a.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">Delete</button>
+                  </div>
+                </TD>
+              </TR>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="text-center py-8">
+                  <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>No assignments yet</p>
+                  <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Create the first assignment to share academic tasks with your students.</p>
+                </td>
+              </tr>
+            )}
+          </Table>
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4"
+          style={{ color: dark ? '#64748b' : '#94a3b8' }}>Recent Submissions</h2>
+        {submissions.length === 0 ? (
+          <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No submissions yet</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {submissions.map((sub, idx) => (
+              <div key={idx} className="rounded-lg p-3"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                <p className="text-sm font-medium mb-0.5" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{sub.student_name}</p>
+                <p className="text-xs text-blue-500 mb-1">{sub.file_name}</p>
+                <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{new Date(sub.created_at).toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {showAddModal && (
+        <Modal title="New Assignment" onClose={() => setShowAddModal(false)}>
+          <form onSubmit={handleAddAssignment} className="flex flex-col gap-4">
+            <Input placeholder="Title" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+            <Input placeholder="Subject" required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} />
+            <Input type="date" required value={formData.due_date} onChange={e => setFormData({...formData, due_date: e.target.value})} />
+            <textarea placeholder="Description" rows={3} value={formData.description}
+              onChange={e => setFormData({...formData, description: e.target.value})}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }} />
+            <button type="submit" disabled={saving} className="w-full h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: '#1e3a5f' }}>
+              {saving && <Loader2 size={16} className="animate-spin" />} Create Assignment
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {showReviewModal && reviewingAssignment && (
+        <Modal title={`Review: ${reviewingAssignment.title}`} onClose={() => setShowReviewModal(false)}>
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-xs uppercase mb-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Assignment Details</p>
+              <div className="space-y-2 mb-4" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', padding: '12px', borderRadius: '8px' }}>
+                <div><strong style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Due Date:</strong> <span style={{ color: dark ? '#cbd5e1' : '#475569' }}>{new Date(reviewingAssignment.due_date).toLocaleDateString()}</span></div>
+                <div><strong style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Status:</strong> <Badge color={reviewingAssignment.status === 'Graded' ? '#16a34a' : '#d97706'} bg={reviewingAssignment.status === 'Graded' ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>{reviewingAssignment.status}</Badge></div>
+                <div><strong style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Submitted:</strong> <span style={{ color: dark ? '#cbd5e1' : '#475569' }}>{reviewingAssignment.submitted_count || 0}/38 students</span></div>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase mb-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Recent Submissions</p>
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {submissions.filter(s => s.assignment_id === reviewingAssignment.id).slice(0, 8).map((sub, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2 rounded border" 
+                    style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', borderColor: dark ? '#334155' : '#e2e8f0' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{sub.student_name}</p>
+                      <div className="flex gap-2 text-xs mt-0.5">
+                        <span style={{ color: dark ? '#64748b' : '#94a3b8' }}>📤 {new Date(sub.created_at).toLocaleDateString()}</span>
+                        {sub.grade && <Badge color="#16a34a" bg="rgba(22,163,74,0.12)">{sub.grade}</Badge>}
+                      </div>
+                    </div>
+                    <select defaultValue={sub.grade || ''} onChange={(e) => handleGradeSubmission(sub.id, e.target.value)}
+                      className="h-8 px-2 rounded text-xs outline-none font-semibold"
+                      style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                      <option value="">Grade</option>
+                      <option value="A">A (95-100)</option>
+                      <option value="B">B (85-94)</option>
+                      <option value="C">C (75-84)</option>
+                      <option value="D">D (65-74)</option>
+                      <option value="F">F (Below 65)</option>
+                    </select>
+                  </div>
+                ))}
+                {submissions.length === 0 && (
+                  <p className="text-sm text-center py-4" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No submissions yet</p>
+                )}
+              </div>
+            </div>
+            <button onClick={() => setShowReviewModal(false)} className="w-full h-10 rounded-lg text-white text-sm font-semibold"
+              style={{ backgroundColor: '#1e3a5f' }}>Close & Save</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// GRADES TAB — COMPLETE FIXED VERSION
+// ============================================
+const GradesTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+  const [grades, setGrades] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const fetchGrades = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Get sections where this teacher is the adviser
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('sections')
+        .select('id')
+        .eq('adviser_id', userData?.uid);
+      
+      if (sectionsError) throw sectionsError;
+      
+      const sectionIds = sectionsData?.map(s => s.id) || [];
+      
+      // Get grades for these sections
+      let gradesQuery = supabase
+        .from('grades')
+        .select('*')
+        .eq('teacher_id', userData?.uid);
+      
+      if (sectionIds.length > 0) {
+        gradesQuery = gradesQuery.in('section_id', sectionIds);
+      }
+      
+      const { data: gradesData, error: gradesError } = await gradesQuery;
+      if (gradesError) throw gradesError;
+      
+      setGrades(gradesData || []);
+      
+      // Get students from sections
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('section_students')
+        .select('student_id, students(id, lrn, profiles(id, name, email))')
+        .in('section_id', sectionIds)
+        .eq('status', 'active');
+      
+      if (studentsError) throw studentsError;
+      
+      // Map student data
+      const mappedStudents = (studentsData || []).map(item => ({
+        id: item.students?.id,
+        lrn: item.students?.lrn,
+        name: item.students?.profiles?.name,
+        email: item.students?.profiles?.email
+      }));
+      
+      setStudents(mappedStudents);
+    } catch (error) {
+      showToast('Error loading grades: ' + error.message, 'error');
+    }
+    setLoading(false);
+  }, [userData, showToast]);
+
+  useEffect(() => {
+    fetchGrades();
+    const channels = [
+      supabase.channel('teacher-grades').on('postgres_changes', { event: '*', schema: 'public', table: 'grades' }, fetchGrades).subscribe(),
+      supabase.channel('teacher-grade-students').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchGrades).subscribe()
+    ];
+    return () => channels.forEach(ch => supabase.removeChannel(ch));
+  }, [fetchGrades]);
+
+  const handleSaveGrade = async (studentId, subject, value) => {
+    setSaving(true);
+    const existing = grades.find(g => g.student_id === studentId && g.subject === subject);
+
+    if (existing) {
+      const { error } = await supabase.from('grades').update({ grade: value, updated_at: new Date().toISOString() }).eq('id', existing.id);
+      if (error) showToast('Error: ' + error.message, 'error');
+      else showToast('Grade updated');
+    } else {
+      const { error } = await supabase.from('grades').insert([{
+        student_id: studentId,
+        teacher_id: userData?.uid,
+        subject,
+        grade: value,
+        created_at: new Date().toISOString()
+      }]);
+      if (error) showToast('Error: ' + error.message, 'error');
+      else showToast('Grade added');
+    }
+    
+    setEditing(null);
+    fetchGrades();
+    setSaving(false);
+  };
+
+  const getGrade = (studentId, subject) => {
+    const g = grades.find(g => g.student_id === studentId && g.subject === subject);
+    return g?.grade?.toString() || '—';
+  };
+
+  const calculateGWA = (studentId) => {
+    const studentGrades = grades.filter(g => g.student_id === studentId);
+    if (!studentGrades.length) return 0;
+    return (studentGrades.reduce((a, b) => a + b.grade, 0) / studentGrades.length).toFixed(1);
+  };
+
+  const handleExportGrades = async () => {
+    try {
+      const subjects = ['English', 'Math', 'Science', 'Filipino'];
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      csvContent += 'Student ID,Student Name,' + subjects.join(',') + ',GWA,Remarks,Export Date\n';
+
+      students.forEach(s => {
+        const gwa = calculateGWA(s.id);
+        const remarks = gwa >= 75 ? 'Passed' : 'Failed';
+        const row = [s.id, s.name, ...subjects.map(sub => getGrade(s.id, sub)), gwa, remarks, new Date().toLocaleDateString()];
+        csvContent += row.map(val => `"${val}"`).join(',') + '\n';
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      const fileName = `grades-${userData?.uid}-${new Date().toISOString().split('T')[0]}.csv`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast(`Grades exported as ${fileName}!`);
+    } catch (error) {
+      showToast('Error exporting grades: ' + error.message, 'error');
+    }
+  };
+
+  const subjects = ['English', 'Math', 'Science', 'Filipino'];
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+      
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Grades — Q3 Report</h1>
+        <Btn onClick={handleExportGrades}><Download size={16} /> Export</Btn>
+      </div>
+      
+      <Card>
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
+        ) : (
+          <Table headers={['Student', ...subjects, 'GWA', 'Remarks']}>
+            {students.map((s) => {
+              const gwa = calculateGWA(s.id);
+              return (
+                <TR key={s.id}>
+                  <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{s.name}</span></TD>
+                  {subjects.map(sub => {
+                    const gradeKey = `${s.id}-${sub}`;
+                    const currentGrade = getGrade(s.id, sub);
+                    const isEditing = editing === gradeKey;
+                    return (
+                      <TD key={sub}>
+                        {isEditing ? (
+                          <input 
+                            type="number" 
+                            min="0" 
+                            max="100" 
+                            autoFocus
+                            defaultValue={currentGrade === '—' ? '' : currentGrade}
+                            onBlur={e => handleSaveGrade(s.id, sub, parseFloat(e.target.value) || 0)}
+                            onKeyDown={e => e.key === 'Enter' && handleSaveGrade(s.id, sub, parseFloat(e.target.value) || 0)}
+                            className="w-16 h-8 px-2 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            style={{ 
+                              backgroundColor: dark ? '#0f172a' : '#f8fafc', 
+                              border: '1px solid ' + (dark ? '#334155' : '#cbd5e1'), 
+                              color: dark ? '#f1f5f9' : '#1a2b4a' 
+                            }}
+                          />
+                        ) : (
+                          <button 
+                            onClick={() => setEditing(gradeKey)}
+                            className="w-16 h-8 rounded text-sm font-medium hover:bg-blue-50 transition-colors"
+                            style={{ 
+                              color: currentGrade === '—' ? '#94a3b8' : '#1e3a5f', 
+                              backgroundColor: dark ? '#1e293b' : '#f8fafc', 
+                              border: '1px solid ' + (dark ? '#334155' : '#e2e8f0') 
+                            }}
+                          >
+                            {currentGrade}
+                          </button>
+                        )}
+                      </TD>
+                    );
+                  })}
+                  <TD><span className="font-bold" style={{ color: gwa >= 75 ? '#16a34a' : '#ef4444' }}>{gwa}</span></TD>
+                  <TD>
+                    <Badge color={gwa >= 75 ? '#16a34a' : '#ef4444'} bg={gwa >= 75 ? 'rgba(22,163,74,0.12)' : 'rgba(239,68,68,0.12)'}>
+                      {gwa >= 75 ? 'Passed' : 'Failed'}
+                    </Badge>
+                  </TD>
+                </TR>
+              );
+            })}
+            {students.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                  No students found
+                </td>
+              </tr>
+            )}
+          </Table>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+// ============================================
+// ATTENDANCE TAB — Full Supabase CRUD
+// ============================================
+const AttendanceTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+  const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [saving, setSaving] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Get sections where this teacher is the adviser
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('sections')
+        .select('id')
+        .eq('adviser_id', userData?.uid);
+      
+      if (sectionsError) throw sectionsError;
+      
+      const sectionIds = sectionsData?.map(s => s.id) || [];
+      
+      // Get students from these sections
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('section_students')
+        .select('student_id, students(id, lrn, profiles(id, name))')
+        .in('section_id', sectionIds)
+        .eq('status', 'active');
+      
+      if (studentsError) throw studentsError;
+      
+      const mappedStudents = (studentsData || []).map(item => ({
+        id: item.students?.id,
+        lrn: item.students?.lrn,
+        name: item.students?.profiles?.name
+      }));
+      
+      setStudents(mappedStudents);
+      
+      // Get attendance records for selected date from any section
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('*')
+        .in('section_id', sectionIds)
+        .eq('date', selectedDate);
+      
+      if (attendanceError) throw attendanceError;
+      
+      const attMap = {};
+      attendanceData?.forEach(a => { 
+        attMap[a.student_id] = a.status.charAt(0).toUpperCase(); // Present, Absent, Late, Excused -> P, A, L, E
+      });
+      setAttendance(attMap);
+    } catch (error) {
+      showToast('Error loading attendance: ' + error.message, 'error');
+    }
+    setLoading(false);
+  }, [userData, selectedDate, showToast]);
+
+  useEffect(() => {
+    fetchData();
+    const channel = supabase
+      .channel('teacher-attendance')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, fetchData)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [fetchData]);
+
+  const handleMark = async (studentId, status) => {
+    setSaving(true);
+    try {
+      // Get the section for this student from the selected date
+      const { data: studentSectionData, error: sectionError } = await supabase
+        .from('section_students')
+        .select('section_id')
+        .eq('student_id', studentId)
+        .single();
+      
+      if (sectionError) {
+        showToast('Could not find student section', 'error');
+        setSaving(false);
+        return;
+      }
+      
+      const sectionId = studentSectionData?.section_id;
+      
+      // Map status code to full status name
+      const statusMap = { 'P': 'Present', 'A': 'Absent', 'L': 'Late', 'E': 'Excused' };
+      const fullStatus = statusMap[status];
+      
+      const existing = attendance[studentId];
+      
+      if (existing) {
+        const { error } = await supabase
+          .from('attendance')
+          .update({ status: fullStatus, updated_at: new Date().toISOString() })
+          .eq('student_id', studentId)
+          .eq('date', selectedDate)
+          .eq('section_id', sectionId);
+        if (error) throw error;
+        else showToast('Attendance updated');
+      } else {
+        const { error } = await supabase.from('attendance').insert([{
+          student_id: studentId,
+          section_id: sectionId,
+          date: selectedDate,
+          status: fullStatus,
+          recorded_by: userData?.uid,
+          created_at: new Date().toISOString()
+        }]);
+        if (error) throw error;
+        else showToast('Attendance marked');
+      }
+      
+      fetchData();
+    } catch (error) {
+      showToast('Error: ' + error.message, 'error');
+    }
+    setSaving(false);
+  };
+
+  const stats = {
+    present: Object.values(attendance).filter(s => s === 'P').length,
+    absent: Object.values(attendance).filter(s => s === 'A').length,
+    late: Object.values(attendance).filter(s => s === 'L').length,
+    excused: Object.values(attendance).filter(s => s === 'E').length,
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Attendance</h1>
+        <div className="flex items-center gap-3">
+          <input 
+            type="date" 
+            value={selectedDate} 
+            onChange={e => setSelectedDate(e.target.value)}
+            className="h-10 px-3 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}
+          />
+          <Btn onClick={() => showToast('Report exported', 'success')}><Download size={16} /> Export</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Present', value: stats.present, color: '#16a34a' },
+          { label: 'Absent', value: stats.absent, color: '#ef4444' },
+          { label: 'Late', value: stats.late, color: '#d97706' },
+          { label: 'Excused', value: stats.excused, color: '#3b82f6' },
+        ].map((stat, idx) => (
+          <Card key={idx} className="p-4">
+            <p className="text-xs mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{stat.label}</p>
+            <p className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
+        ) : (
+          <Table headers={['#', 'Student', 'Status', 'Actions']}>
+            {students.map((s, i) => (
+              <TR key={s.id}>
+                <TD>{i + 1}</TD>
+                <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{s.name}</span></TD>
+                <TD>
+                  {attendance[s.id] ? (
+                    <Badge 
+                      color={attendance[s.id] === 'P' ? '#16a34a' : attendance[s.id] === 'A' ? '#ef4444' : attendance[s.id] === 'L' ? '#d97706' : '#3b82f6'}
+                      bg={attendance[s.id] === 'P' ? 'rgba(22,163,74,0.12)' : attendance[s.id] === 'A' ? 'rgba(239,68,68,0.12)' : attendance[s.id] === 'L' ? 'rgba(217,119,6,0.12)' : 'rgba(59,130,246,0.12)'}
+                    >
+                      {attendance[s.id] === 'P' ? 'Present' : attendance[s.id] === 'A' ? 'Absent' : attendance[s.id] === 'L' ? 'Late' : 'Excused'}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Not marked</span>
+                  )}
+                </TD>
+                <TD>
+                  <div className="flex gap-2">
+                    {['P', 'A', 'L', 'E'].map(status => (
+                      <button
+                        key={status}
+                        onClick={() => handleMark(s.id, status)}
+                        disabled={saving}
+                        className="px-3 py-1 rounded text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-50"
+                        style={{
+                          backgroundColor: attendance[s.id] === status ? 
+                            (status === 'P' ? '#16a34a' : status === 'A' ? '#ef4444' : status === 'L' ? '#d97706' : '#3b82f6') : 
+                            (dark ? '#0f172a' : '#f8fafc'),
+                          color: attendance[s.id] === status ? '#ffffff' : (status === 'P' ? '#16a34a' : status === 'A' ? '#ef4444' : status === 'L' ? '#d97706' : '#3b82f6'),
+                          border: `1px solid ${status === 'P' ? '#16a34a' : status === 'A' ? '#ef4444' : status === 'L' ? '#d97706' : '#3b82f6'}`
+                        }}
+                      >
+                        {status === 'P' ? 'Present' : status === 'A' ? 'Absent' : status === 'L' ? 'Late' : 'Excused'}
+                      </button>
+                    ))}
+                  </div>
+                </TD>
+              </TR>
+            ))}
+            {students.length === 0 && (
+              <tr><td colSpan={4} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No students found</td></tr>
+            )}
+          </Table>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+// ============================================
+// ANNOUNCEMENTS TAB — Role-based News from Supabase
+// ============================================
+const AnnouncementsTab = () => {
+  const { dark } = useTheme();
+  const { userData } = useAuth();
+  const { toast, showToast } = useToast();
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  const fetchNews = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('news')
+      .select('*')
+      .eq('status', 'Published')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      showToast('Error loading news: ' + error.message, 'error');
+    } else {
+      const teacherNews = (data || []).filter(item => {
+        const targets = (item.target_roles || 'all').split(',').map(t => t.trim().toLowerCase());
+        return targets.includes('all') || targets.includes('teacher') || targets.includes('faculty') || targets.includes('staff');
+      });
+      setNews(teacherNews);
+    }
+    setLoading(false);
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchNews();
+    const channel = supabase
+      .channel('teacher-news')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, fetchNews)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [fetchNews]);
+
+  const filtered = news.filter(item => {
+    const matchesSearch = item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          item.content?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = activeFilter === 'All' || 
+                          (activeFilter === 'Important' && item.priority === 'High') ||
+                          (activeFilter === 'General' && item.priority !== 'High');
+    return matchesSearch && matchesFilter;
+  });
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.msg}
+        </div>
+      )}
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Announcements</h1>
+        <div className="flex gap-2">
+          {['All', 'Important', 'General'].map(f => (
+            <button
+              key={f}
+              onClick={() => setActiveFilter(f)}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium"
+              style={{
+                backgroundColor: activeFilter === f ? '#1e3a5f' : (dark ? '#1e293b' : '#ffffff'),
+                border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
+                color: activeFilter === f ? '#ffffff' : (dark ? '#94a3b8' : '#64748b')
+              }}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative mb-6">
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
+        <input 
+          type="text" 
+          placeholder="Search announcements..." 
+          value={searchQuery} 
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full h-10 pl-10 pr-4 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}
+        />
+      </div>
+
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
+        ) : filtered.map((item, idx) => (
+          <Card key={item.id} className="p-5">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: item.priority === 'High' ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)' }}>
+                <Megaphone size={20} style={{ color: item.priority === 'High' ? '#ef4444' : '#3b82f6' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-base font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{item.title}</h3>
+                  {item.priority === 'High' && (
+                    <Badge color="#ef4444" bg="rgba(239,68,68,0.12)">Important</Badge>
+                  )}
+                </div>
+                <p className="text-sm mb-3 line-clamp-3" style={{ color: dark ? '#cbd5e1' : '#475569' }}>{item.content}</p>
+                <div className="flex items-center gap-4 text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                  <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString()}</span>
+                  <span className="flex items-center gap-1"><Clock size={12} /> {new Date(item.created_at).toLocaleTimeString()}</span>
+                  <span>By {item.author_name || 'Admin'}</span>
+                  <Badge color="#64748b" bg={dark ? '#0f172a' : '#f8fafc'}>
+                    {(item.target_roles || 'all').split(',').map(t => t.trim()).join(', ')}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+        {!loading && filtered.length === 0 && (
+          <Card className="p-8 text-center">
+            <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>No announcements have been published yet.</p>
+            <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>Use the admin portal or news tools to post academic notices, reminders, and event updates.</p>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// MAIN TEACHER DASHBOARD — SINGLE DECLARATION
+// ============================================
+const TeacherDashboard = () => {
+  const navigate = useNavigate();
+  const { isTeacher, userData } = useAuth();
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    if (!isTeacher()) {
+      navigate('/', { replace: true });
+    }
+  }, [isTeacher, navigate]);
+
+  return (
+    <ThemeContext.Provider value={{ dark, toggleDark: () => setDark(d => !d) }}>
+      <TeacherLayout>
+        <Routes>
+          <Route path="/" element={<TeacherOverviewTab />} />
+          <Route path="/students" element={<StudentsTab />} />
+          <Route path="/lesson-plans" element={<LessonPlansTab />} />
+          <Route path="/worksheets" element={<WorksheetsTab />} />
+          <Route path="/assignments" element={<AssessmentsTab />} />
+          <Route path="/grades" element={<GradesTab />} />
+          <Route path="/attendance" element={<AttendanceTab />} />
+          <Route path="/announcements" element={<AnnouncementsTab />} />
+        </Routes>
+      </TeacherLayout>
+    </ThemeContext.Provider>
+  );
+};
+
+export default TeacherDashboard;

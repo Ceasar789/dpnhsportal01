@@ -1,0 +1,1981 @@
+// ============================================
+// FILE: src/pages/dashboards/AdminDashboard.jsx
+// UPDATED: Full Supabase CRUD + Real-time + Role-based News
+// ============================================
+
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../config/supabase';
+import { Sun, Moon, Search, LogOut, Bell, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+
+const initials = (name = '') =>
+  name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+
+const avatarColor = (str = '') => {
+  const colors = ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#ef4444','#2dd4bf','#f472b6','#fb923c'];
+  let h = 0; for (const c of str) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return colors[Math.abs(h) % colors.length];
+};
+
+const roleBadge = (role) => ({
+  student:    'badge-blue',
+  teacher:    'badge-green',
+  faculty:    'badge-teal',
+  registrar:  'badge-yellow',
+  main_admin: 'badge-red',
+}[role] || 'badge-blue');
+
+const roleLabel = (role) => ({
+  student:    'Student',
+  teacher:    'Teacher',
+  faculty:    'Faculty',
+  registrar:  'Registrar',
+  main_admin: 'Admin',
+}[role] || role);
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const EVENT_TYPES = ['Enrollment','Exams','Holiday','Meetings','Activity'];
+
+// Target roles for news distribution
+const TARGET_ROLES = [
+  { value: 'all', label: 'All Users' },
+  { value: 'student', label: 'Students Only' },
+  { value: 'teacher', label: 'Teachers Only' },
+  { value: 'faculty', label: 'Faculty Only' },
+  { value: 'registrar', label: 'Registrar Only' },
+  { value: 'teacher,faculty,registrar', label: 'Staff Only (No Students)' },
+];
+
+const AdminDashboard = () => {
+  const navigate    = useNavigate();
+  const { userData, logout, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#1a1d23', flexDirection: 'column', gap: 16
+      }}>
+        <div style={{
+          width: 40, height: 40, border: '3px solid #2e3340',
+          borderTopColor: '#3b82f6', borderRadius: '50%',
+          animation: 'spin .7s linear infinite'
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <span style={{ color: '#8b92a5', fontSize: 14 }}>Loading session…</span>
+      </div>
+    );
+  }
+
+  if (!userData || userData.role !== 'main_admin') {
+    navigate('/faculty-login', { replace: true });
+    return null;
+  }
+
+  const [darkMode, setDarkMode] = useState(true);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+    }
+  }, [darkMode]);
+
+  // ❌ DELETE THIS USEEFFECT (removed):
+  // useEffect(() => {
+  //   if (userData && userData.role !== 'main_admin') navigate('/', { replace: true });
+  // }, [userData?.role]);
+
+  const [page, setPage]                     = useState('overview');
+  const [activeSettingsSub, setActiveSettingsSub] = useState('sec-general');
+  const [modal, setModal]                   = useState(null);
+  const [logoErr, setLogoErr]               = useState(false);
+  const [toast, setToast]                   = useState(null);
+  const [notifications, setNotifications]   = useState([]);
+
+  // ── Delete confirmation modal state ─────────────────────────────────────────
+  // Shape: { label: string, role?: string, onConfirm: () => Promise<void> } | null
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const openModal  = (id) => setModal(id);
+  const closeModal = ()   => setModal(null);
+  const handleOverlayClick = (e) => { if (e.target === e.currentTarget) closeModal(); };
+
+  const scrollToSection = (id) => {
+    setActiveSettingsSub(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // ═══════════════════════════════════════════
+  //  ACTIVITY LOGGING HELPER
+  // ═══════════════════════════════════════════
+  const logActivity = useCallback(async (action, details = '') => {
+    try {
+      await supabase.from('activity_logs').insert([{
+        action,
+        details,
+        user_id: userData?.uid,
+        user_name: userData?.name || 'Admin',
+        created_at: new Date().toISOString(),
+      }]);
+    } catch (e) { console.error('Activity log error:', e); }
+  }, [userData]);
+
+  // ═══════════════════════════════════════════
+  //  OVERVIEW STATS — Real-time
+  // ═══════════════════════════════════════════
+  const [stats, setStats] = useState({ users: 0, news: 0, events: 0, memos: 0 });
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const results = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('news').select('*', { count: 'exact', head: true }).eq('status', 'Published'),
+        supabase.from('calendar_events').select('*', { count: 'exact', head: true }),
+        supabase.from('memos').select('*', { count: 'exact', head: true }),
+      ]);
+      const [{ count: users, error: usersErr }, { count: news, error: newsErr }, { count: events, error: eventsErr }, { count: memos, error: memosErr }] = results;
+      
+      if (usersErr && (usersErr.status === 403 || usersErr.status === 406)) {
+        console.warn('Profiles table access denied - check RLS policies');
+      }
+      
+      setStats({ 
+        users: !usersErr ? (users || 0) : 0, 
+        news: !newsErr ? (news || 0) : 0, 
+        events: !eventsErr ? (events || 0) : 0, 
+        memos: !memosErr ? (memos || 0) : 0 
+      });
+    } catch (e) {
+      console.warn('Stats fetch error:', e);
+      setStats({ users: 0, news: 0, events: 0, memos: 0 });
+    }
+  }, []);
+
+  const [activityLogs, setActivityLogs] = useState([]);
+  const fetchLogs = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
+      if (error) {
+        console.warn('Activity logs unavailable:', error);
+        setActivityLogs([]);
+      } else {
+        setActivityLogs(data || []);
+      }
+    } catch (e) {
+      console.warn('Activity logs fetch error:', e);
+      setActivityLogs([]);
+    }
+  }, []);
+
+  const [roleDist, setRoleDist] = useState([]);
+  const fetchRoleDist = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('role');
+      if (error) {
+        if (error.status === 403 || error.status === 406) {
+          console.warn('Role distribution unavailable - profiles table access denied');
+        } else {
+          console.warn('Role distribution fetch error:', error);
+        }
+        setRoleDist([]);
+        return;
+      }
+      if (!data) { setRoleDist([]); return; }
+      const counts = {};
+      data.forEach(r => { counts[r.role] = (counts[r.role] || 0) + 1; });
+      setRoleDist(Object.entries(counts).map(([role, count]) => ({ role, count })));
+    } catch (e) {
+      console.warn('Role distribution error:', e);
+      setRoleDist([]);
+    }
+  }, []);
+
+  // ═══════════════════════════════════════════
+  //  USERS — Supabase CRUD + Real-time
+  // ═══════════════════════════════════════════
+  const [users, setUsers]           = useState([]);
+  const [usersLoading, setUL]       = useState(true);
+  const [userSearch, setUserSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [editUser, setEditUser]     = useState(null);
+
+  const [uName,   setUName]   = useState('');
+  const [uEmail,  setUEmail]  = useState('');
+  const [uDept,   setUDept]   = useState('');
+  const [uRole,   setURole]   = useState('student');
+  const [uPass,   setUPass]   = useState('');
+  const [uSaving, setUSaving] = useState(false);
+
+  const fetchUsers = useCallback(async () => {
+    setUL(true);
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      if (error) {
+        if (error.status === 403) {
+          console.warn('Users table access denied - check RLS policies on profiles table. Admin may need permission to read profiles.');
+          showToast('User management requires database permissions. Contact your administrator.', 'error');
+        } else if (error.status === 406) {
+          console.warn('Profiles table may not exist');
+          showToast('User data unavailable', 'error');
+        } else {
+          showToast('Error loading users: ' + error.message, 'error');
+        }
+      } else {
+        setUsers(data || []);
+      }
+    } catch (e) {
+      console.error('Users fetch exception:', e);
+      showToast('Error loading users', 'error');
+    }
+    setUL(false);
+  }, []);
+
+  const openCreateUser = () => {
+    setEditUser(null); setUName(''); setUEmail(''); setUDept(''); setURole('student'); setUPass('');
+    openModal('user');
+  };
+  const openEditUser = (u) => {
+    setEditUser(u); setUName(u.name || ''); setUEmail(u.email || '');
+    setUDept(u.department || ''); setURole(u.role || 'student'); setUPass('');
+    openModal('user');
+  };
+
+  const saveUser = async () => {
+  if (!uName.trim() || !uEmail.trim()) return showToast('Name and email required', 'error');
+  setUSaving(true);
+  try {
+    if (editUser) {
+      // ════════════════════════════════════════════════
+      // UPDATE EXISTING USER
+      // ════════════════════════════════════════════════
+      const { data, error } = await supabase.from('profiles').update({
+        name: uName.trim(), role: uRole, department: uDept.trim(), updated_at: new Date().toISOString()
+      }).eq('id', editUser.id).select().single();
+      
+      if (error) throw error;
+      
+      setUsers(prev => prev.map(u => u.id === editUser.id ? data : u));
+      showToast('User updated!');
+      console.log('✅ User updated:', data.id);
+      
+    } else {
+      // ════════════════════════════════════════════════
+      // CREATE NEW USER
+      // ════════════════════════════════════════════════
+      if (!uPass || uPass.length < 6) return showToast('Password must be at least 6 chars', 'error');
+
+      console.log('📋 Starting user creation process...');
+      
+      // Step 1: Save admin session before signUp
+      const { data: adminSessionData } = await supabase.auth.getSession();
+      const adminAccessToken  = adminSessionData?.session?.access_token;
+      const adminRefreshToken = adminSessionData?.session?.refresh_token;
+      const adminUid          = adminSessionData?.session?.user?.id;
+
+      if (!adminAccessToken || !adminRefreshToken) {
+        throw new Error('Admin session not available - please refresh and try again');
+      }
+      console.log('💾 Admin session saved');
+
+      // Step 2: Create auth user
+      console.log('📝 Creating auth user...');
+      const { data: authData, error: authErr } = await supabase.auth.signUp({
+        email: uEmail.trim(), 
+        password: uPass
+      });
+      if (authErr) throw authErr;
+      
+      const uid = authData?.user?.id;
+      console.log('✅ Auth user created:', uid);
+
+      // Step 3: Restore admin session immediately
+      console.log('🔒 Restoring admin session...');
+      const restoreResult = await supabase.auth.setSession({
+        access_token: adminAccessToken,
+        refresh_token: adminRefreshToken,
+      });
+      
+      if (restoreResult.error) {
+        console.error('❌ Failed to restore admin session:', restoreResult.error);
+      } else {
+        console.log('✅ Admin session restored');
+        await new Promise(r => setTimeout(r, 150)); // Wait for session to sync
+      }
+
+      // Step 4: Create profile in database
+      if (uid) {
+        console.log('📊 Creating profile in database...');
+        
+        try {
+          const { data: newProfile, error: profileErr } = await supabase
+            .from('profiles')
+            .upsert([{
+              id: uid, 
+              email: uEmail.trim(), 
+              name: uName.trim(), 
+              role: uRole,
+              department: uDept.trim(), 
+              status: 'Active', 
+              created_at: new Date().toISOString()
+            }], { onConflict: 'id' })
+            .select()
+            .single();
+          
+          if (profileErr) {
+            console.error('❌ Profile creation error:', profileErr);
+            throw new Error(`Failed to create profile: ${profileErr.message}. Check Supabase RLS policies - see SUPABASE_RLS_SETUP.md`);
+          }
+          
+          console.log('✅ Profile created in database:', newProfile.id);
+          
+          // Update UI with new user
+          setUsers(prev => [newProfile, ...prev]);
+          setStats(prev => ({ ...prev, users: prev.users + 1 }));
+          
+        } catch (err) {
+          console.error('❌ Database error:', err.message);
+          showToast(err.message, 'error');
+          setUSaving(false);
+          return;
+        }
+      }
+
+      // Step 5: Log the activity (non-blocking)
+      try {
+        await supabase.from('activity_logs').insert([{
+          action: 'Created user',
+          details: `${uName} (${uRole})`,
+          user_id: userData?.uid,
+          user_name: userData?.name || 'Admin',
+          created_at: new Date().toISOString(),
+        }]);
+      } catch (logErr) {
+        console.warn('⚠️ Activity log failed (non-blocking):', logErr);
+      }
+
+      showToast('✅ User created! They will receive a confirmation email.');
+    }
+    
+    // Step 6: Refresh stats (non-blocking)
+    try {
+      await fetchStats();
+      await fetchRoleDist();
+    } catch (err) {
+      console.warn('⚠️ Stats refresh failed (non-blocking):', err);
+    }
+    
+    closeModal();
+    console.log('🎉 User operation completed successfully');
+    
+  } catch (e) {
+    console.error('❌ User save error:', e);
+    showToast(e.message || 'Error saving user', 'error');
+  } finally { 
+    setUSaving(false); 
+  }
+};
+
+  const deleteUser = (id) => {
+    const userToDelete = users.find(u => u.id === id);
+    setDeleteConfirm({
+      label: userToDelete?.name || userToDelete?.email || 'this user',
+      role: userToDelete?.role,
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('profiles').delete().eq('id', id);
+          if (error) throw error;
+          // Update local state immediately to prevent UI flickering
+          setUsers(prev => prev.filter(u => u.id !== id));
+          // Update stats immediately
+          setStats(prev => ({ ...prev, users: Math.max(0, prev.users - 1) }));
+          await logActivity('Deleted user', userToDelete?.name || id);
+          showToast('User deleted');
+          await fetchRoleDist();
+        } catch (e) {
+          showToast(e.message || 'Error deleting user', 'error');
+          // Refresh users list on error to ensure consistency
+          await fetchUsers();
+        }
+      },
+    });
+  };
+
+  const filteredUsers = useMemo(() => {
+    const s = userSearch.toLowerCase();
+    return users.filter(u =>
+      (!s || (u.name || '').toLowerCase().includes(s) || (u.email || '').toLowerCase().includes(s)) &&
+      (!roleFilter || u.role === roleFilter)
+    );
+  }, [users, userSearch, roleFilter]);
+
+  // ═══════════════════════════════════════════
+  //  NEWS — Supabase CRUD + Role Targeting + Real-time
+  // ═══════════════════════════════════════════
+  const [newsItems, setNewsItems]   = useState([]);
+  const [newsLoading, setNL]        = useState(true);
+  const [newsSearch, setNewsSearch] = useState('');
+  const [newsCatF, setNewsCatF]     = useState('');
+  const [newsStatF, setNewsStatF]   = useState('');
+  const [editNews, setEditNews]     = useState(null);
+  const [nTitle,   setNTitle]       = useState('');
+  const [nCat,     setNCat]         = useState('Academics');
+  const [nAuthor,  setNAuthor]      = useState('');
+  const [nContent, setNContent]     = useState('');
+  const [nStatus,  setNStatus]      = useState('Draft');
+  const [nTarget,  setNTarget]      = useState('all'); // NEW: role targeting
+  const [nSaving,  setNSaving]      = useState(false);
+
+  const fetchNews = useCallback(async () => {
+    setNL(true);
+    const { data, error } = await supabase.from('news').select('*').order('created_at', { ascending: false });
+    if (error) { showToast('Error loading news: ' + error.message, 'error'); }
+    else setNewsItems(data || []);
+    setNL(false);
+  }, []);
+
+  const openNewPost = () => {
+    setEditNews(null); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all');
+    openModal('news');
+  };
+  const openEditNews = (n) => {
+    setEditNews(n); setNTitle(n.title || ''); setNCat(n.category || 'Academics');
+    setNAuthor(n.author || ''); setNContent(n.content || ''); setNStatus(n.status || 'Draft');
+    setNTarget(n.target_roles || 'all');
+    openModal('news');
+  };
+
+  const saveNews = async () => {
+    if (!nTitle.trim()) return showToast('Title required', 'error');
+    setNSaving(true);
+    try {
+      const payload = {
+        title: nTitle.trim(), category: nCat, content: nContent, status: nStatus,
+        author: nAuthor.trim(), author_id: userData?.uid,
+        target_roles: nTarget, // NEW: role targeting
+        published_at: nStatus === 'Published' ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      };
+      if (editNews) {
+        await supabase.from('news').update(payload).eq('id', editNews.id);
+        await logActivity('Updated news', nTitle);
+        showToast('Post updated!');
+      } else {
+        await supabase.from('news').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        await logActivity('Created news', `${nTitle} (${nStatus})`);
+        showToast('Post created!');
+      }
+      await fetchNews(); await fetchStats();
+      closeModal();
+    } catch (e) {
+      showToast(e.message || 'Error', 'error');
+    } finally { setNSaving(false); }
+  };
+
+  const updateNewsStatus = async (id, status) => {
+    await supabase.from('news').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+    const newsItem = newsItems.find(n => n.id === id);
+    await logActivity('Updated news status', `${newsItem?.title} → ${status}`);
+    showToast(`Post ${status.toLowerCase()}`);
+    await fetchNews(); await fetchStats();
+  };
+
+  const deleteNewsItem = async (id) => {
+    if (!confirm('Delete this post?')) return;
+    const newsItem = newsItems.find(n => n.id === id);
+    await supabase.from('news').delete().eq('id', id);
+    await logActivity('Deleted news', newsItem?.title);
+    showToast('Post deleted');
+    await fetchNews(); await fetchStats();
+  };
+
+  const filteredNews = useMemo(() =>
+    newsItems.filter(n =>
+      (!newsSearch || n.title?.toLowerCase().includes(newsSearch.toLowerCase())) &&
+      (!newsCatF || n.category === newsCatF) &&
+      (!newsStatF || n.status === newsStatF)
+    ), [newsItems, newsSearch, newsCatF, newsStatF]);
+
+  // ═══════════════════════════════════════════
+  //  CALENDAR — Supabase CRUD + Real-time + EDIT
+  // ═══════════════════════════════════════════
+  const today      = new Date();
+  const [calYear,  setCalYear]  = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [calEvents, setCalEvents] = useState([]);
+  const [calFilter, setCalFilter] = useState('');
+  const [editEvent, setEditEvent] = useState(null); // NEW: event editing
+  const [evTitle, setEvTitle]   = useState('');
+  const [evDate,  setEvDate]    = useState('');
+  const [evEnd,   setEvEnd]     = useState('');
+  const [evType,  setEvType]    = useState('Enrollment');
+  const [evDesc,  setEvDesc]    = useState('');
+  const [evSaving, setEvSaving] = useState(false);
+
+  const fetchCalEvents = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('calendar_events').select('*').order('event_date', { ascending: true });
+      if (error) throw error;
+      setCalEvents(data || []);
+    } catch (err) {
+      console.error('Error loading events:', err);
+      showToast('Error loading events: ' + err.message, 'error');
+      setCalEvents([]);
+    }
+  }, []);
+
+  const openCreateEvent = () => {
+    setEditEvent(null); setEvTitle(''); setEvDate(''); setEvEnd(''); setEvType('Enrollment'); setEvDesc('');
+    openModal('event');
+  };
+
+  const openEditEvent = (e) => {
+    setEditEvent(e); setEvTitle(e.title || ''); setEvDate(e.event_date || ''); 
+    setEvEnd(e.end_date || ''); setEvType(e.event_type || 'Enrollment'); setEvDesc(e.description || '');
+    openModal('event');
+  };
+
+  const saveEvent = async () => {
+    if (!evTitle.trim() || !evDate) return showToast('Title and date required', 'error');
+    setEvSaving(true);
+    try {
+      const payload = {
+        title: evTitle.trim(), event_date: evDate, end_date: evEnd || null,
+        event_type: evType, description: evDesc, updated_at: new Date().toISOString(),
+      };
+      if (editEvent) {
+        await supabase.from('calendar_events').update(payload).eq('id', editEvent.id);
+        await logActivity('Updated event', evTitle);
+        showToast('Event updated!');
+      } else {
+        await supabase.from('calendar_events').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        await logActivity('Created event', evTitle);
+        showToast('Event added!');
+      }
+      setEvTitle(''); setEvDate(''); setEvEnd(''); setEvType('Enrollment'); setEvDesc('');
+      await fetchCalEvents(); await fetchStats();
+      closeModal();
+    } catch (e) {
+      showToast(e.message || 'Error', 'error');
+    } finally { setEvSaving(false); }
+  };
+
+  const deleteEvent = async (id) => {
+    if (!confirm('Delete this event?')) return;
+    const eventToDelete = calEvents.find(e => e.id === id);
+    await supabase.from('calendar_events').delete().eq('id', id);
+    await logActivity('Deleted event', eventToDelete?.title);
+    showToast('Event deleted');
+    await fetchCalEvents(); await fetchStats();
+  };
+
+  const typeColor = (t) => ({ Enrollment:'#3b82f6', Exams:'#f59e0b', Holiday:'#22c55e', Meetings:'#a78bfa', Activity:'#2dd4bf' }[t] || '#3b82f6');
+  const typeClass = (t) => ({ Enrollment:'ev-blue', Exams:'ev-yellow', Holiday:'ev-green', Meetings:'ev-purple', Activity:'ev-teal' }[t] || 'ev-blue');
+
+  const calGrid = useMemo(() => {
+    const first = new Date(calYear, calMonth, 1).getDay();
+    const days  = new Date(calYear, calMonth + 1, 0).getDate();
+    const prev  = new Date(calYear, calMonth, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < first; i++) cells.push({ d: prev - first + i + 1, cur: false });
+    for (let d = 1; d <= days; d++) cells.push({ d, cur: true });
+    let x = 1; while (cells.length % 7) cells.push({ d: x++, cur: false });
+    return cells;
+  }, [calYear, calMonth]);
+
+  const upcomingEvents = useMemo(() => {
+    const ts = today.toISOString().slice(0, 10);
+    return calEvents.filter(e => e.event_date >= ts).slice(0, 4);
+  }, [calEvents]);
+
+  const prevMonth = () => { if(calMonth===0){setCalYear(y=>y-1);setCalMonth(11)}else setCalMonth(m=>m-1); };
+  const nextMonth = () => { if(calMonth===11){setCalYear(y=>y+1);setCalMonth(0)}else setCalMonth(m=>m+1); };
+
+  // ═══════════════════════════════════════════
+  //  MEMOS — Supabase CRUD + Real-time + Search
+  // ═══════════════════════════════════════════
+  const [memos, setMemos]         = useState([]);
+  const [memosLoading, setML]     = useState(true);
+  const [selMemo, setSelMemo]     = useState(null);
+  const [editMemo, setEditMemo]   = useState(null);
+  const [mFrom,   setMFrom]       = useState('');
+  const [mTo,     setMTo]         = useState('All Faculty');
+  const [mSubj,   setMSubj]       = useState('');
+  const [mBody,   setMBody]       = useState('');
+  const [mSaving, setMSaving]     = useState(false);
+  const [memoSearch, setMemoSearch] = useState(''); // NEW: search
+  const [memoFilter, setMemoFilter] = useState(''); // NEW: filter
+
+  const fetchMemos = useCallback(async () => {
+    setML(true);
+    const { data, error } = await supabase.from('memos').select('*').order('created_at', { ascending: false });
+    if (error) { showToast('Error loading memos: ' + error.message, 'error'); }
+    else {
+      setMemos(data || []);
+      if (data?.length && !selMemo) setSelMemo(data[0]);
+    }
+    setML(false);
+  }, []);
+
+  const openCompose = () => {
+    setEditMemo(null); setMFrom(''); setMTo('All Faculty'); setMSubj(''); setMBody('');
+    openModal('memo');
+  };
+  const openEditMemo = (m) => {
+    setEditMemo(m); setMFrom(m.from_office || ''); setMTo(m.recipient || 'All Faculty');
+    setMSubj(m.title || ''); setMBody(m.body || '');
+    openModal('memo');
+  };
+
+  const saveMemo = async () => {
+    if (!mSubj.trim()) return showToast('Subject required', 'error');
+    setMSaving(true);
+    try {
+      const payload = {
+        title: mSubj.trim(), from_office: mFrom.trim(), recipient: mTo,
+        body: mBody, status: 'Sent', updated_at: new Date().toISOString(),
+      };
+      if (editMemo) {
+        await supabase.from('memos').update(payload).eq('id', editMemo.id);
+        await logActivity('Updated memo', mSubj);
+        showToast('Memo updated!');
+      } else {
+        await supabase.from('memos').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        await logActivity('Created memo', `${mSubj} → ${mTo}`);
+        showToast('Memo sent!');
+      }
+      await fetchMemos(); await fetchStats();
+      closeModal();
+    } catch (e) {
+      showToast(e.message || 'Error', 'error');
+    } finally { setMSaving(false); }
+  };
+
+  const deleteMemo = async (id) => {
+    if (!confirm('Delete this memo?')) return;
+    const memoToDelete = memos.find(m => m.id === id);
+    await supabase.from('memos').delete().eq('id', id);
+    await logActivity('Deleted memo', memoToDelete?.title);
+    if (selMemo?.id === id) setSelMemo(null);
+    showToast('Memo deleted');
+    await fetchMemos(); await fetchStats();
+  };
+
+  const filteredMemos = useMemo(() => {
+    const s = memoSearch.toLowerCase();
+    return memos.filter(m =>
+      (!s || (m.title || '').toLowerCase().includes(s) || (m.body || '').toLowerCase().includes(s)) &&
+      (!memoFilter || m.recipient === memoFilter)
+    );
+  }, [memos, memoSearch, memoFilter]);
+
+  // ═══════════════════════════════════════════
+  //  SETTINGS — Supabase + Auto-save option
+  // ═══════════════════════════════════════════
+  const [settings, setSettings] = useState({
+    portal_name: 'DPNHS Portal', academic_year: '2025-2026', semester: '2nd Semester',
+  });
+  const [settingsSaving, setSS] = useState(false);
+  const [autoSave, setAutoSave] = useState(false); // NEW
+  const [twoFactorAuth,       setTwoFactorAuth]       = useState(true);
+  const [sessionTimeout,      setSessionTimeout]      = useState('30 min');
+  const [loginAttemptLimit,   setLoginAttemptLimit]   = useState(true);
+  const [emailNotifications,  setEmailNotifications]  = useState(false);
+  const [lmsIntegration,      setLmsIntegration]      = useState(false);
+  const [smsGateway,          setSmsGateway]          = useState(false);
+  const [autoBackup,          setAutoBackup]          = useState(true);
+  const [activityLogsDays,    setActivityLogsDays]    = useState('90 days');
+  const [theme,               setTheme]               = useState('Dark');
+  const [language,            setLanguage]            = useState('English');
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('school_settings').select('*').eq('id', 1).single();
+      if (!error && data) {
+        setSettings(data);
+        setTheme(data.theme || 'Dark');
+        setLanguage(data.language || 'English');
+        setAutoSave(data.auto_save || false);
+      } else if (error && (error.code === 'PGRST116' || error.status === 406 || error.status === 400)) {
+        // Table doesn't exist or no settings record - use defaults
+        console.warn('School settings table not available - using defaults');
+        setTheme('Dark');
+        setLanguage('English');
+        setAutoSave(false);
+      }
+    } catch (err) {
+      console.warn('Settings fetch error (using defaults):', err.message);
+      // Use defaults if settings don't exist
+      setTheme('Dark');
+      setLanguage('English');
+      setAutoSave(false);
+    }
+  }, []);
+
+  const saveSettings = async () => {
+    setSS(true);
+    try {
+      await supabase.from('school_settings').update({ 
+        ...settings, 
+        theme,
+        language,
+        auto_save: autoSave,
+        updated_at: new Date().toISOString() 
+      }).eq('id', 1);
+      await logActivity('Updated settings');
+      showToast('Settings saved!');
+    } catch (e) { showToast('Error saving settings', 'error'); }
+    finally { setSS(false); }
+  };
+
+  // Auto-save effect
+  useEffect(() => {
+    if (!autoSave) return;
+    const timer = setTimeout(() => saveSettings(), 2000);
+    return () => clearTimeout(timer);
+  }, [settings, theme, language, autoSave]);
+
+  // ═══════════════════════════════════════════
+  //  DEBOUNCED FETCH FUNCTIONS — Prevent race conditions
+  // ═══════════════════════════════════════════
+  const debounceTimersRef = React.useRef({});
+
+  const debouncedFetchUsers = useCallback(() => {
+    if (debounceTimersRef.current.users) clearTimeout(debounceTimersRef.current.users);
+    debounceTimersRef.current.users = setTimeout(() => {
+      fetchUsers();
+    }, 500); // Wait 500ms before fetching to debounce multiple rapid changes
+  }, [fetchUsers]);
+
+  const debouncedFetchStats = useCallback(() => {
+    if (debounceTimersRef.current.stats) clearTimeout(debounceTimersRef.current.stats);
+    debounceTimersRef.current.stats = setTimeout(() => {
+      fetchStats();
+    }, 500);
+  }, [fetchStats]);
+
+  const debouncedFetchRoleDist = useCallback(() => {
+    if (debounceTimersRef.current.roleDist) clearTimeout(debounceTimersRef.current.roleDist);
+    debounceTimersRef.current.roleDist = setTimeout(() => {
+      fetchRoleDist();
+    }, 500);
+  }, [fetchRoleDist]);
+
+  // ═══════════════════════════════════════════
+  //  REAL-TIME SUBSCRIPTIONS — ALL TABLES
+  // ═══════════════════════════════════════════
+  useEffect(() => {
+    const channels = [];
+
+    // Users subscription (debounced to prevent race conditions)
+    channels.push(
+      supabase.channel('admin-users')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          debouncedFetchUsers(); debouncedFetchStats(); debouncedFetchRoleDist();
+        })
+        .subscribe()
+    );
+
+    // News subscription
+    channels.push(
+      supabase.channel('admin-news')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => {
+          fetchNews(); fetchStats();
+        })
+        .subscribe()
+    );
+
+    // Calendar subscription
+    channels.push(
+      supabase.channel('admin-calendar')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, () => {
+          fetchCalEvents(); fetchStats();
+        })
+        .subscribe()
+    );
+
+    // Memos subscription
+    channels.push(
+      supabase.channel('admin-memos')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'memos' }, () => {
+          fetchMemos(); fetchStats();
+        })
+        .subscribe()
+    );
+
+    // Activity logs subscription
+    channels.push(
+      supabase.channel('admin-logs')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
+          fetchLogs();
+        })
+        .subscribe()
+    );
+
+    return () => channels.forEach(ch => supabase.removeChannel(ch));
+  }, [debouncedFetchUsers, debouncedFetchStats, debouncedFetchRoleDist, fetchNews, fetchStats, fetchCalEvents, fetchMemos, fetchLogs]);
+
+  // ═══════════════════════════════════════════
+  //  CLEANUP — Clear debounce timers on unmount
+  // ═══════════════════════════════════════════
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimersRef.current).forEach(timer => clearTimeout(timer));
+    };
+  }, []);
+
+  // ═══════════════════════════════════════════
+  //  INITIAL LOAD
+  // ═══════════════════════════════════════════
+  useEffect(() => {
+    // Add timeout protection (5 seconds max per fetch)
+    const timeout = (promise, ms = 5000) => Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+    ]).catch(err => console.warn('Fetch timeout:', err));
+
+    timeout(fetchStats());
+    timeout(fetchLogs());
+    timeout(fetchRoleDist());
+    timeout(fetchUsers());
+    timeout(fetchNews());
+    timeout(fetchCalEvents());
+    timeout(fetchMemos());
+    timeout(fetchSettings());
+  }, [fetchStats, fetchLogs, fetchRoleDist, fetchUsers, fetchNews, fetchCalEvents, fetchMemos, fetchSettings]);
+
+  const Toggle = ({ on, onClick }) => (
+    <div className={`toggle ${on ? 'on' : 'off'}`} onClick={onClick}>
+      <div className="toggle-knob"></div>
+    </div>
+  );
+
+  // ═══════════════════════════════════════════
+  //  RENDER
+  // ═══════════════════════════════════════════
+  return (
+    <>
+      <style>{`
+        /* ── DARK MODE (default) ── */
+        :root {
+          --bg: #1a1d23;
+          --sidebar-bg: #1e2128;
+          --card-bg: #23272f;
+          --card2: #2a2f3a;
+          --border: #2e3340;
+          --text: #e8eaf0;
+          --text-muted: #8b92a5;
+          --text-dim: #5a6070;
+          --accent: #3b82f6;
+          --accent-hover: #2563eb;
+          --green: #22c55e;
+          --yellow: #f59e0b;
+          --red: #ef4444;
+          --purple: #a78bfa;
+          --teal: #2dd4bf;
+          --nav-bg: #ffffff;
+          --nav-border: #e2e8f0;
+          --nav-text: #1a2b4a;
+          --nav-text-muted: #4a5568;
+          --nav-link-active-color: #1a2b4a;
+          --nav-link-hover-bg: #f1f5f9;
+          --nav-shadow: 0 1px 3px rgba(0,0,0,0.08);
+          --toggle-bg: #e2e8f0;
+          --toggle-icon: #4a5568;
+        }
+        :root.light {
+          --bg: #f4f6fb;
+          --sidebar-bg: #f8fafc;
+          --card-bg: #ffffff;
+          --card2: #f1f5f9;
+          --border: #e2e8f0;
+          --text: #1a2b4a;
+          --text-muted: #4a5568;
+          --text-dim: #94a3b8;
+          --accent: #2563eb;
+          --accent-hover: #1d4ed8;
+          --green: #16a34a;
+          --yellow: #d97706;
+          --red: #dc2626;
+          --purple: #7c3aed;
+          --teal: #0d9488;
+          --nav-bg: #ffffff;
+          --nav-border: #e2e8f0;
+          --nav-text: #1a2b4a;
+          --nav-text-muted: #4a5568;
+          --nav-link-active-color: #1a2b4a;
+          --nav-link-hover-bg: #f1f5f9;
+          --nav-shadow: 0 1px 3px rgba(0,0,0,0.08);
+          --toggle-bg: #1a2b4a;
+          --toggle-icon: #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; }
+
+        nav {
+          background: var(--nav-bg);
+          height: 72px;
+          display: flex;
+          align-items: center;
+          padding: 0 28px;
+          gap: 0;
+          border-bottom: 1px solid var(--nav-border);
+          box-shadow: var(--nav-shadow);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+        .nav-logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-decoration: none;
+          flex-shrink: 0;
+          margin-right: 32px;
+        }
+        .nav-logo img {
+          width: 42px; height: 42px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex-shrink: 0;
+          border: 2px solid #e2e8f0;
+        }
+        .nav-logo-icon {
+          width: 42px; height: 42px;
+          background: #0d2b5c;
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 13px; font-weight: 900;
+          color: #FEB300; flex-shrink: 0;
+        }
+        .nav-logo-text { display: flex; flex-direction: column; line-height: 1.2; }
+        .nav-logo-text span:first-child { font-weight: 700; font-size: 16px; color: var(--nav-text); }
+        .nav-logo-text span:last-child { font-size: 12px; color: var(--nav-text-muted); font-weight: 400; }
+
+        .nav-links { display: flex; gap: 2px; flex: 1; }
+        .nav-link {
+          padding: 6px 14px;
+          cursor: pointer;
+          color: var(--nav-text-muted);
+          font-size: 13px; font-weight: 600;
+          letter-spacing: 0.03em;
+          transition: all .15s;
+          border: none; background: none;
+          border-radius: 6px;
+          position: relative;
+        }
+        .nav-link:hover { color: var(--nav-text); background: var(--nav-link-hover-bg); }
+        .nav-link.active { color: var(--nav-link-active-color); }
+        .nav-link.active::after {
+          content: '';
+          position: absolute;
+          bottom: -6px; left: 50%;
+          transform: translateX(-50%);
+          width: 20px; height: 2px;
+          background: #d4a843;
+          border-radius: 2px;
+        }
+
+        .nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .nav-search-btn {
+          width: 34px; height: 34px; border-radius: 50%;
+          border: none; background: transparent; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          color: var(--nav-text-muted); transition: background .15s;
+        }
+        .nav-search-btn:hover { background: var(--nav-link-hover-bg); }
+        .nav-toggle-btn {
+          width: 34px; height: 34px; border-radius: 50%;
+          border: none; background: var(--toggle-bg); cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          color: var(--toggle-icon); transition: all .2s;
+        }
+        .nav-toggle-btn:hover { opacity: 0.8; }
+        .nav-avatar {
+          width: 34px; height: 34px; border-radius: 50%;
+          background: #0d2b5c;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 700; color: #FEB300;
+          cursor: pointer; border: 2px solid #e2e8f0;
+          flex-shrink: 0;
+        }
+        .nav-logout-btn {
+          display: flex; align-items: center; gap: 6px;
+          padding: 6px 14px; border-radius: 7px;
+          border: 1px solid var(--nav-border);
+          background: transparent; cursor: pointer;
+          color: var(--nav-text-muted); font-size: 13px; font-weight: 600;
+          transition: all .15s;
+        }
+        .nav-logout-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+
+        .layout { display: flex; flex: 1; min-height: calc(100vh - 48px); }
+        .sidebar { width: 200px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 16px 0; flex-shrink: 0; }
+        .sidebar-item { padding: 9px 20px; cursor: pointer; color: var(--text-muted); font-size: 13px; transition: all .15s; display: flex; align-items: center; gap: 8px; border-left: 3px solid transparent; }
+        .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
+        .sidebar-item.active { color: var(--text); background: rgba(59,130,246,0.1); border-left-color: var(--accent); }
+        .sidebar-section { padding: 16px 20px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
+        .sidebar-sub { padding: 7px 20px 7px 28px; cursor: pointer; color: var(--text-dim); font-size: 12px; transition: all .15s; }
+        .sidebar-sub:hover { color: var(--text-muted); }
+        .sidebar-sub.active { color: var(--accent); }
+        .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
+
+        .page-title { font-size: 22px; font-weight: 700; color: var(--text); }
+        .page-sub { color: var(--text-muted); font-size: 13px; margin-top: 3px; margin-bottom: 20px; }
+        .btn { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+        .btn-danger { background: transparent; color: var(--red); border: none; cursor: pointer; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 8px 12px; font-size: 13px; outline: none; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+        select { appearance: none; cursor: pointer; }
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; }
+        .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; color: #fff; }
+        .badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+        .badge-blue    { color: #60a5fa; border-color: #1d4ed8; background: rgba(59,130,246,0.1); }
+        .badge-green   { color: #4ade80; border-color: #15803d; background: rgba(34,197,94,0.1); }
+        .badge-teal    { color: #5eead4; border-color: #0f766e; background: rgba(45,212,191,0.1); }
+        .badge-yellow  { color: #fbbf24; border-color: #b45309; background: rgba(245,158,11,0.1); }
+        .badge-red     { color: #f87171; border-color: #b91c1c; background: rgba(239,68,68,0.1); }
+        .badge-purple  { color: #c4b5fd; border-color: #6d28d9; background: rgba(167,139,250,0.1); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .dot-green { background: var(--green); }
+        .dot-gray  { background: #4b5563; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 18px; align-items: center; flex-wrap: wrap; }
+        .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
+        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+        .stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 700; }
+        .stat-change { font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+        .stat-change.up   { color: var(--green); }
+        .stat-change.down { color: var(--red); }
+        .overview-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+        .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+        .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .chart-sub   { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+        .bars { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
+        .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+        .bar { background: var(--accent); border-radius: 4px 4px 0 0; width: 100%; transition: opacity .15s; }
+        .bar:hover { opacity: .8; }
+        .bar-label { font-size: 11px; color: var(--text-dim); }
+        .recent-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .recent-item:last-child { border-bottom: none; }
+        .recent-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .recent-info { flex: 1; }
+        .recent-title { font-size: 13px; color: var(--text); }
+        .recent-time  { font-size: 11px; color: var(--text-dim); }
+        .role-bar { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .role-row { display: flex; align-items: center; gap: 10px; }
+        .role-track { flex: 1; height: 10px; background: var(--border); border-radius: 10px; overflow: hidden; }
+        .role-fill  { height: 100%; border-radius: 10px; }
+        .role-label { font-size: 12px; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+
+        .pagination { display: flex; align-items: center; gap: 6px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+        .page-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .assign-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; }
+        .assign-label { font-size: 13px; font-weight: 600; }
+        .assign-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .news-card-top { height: 4px; }
+        .news-card-top.pub  { background: var(--accent); }
+        .news-card-top.draft { background: var(--yellow); }
+        .news-card-top.arch  { background: var(--text-dim); }
+        .news-card-body { padding: 14px 16px; }
+        .news-meta   { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+        .news-title  { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+        .news-author { font-size: 12px; color: var(--text-muted); }
+        .news-actions { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 14px; align-items: center; }
+        .news-action { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--text-muted); }
+        .news-action:hover { color: var(--text); }
+        .news-action.red   { color: var(--red); }
+        .news-action.green { color: var(--green); }
+        .news-action.blue  { color: var(--accent); }
+        .news-footer { font-size: 12px; color: var(--text-muted); margin-top: 16px; }
+
+        .cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .cal-title   { font-size: 16px; font-weight: 600; }
+        .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 5px; }
+        .cal-nav:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .cal-head { background: var(--card-bg); padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .cal-cell { background: var(--card-bg); min-height: 80px; padding: 8px; position: relative; }
+        .cal-cell:hover { background: var(--card2); }
+        .cal-day { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+        .cal-cell.today .cal-day { background: var(--accent); color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+        .cal-cell.other-month .cal-day { color: var(--text-dim); }
+        .cal-event { font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        .cal-event:hover { opacity: 0.8; }
+        .ev-blue   { background: rgba(59,130,246,0.3);  color: #93c5fd; }
+        .ev-yellow { background: rgba(245,158,11,0.3);  color: #fcd34d; }
+        .ev-green  { background: rgba(34,197,94,0.3);   color: #86efac; }
+        .ev-purple { background: rgba(167,139,250,0.3); color: #c4b5fd; }
+        .ev-teal   { background: rgba(45,212,191,0.3);  color: #5eead4; }
+        .cal-sidebar { width: 200px; flex-shrink: 0; }
+        .upcoming-item { padding: 10px 0; border-left: 3px solid; padding-left: 10px; margin-bottom: 10px; }
+        .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+        .legend-dot  { width: 12px; height: 12px; border-radius: 2px; }
+
+        .memo-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; }
+        .memo-list-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s; }
+        .memo-list-item:hover { background: rgba(255,255,255,0.03); }
+        .memo-list-item.active { background: rgba(59,130,246,0.08); border-left: 3px solid var(--accent); }
+        .memo-title-item { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+        .memo-meta    { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .memo-snippet { font-size: 12px; color: var(--text-dim); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .memo-preview { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+        .memo-field       { display: flex; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+        .memo-field-label { color: var(--text-muted); width: 50px; flex-shrink: 0; }
+        .memo-field-val   { color: var(--text); font-weight: 500; }
+        .memo-actions     { display: flex; gap: 10px; margin-top: 16px; }
+        .memo-stats-bar   { padding: 14px 16px; border-top: 1px solid var(--border); display: flex; gap: 16px; }
+        .memo-stat-val    { font-size: 24px; font-weight: 700; }
+        .memo-stat-label  { font-size: 12px; color: var(--text-muted); }
+
+        .settings-section { margin-bottom: 24px; }
+        .settings-section-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .settings-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+        .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .settings-row:last-child { border-bottom: none; }
+        .settings-label { font-size: 13px; font-weight: 600; }
+        .settings-hint  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .settings-hint a { color: var(--accent); text-decoration: none; }
+        .settings-input-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .settings-input-row:last-child { border-bottom: none; }
+        .settings-input-label { font-size: 13px; color: var(--text-muted); width: 120px; flex-shrink: 0; }
+        .settings-save { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+        .toggle { width: 44px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
+        .toggle.on  { background: var(--accent); }
+        .toggle.off { background: var(--text-dim); }
+        .toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 3px; transition: left .2s; }
+        .toggle.on  .toggle-knob { left: 23px; }
+        .toggle.off .toggle-knob { left: 3px; }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 440px; max-height: 90vh; overflow-y: auto; }
+        .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+        .form-row   { margin-bottom: 14px; }
+        .form-label { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: block; }
+        .form-input { width: 100%; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 2000; animation: slideUp .3s ease; }
+        .toast.success { background: var(--green); color: #fff; }
+        .toast.error   { background: var(--red); color: #fff; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .spin { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-row { text-align: center; padding: 40px; color: var(--text-muted); }
+
+        @media(max-width:900px) {
+          .stat-grid { grid-template-columns: 1fr 1fr; }
+          .overview-grid { grid-template-columns: 1fr; }
+          .news-grid { grid-template-columns: 1fr; }
+          .memo-layout { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
+
+      <nav>
+        <div className="nav-logo">
+          {!logoErr
+            ? <img src="/capstonelogo.png" alt="logo" onError={() => setLogoErr(true)} />
+            : <div className="nav-logo-icon">DP</div>}
+          <div className="nav-logo-text">
+            <span>Dela Paz National High School</span>
+            <span>Admin Portal</span>
+          </div>
+        </div>
+        <div className="nav-links">
+          {['overview','users','news','calendar','memos','settings'].map(p => (
+            <button key={p} className={`nav-link ${page === p ? 'active' : ''}`} onClick={() => setPage(p)}>
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="nav-actions">
+          <button className="nav-search-btn" title="Search">
+            <Search size={17} />
+          </button>
+          <button className="nav-toggle-btn" title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} onClick={() => setDarkMode(d => !d)}>
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          <div className="nav-avatar" style={{ background: avatarColor(userData?.name || '') }} title={userData?.name || 'Admin'}>
+            {initials(userData?.name)}
+          </div>
+          <button className="nav-logout-btn" onClick={() => { logout(); navigate('/login'); }}>
+            <LogOut size={14} />
+            Logout
+          </button>
+        </div>
+      </nav>
+
+      <div className="layout">
+        <div className="sidebar">
+          {[
+            ['overview',  'Overview'],
+            ['users',     'User Management'],
+            ['news',      'News Management'],
+            ['calendar',  'Calendar'],
+            ['memos',     'Memos'],
+            ['settings',  'System Settings'],
+          ].map(([k, v]) => (
+            <div key={k} className={`sidebar-item ${page === k ? 'active' : ''}`} onClick={() => setPage(k)}>{v}</div>
+          ))}
+
+          {page === 'settings' && (
+            <div>
+              <div className="sidebar-section">Sections</div>
+              {[
+                ['sec-general',       'General'],
+                ['sec-security',      'Security'],
+                ['sec-notifications', 'Notifications'],
+                ['sec-integrations',  'Integrations'],
+                ['sec-backup',        'Backup & Logs'],
+                ['sec-appearance',    'Appearance'],
+              ].map(([id, label]) => (
+                <div key={id} className={`sidebar-sub ${activeSettingsSub === id ? 'active' : ''}`} onClick={() => scrollToSection(id)}>{label}</div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop:20, padding:'12px 20px', fontSize:12, color:'var(--text-dim)', display:'flex', alignItems:'center', gap:6 }}>
+            <span className="dot dot-green"></span> All systems online
+          </div>
+        </div>
+
+        <div className="main">
+
+          {/* OVERVIEW */}
+          {page === 'overview' && (
+            <div>
+              <div className="page-title">Dashboard Overview</div>
+              <div className="page-sub">Academic Year {settings.academic_year} · {settings.semester}</div>
+              <div className="stat-grid">
+                {[
+                  { label:'Total Users',    value: stats.users,  color:'var(--accent)',  change:'up',   note:'Live from DB' },
+                  { label:'Published News', value: stats.news,   color:'var(--green)',   change:'up',   note:'Published only' },
+                  { label:'Calendar Events',value: stats.events, color:'var(--yellow)',  change:'',     note:'All events' },
+                  { label:'Memos Sent',     value: stats.memos,  color:'var(--purple)',  change:'down', note:'All memos' },
+                ].map(s => (
+                  <div key={s.label} className="stat-card">
+                    <div className="stat-label">{s.label}</div>
+                    <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
+                    {s.change && <div className={`stat-change ${s.change}`}>{s.note}</div>}
+                  </div>
+                ))}
+              </div>
+              <div className="overview-grid">
+                <div className="chart-card">
+                  <div className="chart-title">Recent Activity</div>
+                  <div className="chart-sub">Latest actions on the portal</div>
+                  {activityLogs.length === 0
+                    ? <div style={{ color:'var(--text-muted)', fontSize:13 }}>No recent activity</div>
+                    : activityLogs.map((l, i) => (
+                      <div key={i} className="recent-item">
+                        <span className="recent-dot" style={{ background: ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#2dd4bf'][i % 5] }}></span>
+                        <div className="recent-info">
+                          <div className="recent-title">{l.action}</div>
+                          <div className="recent-time">{l.user_name} · {new Date(l.created_at).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+                <div className="chart-card">
+                  <div className="chart-title">Role Distribution</div>
+                  <div className="role-bar">
+                    {roleDist.map(({ role, count }) => {
+                      const total = roleDist.reduce((a, b) => a + b.count, 0);
+                      const pct   = total ? Math.round((count / total) * 100) : 0;
+                      const color = { student:'#3b82f6', teacher:'#22c55e', faculty:'#2dd4bf', registrar:'#f59e0b', main_admin:'#ef4444' }[role] || 'var(--text-muted)';
+                      return (
+                        <div key={role} className="role-row">
+                          <span className="role-label">{roleLabel(role)} · {count}</span>
+                          <div className="role-track"><div className="role-fill" style={{ width:`${pct}%`, background: color }}></div></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* USERS */}
+          {page === 'users' && (
+            <div>
+              <div className="page-title">User Management</div>
+              <div className="page-sub">Create accounts and assign roles across the portal</div>
+              <div className="toolbar">
+                <input placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} style={{ flex:1, maxWidth:280 }} />
+                <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ width:'auto' }}>
+                  <option value="">Role: All</option>
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="registrar">Registrar</option>
+                  <option value="main_admin">Admin</option>
+                </select>
+                <button className="btn btn-primary" onClick={openCreateUser}>+ Create User</button>
+              </div>
+              <div className="table-card">
+                {usersLoading
+                  ? <div className="loading-row"><div className="spin"></div></div>
+                  : <table>
+                    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {filteredUsers.map(u => (
+                        <tr key={u.id}>
+                          <td>
+                            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                              <div className="avatar" style={{ background: avatarColor(u.name || u.email || '') }}>
+                                {initials(u.name || u.email)}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight:600 }}>{u.name || '—'}</div>
+                                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{roleLabel(u.role)} · {u.department || ''}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ color:'var(--text-muted)' }}>{u.email}</td>
+                          <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
+                          <td>
+                            <span style={{ display:'flex', alignItems:'center', gap:6 }}>
+                              <span className={`dot ${u.status === 'Active' ? 'dot-green' : 'dot-gray'}`}></span>
+                              {u.status || 'Active'}
+                            </span>
+                          </td>
+                          <td>
+                            <button className="btn btn-sm" style={{ color:'var(--accent)', background:'none', border:'none', cursor:'pointer' }} onClick={() => openEditUser(u)}>Edit</button>
+                            <button className="btn btn-sm btn-danger" onClick={() => deleteUser(u.id)}>Del</button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredUsers.length === 0 && (
+                        <tr><td colSpan={5} style={{ textAlign:'center', color:'var(--text-muted)', padding:30 }}>No users found</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                }
+                <div className="pagination">
+                  <span>Showing {filteredUsers.length} of {users.length} users</span>
+                  <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
+                    <button className="page-btn">‹</button>
+                    <button className="page-btn active">1</button>
+                    <button className="page-btn">2</button>
+                    <button className="page-btn">›</button>
+                  </div>
+                </div>
+              </div>
+              <div className="assign-bar">
+                <div>
+                  <div className="assign-label">Assign Role on Create</div>
+                  <div className="assign-hint">Choose from: Student · Teacher · Faculty · Registrar · Admin</div>
+                </div>
+                <button className="btn btn-primary" onClick={openCreateUser}>Assign</button>
+              </div>
+            </div>
+          )}
+
+          {/* NEWS */}
+          {page === 'news' && (
+            <div>
+              <div className="page-title">News Management</div>
+              <div className="page-sub">Create, edit, archive, and publish portal announcements</div>
+              <div className="toolbar">
+                <input placeholder="Search articles..." value={newsSearch} onChange={e => setNewsSearch(e.target.value)} style={{ flex:1, maxWidth:260 }} />
+                <select value={newsCatF} onChange={e => setNewsCatF(e.target.value)} style={{ width:'auto' }}>
+                  <option value="">Category</option>
+                  {['Academics','Events','Scholarships','Announcements','Sports'].map(c => <option key={c}>{c}</option>)}
+                </select>
+                <select value={newsStatF} onChange={e => setNewsStatF(e.target.value)} style={{ width:'auto' }}>
+                  <option value="">Status</option>
+                  <option>Published</option><option>Draft</option><option>Archived</option>
+                </select>
+                <button className="btn btn-primary" onClick={openNewPost}>+ New Post</button>
+              </div>
+              {newsLoading
+                ? <div className="loading-row"><div className="spin"></div></div>
+                : <div className="news-grid">
+                  {filteredNews.map(n => {
+                    const topCls = n.status === 'Published' ? 'pub' : n.status === 'Draft' ? 'draft' : 'arch';
+                    const sb     = n.status === 'Published' ? 'badge-green' : n.status === 'Draft' ? 'badge-yellow' : 'badge-red';
+                    const targetLabel = TARGET_ROLES.find(t => t.value === n.target_roles)?.label || 'All Users';
+                    return (
+                      <div key={n.id} className="news-card">
+                        <div className={`news-card-top ${topCls}`}></div>
+                        <div className="news-card-body">
+                          <div className="news-meta">
+                            <span className={`badge ${sb}`}>{n.status}</span>
+                            {n.category && <span className="badge badge-purple">{n.category}</span>}
+                            <span className="badge badge-blue">{targetLabel}</span>
+                          </div>
+                          <div className="news-title">{n.title}</div>
+                          <div className="news-author">{n.author || '—'} · {new Date(n.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <div className="news-actions">
+                          {n.status === 'Published' && (
+                            <>
+                              <button className="news-action" onClick={() => openEditNews(n)}>Edit</button>
+                              <button className="news-action" onClick={() => updateNewsStatus(n.id,'Archived')}>Archive</button>
+                              <button className="news-action red" onClick={() => deleteNewsItem(n.id)}>Delete</button>
+                              <button className="news-action blue" style={{ marginLeft:'auto' }}>↗ View</button>
+                            </>
+                          )}
+                          {n.status === 'Draft' && (
+                            <>
+                              <button className="news-action" onClick={() => openEditNews(n)}>Edit</button>
+                              <button className="news-action green" onClick={() => updateNewsStatus(n.id,'Published')}>Publish</button>
+                              <button className="news-action red" onClick={() => deleteNewsItem(n.id)}>Delete</button>
+                              <button className="news-action blue" style={{ marginLeft:'auto' }}>Preview</button>
+                            </>
+                          )}
+                          {n.status === 'Archived' && (
+                            <>
+                                                            <button className="news-action green" onClick={() => updateNewsStatus(n.id,'Published')}>Restore</button>
+                              <button className="news-action red" onClick={() => deleteNewsItem(n.id)}>Delete</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredNews.length === 0 && <div style={{ color:'var(--text-muted)', fontSize:13 }}>No posts found</div>}
+                </div>
+              }
+              <div className="news-footer">
+                {newsItems.length} total posts · {newsItems.filter(x=>x.status==='Published').length} published · {newsItems.filter(x=>x.status==='Draft').length} drafts · {newsItems.filter(x=>x.status==='Archived').length} archived
+              </div>
+            </div>
+          )}
+
+          {/* CALENDAR */}
+          {page === 'calendar' && (
+            <div>
+              <div className="page-title">Calendar Management</div>
+              <div className="page-sub">Manage academic events, deadlines, and announcements</div>
+              <div style={{ display:'flex', gap:16 }}>
+                <div style={{ flex:1 }}>
+                  <div className="cal-toolbar">
+                    <button className="cal-nav" onClick={prevMonth}>‹</button>
+                    <span className="cal-title">{MONTHS[calMonth]} {calYear}</span>
+                    <button className="cal-nav" onClick={nextMonth}>›</button>
+                    <select style={{ marginLeft:8, width:'auto' }}><option>Month</option><option>Week</option></select>
+                    <button className="btn btn-primary" style={{ marginLeft:'auto' }} onClick={openCreateEvent}>+ Add Event</button>
+                    <select value={calFilter} onChange={e => setCalFilter(e.target.value)} style={{ width:'auto' }}>
+                      <option value="">Filter type</option>
+                      {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="cal-grid">
+                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="cal-head">{d}</div>)}
+                    {calGrid.map((cell, i) => {
+                      const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(cell.d).padStart(2,'0')}`;
+                      const isToday = cell.cur && cell.d===today.getDate() && calMonth===today.getMonth() && calYear===today.getFullYear();
+                      const evs = calEvents.filter(e => {
+                        if (!cell.cur) return false;
+                        if (calFilter && e.event_type !== calFilter) return false;
+                        if (e.end_date) return ds >= e.event_date && ds <= e.end_date;
+                        return e.event_date === ds;
+                      });
+                      return (
+                        <div key={i} className={`cal-cell ${isToday ? 'today' : ''} ${!cell.cur ? 'other-month' : ''}`}>
+                          <div className="cal-day">{cell.d}</div>
+                          {evs.map((e, j) => (
+                            <div key={j} className={`cal-event ${typeClass(e.event_type)}`} onClick={() => openEditEvent(e)} title="Click to edit">
+                              {e.title}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="legend">
+                    {[['Enrollment','#3b82f6'],['Exams','#f59e0b'],['Holiday','#22c55e'],['Meetings','#a78bfa'],['Activity','#2dd4bf']].map(([l,c]) => (
+                      <div key={l} className="legend-item"><div className="legend-dot" style={{ background:c }}></div>{l}</div>
+                    ))}
+                  </div>
+                </div>
+                <div className="cal-sidebar">
+                  <div style={{ fontSize:13, fontWeight:600, marginBottom:12, color:'var(--text-muted)' }}>Upcoming</div>
+                  {upcomingEvents.length === 0
+                    ? <div style={{ fontSize:12, color:'var(--text-dim)' }}>No upcoming events</div>
+                    : upcomingEvents.map((e, i) => (
+                      <div key={i} className="upcoming-item" style={{ borderColor: typeColor(e.event_type) }}>
+                        <div style={{ fontSize:13, fontWeight:600 }}>{e.title}</div>
+                        <div style={{ fontSize:12, color:'var(--text-muted)' }}>{new Date(e.event_date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+                        <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                          <button className="news-action" style={{ fontSize:11 }} onClick={() => openEditEvent(e)}>Edit</button>
+                          <button className="news-action red" style={{ fontSize:11 }} onClick={() => deleteEvent(e.id)}>Remove</button>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MEMOS */}
+          {page === 'memos' && (
+            <div>
+              <div className="page-title">Memo Management</div>
+              <div className="page-sub">Compose and distribute official memos to departments or all users</div>
+              <div className="toolbar">
+                <input placeholder="Search memos..." value={memoSearch} onChange={e => setMemoSearch(e.target.value)} style={{ flex:1, maxWidth:240 }} />
+                <select value={memoFilter} onChange={e => setMemoFilter(e.target.value)} style={{ width:'auto' }}>
+                  <option value="">All Recipients</option>
+                  <option>All Faculty</option>
+                  <option>All Students</option>
+                  <option>All</option>
+                  <option>Registrar Office</option>
+                  <option>Science Dept</option>
+                  <option>Math Dept</option>
+                </select>
+                <button className="btn btn-primary" onClick={openCompose}>+ Compose</button>
+              </div>
+              <div className="memo-layout">
+                <div className="table-card">
+                  {memosLoading
+                    ? <div className="loading-row"><div className="spin"></div></div>
+                    : filteredMemos.map(m => (
+                      <div key={m.id} className={`memo-list-item ${selMemo?.id === m.id ? 'active' : ''}`} onClick={() => setSelMemo(m)}>
+                        <div className="memo-title-item">{m.title}</div>
+                        <div className="memo-meta">
+                          <span>{m.from_office || '—'}</span>
+                          <span>→</span>
+                          <span>{m.recipient || 'All'}</span>
+                          <span style={{ color:'var(--text-dim)' }}>{new Date(m.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div className="memo-snippet">{m.body?.slice(0,60)}...</div>
+                      </div>
+                    ))
+                  }
+                  {filteredMemos.length === 0 && !memosLoading && (
+                    <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)' }}>No memos found</div>
+                  )}
+                </div>
+                <div>
+                  {selMemo ? (
+                    <div className="memo-preview">
+                      <div className="memo-field">
+                        <span className="memo-field-label">From</span>
+                        <span className="memo-field-val">{selMemo.from_office || '—'}</span>
+                      </div>
+                      <div className="memo-field">
+                        <span className="memo-field-label">To</span>
+                        <span className="memo-field-val">{selMemo.recipient || 'All Faculty'}</span>
+                      </div>
+                      <div className="memo-field">
+                        <span className="memo-field-label">Date</span>
+                        <span className="memo-field-val">{new Date(selMemo.created_at).toLocaleString()}</span>
+                      </div>
+                      <div style={{ marginTop:16, lineHeight:1.6, fontSize:13, whiteSpace:'pre-wrap' }}>{selMemo.body}</div>
+                      <div className="memo-actions">
+                        <button className="btn btn-ghost" onClick={() => openEditMemo(selMemo)}>Edit</button>
+                        <button className="btn btn-danger" onClick={() => deleteMemo(selMemo.id)}>Delete</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="memo-preview" style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>
+                      Select a memo to view
+                    </div>
+                  )}
+                  <div className="memo-stats-bar">
+                    <div><div className="memo-stat-val">{memos.length}</div><div className="memo-stat-label">Total</div></div>
+                    <div><div className="memo-stat-val">{memos.filter(m=>m.recipient==='All Faculty').length}</div><div className="memo-stat-label">Faculty</div></div>
+                    <div><div className="memo-stat-val">{memos.filter(m=>m.recipient==='All Students').length}</div><div className="memo-stat-label">Students</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SETTINGS */}
+          {page === 'settings' && (
+            <div>
+              <div className="page-title">System Settings</div>
+              <div className="page-sub">Configure portal name, academic year, and system preferences</div>
+
+              <div id="sec-general" className="settings-section">
+                <div className="settings-section-title">General</div>
+                <div className="settings-card">
+                  <div className="settings-input-row">
+                    <span className="settings-input-label">Portal Name</span>
+                    <input value={settings.portal_name} onChange={e => setSettings({...settings, portal_name: e.target.value})} style={{ flex:1 }} />
+                  </div>
+                  <div className="settings-input-row">
+                    <span className="settings-input-label">Academic Year</span>
+                    <input value={settings.academic_year} onChange={e => setSettings({...settings, academic_year: e.target.value})} style={{ flex:1 }} />
+                  </div>
+                  <div className="settings-input-row">
+                    <span className="settings-input-label">Semester</span>
+                    <select value={settings.semester} onChange={e => setSettings({...settings, semester: e.target.value})} style={{ flex:1 }}>
+                      <option>1st Semester</option><option>2nd Semester</option><option>Summer</option>
+                    </select>
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Auto-Save Settings</div>
+                      <div className="settings-hint">Automatically save changes after 2 seconds</div>
+                    </div>
+                    <Toggle on={autoSave} onClick={() => setAutoSave(!autoSave)} />
+                  </div>
+                  <div className="settings-save">
+                    <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving}>
+                      {settingsSaving ? <span className="spin" style={{ width:16, height:16, marginRight:6 }}></span> : null}
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="sec-security" className="settings-section">
+                <div className="settings-section-title">Security</div>
+                <div className="settings-card">
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Two-Factor Authentication</div>
+                      <div className="settings-hint">Require 2FA for all admin logins</div>
+                    </div>
+                    <Toggle on={twoFactorAuth} onClick={() => setTwoFactorAuth(!twoFactorAuth)} />
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Session Timeout</div>
+                      <div className="settings-hint">Auto-logout after inactivity</div>
+                    </div>
+                    <select value={sessionTimeout} onChange={e => setSessionTimeout(e.target.value)} style={{ width:'auto' }}>
+                      <option>15 min</option><option>30 min</option><option>1 hour</option><option>2 hours</option>
+                    </select>
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Login Attempt Limit</div>
+                      <div className="settings-hint">Lock account after 5 failed attempts</div>
+                    </div>
+                    <Toggle on={loginAttemptLimit} onClick={() => setLoginAttemptLimit(!loginAttemptLimit)} />
+                  </div>
+                </div>
+              </div>
+
+              <div id="sec-notifications" className="settings-section">
+                <div className="settings-section-title">Notifications</div>
+                <div className="settings-card">
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Email Notifications</div>
+                      <div className="settings-hint">Send alerts to admin email</div>
+                    </div>
+                    <Toggle on={emailNotifications} onClick={() => setEmailNotifications(!emailNotifications)} />
+                  </div>
+                </div>
+              </div>
+
+              <div id="sec-integrations" className="settings-section">
+                <div className="settings-section-title">Integrations</div>
+                <div className="settings-card">
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">LMS Integration</div>
+                      <div className="settings-hint">Connect to Google Classroom or Moodle</div>
+                    </div>
+                    <Toggle on={lmsIntegration} onClick={() => setLmsIntegration(!lmsIntegration)} />
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">SMS Gateway</div>
+                      <div className="settings-hint">Send SMS alerts to parents</div>
+                    </div>
+                    <Toggle on={smsGateway} onClick={() => setSmsGateway(!smsGateway)} />
+                  </div>
+                </div>
+              </div>
+
+              <div id="sec-backup" className="settings-section">
+                <div className="settings-section-title">Backup & Logs</div>
+                <div className="settings-card">
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Auto-Backup</div>
+                      <div className="settings-hint">Daily database backup to cloud storage</div>
+                    </div>
+                    <Toggle on={autoBackup} onClick={() => setAutoBackup(!autoBackup)} />
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Activity Log Retention</div>
+                      <div className="settings-hint">How long to keep system logs</div>
+                    </div>
+                    <select value={activityLogsDays} onChange={e => setActivityLogsDays(e.target.value)} style={{ width:'auto' }}>
+                      <option>30 days</option><option>90 days</option><option>1 year</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div id="sec-appearance" className="settings-section">
+                <div className="settings-section-title">Appearance</div>
+                <div className="settings-card">
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Theme</div>
+                      <div className="settings-hint">System-wide color scheme</div>
+                    </div>
+                    <select value={theme} onChange={e => { setTheme(e.target.value); setDarkMode(e.target.value === 'Dark'); }} style={{ width:'auto' }}>
+                      <option>Dark</option><option>Light</option><option>Auto</option>
+                    </select>
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Language</div>
+                      <div className="settings-hint">Portal display language</div>
+                    </div>
+                    <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width:'auto' }}>
+                      <option>English</option><option>Filipino</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* MODALS */}
+
+      {/* USER MODAL */}
+      <div className={`modal-overlay ${modal === 'user' ? 'open' : ''}`} onClick={handleOverlayClick}>
+        <div className="modal">
+          <div className="modal-title">{editUser ? 'Edit User' : 'Create User'}</div>
+          <div className="form-row">
+            <label className="form-label">Full Name</label>
+            <input className="form-input" value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz" />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Email</label>
+            <input className="form-input" value={uEmail} onChange={e => setUEmail(e.target.value)} placeholder="user@school.edu" disabled={!!editUser} />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Role</label>
+            <select className="form-input" value={uRole} onChange={e => setURole(e.target.value)}>
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="faculty">Faculty</option>
+              <option value="registrar">Registrar</option>
+              <option value="main_admin">Admin</option>
+            </select>
+          </div>
+          <div className="form-row">
+            <label className="form-label">Department</label>
+            <input className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Science Dept" />
+          </div>
+          {!editUser && (
+            <div className="form-row">
+              <label className="form-label">Password</label>
+              <input className="form-input" type="password" value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 6 characters" />
+            </div>
+          )}
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
+            <button className="btn btn-primary" onClick={saveUser} disabled={uSaving}>
+              {uSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+              {editUser ? 'Update' : 'Create'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* NEWS MODAL */}
+      <div className={`modal-overlay ${modal === 'news' ? 'open' : ''}`} onClick={handleOverlayClick}>
+        <div className="modal">
+          <div className="modal-title">{editNews ? 'Edit Post' : 'New Post'}</div>
+          <div className="form-row">
+            <label className="form-label">Title</label>
+            <input className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Category</label>
+            <select className="form-input" value={nCat} onChange={e => setNCat(e.target.value)}>
+              {['Academics','Events','Scholarships','Announcements','Sports'].map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-row">
+            <label className="form-label">Target Audience</label>
+            <select className="form-input" value={nTarget} onChange={e => setNTarget(e.target.value)}>
+              {TARGET_ROLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          <div className="form-row">
+            <label className="form-label">Author</label>
+            <input className="form-input" value={nAuthor} onChange={e => setNAuthor(e.target.value)} placeholder="Your name" />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Content</label>
+            <textarea className="form-input" rows={5} value={nContent} onChange={e => setNContent(e.target.value)} placeholder="Write your announcement..." />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Status</label>
+            <select className="form-input" value={nStatus} onChange={e => setNStatus(e.target.value)}>
+              <option>Draft</option><option>Published</option>
+            </select>
+          </div>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
+            <button className="btn btn-primary" onClick={saveNews} disabled={nSaving}>
+              {nSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+              {editNews ? 'Update' : 'Publish'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* EVENT MODAL */}
+      <div className={`modal-overlay ${modal === 'event' ? 'open' : ''}`} onClick={handleOverlayClick}>
+        <div className="modal">
+          <div className="modal-title">{editEvent ? 'Edit Event' : 'Add Calendar Event'}</div>
+          <div className="form-row">
+            <label className="form-label">Title</label>
+            <input className="form-input" value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="Event title" />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Start Date</label>
+            <input className="form-input" type="date" value={evDate} onChange={e => setEvDate(e.target.value)} />
+          </div>
+          <div className="form-row">
+            <label className="form-label">End Date (optional)</label>
+            <input className="form-input" type="date" value={evEnd} onChange={e => setEvEnd(e.target.value)} />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Type</label>
+            <select className="form-input" value={evType} onChange={e => setEvType(e.target.value)}>
+              {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="form-row">
+            <label className="form-label">Description</label>
+            <textarea className="form-input" rows={3} value={evDesc} onChange={e => setEvDesc(e.target.value)} placeholder="Event details..." />
+          </div>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
+            <button className="btn btn-primary" onClick={saveEvent} disabled={evSaving}>
+              {evSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+              {editEvent ? 'Update' : 'Add Event'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* DELETE CONFIRM MODAL */}
+      <div className={`modal-overlay ${deleteConfirm ? 'open' : ''}`} onClick={() => setDeleteConfirm(null)}>
+        <div className="modal" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: 'rgba(239,68,68,0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <AlertTriangle size={26} color="var(--red)" />
+            </div>
+          </div>
+          <div className="modal-title" style={{ textAlign: 'center', marginBottom: 8 }}>Delete User?</div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.6 }}>
+            You are about to permanently delete
+          </p>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+            {deleteConfirm?.label}
+          </p>
+          {deleteConfirm?.role && (
+            <span className={`badge ${roleBadge(deleteConfirm.role)}`} style={{ marginBottom: 12, display: 'inline-block' }}>
+              {roleLabel(deleteConfirm.role)}
+            </span>
+          )}
+          <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 10, marginBottom: 20 }}>
+            ⚠ This action cannot be undone. The account will be removed immediately.
+          </p>
+          <div className="modal-actions" style={{ justifyContent: 'center', gap: 12 }}>
+            <button className="btn btn-ghost" onClick={() => setDeleteConfirm(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ background: 'var(--red)', borderColor: 'var(--red)' }}
+              onClick={async () => {
+                const fn = deleteConfirm?.onConfirm;
+                setDeleteConfirm(null);
+                if (fn) await fn();
+              }}
+            >
+              Yes, Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* MEMO MODAL */}
+      <div className={`modal-overlay ${modal === 'memo' ? 'open' : ''}`} onClick={handleOverlayClick}>
+        <div className="modal">
+          <div className="modal-title">{editMemo ? 'Edit Memo' : 'Compose Memo'}</div>
+          <div className="form-row">
+            <label className="form-label">From Office</label>
+            <input className="form-input" value={mFrom} onChange={e => setMFrom(e.target.value)} placeholder="e.g. Principal's Office" />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Recipient</label>
+            <select className="form-input" value={mTo} onChange={e => setMTo(e.target.value)}>
+              <option>All Faculty</option>
+              <option>All Students</option>
+              <option>All</option>
+              <option>Registrar Office</option>
+              <option>Science Dept</option>
+              <option>Math Dept</option>
+            </select>
+          </div>
+          <div className="form-row">
+            <label className="form-label">Subject</label>
+            <input className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Body</label>
+            <textarea className="form-input" rows={6} value={mBody} onChange={e => setMBody(e.target.value)} placeholder="Write your memo..." />
+          </div>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
+            <button className="btn btn-primary" onClick={saveMemo} disabled={mSaving}>
+              {mSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+              {editMemo ? 'Update' : 'Send'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default AdminDashboard;

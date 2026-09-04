@@ -11,7 +11,7 @@ import { supabase } from '../../../config/supabase';
 import {
   LayoutDashboard, Users, ClipboardList, Calendar, FileText,
   Search, Moon, Sun, LogOut, Menu, ChevronRight, Bell, School,
-  BarChart3, Inbox
+  BarChart3, Inbox, Settings
 } from 'lucide-react';
 import { ThemeStyles } from './shared/ui';
 import DashboardTab from './tabs/DashboardTab';
@@ -31,6 +31,7 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -108,7 +109,7 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--reg-bg)' }}>
+    <div className="dashboard-shell flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--reg-bg)' }}>
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
@@ -126,7 +127,13 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
           {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronRight size={13} className="rotate-180" />}
         </button>
 
-        <div className="p-5 border-b flex items-center gap-3" style={{ borderColor: 'var(--reg-border)' }}>
+        <div className="p-5 border-b" style={{ borderColor: 'var(--reg-border)' }}>
+          <button
+            onClick={() => setProfileOpen(open => !open)}
+            className={`w-full flex items-center gap-3 text-left ${sidebarCollapsed ? 'lg:justify-center' : ''}`}
+            aria-expanded={profileOpen}
+            aria-label="Toggle profile menu"
+          >
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ backgroundColor: '#FFC542', color: '#12069f' }}>
             {(userData?.name || 'R')[0].toUpperCase()}
           </div>
@@ -134,6 +141,14 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
             <p className="text-sm font-bold truncate" style={{ color: 'var(--reg-text)' }}>{userData?.name || 'Registrar'}</p>
             <p className="text-[11px]" style={{ color: 'var(--reg-muted)' }}>Registrar</p>
           </div>}
+          {!sidebarCollapsed && <ChevronRight size={15} className={`ml-auto transition-transform ${profileOpen ? 'rotate-90' : ''}`} style={{ color: 'var(--reg-muted)' }} />}
+          </button>
+          {profileOpen && !sidebarCollapsed && (
+            <button onClick={() => navigate('/change-password')} className="mt-3 w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium" style={{ color: 'var(--reg-muted)', backgroundColor: 'var(--reg-bg)' }}>
+              <Settings size={15} />
+              <span>Profile Settings</span>
+            </button>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3">

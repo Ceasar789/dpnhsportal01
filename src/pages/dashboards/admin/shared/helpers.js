@@ -30,7 +30,7 @@ export const roleLabel = (role) => ({
 }[role] || role);
 
 export const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-export const EVENT_TYPES = ['Enrollment','Exams','Holiday','Meetings','Activity'];
+export const EVENT_TYPES = ['Event', 'Deadline', 'Holiday', 'Meeting', 'Other', 'Custom Type'];
 
 // Target roles for news distribution
 export const TARGET_ROLES = [

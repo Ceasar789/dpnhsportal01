@@ -17,6 +17,19 @@ body {
   color: #1a2b4a;
 }
 
+.dashboard-shell,
+.dashboard-shell * {
+  transition-property: background-color, border-color, color, box-shadow, fill, stroke;
+  transition-duration: 240ms;
+  transition-timing-function: ease;
+}
+
+.dashboard-shell [class*="animate-"],
+.dashboard-shell [style*="transform"],
+.dashboard-shell .transform {
+  transition-property: transform, opacity;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

@@ -11,7 +11,7 @@ import { supabase } from '../../../config/supabase';
 import {
   Users, BookOpen, FileText, GraduationCap,
   CalendarCheck, Megaphone, Moon, Sun, LogOut, Menu,
-  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Bell, Search
+  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Bell, Search, Settings
 } from 'lucide-react';
 import { ThemeContext, useTheme } from './hooks';
 import OverviewTab from './tabs/OverviewTab';
@@ -33,6 +33,7 @@ const TeacherLayout = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
 
   const handleLogout = () => {
@@ -80,7 +81,7 @@ const TeacherLayout = ({ children }) => {
   }, [userData]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ backgroundColor: mainBg }}>
+    <div className="dashboard-shell flex flex-col h-screen overflow-hidden" style={{ backgroundColor: mainBg }}>
       {/* ===== HEADER ===== */}
       <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30" style={{ background: brandGradient }}>
         <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
@@ -153,7 +154,13 @@ const TeacherLayout = ({ children }) => {
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>
 
-          <div className="p-5 flex items-center gap-3 border-b" style={{ borderColor }}>
+          <div className="p-5 border-b" style={{ borderColor }}>
+            <button
+              onClick={() => setProfileOpen(open => !open)}
+              className={`w-full flex items-center gap-3 text-left ${sidebarCollapsed ? 'lg:justify-center' : ''}`}
+              aria-expanded={profileOpen}
+              aria-label="Toggle profile menu"
+            >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
               style={{ backgroundColor: '#FFC542', color: '#12069f' }}
@@ -165,6 +172,14 @@ const TeacherLayout = ({ children }) => {
                 <p className="text-sm font-bold truncate" style={{ color: textPrimary }}>{userData?.name || 'Teacher'}</p>
                 <p className="text-[11px]" style={{ color: textMuted }}>Teacher</p>
               </div>
+            )}
+            {!sidebarCollapsed && <ChevronRight size={15} className={`ml-auto transition-transform ${profileOpen ? 'rotate-90' : ''}`} style={{ color: textMuted }} />}
+            </button>
+            {profileOpen && !sidebarCollapsed && (
+              <button onClick={() => navigate('/change-password')} className="mt-3 w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-slate-100" style={{ color: textMuted }}>
+                <Settings size={15} />
+                <span>Profile Settings</span>
+              </button>
             )}
           </div>
 

@@ -436,6 +436,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   description TEXT,
   event_type VARCHAR(100) CHECK (event_type IN ('Holiday', 'Event', 'Deadline', 'Meeting', 'Other')),
   event_date DATE NOT NULL,
+  end_date DATE,
   start_time TIME,
   end_time TIME,
   location VARCHAR(255),

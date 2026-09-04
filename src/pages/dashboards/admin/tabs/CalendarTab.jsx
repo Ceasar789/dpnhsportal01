@@ -13,8 +13,8 @@ const CalendarTab = () => {
   const {
     calEvents, calFilter, calGrid, calMonth, calYear, closeModal,
     deleteEvent, editEvent, evDate, evDesc, evEnd, evSaving, evTitle,
-    evType, handleOverlayClick, modal, nextMonth, openCreateEvent,
-    openEditEvent, prevMonth, saveEvent, setCalFilter, setEvDate,
+    evCustomType, evType, handleOverlayClick, modal, nextMonth, openCreateEvent,
+    openEditEvent, prevMonth, saveEvent, setCalFilter, setEvCustomType, setEvDate,
     setEvDesc, setEvEnd, setEvTitle, setEvType, today, typeClass,
     typeColor, upcomingEvents
   } = useAdminContext();
@@ -61,7 +61,7 @@ const CalendarTab = () => {
                     })}
                   </div>
                   <div className="legend">
-                    {[['Enrollment','#3b82f6'],['Exams','#f59e0b'],['Holiday','#22c55e'],['Meetings','#a78bfa'],['Activity','#2dd4bf']].map(([l,c]) => (
+                    {[['Event','#3b82f6'],['Deadline','#f59e0b'],['Holiday','#22c55e'],['Meeting','#a78bfa'],['Other','#2dd4bf']].map(([l,c]) => (
                       <div key={l} className="legend-item"><div className="legend-dot" style={{ background:c }}></div>{l}</div>
                     ))}
                   </div>
@@ -107,6 +107,12 @@ const CalendarTab = () => {
               {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
+          {evType === 'Custom Type' && (
+            <div className="form-row">
+              <label className="form-label">Custom Event Type</label>
+              <input className="form-input" value={evCustomType} onChange={e => setEvCustomType(e.target.value)} placeholder="e.g. Foundation Day or Faculty Meeting" />
+            </div>
+          )}
           <div className="form-row">
             <label className="form-label">Description</label>
             <textarea className="form-input" rows={3} value={evDesc} onChange={e => setEvDesc(e.target.value)} placeholder="Event details..." />

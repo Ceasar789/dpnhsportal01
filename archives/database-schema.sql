@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   title VARCHAR(255) NOT NULL,
   description TEXT,
   event_date DATE NOT NULL,
+  end_date DATE,
   start_time TIME,
   end_time TIME,
   location VARCHAR(255),

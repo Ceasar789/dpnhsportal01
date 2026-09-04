@@ -14,6 +14,7 @@ const DashboardLayout = ({ role, children }) => {
   const { logout, userData } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -79,7 +80,7 @@ const DashboardLayout = ({ role, children }) => {
   const brandGradient = 'linear-gradient(100deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)';
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#f1f5f9]">
+    <div className="dashboard-shell flex flex-col h-screen overflow-hidden bg-[#f1f5f9]">
       {/* ===== HEADER ===== */}
       <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30" style={{ background: brandGradient }}>
         <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
@@ -155,7 +156,13 @@ const DashboardLayout = ({ role, children }) => {
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>
 
-          <div className="p-5 flex items-center gap-3 border-b" style={{ borderColor }}>
+          <div className="p-5 border-b" style={{ borderColor }}>
+            <button
+              onClick={() => setProfileOpen(open => !open)}
+              className={`w-full flex items-center gap-3 text-left ${sidebarCollapsed ? 'lg:justify-center' : ''}`}
+              aria-expanded={profileOpen}
+              aria-label="Toggle profile menu"
+            >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
               style={{ backgroundColor: '#FFC542', color: '#12069f' }}
@@ -167,6 +174,17 @@ const DashboardLayout = ({ role, children }) => {
                 <p className="text-sm font-bold truncate text-[#1a2b4a]">{userData?.name || 'User'}</p>
                 <p className="text-[11px] text-slate-500">{roleLabels[role] || role}</p>
               </div>
+            )}
+            {!sidebarCollapsed && <ChevronRight size={15} className={`ml-auto text-slate-400 transition-transform ${profileOpen ? 'rotate-90' : ''}`} />}
+            </button>
+            {profileOpen && !sidebarCollapsed && (
+              <button
+                onClick={() => navigate('/change-password')}
+                className="mt-3 w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <Settings size={15} />
+                <span>Profile Settings</span>
+              </button>
             )}
           </div>
 

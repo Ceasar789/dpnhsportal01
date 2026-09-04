@@ -59,11 +59,12 @@ const AdminDashboard = () => {
 const AdminDashboardShell = ({ navigate, logout, userData }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { darkMode, page, setDarkMode, setPage, toast, logoErr, setLogoErr,
     activeSettingsSub, scrollToSection, settings, deleteConfirm, setDeleteConfirm } = useAdminContext();
 
   return (
-    <>
+    <div className="dashboard-shell">
       <style>{`
         /* ── DARK MODE (default) ── */
         :root {
@@ -473,9 +474,26 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           <button className="sidebar-collapse" onClick={() => setSidebarCollapsed(c => !c)} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>
-          <div className="sidebar-user">
+          <div className="sidebar-user" style={{ flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setProfileOpen(open => !open)}
+              aria-expanded={profileOpen}
+              aria-label="Toggle profile menu"
+              style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left' }}
+            >
             <div className="nav-avatar" style={{ background: avatarColor(userData?.name || '') }}>{initials(userData?.name)}</div>
             {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin'}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Administrator</div></div>}
+            {!sidebarCollapsed && <ChevronRight size={15} style={{ marginLeft: 'auto', color: 'var(--text-muted)', transform: profileOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />}
+            </button>
+            {profileOpen && !sidebarCollapsed && (
+              <button
+                onClick={() => navigate('/change-password')}
+                style={{ width: '100%', marginTop: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8, color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 13, fontWeight: 600 }}
+              >
+                <Settings size={15} />
+                <span>Profile Settings</span>
+              </button>
+            )}
           </div>
           {[
             ['overview',  'Overview', LayoutDashboard],
@@ -578,7 +596,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         </div>
       </div>
 
-    </>
+    </div>
   );
 };
 

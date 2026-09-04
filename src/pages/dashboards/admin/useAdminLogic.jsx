@@ -457,7 +457,8 @@ export const useAdminLogic = (userData) => {
   const [evTitle, setEvTitle]   = useState('');
   const [evDate,  setEvDate]    = useState('');
   const [evEnd,   setEvEnd]     = useState('');
-  const [evType,  setEvType]    = useState('Enrollment');
+  const [evType,  setEvType]    = useState('Event');
+  const [evCustomType, setEvCustomType] = useState('');
   const [evDesc,  setEvDesc]    = useState('');
   const [evSaving, setEvSaving] = useState(false);
 
@@ -474,23 +475,26 @@ export const useAdminLogic = (userData) => {
   }, []);
 
   const openCreateEvent = () => {
-    setEditEvent(null); setEvTitle(''); setEvDate(''); setEvEnd(''); setEvType('Enrollment'); setEvDesc('');
+    setEditEvent(null); setEvTitle(''); setEvDate(''); setEvEnd(''); setEvType('Event'); setEvCustomType(''); setEvDesc('');
     openModal('event');
   };
 
   const openEditEvent = (e) => {
     setEditEvent(e); setEvTitle(e.title || ''); setEvDate(e.event_date || ''); 
-    setEvEnd(e.end_date || ''); setEvType(e.event_type || 'Enrollment'); setEvDesc(e.description || '');
+    setEvEnd(e.end_date || ''); setEvType(e.custom_event_type ? 'Custom Type' : (e.event_type || 'Event')); setEvCustomType(e.custom_event_type || ''); setEvDesc(e.description || '');
     openModal('event');
   };
 
   const saveEvent = async () => {
     if (!evTitle.trim() || !evDate) return showToast('Title and date required', 'error');
+    if (evType === 'Custom Type' && !evCustomType.trim()) return showToast('Custom event type required', 'error');
     setEvSaving(true);
     try {
       const payload = {
         title: evTitle.trim(), event_date: evDate, end_date: evEnd || null,
-        event_type: evType, description: evDesc, updated_at: new Date().toISOString(),
+        event_type: evType === 'Custom Type' ? 'Other' : evType,
+        custom_event_type: evType === 'Custom Type' ? evCustomType.trim() : null,
+        description: evDesc, updated_at: new Date().toISOString(),
       };
       if (editEvent) {
         const { error } = await supabase.from('calendar_events').update(payload).eq('id', editEvent.id);
@@ -503,7 +507,7 @@ export const useAdminLogic = (userData) => {
         await logActivity('Created event', evTitle);
         showToast('Event added!');
       }
-      setEvTitle(''); setEvDate(''); setEvEnd(''); setEvType('Enrollment'); setEvDesc('');
+      setEvTitle(''); setEvDate(''); setEvEnd(''); setEvType('Event'); setEvCustomType(''); setEvDesc('');
       await fetchCalEvents(); await fetchStats();
       closeModal();
     } catch (e) {
@@ -520,8 +524,8 @@ export const useAdminLogic = (userData) => {
     await fetchCalEvents(); await fetchStats();
   };
 
-  const typeColor = (t) => ({ Enrollment:'#3b82f6', Exams:'#f59e0b', Holiday:'#22c55e', Meetings:'#a78bfa', Activity:'#2dd4bf' }[t] || '#3b82f6');
-  const typeClass = (t) => ({ Enrollment:'ev-blue', Exams:'ev-yellow', Holiday:'ev-green', Meetings:'ev-purple', Activity:'ev-teal' }[t] || 'ev-blue');
+  const typeColor = (t) => ({ Event:'#3b82f6', Deadline:'#f59e0b', Holiday:'#22c55e', Meeting:'#a78bfa', Other:'#2dd4bf' }[t] || '#3b82f6');
+  const typeClass = (t) => ({ Event:'ev-blue', Deadline:'ev-yellow', Holiday:'ev-green', Meeting:'ev-purple', Other:'ev-teal' }[t] || 'ev-blue');
 
   const calGrid = useMemo(() => {
     const first = new Date(calYear, calMonth, 1).getDay();
@@ -574,7 +578,7 @@ export const useAdminLogic = (userData) => {
   };
   const openEditMemo = (m) => {
     setEditMemo(m); setMFrom(m.from_office || ''); setMTo(m.recipient || 'All Faculty');
-    setMSubj(m.title || ''); setMBody(m.body || '');
+    setMSubj(m.subject || ''); setMBody(m.content || '');
     openModal('memo');
   };
 
@@ -583,8 +587,9 @@ export const useAdminLogic = (userData) => {
     setMSaving(true);
     try {
       const payload = {
-        title: mSubj.trim(), from_office: mFrom.trim(), recipient: mTo,
-        body: mBody, status: 'Sent', updated_at: new Date().toISOString(),
+        sender_id: userData?.uid,
+        subject: mSubj.trim(), from_office: mFrom.trim(), recipient: mTo,
+        content: mBody, status: 'Sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       };
       if (editMemo) {
         const { error } = await supabase.from('memos').update(payload).eq('id', editMemo.id);
@@ -617,7 +622,7 @@ export const useAdminLogic = (userData) => {
   const filteredMemos = useMemo(() => {
     const s = memoSearch.toLowerCase();
     return memos.filter(m =>
-      (!s || (m.title || '').toLowerCase().includes(s) || (m.body || '').toLowerCase().includes(s)) &&
+      (!s || (m.subject || '').toLowerCase().includes(s) || (m.content || '').toLowerCase().includes(s)) &&
       (!memoFilter || m.recipient === memoFilter)
     );
   }, [memos, memoSearch, memoFilter]);
@@ -809,7 +814,7 @@ export const useAdminLogic = (userData) => {
     darkMode, debounceTimersRef, debouncedFetchRoleDist, debouncedFetchStats, debouncedFetchUsers, deleteConfirm,
     deleteEvent, deleteMemo, deleteNewsItem, deleteUser, editEvent, editMemo,
     editNews, editUser, emailNotifications, evDate, evDesc, evEnd,
-    evSaving, evTitle, evType, fetchCalEvents, fetchLogs, fetchMemos,
+    evCustomType, evSaving, evTitle, evType, fetchCalEvents, fetchLogs, fetchMemos,
     fetchNews, fetchRoleDist, fetchSettings, fetchStats, fetchUsers, filteredMemos,
     filteredNews, filteredUsers, handleOverlayClick, language, lmsIntegration, logActivity,
     loginAttemptLimit, logoErr, mBody, mFrom, mSaving, mSubj,
@@ -823,7 +828,7 @@ export const useAdminLogic = (userData) => {
     setActivityLogs, setActivityLogsDays, setAutoBackup, setAutoSave, setCalEvents, setCalFilter,
     setCalMonth, setCalYear, setDarkMode, setDeleteConfirm, setEditEvent, setEditMemo,
     setEditNews, setEditUser, setEmailNotifications, setEvDate, setEvDesc, setEvEnd,
-    setEvSaving, setEvTitle, setEvType, setLanguage, setLmsIntegration, setLoginAttemptLimit,
+    setEvCustomType, setEvSaving, setEvTitle, setEvType, setLanguage, setLmsIntegration, setLoginAttemptLimit,
     setLogoErr, setMBody, setMFrom, setML, setMSaving, setMSubj,
     setMTo, setMemoFilter, setMemoSearch, setMemos, setModal, setNAuthor,
     setNCat, setNContent, setNCustomTarget, setNL, setNSaving, setNStatus, setNTarget,

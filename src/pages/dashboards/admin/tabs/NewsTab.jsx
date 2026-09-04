@@ -12,10 +12,10 @@ import { TARGET_ROLES } from '../shared/helpers';
 const NewsTab = () => {
   const {
     closeModal, deleteNewsItem, editNews, filteredNews, handleOverlayClick,
-    modal, nAuthor, nCat, nContent, nSaving, nStatus, nTarget, nTitle,
+    modal, nAuthor, nCat, nContent, nCustomTarget, nSaving, nStatus, nTarget, nTitle,
     newsCatF, newsItems, newsLoading, newsSearch, newsStatF, openEditNews,
     openNewPost, saveNews, setNAuthor, setNCat, setNContent, setNStatus,
-    setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
+    setNCustomTarget, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
   } = useAdminContext();
 
   return (
@@ -41,7 +41,9 @@ const NewsTab = () => {
                   {filteredNews.map(n => {
                     const topCls = n.status === 'Published' ? 'pub' : n.status === 'Draft' ? 'draft' : 'arch';
                     const sb     = n.status === 'Published' ? 'badge-green' : n.status === 'Draft' ? 'badge-yellow' : 'badge-red';
-                    const targetLabel = TARGET_ROLES.find(t => t.value === n.target_roles)?.label || 'All Users';
+                    const targetLabel = n.target_roles?.startsWith('custom:')
+                      ? n.target_roles.slice(7)
+                      : TARGET_ROLES.find(t => t.value === n.target_roles)?.label || 'All Users';
                     return (
                       <div key={n.id} className="news-card">
                         <div className={`news-card-top ${topCls}`}></div>
@@ -52,7 +54,7 @@ const NewsTab = () => {
                             <span className="badge badge-blue">{targetLabel}</span>
                           </div>
                           <div className="news-title">{n.title}</div>
-                          <div className="news-author">{n.author || '—'} · {new Date(n.created_at).toLocaleDateString()}</div>
+                          <div className="news-author">{n.author_id ? 'Admin' : '—'} · {new Date(n.created_at).toLocaleDateString()}</div>
                         </div>
                         <div className="news-actions">
                           {n.status === 'Published' && (
@@ -109,6 +111,17 @@ const NewsTab = () => {
               {TARGET_ROLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
+          {nTarget === 'custom' && (
+            <div className="form-row">
+              <label className="form-label">Custom Audience</label>
+              <input
+                className="form-input"
+                value={nCustomTarget}
+                onChange={e => setNCustomTarget(e.target.value)}
+                placeholder="e.g. Grade 10 students or Science Department"
+              />
+            </div>
+          )}
           <div className="form-row">
             <label className="form-label">Author</label>
             <input className="form-input" value={nAuthor} onChange={e => setNAuthor(e.target.value)} placeholder="Your name" />

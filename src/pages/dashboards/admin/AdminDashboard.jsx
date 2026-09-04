@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { Sun, Moon, Search, LogOut, AlertTriangle } from 'lucide-react';
+import { Sun, Moon, Search, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
 import { initials, avatarColor, roleBadge, roleLabel } from './shared/helpers';
 import OverviewTab from './tabs/OverviewTab';
@@ -57,6 +57,8 @@ const AdminDashboard = () => {
 // SHELL: style block, toast, nav, sidebar, page-switch
 // ============================================
 const AdminDashboardShell = ({ navigate, logout, userData }) => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { darkMode, page, setDarkMode, setPage, toast, logoErr, setLogoErr,
     activeSettingsSub, scrollToSection, settings, deleteConfirm, setDeleteConfirm } = useAdminContext();
 
@@ -118,7 +120,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; }
+        body { font-family: 'Public Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; }
 
         nav {
           background: linear-gradient(100deg, #12069f 0%, #1908DF 55%, #3a2bf0 100%);
@@ -141,14 +143,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           flex-shrink: 0;
           margin-right: 32px;
         }
+        .nav-menu-btn { display: none; }
         .nav-logo img {
-          width: 48px; height: 48px;
+          width: 56px; height: 56px;
           border-radius: 50%;
-          object-fit: cover;
+          object-fit: contain;
           flex-shrink: 0;
         }
         .nav-logo-icon {
-          width: 48px; height: 48px;
+          width: 56px; height: 56px;
           background: #ffffff;
           border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
@@ -156,8 +159,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           color: #1908DF; flex-shrink: 0;
         }
         .nav-logo-text { display: flex; flex-direction: column; line-height: 1.2; }
-        .nav-logo-text span:first-child { font-weight: 700; font-size: 16px; color: #ffffff; }
-        .nav-logo-text span:last-child { font-size: 12px; color: rgba(255,255,255,.7); font-weight: 400; }
+        .nav-logo-text span:first-child { font-weight: 800; font-size: 20px; color: #F1CA0B; }
+        .nav-logo-text span:last-child { font-size: 11px; color: rgba(255,255,255,.7); font-weight: 500; }
 
         .nav-links { display: flex; gap: 2px; flex: 1; }
         .nav-link {
@@ -191,6 +194,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           color: #ffffff; transition: background .15s;
         }
         .nav-search-btn:hover { background: rgba(255,255,255,.22); }
+        .nav-search { width: 260px; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #ffffff; color: #64748b; }
+        .nav-search input { width: 100%; border: none; outline: none; background: transparent; color: #334155; font: inherit; padding: 0; }
         .nav-toggle-btn {
           width: 36px; height: 36px; border-radius: 50%;
           border: none; background: rgba(255,255,255,.12); cursor: pointer;
@@ -217,15 +222,24 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .nav-logout-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
 
         .layout { display: flex; flex: 1; min-height: calc(100vh - 48px); }
-        .sidebar { width: 200px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 16px 0; flex-shrink: 0; }
-        .sidebar-item { padding: 9px 20px; cursor: pointer; color: var(--text-muted); font-size: 13px; transition: all .15s; display: flex; align-items: center; gap: 8px; border-left: 3px solid transparent; }
+        .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 12px 16px; flex-shrink: 0; transition: width .3s ease; position: relative; }
+        .sidebar.collapsed { width: 80px; }
+        .sidebar-user { padding: 20px 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .sidebar.collapsed .sidebar-user { justify-content: center; }
+        .sidebar-item { padding: 10px 12px; border-radius: 12px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600; transition: all .15s; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
+        .sidebar.collapsed .sidebar-item { justify-content: center; padding-left: 8px; padding-right: 8px; }
+        .sidebar-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .sidebar-item:not(.active) .sidebar-icon { border: 1px solid var(--border); }
+        .sidebar-item.active .sidebar-icon { background: var(--card-bg); box-shadow: 0 2px 6px rgba(25,8,223,.18); }
         .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
         .sidebar-item.active { color: var(--text); background: rgba(25,8,223,0.08); border-left-color: var(--accent); }
-        .sidebar-section { padding: 16px 20px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
+        .sidebar-section { padding: 16px 12px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
         .sidebar-sub { padding: 7px 20px 7px 28px; cursor: pointer; color: var(--text-dim); font-size: 12px; transition: all .15s; }
         .sidebar-sub:hover { color: var(--text-muted); }
         .sidebar-sub.active { color: var(--accent); }
-        .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
+        .sidebar-collapse { position: absolute; right: -12px; top: 28px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+        .sidebar-logout { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--border); }
+        .main { flex: 1; padding: 24px 32px; overflow-y: auto; }
 
         .page-title { font-size: 22px; font-weight: 700; color: var(--text); }
         .page-sub { color: var(--text-muted); font-size: 13px; margin-top: 3px; margin-bottom: 20px; }
@@ -260,7 +274,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 176px; }
+        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 184px; }
         .stat-icon-block { height: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .stat-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 18px; }
         .stat-label { font-size: 12px; font-weight: 700; color: var(--text); margin-top: 2px; }
@@ -393,63 +407,91 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .loading-row { text-align: center; padding: 40px; color: var(--text-muted); }
 
         @media(max-width:900px) {
+          .nav-menu-btn { display: flex; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; align-items: center; justify-content: center; cursor: pointer; }
+          .nav-search { display: none; }
+          .layout { min-height: calc(100vh - 76px); }
+          .sidebar { position: fixed; top: 76px; bottom: 0; left: 0; z-index: 50; transform: translateX(-100%); width: 256px; }
+          .sidebar.mobile-open { transform: translateX(0); }
+          .sidebar.collapsed { width: 256px; }
+          .sidebar.collapsed .sidebar-user { justify-content: flex-start; }
+          .sidebar.collapsed .sidebar-item { justify-content: flex-start; padding-left: 12px; padding-right: 12px; }
+          .sidebar-mobile-overlay { display: block; position: fixed; inset: 76px 0 0; background: rgba(0,0,0,.4); z-index: 40; }
+          .main { padding: 20px 16px; }
           .stat-grid { grid-template-columns: 1fr 1fr; }
           .overview-grid { grid-template-columns: 1fr; }
           .news-grid { grid-template-columns: 1fr; }
           .memo-layout { grid-template-columns: 1fr; }
+          .cal-sidebar { width: auto; }
+          .assign-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+          .news-actions { flex-wrap: wrap; }
+          .modal { width: min(440px, calc(100vw - 32px)); }
+        }
+        @media(max-width:600px) {
+          nav { padding: 0 16px; }
+          .nav-logo { margin-right: 0; }
+          .nav-logo-text span:first-child { font-size: 18px; }
+          .sidebar { width: 256px; }
+          .stat-grid { grid-template-columns: 1fr; }
+          .cal-toolbar > * { max-width: 100%; }
+          .cal-grid { min-width: 0; }
+          .cal-cell { min-height: 64px; padding: 5px; }
+          .cal-head { padding: 7px 2px; font-size: 10px; }
+          .cal-event { padding: 2px 3px; font-size: 10px; }
+          .modal { padding: 18px; }
         }
       `}</style>
 
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
 
       <nav>
+        <button className="nav-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
+          <Menu size={20} />
+        </button>
         <div className="nav-logo">
           {!logoErr
             ? <img src="/capstonelogo.png" alt="logo" onError={() => setLogoErr(true)} />
             : <div className="nav-logo-icon">DP</div>}
           <div className="nav-logo-text">
-            <span>Dela Paz National High School</span>
+            <span>EDUSCRIBE</span>
             <span>Admin Portal</span>
           </div>
         </div>
-        <div className="nav-links">
-          {['overview','users','news','calendar','memos','settings'].map(p => (
-            <button key={p} className={`nav-link ${page === p ? 'active' : ''}`} onClick={() => setPage(p)}>
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </button>
-          ))}
-        </div>
         <div className="nav-actions">
-          <button className="nav-search-btn" title="Search">
-            <Search size={17} />
-          </button>
+          <div className="nav-search">
+            <Search size={15} />
+            <input placeholder="Search..." aria-label="Search dashboard" />
+          </div>
           <button className="nav-toggle-btn" title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} onClick={() => setDarkMode(d => !d)}>
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-          <div className="nav-avatar" style={{ background: avatarColor(userData?.name || '') }} title={userData?.name || 'Admin'}>
-            {initials(userData?.name)}
-          </div>
-          <button className="nav-logout-btn" onClick={() => { logout(); navigate('/login'); }}>
-            <LogOut size={14} />
-            Logout
           </button>
         </div>
       </nav>
 
       <div className="layout">
-        <div className="sidebar">
+        {sidebarOpen && <div className="sidebar-mobile-overlay" onClick={() => setSidebarOpen(false)} />}
+        <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${sidebarOpen ? 'mobile-open' : ''}`}>
+          <button className="sidebar-collapse" onClick={() => setSidebarCollapsed(c => !c)} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+            {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+          </button>
+          <div className="sidebar-user">
+            <div className="nav-avatar" style={{ background: avatarColor(userData?.name || '') }}>{initials(userData?.name)}</div>
+            {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin'}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Administrator</div></div>}
+          </div>
           {[
-            ['overview',  'Overview'],
-            ['users',     'User Management'],
-            ['news',      'News Management'],
-            ['calendar',  'Calendar'],
-            ['memos',     'Memos'],
-            ['settings',  'System Settings'],
-          ].map(([k, v]) => (
-            <div key={k} className={`sidebar-item ${page === k ? 'active' : ''}`} onClick={() => setPage(k)}>{v}</div>
+            ['overview',  'Overview', LayoutDashboard],
+            ['users',     'User Management', Users],
+            ['news',      'News Management', Newspaper],
+            ['calendar',  'Calendar', Calendar],
+            ['memos',     'Memos', FileText],
+            ['settings',  'System Settings', Settings],
+          ].map(([k, v, Icon]) => (
+            <div key={k} className={`sidebar-item ${page === k ? 'active' : ''}`} onClick={() => { setPage(k); setSidebarOpen(false); }}>
+              <span className="sidebar-icon"><Icon size={16} /></span>
+              {!sidebarCollapsed && <span>{v}</span>}
+            </div>
           ))}
 
-          {page === 'settings' && (
+          {page === 'settings' && !sidebarCollapsed && (
             <div>
               <div className="sidebar-section">Sections</div>
               {[
@@ -460,13 +502,19 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                 ['sec-backup',        'Backup & Logs'],
                 ['sec-appearance',    'Appearance'],
               ].map(([id, label]) => (
-                <div key={id} className={`sidebar-sub ${activeSettingsSub === id ? 'active' : ''}`} onClick={() => scrollToSection(id)}>{label}</div>
+                <div key={id} className={`sidebar-sub ${activeSettingsSub === id ? 'active' : ''}`} onClick={() => { scrollToSection(id); setSidebarOpen(false); }}>{label}</div>
               ))}
             </div>
           )}
 
           <div style={{ marginTop:20, padding:'12px 20px', fontSize:12, color:'var(--text-dim)', display:'flex', alignItems:'center', gap:6 }}>
             <span className="dot dot-green"></span> All systems online
+          </div>
+          <div className="sidebar-logout">
+            <button className="nav-logout-btn" style={{ width:'100%', justifyContent:'flex-start', color:'#dc2626', borderColor:'#f3b9ba', background:'#fdf1f1' }} onClick={() => { logout(); navigate('/login'); }}>
+              <LogOut size={15} />
+              Logout
+            </button>
           </div>
         </div>
 

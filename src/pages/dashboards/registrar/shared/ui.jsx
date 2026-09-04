@@ -41,7 +41,7 @@ export const SectionTitle = ({ children }) => (
 
 export const PageHeader = ({ title, subtitle }) => (
   <div className="mb-6">
-    <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--reg-text)', fontFamily: 'Georgia,serif' }}>{title}</h1>
+    <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--reg-text)' }}>{title}</h1>
     <p className="text-sm" style={{ color: 'var(--reg-muted)' }}>{subtitle}</p>
   </div>
 );

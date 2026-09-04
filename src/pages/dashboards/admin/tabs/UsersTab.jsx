@@ -57,8 +57,8 @@ const UsersTab = () => {
                           <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
                           <td>
                             <span style={{ display:'flex', alignItems:'center', gap:6 }}>
-                              <span className={`dot ${u.status === 'Active' ? 'dot-green' : 'dot-gray'}`}></span>
-                              {u.status || 'Active'}
+                              <span className={`dot ${u.status?.toLowerCase() === 'active' ? 'dot-green' : 'dot-gray'}`}></span>
+                              {u.status || 'active'}
                             </span>
                           </td>
                           <td>

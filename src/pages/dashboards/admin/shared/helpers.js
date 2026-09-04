@@ -40,5 +40,6 @@ export const TARGET_ROLES = [
   { value: 'faculty', label: 'Faculty Only' },
   { value: 'registrar', label: 'Registrar Only' },
   { value: 'teacher,faculty,registrar', label: 'Staff Only (No Students)' },
+  { value: 'custom', label: 'Custom Audience' },
 ];
 

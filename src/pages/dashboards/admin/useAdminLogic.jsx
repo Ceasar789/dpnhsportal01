@@ -10,7 +10,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../../config/supabase';
 
 export const useAdminLogic = (userData) => {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     if (darkMode) {
@@ -260,7 +260,7 @@ export const useAdminLogic = (userData) => {
               name: uName.trim(), 
               role: uRole,
               department: uDept.trim(), 
-              status: 'Active', 
+              status: 'active', 
               created_at: new Date().toISOString()
             }], { onConflict: 'id' })
             .select()
@@ -368,6 +368,7 @@ export const useAdminLogic = (userData) => {
   const [nContent, setNContent]     = useState('');
   const [nStatus,  setNStatus]      = useState('Draft');
   const [nTarget,  setNTarget]      = useState('all'); // NEW: role targeting
+  const [nCustomTarget, setNCustomTarget] = useState('');
   const [nSaving,  setNSaving]      = useState(false);
 
   const fetchNews = useCallback(async () => {
@@ -379,33 +380,37 @@ export const useAdminLogic = (userData) => {
   }, []);
 
   const openNewPost = () => {
-    setEditNews(null); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all');
+    setEditNews(null); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget('');
     openModal('news');
   };
   const openEditNews = (n) => {
     setEditNews(n); setNTitle(n.title || ''); setNCat(n.category || 'Academics');
     setNAuthor(n.author || ''); setNContent(n.content || ''); setNStatus(n.status || 'Draft');
-    setNTarget(n.target_roles || 'all');
+    setNTarget(n.target_roles?.startsWith('custom:') ? 'custom' : (n.target_roles || 'all'));
+    setNCustomTarget(n.target_roles?.startsWith('custom:') ? n.target_roles.slice(7) : '');
     openModal('news');
   };
 
   const saveNews = async () => {
     if (!nTitle.trim()) return showToast('Title required', 'error');
+    if (nTarget === 'custom' && !nCustomTarget.trim()) return showToast('Custom audience required', 'error');
     setNSaving(true);
     try {
       const payload = {
         title: nTitle.trim(), category: nCat, content: nContent, status: nStatus,
-        author: nAuthor.trim(), author_id: userData?.uid,
-        target_roles: nTarget, // NEW: role targeting
+        author_id: userData?.uid,
+        target_roles: nTarget === 'custom' ? `custom:${nCustomTarget.trim()}` : nTarget,
         published_at: nStatus === 'Published' ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       };
       if (editNews) {
-        await supabase.from('news').update(payload).eq('id', editNews.id);
+        const { error } = await supabase.from('news').update(payload).eq('id', editNews.id);
+        if (error) throw error;
         await logActivity('Updated news', nTitle);
         showToast('Post updated!');
       } else {
-        await supabase.from('news').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        const { error } = await supabase.from('news').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        if (error) throw error;
         await logActivity('Created news', `${nTitle} (${nStatus})`);
         showToast('Post created!');
       }
@@ -488,11 +493,13 @@ export const useAdminLogic = (userData) => {
         event_type: evType, description: evDesc, updated_at: new Date().toISOString(),
       };
       if (editEvent) {
-        await supabase.from('calendar_events').update(payload).eq('id', editEvent.id);
+        const { error } = await supabase.from('calendar_events').update(payload).eq('id', editEvent.id);
+        if (error) throw error;
         await logActivity('Updated event', evTitle);
         showToast('Event updated!');
       } else {
-        await supabase.from('calendar_events').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        const { error } = await supabase.from('calendar_events').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        if (error) throw error;
         await logActivity('Created event', evTitle);
         showToast('Event added!');
       }
@@ -580,11 +587,13 @@ export const useAdminLogic = (userData) => {
         body: mBody, status: 'Sent', updated_at: new Date().toISOString(),
       };
       if (editMemo) {
-        await supabase.from('memos').update(payload).eq('id', editMemo.id);
+        const { error } = await supabase.from('memos').update(payload).eq('id', editMemo.id);
+        if (error) throw error;
         await logActivity('Updated memo', mSubj);
         showToast('Memo updated!');
       } else {
-        await supabase.from('memos').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        const { error } = await supabase.from('memos').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        if (error) throw error;
         await logActivity('Created memo', `${mSubj} → ${mTo}`);
         showToast('Memo sent!');
       }
@@ -805,7 +814,7 @@ export const useAdminLogic = (userData) => {
     filteredNews, filteredUsers, handleOverlayClick, language, lmsIntegration, logActivity,
     loginAttemptLimit, logoErr, mBody, mFrom, mSaving, mSubj,
     mTo, memoFilter, memoSearch, memos, memosLoading, modal,
-    nAuthor, nCat, nContent, nSaving, nStatus, nTarget,
+    nAuthor, nCat, nContent, nCustomTarget, nSaving, nStatus, nTarget,
     nTitle, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
     nextMonth, notifications, openCompose, openCreateEvent, openCreateUser, openEditEvent,
     openEditMemo, openEditNews, openEditUser, openModal, openNewPost, page,
@@ -817,7 +826,7 @@ export const useAdminLogic = (userData) => {
     setEvSaving, setEvTitle, setEvType, setLanguage, setLmsIntegration, setLoginAttemptLimit,
     setLogoErr, setMBody, setMFrom, setML, setMSaving, setMSubj,
     setMTo, setMemoFilter, setMemoSearch, setMemos, setModal, setNAuthor,
-    setNCat, setNContent, setNL, setNSaving, setNStatus, setNTarget,
+    setNCat, setNContent, setNCustomTarget, setNL, setNSaving, setNStatus, setNTarget,
     setNTitle, setNewsCatF, setNewsItems, setNewsSearch, setNewsStatF, setNotifications,
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
     setSettings, setSmsGateway, setStats, setTheme, setToast, setTwoFactorAuth,

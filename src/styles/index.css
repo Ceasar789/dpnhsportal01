@@ -3,12 +3,12 @@ FILE: src/index.css
 PURPOSE: Global styles + Tailwind directives
 ============================================ */
 
+/* Google Fonts import */
+@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800;900&family=Public+Sans:wght@400;500;600;700&family=Lato:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Google Fonts import */
-@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800;900&family=Public+Sans:wght@400;500;600;700&family=Lato:wght@400;500;700&display=swap');
 
 /* Base styles */
 body {

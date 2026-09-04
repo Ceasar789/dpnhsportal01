@@ -132,7 +132,7 @@ const DashboardTab = () => {
                 {loading ? <Loader2 className="animate-spin text-white" size={22} /> : <Icon size={38} color="#ffffff" strokeWidth={2.1} />}
               </div>
               <div className="flex-1 flex flex-col justify-center px-4 py-2" style={{ backgroundColor: 'var(--reg-surface)' }}>
-                <p className="text-2xl font-bold leading-tight" style={{ color: 'var(--reg-text)', fontFamily: 'Georgia,serif' }}>
+                <p className="text-2xl font-bold leading-tight" style={{ color: 'var(--reg-text)' }}>
                   {loading ? '—' : c.value}
                 </p>
                 <p className="text-xs font-bold mt-1" style={{ color: 'var(--reg-text)' }}>{c.label}</p>

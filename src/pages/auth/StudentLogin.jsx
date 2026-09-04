@@ -15,7 +15,7 @@ const normalizeRole = (role) => {
 
 const StudentLogin = () => {
   const navigate = useNavigate();
-  const { login, logout, user, userData, isAuthenticated } = useAuth();
+  const { login, logout, user, userData } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,15 +25,6 @@ const StudentLogin = () => {
   const [loginAttempted, setLoginAttempted] = useState(false);
 
   const timeoutRef = useRef(null);
-
-  // FIXED: Redirect already-authenticated students immediately
-  useEffect(() => {
-    if (isAuthenticated && userData) {
-      if (normalizeRole(userData.role) === 'student') {
-        navigate('/student-dashboard', { replace: true });
-      }
-    }
-  }, [isAuthenticated, userData, navigate]);
 
   useEffect(() => {
     if (!loginAttempted) return;

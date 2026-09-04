@@ -57,6 +57,7 @@ const StudentLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -141,12 +142,20 @@ const StudentLayout = ({ children }) => {
       {/* SIDEBAR — Theme-aware (ORIGINAL) */}
       <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-50 w-64 flex flex-col
+          fixed lg:static inset-y-0 left-0 z-50 flex flex-col
           transform transition-transform duration-300 ease-in-out shadow-sm
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${sidebarCollapsed ? 'lg:w-20' : 'w-64'}
         `}
         style={{ backgroundColor: dark ? '#1e293b' : '#ffffff' }}
       >
+        <button
+          onClick={() => setSidebarCollapsed(c => !c)}
+          className="hidden lg:flex absolute -right-3 top-7 w-6 h-6 rounded-full items-center justify-center shadow-md z-10"
+          style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: textMuted }}
+        >
+          {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronRight size={13} className="rotate-180" />}
+        </button>
         {/* Logo + School Name */}
         <div className="p-5 border-b flex items-center gap-3" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
           <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden">
@@ -160,10 +169,10 @@ const StudentLayout = ({ children }) => {
               }}
             />
           </div>
-          <div>
+          {!sidebarCollapsed && <div>
             <p className="font-bold text-sm leading-tight" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Dela Paz National High School</p>
             <p className="text-[10px]" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Student Portal</p>
-          </div>
+          </div>}
         </div>
 
         {/* Nav */}
@@ -192,7 +201,7 @@ const StudentLayout = ({ children }) => {
                 >
                   <Icon size={16} />
                 </span>
-                <span>{item.label}</span>
+                {!sidebarCollapsed && <span>{item.label}</span>}
               </Link>
             );
           })}
@@ -211,33 +220,29 @@ const StudentLayout = ({ children }) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* TOP HEADER */}
         <header
-          className="flex items-center justify-between px-5 py-4 flex-shrink-0 shadow-sm"
+          className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30"
           style={{ background: 'linear-gradient(100deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)' }}
         >
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors"
-            >
-              <Menu size={20} />
-            </button>
-            <div className="hidden sm:block">
-              <h1 className="text-lg font-bold text-white">
-                {navItems.find(n => location.pathname === n.path || location.pathname === n.path + '/')?.label || 'Dashboard'}
-              </h1>
-              <p className="text-sm text-white/70">
-                Academic Year 2025–2026 · Last updated: {new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </p>
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+            <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full flex-shrink-0 overflow-hidden">
+              <img src="/capstonelogo.png" alt="School Logo" className="w-full h-full object-contain" />
+            </div>
+            <div className="hidden sm:block leading-tight">
+              <h1 className="font-work font-extrabold text-xl tracking-wide"><span style={{ color: '#F1CA0B' }}>EDU</span><span style={{ color: '#31F745' }}>SCRIBE</span></h1>
+              <p className="text-[11px] text-white/70 font-medium">Student Dashboard</p>
+            </div>
+          </div>
+          <div className="flex-1 hidden md:flex justify-center">
+            <div className="w-full max-w-md flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm">
+              <Search size={15} className="text-slate-400 flex-shrink-0" />
+              <input type="text" placeholder="Search assignments, quizzes, announcements..." className="bg-transparent outline-none text-sm w-full text-slate-700 placeholder:text-slate-400" />
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors"
-            >
-              <Search size={17} />
-            </button>
-
+          <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0">
             {/* Notification Bell with Dropdown */}
             <div className="relative">
               <button
@@ -255,7 +260,7 @@ const StudentLayout = ({ children }) => {
               {showNotifDropdown && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowNotifDropdown(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-80 rounded-xl shadow-xl border z-50 overflow-hidden"
+                  <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl shadow-xl border z-50 overflow-hidden"
                     style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', borderColor: dark ? '#334155' : '#e2e8f0' }}>
                     <div className="p-3 border-b flex items-center justify-between" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
                       <h3 className="text-sm font-bold" style={{ color: textPrimary }}>Notifications</h3>

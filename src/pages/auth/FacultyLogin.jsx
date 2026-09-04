@@ -22,7 +22,7 @@ const normalizeRole = (role) => {
   
 const FacultyLogin = () => {
   const navigate = useNavigate();
-  const { login, userData, isAuthenticated } = useAuth();
+  const { login, userData } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState('');
   const [email, setEmail] = useState('');
@@ -39,19 +39,6 @@ const FacultyLogin = () => {
   useEffect(() => {
     selectedRoleRef.current = selectedRole;
   }, [selectedRole]);
-
-  // FIXED: Redirect already-authenticated faculty/admin users immediately
-  useEffect(() => {
-    if (isAuthenticated && userData) {
-      const normalizedUserRole = normalizeRole(userData.role);
-      if (normalizedUserRole !== 'student') {
-        const target = ROLE_OPTIONS.find(r => r.value === normalizedUserRole);
-        if (target) {
-          navigate(target.route, { replace: true });
-        }
-      }
-    }
-  }, [isAuthenticated, userData, navigate]);
 
   useEffect(() => {
     if (!loginAttempted) return;

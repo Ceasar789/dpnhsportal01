@@ -44,6 +44,8 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
   const mountedRef = useRef(true);
+  const loginInProgressRef = useRef(false);
+  const userDataRef = useRef(null);
 
   // ─── Fetch profile from profiles table ───────────────────────────────────
   const fetchProfile = async (userId, email, metadata) => {
@@ -95,12 +97,15 @@ export const AuthProvider = ({ children }) => {
             session.user.user_metadata || {}
           );
           const role = normalizeRole(
-            session.user.user_metadata?.role || profile?.role
+            profile?.role ||
+            session.user.user_metadata?.role ||
+            (userDataRef.current?.uid === session.user.id ? userDataRef.current.role : null)
           );
           const built = buildUserData(session.user, profile, role);
 
           setUser(session.user);
           setUserData(built);
+          userDataRef.current = built;
           setIsAuthenticated(true);
         }
       } catch (err) {
@@ -126,16 +131,20 @@ export const AuthProvider = ({ children }) => {
             session.user.user_metadata || {}
           );
           const role = normalizeRole(
-            session.user.user_metadata?.role || profile?.role
+            profile?.role ||
+            session.user.user_metadata?.role ||
+            (userDataRef.current?.uid === session.user.id ? userDataRef.current.role : null)
           );
           const built = buildUserData(session.user, profile, role);
 
           setUser(session.user);
           setUserData(built);
+          userDataRef.current = built;
           setIsAuthenticated(true);
-        } else {
+        } else if (!loginInProgressRef.current) {
           setUser(null);
           setUserData(null);
+          userDataRef.current = null;
           setIsAuthenticated(false);
         }
 
@@ -157,6 +166,12 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password, expectedRole = null) => {
     setLoading(true);
     setError(null);
+    loginInProgressRef.current = true;
+    setUser(null);
+    setUserData(null);
+    setIsAuthenticated(false);
+
+    await supabase.auth.signOut({ scope: 'local' });
 
     const MAX_RETRIES = 2;
     let lastError = null;
@@ -202,9 +217,11 @@ export const AuthProvider = ({ children }) => {
 
         setUser(data.user);
         setUserData(built);
+        userDataRef.current = built;
         setIsAuthenticated(true);
         setError(null);
         setLoading(false);
+        loginInProgressRef.current = false;
 
         return data.user;
       } catch (err) {
@@ -222,6 +239,7 @@ export const AuthProvider = ({ children }) => {
 
     // All retries failed (or role mismatch short-circuited the loop)
     const msg = lastError?.message || 'Login failed. Please try again.';
+    loginInProgressRef.current = false;
     setError(msg);
     setLoading(false);
     throw lastError || new Error(msg);
@@ -236,9 +254,23 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setUserData(null);
+      userDataRef.current = null;
       setIsAuthenticated(false);
       setError(null);
     }
+  };
+
+  const sendPasswordReset = async (email) => {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${import.meta.env.VITE_APP_URL || window.location.origin}/reset-password`,
+    });
+
+    if (resetError) throw resetError;
+  };
+
+  const updatePassword = async (password) => {
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) throw updateError;
   };
 
   // ─── Update profile ───────────────────────────────────────────────────────
@@ -255,7 +287,9 @@ export const AuthProvider = ({ children }) => {
     // Refresh userData
     const profile = await fetchProfile(user.id, user.email, user.user_metadata || {});
     const role = normalizeRole(user.user_metadata?.role || profile?.role);
-    setUserData(buildUserData(user, profile, role));
+    const built = buildUserData(user, profile, role);
+    setUserData(built);
+    userDataRef.current = built;
   };
 
   // ─── Role helpers ─────────────────────────────────────────────────────────
@@ -273,6 +307,8 @@ export const AuthProvider = ({ children }) => {
     error,
     login,
     logout,
+    sendPasswordReset,
+    updatePassword,
     updateProfile,
     isTeacher,
     isFaculty,

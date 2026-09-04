@@ -7,17 +7,17 @@ export default defineConfig({
   server: {
     proxy: {
       '/auth': {
-        target: 'https://dsdwomejcigjcxuksvqt.supabase.co',
+        target: 'https://jllstakxiamxiycnwrbd.supabase.co',
         changeOrigin: true,
         secure: false,
       },
       '/rest': {
-        target: 'https://dsdwomejcigjcxuksvqt.supabase.co',
+        target: 'https://jllstakxiamxiycnwrbd.supabase.co',
         changeOrigin: true,
         secure: false,
       },
       '/storage': {
-        target: 'https://dsdwomejcigjcxuksvqt.supabase.co',
+        target: 'https://jllstakxiamxiycnwrbd.supabase.co',
         changeOrigin: true,
         secure: false,
       }

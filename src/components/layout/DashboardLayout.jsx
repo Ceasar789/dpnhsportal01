@@ -115,6 +115,20 @@ const DashboardLayout = ({ role, children }) => {
           <button className="w-9 h-9 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors relative">
             <Bell size={16} />
           </button>
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+            style={{ backgroundColor: '#FFC542', color: '#12069f' }}
+            title={userData?.name || roleLabels[role] || 'User'}
+          >
+            {(userData?.name || roleLabels[role] || 'U')[0].toUpperCase()}
+          </div>
+          <button
+            onClick={handleLogout}
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-white/25 text-white/85 hover:bg-white/10"
+          >
+            <LogOut size={15} />
+            Logout
+          </button>
         </div>
       </header>
 

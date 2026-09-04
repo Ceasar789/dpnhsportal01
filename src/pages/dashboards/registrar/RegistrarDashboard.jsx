@@ -30,6 +30,7 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -112,19 +113,27 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 flex flex-col transform transition-transform duration-300 ease-in-out shadow-lg lg:shadow-none
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col transform transition-all duration-300 ease-in-out shadow-lg lg:shadow-none
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${sidebarCollapsed ? 'lg:w-20' : 'w-64'}`}
         style={{ backgroundColor: 'var(--reg-sidebar-bg)' }}>
 
+        <button
+          onClick={() => setSidebarCollapsed(c => !c)}
+          className="hidden lg:flex absolute -right-3 top-7 w-6 h-6 rounded-full items-center justify-center shadow-md z-10"
+          style={{ backgroundColor: 'var(--reg-sidebar-bg)', border: '1px solid var(--reg-border)', color: 'var(--reg-muted)' }}
+        >
+          {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronRight size={13} className="rotate-180" />}
+        </button>
+
         <div className="p-5 border-b flex items-center gap-3" style={{ borderColor: 'var(--reg-border)' }}>
-          <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden">
-            <img src="/capstonelogo.png" alt="School Logo" className="w-full h-full object-contain"
-              onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="font-bold text-lg" style="color:var(--reg-text)">D</span>'; }} />
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ backgroundColor: '#FFC542', color: '#12069f' }}>
+            {(userData?.name || 'R')[0].toUpperCase()}
           </div>
-          <div>
-            <p className="font-bold text-sm leading-tight" style={{ color: 'var(--reg-text)' }}>Dela Paz National High School</p>
-            <p className="text-[10px]" style={{ color: 'var(--reg-muted)' }}>Registrar Portal</p>
-          </div>
+          {!sidebarCollapsed && <div className="min-w-0">
+            <p className="text-sm font-bold truncate" style={{ color: 'var(--reg-text)' }}>{userData?.name || 'Registrar'}</p>
+            <p className="text-[11px]" style={{ color: 'var(--reg-muted)' }}>Registrar</p>
+          </div>}
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3">
@@ -146,7 +155,7 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
                   }}>
                   <Icon size={16} />
                 </span>
-                <span>{item.label}</span>
+                {!sidebarCollapsed && <span>{item.label}</span>}
               </Link>
             );
           })}
@@ -157,39 +166,33 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
             <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0 animate-pulse" />
             <span className="text-xs" style={{ color: 'var(--reg-muted)' }}>All systems online</span>
           </div>
-          <div className="mt-3 px-2">
+          {!sidebarCollapsed && <div className="mt-3 px-2">
             <p className="text-[10px]" style={{ color: 'var(--reg-muted-light)' }}>
               Academic Year 2025–2026
             </p>
             <p className="text-[10px]" style={{ color: 'var(--reg-muted-light)' }}>
               Semester: 2nd Semester
             </p>
-          </div>
+          </div>}
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="flex items-center justify-between px-5 py-4 flex-shrink-0 shadow-sm"
+        <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30"
           style={{ background: 'linear-gradient(100deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)' }}>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors">
-              <Menu size={20} />
-            </button>
-            <div className="hidden sm:block">
-              <h1 className="text-lg font-bold text-white">
-                {navItems.find(n => isActive(n.path))?.label || 'Dashboard'}
-              </h1>
-              <p className="text-sm text-white/70">
-                Academic Year 2025–2026 · Last updated: {new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </p>
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0"><Menu size={20} /></button>
+          <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+            <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full flex-shrink-0 overflow-hidden"><img src="/capstonelogo.png" alt="School Logo" className="w-full h-full object-contain" /></div>
+            <div className="hidden sm:block leading-tight">
+              <h1 className="font-work font-extrabold text-xl tracking-wide"><span style={{ color: '#F1CA0B' }}>EDU</span><span style={{ color: '#31F745' }}>SCRIBE</span></h1>
+              <p className="text-[11px] text-white/70 font-medium">Registrar Dashboard</p>
             </div>
           </div>
+          <div className="flex-1 hidden md:flex justify-center">
+            <div className="w-full max-w-md flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm"><Search size={15} className="text-slate-400 flex-shrink-0" /><input type="text" placeholder="Search students, documents, schedules..." className="bg-transparent outline-none text-sm w-full text-slate-700 placeholder:text-slate-400" /></div>
+          </div>
 
-          <div className="flex items-center gap-2">
-            <button className="w-9 h-9 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors">
-              <Search size={17} />
-            </button>
-
+          <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0">
             <div className="relative">
               <button
                 onClick={() => setShowNotifDropdown(!showNotifDropdown)}
@@ -206,7 +209,7 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
               {showNotifDropdown && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowNotifDropdown(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-80 rounded-xl shadow-xl border z-50 overflow-hidden"
+                  <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl shadow-xl border z-50 overflow-hidden"
                     style={{ backgroundColor: 'var(--reg-surface)', borderColor: 'var(--reg-border)' }}>
                     <div className="p-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--reg-border)' }}>
                       <h3 className="text-sm font-bold" style={{ color: 'var(--reg-text)' }}>Notifications</h3>

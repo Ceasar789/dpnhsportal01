@@ -261,8 +261,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const sendPasswordReset = async (email) => {
+    const appUrl = import.meta.env.VITE_APP_URL || 'https://dpnhsportal01.vercel.app';
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${import.meta.env.VITE_APP_URL || window.location.origin}/reset-password`,
+      redirectTo: `${appUrl}/reset-password`,
     });
 
     if (resetError) throw resetError;

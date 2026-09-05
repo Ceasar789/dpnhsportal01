@@ -43,19 +43,30 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const mountedRef = useRef(true);
   const loginInProgressRef = useRef(false);
   const userDataRef = useRef(null);
 
   // Announce the authenticated user to the shared Realtime presence channel.
   useEffect(() => {
-    if (!userData?.uid) return undefined;
+    if (!userData?.uid) {
+      setOnlineUserIds(new Set());
+      return undefined;
+    }
 
     const presenceChannel = supabase.channel('portal-presence', {
       config: { presence: { key: userData.uid } },
     });
+    const updateOnlineUsers = () => {
+      setOnlineUserIds(new Set(Object.keys(presenceChannel.presenceState())));
+    };
 
-    presenceChannel.subscribe(async (status) => {
+    presenceChannel
+      .on('presence', { event: 'sync' }, updateOnlineUsers)
+      .on('presence', { event: 'join' }, updateOnlineUsers)
+      .on('presence', { event: 'leave' }, updateOnlineUsers)
+      .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         const { error: trackError } = await presenceChannel.track({
           user_id: userData.uid,
@@ -63,8 +74,9 @@ export const AuthProvider = ({ children }) => {
         });
 
         if (trackError) console.warn('Presence tracking error:', trackError.message);
+        updateOnlineUsers();
       }
-    });
+      });
 
     return () => {
       supabase.removeChannel(presenceChannel);
@@ -335,6 +347,7 @@ export const AuthProvider = ({ children }) => {
     sendPasswordReset,
     updatePassword,
     updateProfile,
+    onlineUserIds,
     isTeacher,
     isFaculty,
     isMainAdmin,

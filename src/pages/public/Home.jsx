@@ -12,6 +12,7 @@ const Home = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const autoSlideRef = useRef(null);
 
   const carouselImages = [
@@ -90,9 +91,19 @@ const Home = () => {
           </button>
         </div>
       ) : (
-        <button className="p-2">
-          <Menu size={28} color="#FFFFFF" />
-        </button>
+        <div className="relative">
+          <button onClick={() => setMenuOpen(open => !open)} className="p-2" aria-label="Toggle navigation menu" aria-expanded={menuOpen}>
+            <Menu size={28} color="#FFFFFF" />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-14 w-52 rounded-xl bg-white p-2 shadow-xl">
+              {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([title, route]) => (
+                <button key={route} onClick={() => { setMenuOpen(false); navigate(route); }} className="block w-full rounded-lg px-4 py-3 text-left font-work text-sm text-slate-700 hover:bg-slate-100">{title}</button>
+              ))}
+              <button onClick={() => { setMenuOpen(false); navigate('/login'); }} className="mt-1 w-full rounded-lg bg-green-500 px-4 py-3 text-left font-work text-sm font-semibold text-white">Login</button>
+            </div>
+          )}
+        </div>
       )}
     </nav>
   );

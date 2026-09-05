@@ -135,7 +135,7 @@ const StudentLayout = ({ children }) => {
       {/* TOP HEADER */}
       <header
         className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30"
-        style={{ background: 'linear-gradient(100deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)' }}
+        style={{ backgroundColor: '#003b7a' }}
       >
         <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
           <Menu size={20} />
@@ -145,8 +145,8 @@ const StudentLayout = ({ children }) => {
             <img src="/capstonelogo.png" alt="School Logo" className="w-full h-full object-contain" />
           </div>
           <div className="hidden sm:block leading-tight">
-            <h1 className="font-work font-extrabold text-xl tracking-wide"><span style={{ color: '#F1CA0B' }}>EDU</span><span style={{ color: '#31F745' }}>SCRIBE</span></h1>
-            <p className="text-[11px] text-white/70 font-medium">Student Dashboard</p>
+            <h1 className="font-work font-bold text-2xl tracking-tight leading-none"><span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span></h1>
+            <p className="font-work text-xs mt-0.5 text-white/85">Student Dashboard</p>
           </div>
         </div>
         <div className="flex-1 hidden md:flex justify-center">
@@ -232,13 +232,6 @@ const StudentLayout = ({ children }) => {
           >
             {(userData?.name || 'S')[0].toUpperCase()}
           </div>
-          <button
-            onClick={handleLogout}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-white/25 text-white/85 hover:bg-white/10"
-          >
-            <LogOut size={15} />
-            Logout
-          </button>
         </div>
       </header>
 
@@ -255,7 +248,7 @@ const StudentLayout = ({ children }) => {
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50 flex flex-col
-          transform transition-transform duration-300 ease-in-out shadow-sm
+          flex-shrink-0 transform transition-all duration-300 ease-in-out shadow-sm
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${sidebarCollapsed ? 'lg:w-20' : 'w-64'}
         `}
@@ -268,7 +261,7 @@ const StudentLayout = ({ children }) => {
         >
           {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronRight size={13} className="rotate-180" />}
         </button>
-        {/* Logo + School Name */}
+        {/* Role profile */}
         <div className="p-5 border-b" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
           <button
             onClick={() => setProfileOpen(open => !open)}
@@ -276,20 +269,12 @@ const StudentLayout = ({ children }) => {
             aria-expanded={profileOpen}
             aria-label="Toggle profile menu"
           >
-          <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden">
-            <img 
-              src="/capstonelogo.png" 
-              alt="School Logo" 
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = '<span class="font-bold text-[#1e3a5f] text-lg">D</span>';
-              }}
-            />
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ backgroundColor: '#FFC542', color: '#12069f' }}>
+            {(userData?.name || 'Student User')[0].toUpperCase()}
           </div>
           {!sidebarCollapsed && <div>
-            <p className="font-bold text-sm leading-tight" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Dela Paz National High School</p>
-            <p className="text-[10px]" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Student Portal</p>
+            <p className="font-bold text-sm leading-tight" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{userData?.name || 'Student User'}</p>
+            <p className="text-[10px]" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Student</p>
           </div>}
           {!sidebarCollapsed && <ChevronRight size={15} className={`ml-auto transition-transform ${profileOpen ? 'rotate-90' : ''}`} style={{ color: dark ? '#94a3b8' : '#64748b' }} />}
           </button>
@@ -311,7 +296,7 @@ const StudentLayout = ({ children }) => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all mb-1"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all mb-1 ${sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
                 style={{
                   color: isActive ? '#1908DF' : (dark ? '#94a3b8' : '#64748b'),
                   backgroundColor: isActive ? (dark ? '#1a2540' : '#eef0f5') : 'transparent'
@@ -337,8 +322,21 @@ const StudentLayout = ({ children }) => {
         <div className="p-5 border-t" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
           <div className="flex items-center gap-2 px-2">
             <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-            <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>All systems online</span>
+            {!sidebarCollapsed && <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>All systems online</span>}
           </div>
+        </div>
+
+        {/* Sidebar logout */}
+        <div className="px-5 pb-5">
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
+            style={{ color: '#dc2626', borderColor: '#f3b9ba', backgroundColor: dark ? 'rgba(127, 29, 29, 0.2)' : '#fdf1f1' }}
+            title={sidebarCollapsed ? 'Logout' : undefined}
+          >
+            <LogOut size={15} />
+            {!sidebarCollapsed && 'Logout'}
+          </button>
         </div>
       </aside>
 

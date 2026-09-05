@@ -77,12 +77,12 @@ const DashboardLayout = ({ role, children }) => {
 
   const borderColor = '#e2e8f0';
   const activeBg = '#eef0f5';
-  const brandGradient = 'linear-gradient(100deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)';
+  const brandBackground = '#003b7a';
 
   return (
     <div className="dashboard-shell flex flex-col h-screen overflow-hidden bg-[#f1f5f9]">
       {/* ===== HEADER ===== */}
-      <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30" style={{ background: brandGradient }}>
+      <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30" style={{ backgroundColor: brandBackground }}>
         <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
           <Menu size={20} />
         </button>
@@ -95,9 +95,9 @@ const DashboardLayout = ({ role, children }) => {
           </div>
           <div className="hidden sm:block leading-tight">
             <h1 className="font-work font-extrabold text-xl tracking-wide">
-              <span style={{ color: '#F1CA0B' }}>EDU</span><span style={{ color: '#31F745' }}>SCRIBE</span>
+              <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
             </h1>
-            <p className="text-[11px] text-white/70 font-medium">{portalLabels[role] || 'Dashboard'}</p>
+            <p className="font-work text-xs mt-0.5 text-white/85">{portalLabels[role] || 'Dashboard'}</p>
           </div>
         </div>
 
@@ -123,13 +123,6 @@ const DashboardLayout = ({ role, children }) => {
           >
             {(userData?.name || roleLabels[role] || 'U')[0].toUpperCase()}
           </div>
-          <button
-            onClick={handleLogout}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-white/25 text-white/85 hover:bg-white/10"
-          >
-            <LogOut size={15} />
-            Logout
-          </button>
         </div>
       </header>
 

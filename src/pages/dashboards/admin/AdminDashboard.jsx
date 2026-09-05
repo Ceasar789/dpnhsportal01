@@ -124,7 +124,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         body { font-family: 'Public Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; }
 
         nav {
-          background: linear-gradient(100deg, #12069f 0%, #1908DF 55%, #3a2bf0 100%);
+          background: #003b7a;
           height: 76px;
           display: flex;
           align-items: center;
@@ -159,9 +159,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           font-size: 13px; font-weight: 900;
           color: #1908DF; flex-shrink: 0;
         }
-        .nav-logo-text { display: flex; flex-direction: column; line-height: 1.2; }
-        .nav-logo-text span:first-child { font-weight: 800; font-size: 20px; color: #F1CA0B; }
-        .nav-logo-text span:last-child { font-size: 11px; color: rgba(255,255,255,.7); font-weight: 500; }
+        .nav-logo-text { display: flex; flex-direction: column; line-height: 1.2; font-family: 'Work Sans', sans-serif; }
+        .nav-logo-text span:first-child { font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: #FEB300; }
+        .nav-logo-text span:first-child i { color: #00D4FF; font-style: normal; }
+        .nav-logo-text span:last-child { font-size: 12px; color: rgba(255,255,255,.85); font-weight: 500; }
 
         .nav-links { display: flex; gap: 2px; flex: 1; }
         .nav-link {
@@ -222,18 +223,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         }
         .nav-logout-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
 
-        .layout { display: flex; flex: 1; min-height: calc(100vh - 48px); }
-        .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 12px 16px; flex-shrink: 0; transition: width .3s ease; position: relative; }
+        .layout { display: flex; flex: 1; min-height: calc(100vh - 76px); }
+        .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 12px 16px; flex-shrink: 0; display: flex; flex-direction: column; transition: width .3s ease, transform .3s ease; position: relative; }
         .sidebar.collapsed { width: 80px; }
-        .sidebar-user { padding: 20px 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .sidebar-user { min-height: 76px; padding: 20px 8px; border-bottom: 1px solid var(--border); display: flex !important; align-items: center; gap: 10px; margin-bottom: 0; visibility: visible; }
+        .admin-profile-row { min-height: 76px; width: 100%; display: flex !important; align-items: center; visibility: visible; }
         .sidebar.collapsed .sidebar-user { justify-content: center; }
-        .sidebar-item { padding: 10px 12px; border-radius: 12px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600; transition: all .15s; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
+        .sidebar-item { padding: 10px 12px; margin-bottom: 4px; border-radius: 12px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600; transition: all .3s ease; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
+        .sidebar-user + .sidebar-item { margin-top: 16px; }
         .sidebar.collapsed .sidebar-item { justify-content: center; padding-left: 8px; padding-right: 8px; }
-        .sidebar-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .sidebar-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .3s ease; }
         .sidebar-item:not(.active) .sidebar-icon { border: 1px solid var(--border); }
-        .sidebar-item.active .sidebar-icon { background: var(--card-bg); box-shadow: 0 2px 6px rgba(25,8,223,.18); }
+        .sidebar-item.active .sidebar-icon { background: #ffffff; box-shadow: 0 2px 6px rgba(25,8,223,.18); }
         .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
-        .sidebar-item.active { color: var(--text); background: rgba(25,8,223,0.08); border-left-color: var(--accent); }
+        .sidebar-item.active { color: var(--accent); background: #eef0f5; border-left-color: transparent; }
         .sidebar-section { padding: 16px 12px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
         .sidebar-sub { padding: 7px 20px 7px 28px; cursor: pointer; color: var(--text-dim); font-size: 12px; transition: all .15s; }
         .sidebar-sub:hover { color: var(--text-muted); }
@@ -412,12 +415,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .nav-menu-btn { display: flex; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; align-items: center; justify-content: center; cursor: pointer; }
           .nav-search { display: none; }
           .layout { min-height: calc(100vh - 76px); }
-          .sidebar { position: fixed; top: 76px; bottom: 0; left: 0; z-index: 50; transform: translateX(-100%); width: 256px; }
+          .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 50; transform: translateX(-100%); width: 256px; }
           .sidebar.mobile-open { transform: translateX(0); }
           .sidebar.collapsed { width: 256px; }
           .sidebar.collapsed .sidebar-user { justify-content: flex-start; }
           .sidebar.collapsed .sidebar-item { justify-content: flex-start; padding-left: 12px; padding-right: 12px; }
-          .sidebar-mobile-overlay { display: block; position: fixed; inset: 76px 0 0; background: rgba(0,0,0,.4); z-index: 40; }
+          .sidebar-mobile-overlay { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; }
           .main { padding: 20px 16px; }
           .stat-grid { grid-template-columns: 1fr 1fr; }
           .overview-grid { grid-template-columns: 1fr; }
@@ -454,7 +457,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             ? <img src="/capstonelogo.png" alt="logo" onError={() => setLogoErr(true)} />
             : <div className="nav-logo-icon">DP</div>}
           <div className="nav-logo-text">
-            <span>EDUSCRIBE</span>
+            <span><b>Edu</b><i>Scribe</i></span>
             <span>Admin Portal</span>
           </div>
         </div>
@@ -475,15 +478,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           <button className="sidebar-collapse" onClick={() => setSidebarCollapsed(c => !c)} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>
-          <div className="sidebar-user" style={{ flexWrap: 'wrap' }}>
+          <div className="sidebar-user admin-profile-row" style={{ flexWrap: 'wrap', display: 'flex', visibility: 'visible' }}>
             <button
               onClick={() => setProfileOpen(open => !open)}
               aria-expanded={profileOpen}
               aria-label="Toggle profile menu"
               style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left' }}
             >
-            <div className="nav-avatar" style={{ background: avatarColor(userData?.name || '') }}>{initials(userData?.name)}</div>
-            {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin'}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Administrator</div></div>}
+            <div className="nav-avatar" style={{ background: avatarColor(userData?.name || 'Admin User'), width: 36, height: 36, display: 'flex', visibility: 'visible' }}>{initials(userData?.name || 'Admin User')}</div>
+            {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin User'}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Administrator</div></div>}
             {!sidebarCollapsed && <ChevronRight size={15} style={{ marginLeft: 'auto', color: 'var(--text-muted)', transform: profileOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />}
             </button>
             {profileOpen && !sidebarCollapsed && (
@@ -526,13 +529,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             </div>
           )}
 
-          <div style={{ marginTop:20, padding:'12px 20px', fontSize:12, color:'var(--text-dim)', display:'flex', alignItems:'center', gap:6 }}>
-            <span className="dot dot-green"></span> All systems online
-          </div>
           <div className="sidebar-logout">
-            <button className="nav-logout-btn" style={{ width:'100%', justifyContent:'flex-start', color:'#dc2626', borderColor:'#f3b9ba', background:'#fdf1f1' }} onClick={() => { logout(); navigate('/login'); }}>
+            <button className="nav-logout-btn" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', color:'#dc2626', borderColor:'#f3b9ba', background:'#fdf1f1' }} onClick={() => { logout(); navigate('/login'); }}>
               <LogOut size={15} />
-              Logout
+              {!sidebarCollapsed && 'Logout'}
             </button>
           </div>
         </div>

@@ -14,7 +14,7 @@ const UsersTab = () => {
     closeModal, deleteUser, editUser, filteredUsers, handleOverlayClick,
     modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
     setUDept, setUEmail, setUName, setUPass, setURole, setUserSearch,
-    uDept, uEmail, uName, uPass, uRole, uSaving, userSearch, users, usersLoading
+    uDept, uEmail, uName, uPass, uRole, uSaving, userSearch, users, usersLoading, onlineUsers
   } = useAdminContext();
 
   return (
@@ -57,8 +57,8 @@ const UsersTab = () => {
                           <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
                           <td>
                             <span style={{ display:'flex', alignItems:'center', gap:6 }}>
-                              <span className={`dot ${u.status?.toLowerCase() === 'active' ? 'dot-green' : 'dot-gray'}`}></span>
-                              {u.status || 'active'}
+                              <span className={`dot ${u.status?.toLowerCase() === 'active' && onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`}></span>
+                              {u.status?.toLowerCase() === 'active' && onlineUsers.has(u.id) ? 'Online' : 'Offline'}
                             </span>
                           </td>
                           <td>

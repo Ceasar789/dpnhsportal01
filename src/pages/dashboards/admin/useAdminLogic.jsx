@@ -31,6 +31,7 @@ export const useAdminLogic = (userData) => {
   const [logoErr, setLogoErr]               = useState(false);
   const [toast, setToast]                   = useState(null);
   const [notifications, setNotifications]   = useState([]);
+  const [onlineUsers, setOnlineUsers]         = useState(new Set());
 
   // ── Delete confirmation modal state ─────────────────────────────────────────
   // Shape: { label: string, role?: string, onConfirm: () => Promise<void> } | null
@@ -725,6 +726,21 @@ export const useAdminLogic = (userData) => {
   useEffect(() => {
     const channels = [];
 
+    // Shared Realtime presence channel for live online/offline status.
+    const presenceChannel = supabase.channel('portal-presence');
+    const updateOnlineUsers = () => {
+      setOnlineUsers(new Set(Object.keys(presenceChannel.presenceState())));
+    };
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, updateOnlineUsers)
+      .on('presence', { event: 'join' }, updateOnlineUsers)
+      .on('presence', { event: 'leave' }, updateOnlineUsers)
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') updateOnlineUsers();
+      });
+    channels.push(presenceChannel);
+
     // Users subscription (debounced to prevent race conditions)
     channels.push(
       supabase.channel('admin-users')
@@ -837,7 +853,7 @@ export const useAdminLogic = (userData) => {
     setSettings, setSmsGateway, setStats, setTheme, setToast, setTwoFactorAuth,
     setUDept, setUEmail, setUL, setUName, setUPass, setURole,
     setUSaving, setUserSearch, setUsers, settings, settingsSaving, showToast,
-    smsGateway, stats, theme, toast, today, twoFactorAuth,
+    smsGateway, stats, theme, toast, today, twoFactorAuth, onlineUsers,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
     uRole, uSaving, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading,

@@ -47,6 +47,30 @@ export const AuthProvider = ({ children }) => {
   const loginInProgressRef = useRef(false);
   const userDataRef = useRef(null);
 
+  // Announce the authenticated user to the shared Realtime presence channel.
+  useEffect(() => {
+    if (!userData?.uid) return undefined;
+
+    const presenceChannel = supabase.channel('portal-presence', {
+      config: { presence: { key: userData.uid } },
+    });
+
+    presenceChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        const { error: trackError } = await presenceChannel.track({
+          user_id: userData.uid,
+          name: userData.name,
+        });
+
+        if (trackError) console.warn('Presence tracking error:', trackError.message);
+      }
+    });
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [userData?.uid, userData?.name]);
+
   // ─── Fetch profile from profiles table ───────────────────────────────────
   const fetchProfile = async (userId, email, metadata) => {
     try {

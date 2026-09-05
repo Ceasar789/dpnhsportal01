@@ -264,6 +264,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .badge-purple  { color: #c4b5fd; border-color: #6d28d9; background: rgba(167,139,250,0.1); }
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
         .dot-green { background: var(--green); }
+        .dot-red { background: var(--red); }
         .dot-gray  { background: #4b5563; }
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }

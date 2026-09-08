@@ -17,6 +17,8 @@ const normalizeRole = (role) => {
   return roleMap[normalized] || 'student';
 };
 
+const isArchivedProfile = (profile) => profile?.status?.toString().trim().toLowerCase() === 'archived';
+
 const buildUserData = (user, profile, role) => ({
   uid: user.id,
   id: user.id,
@@ -132,6 +134,10 @@ export const AuthProvider = ({ children }) => {
             session.user.email,
             session.user.user_metadata || {}
           );
+          if (isArchivedProfile(profile)) {
+            await supabase.auth.signOut({ scope: 'local' });
+            return;
+          }
           const role = normalizeRole(
             profile?.role ||
             session.user.user_metadata?.role ||
@@ -166,6 +172,10 @@ export const AuthProvider = ({ children }) => {
             session.user.email,
             session.user.user_metadata || {}
           );
+          if (isArchivedProfile(profile)) {
+            await supabase.auth.signOut({ scope: 'local' });
+            return;
+          }
           const role = normalizeRole(
             profile?.role ||
             session.user.user_metadata?.role ||
@@ -233,6 +243,13 @@ export const AuthProvider = ({ children }) => {
           data.user.user_metadata || {}
         );
 
+        if (isArchivedProfile(profile)) {
+          await supabase.auth.signOut();
+          const archivedErr = new Error('ARCHIVED_ACCOUNT');
+          archivedErr.userMessage = 'This account has been archived. Please contact the administrator.';
+          throw archivedErr;
+        }
+
         const role = normalizeRole(
           data.user.user_metadata?.role || profile?.role
         );
@@ -265,7 +282,7 @@ export const AuthProvider = ({ children }) => {
         console.warn(`⚠️ Login attempt ${attempt} failed:`, err.message);
 
         // Don't retry on role mismatch — retrying won't change the account's role.
-        if (err.message?.startsWith('ROLE_MISMATCH:')) break;
+        if (err.message?.startsWith('ROLE_MISMATCH:') || err.message === 'ARCHIVED_ACCOUNT') break;
 
         if (attempt < MAX_RETRIES) {
           await new Promise((r) => setTimeout(r, 500 * attempt));
@@ -274,7 +291,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     // All retries failed (or role mismatch short-circuited the loop)
-    const msg = lastError?.message || 'Login failed. Please try again.';
+    const msg = lastError?.userMessage || lastError?.message || 'Login failed. Please try again.';
     loginInProgressRef.current = false;
     setError(msg);
     setLoading(false);

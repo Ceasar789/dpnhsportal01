@@ -185,6 +185,8 @@ export const useAdminLogic = (userData) => {
   const [usersLoading, setUL]       = useState(true);
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [editUser, setEditUser]     = useState(null);
 
   const [uName,   setUName]   = useState('');
@@ -379,11 +381,12 @@ export const useAdminLogic = (userData) => {
   const filteredUsers = useMemo(() => {
     const s = userSearch.toLowerCase();
     return users.filter(u =>
-      (u.status || 'active').toLowerCase() !== 'archived' &&
+      (showArchived ? (u.status || '').toLowerCase() === 'archived' : (u.status || 'active').toLowerCase() !== 'archived') &&
       (!s || (u.name || '').toLowerCase().includes(s) || (u.email || '').toLowerCase().includes(s)) &&
-      (!roleFilter || u.role === roleFilter)
+      (!roleFilter || u.role === roleFilter) &&
+      (!statusFilter || (onlineUserIds.has(u.id) ? 'online' : 'offline') === statusFilter)
     );
-  }, [users, userSearch, roleFilter]);
+  }, [users, userSearch, roleFilter, showArchived, statusFilter, onlineUserIds]);
 
   // ═══════════════════════════════════════════
   //  NEWS — Supabase CRUD + Role Targeting + Real-time
@@ -878,10 +881,10 @@ export const useAdminLogic = (userData) => {
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
     setSettings, setSmsGateway, setStats, setTheme, setToast, setTwoFactorAuth,
     setUDept, setUEmail, setUL, setUName, setUPass, setURole,
-    setUSaving, setUserSearch, setUsers, setUStatus, settings, settingsSaving, showToast,
+    setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
     smsGateway, stats, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
-    uRole, uSaving, uStatus, upcomingEvents, updateNewsStatus, userSearch, users,
+    uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading,
   };
 };

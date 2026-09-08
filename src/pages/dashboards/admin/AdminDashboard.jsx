@@ -257,6 +257,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .edit-action:hover { background: rgba(99,102,241,.12); transform: scale(1.08); }
         .archive-action { color: var(--red); }
         .archive-action:hover { background: rgba(239,68,68,.12); transform: scale(1.08) rotate(-8deg); }
+        .archive-toggle { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--card-bg); border: 1px solid var(--border); border-radius: 7px; cursor: pointer; }
+        .archive-toggle:hover, .archive-toggle.active { color: var(--accent); border-color: var(--accent); background: rgba(99,102,241,.12); }
         .btn-sm { padding: 4px 10px; font-size: 12px; }
         input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 8px 12px; font-size: 13px; outline: none; }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); }

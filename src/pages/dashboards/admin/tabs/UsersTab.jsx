@@ -5,7 +5,7 @@
 // ============================================
 
 import React from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { initials, avatarColor, roleBadge, roleLabel } from '../shared/helpers';
 
@@ -13,8 +13,8 @@ const UsersTab = () => {
   const {
     closeModal, deleteUser, editUser, filteredUsers, handleOverlayClick,
     modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
-    setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
-    uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading
+    setStatusFilter, setShowArchived, setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
+    showArchived, statusFilter, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, onlineUsers
   } = useAdminContext();
 
   return (
@@ -23,7 +23,7 @@ const UsersTab = () => {
               <div className="page-title">User Management</div>
               <div className="page-sub">Create accounts and assign roles across the portal</div>
               <div className="toolbar">
-                <input type="search" name="user-search" autoComplete="off" placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} style={{ flex:1, maxWidth:280 }} />
+                <input type="search" name="portal-user-search" autoComplete="new-password" autoCorrect="off" spellCheck="false" placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} style={{ flex:1, maxWidth:280 }} />
                 <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ width:'auto' }}>
                   <option value="">Role: All</option>
                   <option value="student">Student</option>
@@ -32,6 +32,14 @@ const UsersTab = () => {
                   <option value="registrar">Registrar</option>
                   <option value="main_admin">Admin</option>
                 </select>
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width:'auto' }} aria-label="Filter users by status">
+                  <option value="">Status: All</option>
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                </select>
+                <button className={`archive-toggle ${showArchived ? 'active' : ''}`} type="button" title={showArchived ? 'Show active users' : 'Show archived users'} aria-label={showArchived ? 'Show active users' : 'Show archived users'} onClick={() => setShowArchived(!showArchived)}>
+                  {showArchived ? <ArchiveRestore size={17} /> : <Archive size={17} />}
+                </button>
                 <button className="btn btn-primary" onClick={openCreateUser}>+ Create User</button>
               </div>
               <div className="table-card">
@@ -55,7 +63,7 @@ const UsersTab = () => {
                           </td>
                           <td style={{ color:'var(--text-muted)' }}>{u.email}</td>
                           <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
-                          <td><span className={`badge ${u.status?.toLowerCase() === 'active' ? 'badge-green' : 'badge-red'}`}>{u.status || 'Active'}</span></td>
+                          <td><span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-red'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`} style={{ marginRight: 5 }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span></td>
                           <td>
                             <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={() => openEditUser(u)}><Pencil size={16} /></button>
                             <button className="icon-action archive-action" title="Archive user" aria-label={`Archive ${u.name || u.email}`} onClick={() => deleteUser(u.id)}><Trash2 size={16} /></button>

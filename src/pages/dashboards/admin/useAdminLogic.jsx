@@ -54,22 +54,39 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   //  ACTIVITY LOGGING HELPER
   // ═══════════════════════════════════════════
+  const [activityLogs, setActivityLogs] = useState([]);
+  const fetchLogs = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
+      if (error) {
+        console.warn('Activity logs unavailable:', error);
+        setActivityLogs([]);
+      } else {
+        setActivityLogs(data || []);
+      }
+    } catch (e) {
+      console.warn('Activity logs fetch error:', e);
+      setActivityLogs([]);
+    }
+  }, []);
+
   const logActivity = useCallback(async (action, details = '') => {
     try {
       const { error } = await supabase.from('activity_logs').insert([{
         action,
-        details,
         user_id: userData?.uid,
-        user_name: userData?.name || 'Admin',
+        entity_name: userData?.name || 'Admin',
+        description: details,
         created_at: new Date().toISOString(),
       }]);
-      if (!error) {
-        const { data: latestLogs } = await supabase
-          .from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
-        setActivityLogs(latestLogs || []);
+      if (error) {
+        console.warn('Activity log insert failed:', error.message);
+        return;
       }
+      await fetchLogs();
     } catch (e) { console.error('Activity log error:', e); }
-  }, [userData]);
+  }, [fetchLogs, userData]);
 
   // ═══════════════════════════════════════════
   //  OVERVIEW STATS — Real-time
@@ -99,23 +116,6 @@ export const useAdminLogic = (userData) => {
     } catch (e) {
       console.warn('Stats fetch error:', e);
       setStats({ users: 0, news: 0, events: 0, memos: 0 });
-    }
-  }, []);
-
-  const [activityLogs, setActivityLogs] = useState([]);
-  const fetchLogs = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
-      if (error) {
-        console.warn('Activity logs unavailable:', error);
-        setActivityLogs([]);
-      } else {
-        setActivityLogs(data || []);
-      }
-    } catch (e) {
-      console.warn('Activity logs fetch error:', e);
-      setActivityLogs([]);
     }
   }, []);
 
@@ -293,17 +293,7 @@ export const useAdminLogic = (userData) => {
       }
 
       // Step 5: Log the activity (non-blocking)
-      try {
-        await supabase.from('activity_logs').insert([{
-          action: 'Created user',
-          details: `${uName} (${uRole})`,
-          user_id: userData?.uid,
-          user_name: userData?.name || 'Admin',
-          created_at: new Date().toISOString(),
-        }]);
-      } catch (logErr) {
-        console.warn('⚠️ Activity log failed (non-blocking):', logErr);
-      }
+      await logActivity('Created user', `${uName} (${uRole})`);
 
       showToast('✅ User created! They will receive a confirmation email.');
     }

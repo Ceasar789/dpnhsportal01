@@ -280,6 +280,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 184px; }
+        .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform .15s, border-color .15s, box-shadow .15s; }
+        .clickable-stat:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+        .clickable-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .stat-icon-block { height: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .stat-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 18px; }
         .stat-label { font-size: 12px; font-weight: 700; color: var(--text); margin-top: 2px; }
@@ -307,6 +310,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .role-track { flex: 1; height: 10px; background: var(--border); border-radius: 10px; overflow: hidden; }
         .role-fill  { height: 100%; border-radius: 10px; }
         .role-label { font-size: 12px; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+        .role-overview { display: flex; align-items: center; gap: 18px; margin: 12px 0 18px; }
+        .role-pie { width: 118px; height: 118px; border-radius: 50%; flex-shrink: 0; position: relative; }
+        .role-pie::after { content: ''; position: absolute; inset: 25px; border-radius: 50%; background: var(--card-bg); }
+        .role-legend { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
+        .role-legend-item { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 7px; font-size: 12px; color: var(--text-muted); }
+        .role-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .role-legend-item strong { color: var(--text); font-size: 11px; }
 
         .pagination { display: flex; align-items: center; gap: 6px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
         .page-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
@@ -437,6 +447,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .nav-logo-text span:first-child { font-size: 18px; }
           .sidebar { width: 256px; }
           .stat-grid { grid-template-columns: 1fr; }
+          .role-overview { gap: 12px; }
+          .role-pie { width: 104px; height: 104px; }
+          .role-pie::after { inset: 22px; }
           .cal-toolbar > * { max-width: 100%; }
           .cal-grid { min-width: 0; }
           .cal-cell { min-height: 64px; padding: 5px; }

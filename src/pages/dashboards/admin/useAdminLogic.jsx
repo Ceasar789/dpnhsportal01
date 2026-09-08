@@ -56,13 +56,18 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   const logActivity = useCallback(async (action, details = '') => {
     try {
-      await supabase.from('activity_logs').insert([{
+      const { error } = await supabase.from('activity_logs').insert([{
         action,
         details,
         user_id: userData?.uid,
         user_name: userData?.name || 'Admin',
         created_at: new Date().toISOString(),
       }]);
+      if (!error) {
+        const { data: latestLogs } = await supabase
+          .from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
+        setActivityLogs(latestLogs || []);
+      }
     } catch (e) { console.error('Activity log error:', e); }
   }, [userData]);
 

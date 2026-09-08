@@ -54,24 +54,58 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   //  ACTIVITY LOGGING HELPER
   // ═══════════════════════════════════════════
+  const activityStorageKey = 'smartedu-admin-activity-logs';
   const [activityLogs, setActivityLogs] = useState([]);
+  const readLocalActivityLogs = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(activityStorageKey) || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch {
+      return [];
+    }
+  };
+  const saveLocalActivityLogs = (logs) => {
+    try {
+      localStorage.setItem(activityStorageKey, JSON.stringify(logs.slice(0, 25)));
+    } catch (e) {
+      console.warn('Local activity cache unavailable:', e);
+    }
+  };
   const fetchLogs = useCallback(async () => {
+    const localLogs = readLocalActivityLogs();
     try {
       const { data, error } = await supabase
         .from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
       if (error) {
-        console.warn('Activity logs unavailable:', error);
-        setActivityLogs([]);
+        console.warn('Activity logs unavailable; using local activity cache:', error.message);
+        setActivityLogs(localLogs.slice(0, 5));
       } else {
-        setActivityLogs(data || []);
+        const serverLogs = (data || []).map(log => ({
+          ...log,
+          details: typeof log.details === 'string' ? { message: log.details } : log.details,
+        }));
+        const mergedLogs = [...serverLogs, ...localLogs]
+          .filter((log, index, logs) => logs.findIndex(item => item.id && item.id === log.id) === index)
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setActivityLogs(mergedLogs.slice(0, 5));
       }
     } catch (e) {
-      console.warn('Activity logs fetch error:', e);
-      setActivityLogs([]);
+      console.warn('Activity logs fetch error; using local activity cache:', e.message);
+      setActivityLogs(localLogs.slice(0, 5));
     }
   }, []);
 
   const logActivity = useCallback(async (action, details = '') => {
+    const localLog = {
+      id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      action,
+      details: { message: details, actor_name: userData?.name || 'Admin' },
+      created_at: new Date().toISOString(),
+    };
+    const localLogs = [localLog, ...readLocalActivityLogs()].slice(0, 25);
+    saveLocalActivityLogs(localLogs);
+    setActivityLogs(localLogs.slice(0, 5));
+
     try {
       const { error } = await supabase.from('activity_logs').insert([{
         action,
@@ -83,7 +117,7 @@ export const useAdminLogic = (userData) => {
         created_at: new Date().toISOString(),
       }]);
       if (error) {
-        console.warn('Activity log insert failed:', error.message);
+        console.warn('Activity log insert failed; local activity retained:', error.message);
         return;
       }
       await fetchLogs();

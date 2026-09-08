@@ -633,7 +633,7 @@ export const useAdminLogic = (userData) => {
   //  SETTINGS — Supabase + Auto-save option
   // ═══════════════════════════════════════════
   const [settings, setSettings] = useState({
-    portal_name: 'DPNHS Portal', academic_year: '2025-2026', semester: '2nd Semester',
+    portal_name: 'EduScribe Portal', academic_year: '2025-2026', semester: '2nd Quarter',
   });
   const [settingsSaving, setSS] = useState(false);
   const [autoSave, setAutoSave] = useState(false); // NEW
@@ -652,7 +652,16 @@ export const useAdminLogic = (userData) => {
     try {
       const { data, error } = await supabase.from('school_settings').select('*').eq('id', 1).single();
       if (!error && data) {
-        setSettings(data);
+        const quarterMap = {
+          '1st Semester': '1st Quarter',
+          '2nd Semester': '2nd Quarter',
+          Summer: '4th Quarter',
+        };
+        setSettings({
+          ...data,
+          portal_name: 'EduScribe Portal',
+          semester: quarterMap[data.semester] || data.semester || '1st Quarter',
+        });
         setTheme(data.theme || 'Dark');
         setLanguage(data.language || 'English');
         setAutoSave(data.auto_save || false);
@@ -677,6 +686,7 @@ export const useAdminLogic = (userData) => {
     try {
       await supabase.from('school_settings').update({ 
         ...settings, 
+        portal_name: 'EduScribe Portal',
         theme,
         language,
         auto_save: autoSave,

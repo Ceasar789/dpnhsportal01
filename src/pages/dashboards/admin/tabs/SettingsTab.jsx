@@ -27,16 +27,16 @@ const SettingsTab = () => {
                 <div className="settings-card">
                   <div className="settings-input-row">
                     <span className="settings-input-label">Portal Name</span>
-                    <input value={settings.portal_name} onChange={e => setSettings({...settings, portal_name: e.target.value})} style={{ flex:1 }} />
+                    <input value="EduScribe Portal" readOnly disabled style={{ flex:1 }} />
                   </div>
                   <div className="settings-input-row">
                     <span className="settings-input-label">Academic Year</span>
                     <input value={settings.academic_year} onChange={e => setSettings({...settings, academic_year: e.target.value})} style={{ flex:1 }} />
                   </div>
                   <div className="settings-input-row">
-                    <span className="settings-input-label">Semester</span>
+                    <span className="settings-input-label">Quarter</span>
                     <select value={settings.semester} onChange={e => setSettings({...settings, semester: e.target.value})} style={{ flex:1 }}>
-                      <option>1st Semester</option><option>2nd Semester</option><option>Summer</option>
+                      <option>1st Quarter</option><option>2nd Quarter</option><option>3rd Quarter</option><option>4th Quarter</option>
                     </select>
                   </div>
                   <div className="settings-row">

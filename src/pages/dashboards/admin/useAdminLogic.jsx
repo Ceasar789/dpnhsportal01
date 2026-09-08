@@ -75,9 +75,11 @@ export const useAdminLogic = (userData) => {
     try {
       const { error } = await supabase.from('activity_logs').insert([{
         action,
-        user_id: userData?.uid,
-        entity_name: userData?.name || 'Admin',
-        description: details,
+        user_id: userData?.uid || null,
+        details: {
+          message: details,
+          actor_name: userData?.name || 'Admin',
+        },
         created_at: new Date().toISOString(),
       }]);
       if (error) {

@@ -85,7 +85,7 @@ const OverviewTab = () => {
                         <span className="recent-dot" style={{ background: ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#2dd4bf'][i % 5] }}></span>
                         <div className="recent-info">
                           <div className="recent-title">{l.action}</div>
-                          <div className="recent-time">{l.entity_name || 'Portal Admin'}{l.description ? ` · ${l.description}` : ''} · {new Date(l.created_at).toLocaleString()}</div>
+                          <div className="recent-time">{l.details?.actor_name || 'Portal Admin'}{l.details?.message ? ` · ${l.details.message}` : ''} · {new Date(l.created_at).toLocaleString()}</div>
                         </div>
                       </div>
                     ))

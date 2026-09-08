@@ -5,7 +5,7 @@
 // ============================================
 
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { initials, avatarColor, roleBadge, roleLabel } from '../shared/helpers';
 
@@ -13,8 +13,8 @@ const UsersTab = () => {
   const {
     closeModal, deleteUser, editUser, filteredUsers, handleOverlayClick,
     modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
-    setUDept, setUEmail, setUName, setUPass, setURole, setUserSearch,
-    uDept, uEmail, uName, uPass, uRole, uSaving, userSearch, users, usersLoading, onlineUsers
+    setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
+    uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading
   } = useAdminContext();
 
   return (
@@ -49,21 +49,16 @@ const UsersTab = () => {
                               </div>
                               <div>
                                 <div style={{ fontWeight:600 }}>{u.name || '—'}</div>
-                                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{roleLabel(u.role)} · {u.department || ''}</div>
+                                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{roleLabel(u.role)}</div>
                               </div>
                             </div>
                           </td>
                           <td style={{ color:'var(--text-muted)' }}>{u.email}</td>
                           <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
+                          <td><span className={`badge ${u.status?.toLowerCase() === 'active' ? 'badge-green' : 'badge-red'}`}>{u.status || 'Active'}</span></td>
                           <td>
-                            <span style={{ display:'flex', alignItems:'center', gap:6 }}>
-                              <span className={`dot ${u.status?.toLowerCase() === 'active' && onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`}></span>
-                              {u.status?.toLowerCase() === 'active' && onlineUsers.has(u.id) ? 'Online' : 'Offline'}
-                            </span>
-                          </td>
-                          <td>
-                            <button className="btn btn-sm" style={{ color:'var(--accent)', background:'none', border:'none', cursor:'pointer' }} onClick={() => openEditUser(u)}>Edit</button>
-                            <button className="btn btn-sm btn-danger" onClick={() => deleteUser(u.id)}>Del</button>
+                            <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={() => openEditUser(u)}><Pencil size={16} /></button>
+                            <button className="icon-action archive-action" title="Archive user" aria-label={`Archive ${u.name || u.email}`} onClick={() => deleteUser(u.id)}><Trash2 size={16} /></button>
                           </td>
                         </tr>
                       ))}
@@ -82,13 +77,6 @@ const UsersTab = () => {
                     <button className="page-btn">›</button>
                   </div>
                 </div>
-              </div>
-              <div className="assign-bar">
-                <div>
-                  <div className="assign-label">Assign Role on Create</div>
-                  <div className="assign-hint">Choose from: Student · Teacher · Faculty · Registrar · Admin</div>
-                </div>
-                <button className="btn btn-primary" onClick={openCreateUser}>Assign</button>
               </div>
             </div>
 
@@ -114,10 +102,13 @@ const UsersTab = () => {
               <option value="main_admin">Admin</option>
             </select>
           </div>
-          <div className="form-row">
-            <label className="form-label">Department</label>
-            <input className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Science Dept" />
-          </div>
+          {editUser && <div className="form-row">
+            <label className="form-label">Account Status</label>
+            <select className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>}
           {!editUser && (
             <div className="form-row">
               <label className="form-label">Password</label>

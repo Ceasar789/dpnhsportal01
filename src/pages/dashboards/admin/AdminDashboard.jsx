@@ -252,6 +252,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
         .btn-danger { background: transparent; color: var(--red); border: none; cursor: pointer; }
+        .icon-action { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 7px; background: transparent; cursor: pointer; transition: transform .15s, background-color .15s, color .15s; }
+        .edit-action { color: var(--accent); }
+        .edit-action:hover { background: rgba(99,102,241,.12); transform: scale(1.08); }
+        .archive-action { color: var(--red); }
+        .archive-action:hover { background: rgba(239,68,68,.12); transform: scale(1.08) rotate(-8deg); }
         .btn-sm { padding: 4px 10px; font-size: 12px; }
         input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 8px 12px; font-size: 13px; outline: none; }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); }
@@ -576,9 +581,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               <AlertTriangle size={26} color="var(--red)" />
             </div>
           </div>
-          <div className="modal-title" style={{ textAlign: 'center', marginBottom: 8 }}>Delete User?</div>
+          <div className="modal-title" style={{ textAlign: 'center', marginBottom: 8 }}>Archive User?</div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.6 }}>
-            You are about to permanently delete
+            This user will be moved to the archive and removed from the active user list:
           </p>
           <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
             {deleteConfirm?.label}
@@ -589,7 +594,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             </span>
           )}
           <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 10, marginBottom: 20 }}>
-            ⚠ This action cannot be undone. The account will be removed immediately.
+            The account will not be permanently deleted.
           </p>
           <div className="modal-actions" style={{ justifyContent: 'center', gap: 12 }}>
             <button className="btn btn-ghost" onClick={() => setDeleteConfirm(null)}>
@@ -604,7 +609,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                 if (fn) await fn();
               }}
             >
-              Yes, Delete
+              Yes, Archive
             </button>
           </div>
         </div>

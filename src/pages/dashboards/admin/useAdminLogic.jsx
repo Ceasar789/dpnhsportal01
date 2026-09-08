@@ -191,6 +191,7 @@ export const useAdminLogic = (userData) => {
   const [uEmail,  setUEmail]  = useState('');
   const [uDept,   setUDept]   = useState('');
   const [uRole,   setURole]   = useState('student');
+  const [uStatus, setUStatus] = useState('active');
   const [uPass,   setUPass]   = useState('');
   const [uSaving, setUSaving] = useState(false);
 
@@ -219,12 +220,12 @@ export const useAdminLogic = (userData) => {
   }, []);
 
   const openCreateUser = () => {
-    setEditUser(null); setUName(''); setUEmail(''); setUDept(''); setURole('student'); setUPass('');
+    setEditUser(null); setUName(''); setUEmail(''); setUDept(''); setURole('student'); setUStatus('active'); setUPass('');
     openModal('user');
   };
   const openEditUser = (u) => {
     setEditUser(u); setUName(u.name || ''); setUEmail(u.email || '');
-    setUDept(u.department || ''); setURole(u.role || 'student'); setUPass('');
+    setUDept(u.department || ''); setURole(u.role || 'student'); setUStatus(u.status?.toLowerCase() || 'active'); setUPass('');
     openModal('user');
   };
 
@@ -237,7 +238,7 @@ export const useAdminLogic = (userData) => {
       // UPDATE EXISTING USER
       // ════════════════════════════════════════════════
       const { data, error } = await supabase.from('profiles').update({
-        name: uName.trim(), role: uRole, department: uDept.trim(), updated_at: new Date().toISOString()
+        name: uName.trim(), role: uRole, status: uStatus, updated_at: new Date().toISOString()
       }).eq('id', editUser.id).select().single();
       
       if (error) throw error;
@@ -302,7 +303,6 @@ export const useAdminLogic = (userData) => {
               email: uEmail.trim(), 
               name: uName.trim(), 
               role: uRole,
-              department: uDept.trim(), 
               status: 'active', 
               created_at: new Date().toISOString()
             }], { onConflict: 'id' })
@@ -360,14 +360,12 @@ export const useAdminLogic = (userData) => {
       role: userToDelete?.role,
       onConfirm: async () => {
         try {
-          const { error } = await supabase.from('profiles').delete().eq('id', id);
+          const { error } = await supabase.from('profiles').update({ status: 'archived', updated_at: new Date().toISOString() }).eq('id', id);
           if (error) throw error;
-          // Update local state immediately to prevent UI flickering
+          await logActivity('Archived user', userToDelete?.name || id);
           setUsers(prev => prev.filter(u => u.id !== id));
-          // Update stats immediately
           setStats(prev => ({ ...prev, users: Math.max(0, prev.users - 1) }));
-          await logActivity('Deleted user', userToDelete?.name || id);
-          showToast('User deleted');
+          showToast('User archived. It can be restored from the archive.');
           await fetchRoleDist();
         } catch (e) {
           showToast(e.message || 'Error deleting user', 'error');
@@ -381,6 +379,7 @@ export const useAdminLogic = (userData) => {
   const filteredUsers = useMemo(() => {
     const s = userSearch.toLowerCase();
     return users.filter(u =>
+      (u.status || 'active').toLowerCase() !== 'archived' &&
       (!s || (u.name || '').toLowerCase().includes(s) || (u.email || '').toLowerCase().includes(s)) &&
       (!roleFilter || u.role === roleFilter)
     );
@@ -879,10 +878,10 @@ export const useAdminLogic = (userData) => {
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
     setSettings, setSmsGateway, setStats, setTheme, setToast, setTwoFactorAuth,
     setUDept, setUEmail, setUL, setUName, setUPass, setURole,
-    setUSaving, setUserSearch, setUsers, settings, settingsSaving, showToast,
+    setUSaving, setUserSearch, setUsers, setUStatus, settings, settingsSaving, showToast,
     smsGateway, stats, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
-    uRole, uSaving, upcomingEvents, updateNewsStatus, userSearch, users,
+    uRole, uSaving, uStatus, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading,
   };
 };

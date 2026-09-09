@@ -64,7 +64,7 @@ const UsersTab = () => {
                           <td style={{ color:'var(--text-muted)' }}>{u.email}</td>
                           <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
                           <td>{showArchived
-                            ? <span className="badge badge-yellow"><Archive size={12} style={{ marginRight: 5, verticalAlign: 'middle' }} />Archived</span>
+                            ? <span className="badge badge-yellow archive-status-badge"><Archive size={12} />Archived</span>
                             : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-red'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`} style={{ marginRight: 5 }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
                           </td>
                           <td>

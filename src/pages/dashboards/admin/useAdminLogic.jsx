@@ -404,6 +404,9 @@ export const useAdminLogic = (userData) => {
   const [nStatus,  setNStatus]      = useState('Draft');
   const [nTarget,  setNTarget]      = useState('all'); // NEW: role targeting
   const [nCustomTarget, setNCustomTarget] = useState('');
+  const [nImageFile, setNImageFile] = useState(null);
+  const [nImageUrl, setNImageUrl] = useState('');
+  const [newsReadOnly, setNewsReadOnly] = useState(false);
   const [nSaving,  setNSaving]      = useState(false);
 
   const fetchNews = useCallback(async () => {
@@ -415,27 +418,38 @@ export const useAdminLogic = (userData) => {
   }, []);
 
   const openNewPost = () => {
-    setEditNews(null); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget('');
+    setEditNews(null); setNewsReadOnly(false); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget(''); setNImageFile(null); setNImageUrl('');
     openModal('news');
   };
   const openEditNews = (n) => {
+    setNewsReadOnly(n.status === 'Published');
     setEditNews(n); setNTitle(n.title || ''); setNCat(n.category || 'Academics');
-    setNAuthor(n.author || ''); setNContent(n.content || ''); setNStatus(n.status || 'Draft');
+    setNAuthor(n.author || ''); setNContent(n.content || ''); setNStatus(n.status || 'Draft'); setNImageFile(null); setNImageUrl(n.featured_image_url || '');
     setNTarget(n.target_roles?.startsWith('custom:') ? 'custom' : (n.target_roles || 'all'));
     setNCustomTarget(n.target_roles?.startsWith('custom:') ? n.target_roles.slice(7) : '');
     openModal('news');
   };
 
   const saveNews = async () => {
+    if (newsReadOnly) return showToast('Published news is locked and cannot be edited.', 'error');
     if (!nTitle.trim()) return showToast('Title required', 'error');
     if (nTarget === 'custom' && !nCustomTarget.trim()) return showToast('Custom audience required', 'error');
     setNSaving(true);
     try {
+      let featuredImageUrl = nImageUrl || null;
+      if (nImageFile) {
+        const filePath = `news/${userData?.uid || 'admin'}/${Date.now()}-${nImageFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
+        const { error: uploadError } = await supabase.storage.from('news-images').upload(filePath, nImageFile, { cacheControl: '3600', upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: publicUrlData } = supabase.storage.from('news-images').getPublicUrl(filePath);
+        featuredImageUrl = publicUrlData.publicUrl;
+      }
       const payload = {
         title: nTitle.trim(), category: nCat, content: nContent, status: nStatus,
         author_id: userData?.uid,
         target_roles: nTarget === 'custom' ? `custom:${nCustomTarget.trim()}` : nTarget,
         published_at: nStatus === 'Published' ? new Date().toISOString() : null,
+        featured_image_url: featuredImageUrl,
         updated_at: new Date().toISOString(),
       };
       if (editNews) {
@@ -865,7 +879,7 @@ export const useAdminLogic = (userData) => {
     loginAttemptLimit, logoErr, mBody, mFrom, mSaving, mSubj,
     mTo, memoFilter, memoSearch, memos, memosLoading, modal,
     nAuthor, nCat, nContent, nCustomTarget, nSaving, nStatus, nTarget,
-    nTitle, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
+    nTitle, nImageFile, nImageUrl, newsReadOnly, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
     nextMonth, notifications, openCompose, openCreateEvent, openCreateUser, openEditEvent,
     openEditMemo, openEditNews, openEditUser, openModal, openNewPost, page,
     prevMonth, roleDist, roleFilter, saveEvent, saveMemo, saveNews,
@@ -876,7 +890,7 @@ export const useAdminLogic = (userData) => {
     setEvCustomType, setEvSaving, setEvTitle, setEvType, setLanguage, setLmsIntegration, setLoginAttemptLimit,
     setLogoErr, setMBody, setMFrom, setML, setMSaving, setMSubj,
     setMTo, setMemoFilter, setMemoSearch, setMemos, setModal, setNAuthor,
-    setNCat, setNContent, setNCustomTarget, setNL, setNSaving, setNStatus, setNTarget,
+    setNCat, setNContent, setNCustomTarget, setNL, setNImageFile, setNImageUrl, setNSaving, setNStatus, setNTarget,
     setNTitle, setNewsCatF, setNewsItems, setNewsSearch, setNewsStatF, setNotifications,
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
     setSettings, setSmsGateway, setStats, setTheme, setToast, setTwoFactorAuth,

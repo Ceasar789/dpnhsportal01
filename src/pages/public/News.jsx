@@ -9,13 +9,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users } from 'lucide-react';
 import { supabase } from '../../config/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const News = () => {
   const navigate = useNavigate();
+  const { userData } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [newsItems, setNewsItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyItems, setHistoryItems] = useState([]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1100);
@@ -36,7 +40,12 @@ const News = () => {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [userData?.role]);
+
+  const canViewNews = (item, role) => {
+    const targets = (item.target_roles || 'all').split(',').map(target => target.trim().toLowerCase());
+    return targets.includes('all') || targets.includes(role) || (targets.includes('staff') && ['teacher', 'faculty', 'registrar', 'main_admin'].includes(role));
+  };
 
   const fetchNews = async () => {
     setLoading(true);
@@ -45,8 +54,19 @@ const News = () => {
       .select('*')
       .eq('status', 'Published')
       .order('published_at', { ascending: false });
-    if (!error && data) setNewsItems(data);
+    if (!error && data) setNewsItems(data.filter(item => canViewNews(item, userData?.role || 'guest')));
     setLoading(false);
+  };
+
+  const fetchHistory = async () => {
+    const { data, error } = await supabase.from('news').select('*').eq('status', 'Archived').order('updated_at', { ascending: false });
+    if (!error) setHistoryItems((data || []).filter(item => canViewNews(item, userData?.role || 'guest')));
+  };
+
+  const toggleHistory = async () => {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (next) await fetchHistory();
   };
 
   // Hero = most recent article, rest = remaining
@@ -218,7 +238,7 @@ const News = () => {
 
   const HeroImage = () => (
     <img
-      src={hero.image_url || '/capstoneimage1.jpg'}
+      src={hero.featured_image_url || '/capstoneimage1.jpg'}
       alt={hero.title}
       className="w-full object-cover rounded-lg"
       style={{ height: isMobile ? '250px' : '400px' }}
@@ -247,11 +267,22 @@ const News = () => {
             Latest News
           </h3>
         </div>
-        <button className="flex items-center gap-1.5 font-work font-bold text-xs tracking-widest" style={{ color: '#64748B' }}>
-          BROWSE ALL ARTICLES
+        <button onClick={toggleHistory} className="flex items-center gap-1.5 font-work font-bold text-xs tracking-widest" style={{ color: '#64748B' }}>
+          {showHistory ? 'HIDE NEWS HISTORY' : 'NEWS HISTORY'}
           <ExternalLink size={14} />
         </button>
       </div>
+      {showHistory && (
+        <div className="mb-10 rounded-lg border border-slate-200 bg-white p-5">
+          <h4 className="font-work font-bold text-lg" style={{ color: '#1E3A8A' }}>News History</h4>
+          {historyItems.length === 0 ? <p className="mt-3 text-sm text-slate-500">No archived news available.</p> : historyItems.map(item => (
+            <div key={item.id} className="border-b border-slate-100 py-3 last:border-0">
+              <div className="font-work font-bold" style={{ color: '#1E3A8A' }}>{item.title}</div>
+              <div className="text-xs text-slate-500">{item.category || 'General'} · {item.updated_at ? new Date(item.updated_at).toLocaleDateString() : ''}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* News Grid */}
       {isMobile ? (
@@ -259,7 +290,7 @@ const News = () => {
           {rest.map(item => (
             <NewsCard
               key={item.id}
-              image={item.image_url || '/capstoneimage1.jpg'}
+              image={item.featured_image_url || '/capstoneimage1.jpg'}
               category={item.category?.toUpperCase() || 'GENERAL'}
               date={item.published_at ? new Date(item.published_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}
               title={item.title}
@@ -272,7 +303,7 @@ const News = () => {
           {rest.slice(0, 3).map(item => (
             <div key={item.id} className="flex-1">
               <NewsCard
-                image={item.image_url || '/capstoneimage1.jpg'}
+                image={item.featured_image_url || '/capstoneimage1.jpg'}
                 category={item.category?.toUpperCase() || 'GENERAL'}
                 date={item.published_at ? new Date(item.published_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}
                 title={item.title}

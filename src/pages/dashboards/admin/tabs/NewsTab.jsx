@@ -5,17 +5,17 @@
 // ============================================
 
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Archive, ArchiveRestore, Search } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { TARGET_ROLES } from '../shared/helpers';
 
 const NewsTab = () => {
   const {
     closeModal, deleteNewsItem, editNews, filteredNews, handleOverlayClick,
-    modal, nAuthor, nCat, nContent, nCustomTarget, nSaving, nStatus, nTarget, nTitle,
+    modal, nAuthor, nCat, nContent, nCustomTarget, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
     newsCatF, newsItems, newsLoading, newsSearch, newsStatF, openEditNews,
     openNewPost, saveNews, setNAuthor, setNCat, setNContent, setNStatus,
-    setNCustomTarget, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
+    setNCustomTarget, setNImageFile, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
   } = useAdminContext();
 
   return (
@@ -59,24 +59,20 @@ const NewsTab = () => {
                         <div className="news-actions">
                           {n.status === 'Published' && (
                             <>
-                              <button className="news-action" onClick={() => openEditNews(n)}>Edit</button>
-                              <button className="news-action" onClick={() => updateNewsStatus(n.id,'Archived')}>Archive</button>
-                              <button className="news-action red" onClick={() => deleteNewsItem(n.id)}>Delete</button>
-                              <button className="news-action blue" style={{ marginLeft:'auto' }}>↗ View</button>
+                              <button className="news-action blue" onClick={() => openEditNews(n)}>View</button>
+                              <button className="news-action archive-news-action" onClick={() => updateNewsStatus(n.id,'Archived')}><Archive size={14} /> Archive</button>
                             </>
                           )}
                           {n.status === 'Draft' && (
                             <>
                               <button className="news-action" onClick={() => openEditNews(n)}>Edit</button>
                               <button className="news-action green" onClick={() => updateNewsStatus(n.id,'Published')}>Publish</button>
-                              <button className="news-action red" onClick={() => deleteNewsItem(n.id)}>Delete</button>
-                              <button className="news-action blue" style={{ marginLeft:'auto' }}>Preview</button>
+                              <button className="news-action blue" style={{ marginLeft:'auto' }} onClick={() => openEditNews(n)}>Preview</button>
                             </>
                           )}
                           {n.status === 'Archived' && (
                             <>
-                                                            <button className="news-action green" onClick={() => updateNewsStatus(n.id,'Published')}>Restore</button>
-                              <button className="news-action red" onClick={() => deleteNewsItem(n.id)}>Delete</button>
+                                                            <button className="news-action green archive-news-action" onClick={() => updateNewsStatus(n.id,'Published')}><ArchiveRestore size={14} /> Restore</button>
                             </>
                           )}
                         </div>
@@ -94,20 +90,20 @@ const NewsTab = () => {
       {/* NEWS MODAL */}
       <div className={`modal-overlay ${modal === 'news' ? 'open' : ''}`} onClick={handleOverlayClick}>
         <div className="modal">
-          <div className="modal-title">{editNews ? 'Edit Post' : 'New Post'}</div>
+          <div className="modal-title">{newsReadOnly ? 'View Published Post' : editNews ? 'Edit Post' : 'New Post'}</div>
           <div className="form-row">
             <label className="form-label">Title</label>
-            <input className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" />
+            <input className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" disabled={newsReadOnly} />
           </div>
           <div className="form-row">
             <label className="form-label">Category</label>
-            <select className="form-input" value={nCat} onChange={e => setNCat(e.target.value)}>
+            <select className="form-input" value={nCat} onChange={e => setNCat(e.target.value)} disabled={newsReadOnly}>
               {['Academics','Events','Scholarships','Announcements','Sports'].map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div className="form-row">
             <label className="form-label">Target Audience</label>
-            <select className="form-input" value={nTarget} onChange={e => setNTarget(e.target.value)}>
+            <select className="form-input" value={nTarget} onChange={e => setNTarget(e.target.value)} disabled={newsReadOnly}>
               {TARGET_ROLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
@@ -119,28 +115,34 @@ const NewsTab = () => {
                 value={nCustomTarget}
                 onChange={e => setNCustomTarget(e.target.value)}
                 placeholder="e.g. Grade 10 students or Science Department"
+                disabled={newsReadOnly}
               />
             </div>
           )}
           <div className="form-row">
             <label className="form-label">Author</label>
-            <input className="form-input" value={nAuthor} onChange={e => setNAuthor(e.target.value)} placeholder="Your name" />
+            <input className="form-input" value={nAuthor} onChange={e => setNAuthor(e.target.value)} placeholder="Your name" disabled={newsReadOnly} />
           </div>
           <div className="form-row">
             <label className="form-label">Content</label>
-            <textarea className="form-input" rows={5} value={nContent} onChange={e => setNContent(e.target.value)} placeholder="Write your announcement..." />
+            <textarea className="form-input" rows={5} value={nContent} onChange={e => setNContent(e.target.value)} placeholder="Write your announcement..." disabled={newsReadOnly} />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Attach Image</label>
+            <input className="form-input" type="file" accept="image/*" onChange={e => setNImageFile(e.target.files?.[0] || null)} disabled={newsReadOnly} />
+            {nImageUrl && <img src={nImageUrl} alt="Attached news" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginTop: 8 }} />}
           </div>
           <div className="form-row">
             <label className="form-label">Status</label>
-            <select className="form-input" value={nStatus} onChange={e => setNStatus(e.target.value)}>
+            <select className="form-input" value={nStatus} onChange={e => setNStatus(e.target.value)} disabled={newsReadOnly}>
               <option>Draft</option><option>Published</option>
             </select>
           </div>
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveNews} disabled={nSaving}>
+            <button className="btn btn-primary" onClick={newsReadOnly ? closeModal : saveNews} disabled={nSaving}>
               {nSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
-              {editNews ? 'Update' : 'Publish'}
+              {newsReadOnly ? 'Close' : editNews ? 'Update' : 'Publish'}
             </button>
           </div>
         </div>

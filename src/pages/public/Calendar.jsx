@@ -293,7 +293,7 @@ const CalendarPage = () => {
                   <div className="flex items-start gap-3">
                     <div 
                       className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: eventTypes[event.type]?.bg || 'rgba(59,130,246,0.12)' }}
+                      style={{ backgroundColor: eventTypes[getEventType(event)]?.bg || '#dbeafe' }}
                     >
                       <Calendar size={20} style={{ color: eventTypes[getEventType(event)]?.color || '#1d4ed8' }} />
                     </div>
@@ -435,17 +435,17 @@ const CalendarPage = () => {
             <div className="flex items-center gap-3 mb-4">
               <div 
                 className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: eventTypes[selectedEvent.type]?.bg || 'rgba(59,130,246,0.12)' }}
+                style={{ backgroundColor: eventTypes[getEventType(selectedEvent)]?.bg || '#dbeafe' }}
               >
-                <Calendar size={20} style={{ color: eventTypes[selectedEvent.type]?.color || '#3b82f6' }} />
+                <Calendar size={20} style={{ color: eventTypes[getEventType(selectedEvent)]?.color || '#1d4ed8' }} />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-[#1a2b4a]">{selectedEvent.title}</h3>
                 <span 
                   className="text-xs font-semibold px-2 py-0.5 rounded-full"
                   style={{ 
-                    backgroundColor: eventTypes[selectedEvent.type]?.bg || 'rgba(59,130,246,0.12)',
-                    color: eventTypes[selectedEvent.type]?.color || '#3b82f6'
+                    backgroundColor: eventTypes[getEventType(selectedEvent)]?.bg || '#dbeafe',
+                    color: eventTypes[getEventType(selectedEvent)]?.color || '#1d4ed8'
                   }}
                 >
                   {selectedEvent.type || 'Event'}

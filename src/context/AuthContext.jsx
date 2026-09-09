@@ -18,6 +18,18 @@ const normalizeRole = (role) => {
 };
 
 const isArchivedProfile = (profile) => profile?.status?.toString().trim().toLowerCase() === 'archived';
+const loginAttemptKey = (email) => `smartedu-login-attempts:${email.trim().toLowerCase()}`;
+const readLoginAttempts = (email) => {
+  try { return JSON.parse(localStorage.getItem(loginAttemptKey(email)) || '{"count":0}'); }
+  catch { return { count: 0 }; }
+};
+const clearLoginAttempts = (email) => localStorage.removeItem(loginAttemptKey(email));
+const recordLoginFailure = (email) => {
+  const attempts = readLoginAttempts(email);
+  const next = { count: Math.min(5, (attempts.count || 0) + 1), updatedAt: Date.now() };
+  localStorage.setItem(loginAttemptKey(email), JSON.stringify(next));
+  return next.count;
+};
 
 const buildUserData = (user, profile, role) => ({
   uid: user.id,
@@ -46,6 +58,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  const [sessionTimeoutMs, setSessionTimeoutMs] = useState(30 * 60 * 1000);
   const mountedRef = useRef(true);
   const loginInProgressRef = useRef(false);
   const userDataRef = useRef(null);
@@ -84,6 +97,32 @@ export const AuthProvider = ({ children }) => {
       supabase.removeChannel(presenceChannel);
     };
   }, [userData?.uid, userData?.name]);
+
+  useEffect(() => {
+    let active = true;
+    supabase.from('school_settings').select('session_timeout').eq('id', 1).single().then(({ data }) => {
+      if (!active || !data?.session_timeout) return;
+      const match = data.session_timeout.match(/(\d+)\s*(min|hour)/i);
+      if (match) setSessionTimeoutMs(Number(match[1]) * (match[2].toLowerCase() === 'hour' ? 60 : 1) * 60 * 1000);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!userData?.uid) return undefined;
+    let timer;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => logout(), sessionTimeoutMs);
+    };
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, resetTimer));
+    resetTimer();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, [userData?.uid, sessionTimeoutMs]);
 
   // ─── Fetch profile from profiles table ───────────────────────────────────
   const fetchProfile = async (userId, email, metadata) => {
@@ -219,6 +258,15 @@ export const AuthProvider = ({ children }) => {
 
     await supabase.auth.signOut({ scope: 'local' });
 
+    if (readLoginAttempts(email).count >= 5) {
+      const lockedErr = new Error('LOGIN_ATTEMPTS_EXCEEDED');
+      lockedErr.userMessage = 'Too many failed login attempts. Please contact the administrator.';
+      setError(lockedErr.userMessage);
+      setLoading(false);
+      loginInProgressRef.current = false;
+      throw lockedErr;
+    }
+
     const MAX_RETRIES = 2;
     let lastError = null;
 
@@ -273,6 +321,7 @@ export const AuthProvider = ({ children }) => {
         userDataRef.current = built;
         setIsAuthenticated(true);
         setError(null);
+        clearLoginAttempts(email);
         setLoading(false);
         loginInProgressRef.current = false;
 
@@ -292,8 +341,12 @@ export const AuthProvider = ({ children }) => {
 
     // All retries failed (or role mismatch short-circuited the loop)
     const msg = lastError?.userMessage || lastError?.message || 'Login failed. Please try again.';
+    if (lastError?.message !== 'ARCHIVED_ACCOUNT' && !lastError?.message?.startsWith('ROLE_MISMATCH:')) {
+      const failures = recordLoginFailure(email);
+      if (failures >= 5) lastError.userMessage = 'Too many failed login attempts. The next login attempt is blocked.';
+    }
     loginInProgressRef.current = false;
-    setError(msg);
+    setError(lastError?.userMessage || msg);
     setLoading(false);
     throw lastError || new Error(msg);
   };

@@ -416,6 +416,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .settings-row:last-child { border-bottom: none; }
         .settings-label { font-size: 13px; font-weight: 600; }
         .settings-hint  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .settings-history { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 14px; }
+        .settings-history-empty { color: var(--text-dim); font-size: 12px; margin-top: 10px; }
+        .settings-history-item { color: var(--text-muted); font-size: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
         .settings-hint a { color: var(--accent); text-decoration: none; }
         .settings-input-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .settings-input-row:last-child { border-bottom: none; }
@@ -559,7 +562,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                 ['sec-general',       'General'],
                 ['sec-security',      'Security'],
                 ['sec-notifications', 'Notifications'],
-                ['sec-integrations',  'Integrations'],
                 ['sec-backup',        'Backup & Logs'],
                 ['sec-appearance',    'Appearance'],
               ].map(([id, label]) => (

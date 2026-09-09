@@ -688,10 +688,11 @@ export const useAdminLogic = (userData) => {
   const [sessionTimeout,      setSessionTimeout]      = useState('30 min');
   const [loginAttemptLimit,   setLoginAttemptLimit]   = useState(true);
   const [emailNotifications,  setEmailNotifications]  = useState(false);
-  const [lmsIntegration,      setLmsIntegration]      = useState(false);
-  const [smsGateway,          setSmsGateway]          = useState(false);
   const [autoBackup,          setAutoBackup]          = useState(true);
+  const [backupFrequency,     setBackupFrequency]     = useState('daily');
+  const [backupTime,          setBackupTime]          = useState('00:00');
   const [activityLogsDays,    setActivityLogsDays]    = useState('90 days');
+  const [backupHistory,       setBackupHistory]       = useState([]);
   const [theme,               setTheme]               = useState('Dark');
   const [language,            setLanguage]            = useState('English');
 
@@ -712,6 +713,16 @@ export const useAdminLogic = (userData) => {
         setTheme(data.theme || 'Dark');
         setLanguage(data.language || 'English');
         setAutoSave(data.auto_save || false);
+        setTwoFactorAuth(data.two_factor_auth ?? true);
+        setSessionTimeout(data.session_timeout || '30 min');
+        setLoginAttemptLimit(data.login_attempt_limit ?? true);
+        setEmailNotifications(data.email_notifications || false);
+        setAutoBackup(data.auto_backup ?? true);
+        setBackupFrequency(data.backup_frequency || 'daily');
+        setBackupTime(data.backup_time || '00:00');
+        setActivityLogsDays(data.activity_logs_retention || '90 days');
+        const { data: backups } = await supabase.from('backup_history').select('*').order('started_at', { ascending: false }).limit(10);
+        setBackupHistory(backups || []);
       } else if (error && (error.code === 'PGRST116' || error.status === 406 || error.status === 400)) {
         // Table doesn't exist or no settings record - use defaults
         console.warn('School settings table not available - using defaults');
@@ -737,6 +748,14 @@ export const useAdminLogic = (userData) => {
         theme,
         language,
         auto_save: autoSave,
+        two_factor_auth: true,
+        session_timeout: sessionTimeout,
+        login_attempt_limit: true,
+        email_notifications: emailNotifications,
+        auto_backup: autoBackup,
+        backup_frequency: backupFrequency,
+        backup_time: backupTime,
+        activity_logs_retention: activityLogsDays,
         updated_at: new Date().toISOString() 
       }).eq('id', 1);
       await logActivity('Updated settings');
@@ -868,14 +887,14 @@ export const useAdminLogic = (userData) => {
   );
 
   return {
-    Toggle, activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave,
+    Toggle, activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime,
     calEvents, calFilter, calGrid, calMonth, calYear, closeModal,
     darkMode, debounceTimersRef, debouncedFetchRoleDist, debouncedFetchStats, debouncedFetchUsers, deleteConfirm,
     deleteEvent, deleteMemo, deleteNewsItem, deleteUser, editEvent, editMemo,
     editNews, editUser, emailNotifications, evDate, evDesc, evEnd,
     evCustomType, evSaving, evTitle, evType, fetchCalEvents, fetchLogs, fetchMemos,
     fetchNews, fetchRoleDist, fetchSettings, fetchStats, fetchUsers, filteredMemos,
-    filteredNews, filteredUsers, handleOverlayClick, language, lmsIntegration, logActivity,
+    filteredNews, filteredUsers, handleOverlayClick, language, logActivity,
     loginAttemptLimit, logoErr, mBody, mFrom, mSaving, mSubj,
     mTo, memoFilter, memoSearch, memos, memosLoading, modal,
     nAuthor, nCat, nContent, nCustomTarget, nSaving, nStatus, nTarget,
@@ -884,19 +903,19 @@ export const useAdminLogic = (userData) => {
     openEditMemo, openEditNews, openEditUser, openModal, openNewPost, page,
     prevMonth, roleDist, roleFilter, saveEvent, saveMemo, saveNews,
     saveSettings, saveUser, scrollToSection, selMemo, sessionTimeout, setActiveSettingsSub,
-    setActivityLogs, setActivityLogsDays, setAutoBackup, setAutoSave, setCalEvents, setCalFilter,
+    setActivityLogs, setActivityLogsDays, setAutoBackup, setAutoSave, setBackupFrequency, setBackupTime, setCalEvents, setCalFilter,
     setCalMonth, setCalYear, setDarkMode, setDeleteConfirm, setEditEvent, setEditMemo,
     setEditNews, setEditUser, setEmailNotifications, setEvDate, setEvDesc, setEvEnd,
-    setEvCustomType, setEvSaving, setEvTitle, setEvType, setLanguage, setLmsIntegration, setLoginAttemptLimit,
+    setEvCustomType, setEvSaving, setEvTitle, setEvType, setLanguage, setLoginAttemptLimit,
     setLogoErr, setMBody, setMFrom, setML, setMSaving, setMSubj,
     setMTo, setMemoFilter, setMemoSearch, setMemos, setModal, setNAuthor,
     setNCat, setNContent, setNCustomTarget, setNL, setNImageFile, setNImageUrl, setNSaving, setNStatus, setNTarget,
     setNTitle, setNewsCatF, setNewsItems, setNewsSearch, setNewsStatF, setNotifications,
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
-    setSettings, setSmsGateway, setStats, setTheme, setToast, setTwoFactorAuth,
+    setSettings, setStats, setTheme, setToast, setTwoFactorAuth,
     setUDept, setUEmail, setUL, setUName, setUPass, setURole,
     setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
-    smsGateway, stats, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
+    stats, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading,

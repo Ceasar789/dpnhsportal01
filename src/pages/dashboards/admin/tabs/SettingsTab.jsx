@@ -8,13 +8,14 @@ import { useAdminContext } from '../AdminContext';
 
 const SettingsTab = () => {
   const {
-    Toggle, activityLogsDays, autoBackup, autoSave, emailNotifications,
-    language, lmsIntegration, loginAttemptLimit, notifications,
+    Toggle, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime, emailNotifications,
+    language, loginAttemptLimit,
     saveSettings, sessionTimeout, setActivityLogsDays, setAutoBackup,
+    setBackupFrequency, setBackupTime,
     setAutoSave, setDarkMode, setEmailNotifications, setLanguage,
-    setLmsIntegration, setLoginAttemptLimit, setSessionTimeout,
-    setSettings, setSmsGateway, setTheme, setTwoFactorAuth, settings,
-    settingsSaving, smsGateway, theme, twoFactorAuth
+    setLoginAttemptLimit, setSessionTimeout,
+    setSettings, setTheme, settings,
+    settingsSaving, theme, twoFactorAuth
   } = useAdminContext();
 
   return (
@@ -63,7 +64,7 @@ const SettingsTab = () => {
                       <div className="settings-label">Two-Factor Authentication</div>
                       <div className="settings-hint">Require 2FA for all admin logins</div>
                     </div>
-                    <Toggle on={twoFactorAuth} onClick={() => setTwoFactorAuth(!twoFactorAuth)} />
+                      <span className="badge badge-green">Locked On</span>
                   </div>
                   <div className="settings-row">
                     <div>
@@ -79,7 +80,7 @@ const SettingsTab = () => {
                       <div className="settings-label">Login Attempt Limit</div>
                       <div className="settings-hint">Lock account after 5 failed attempts</div>
                     </div>
-                    <Toggle on={loginAttemptLimit} onClick={() => setLoginAttemptLimit(!loginAttemptLimit)} />
+                    <span className="badge badge-green">5 Attempts</span>
                   </div>
                 </div>
               </div>
@@ -97,35 +98,31 @@ const SettingsTab = () => {
                 </div>
               </div>
 
-              <div id="sec-integrations" className="settings-section">
-                <div className="settings-section-title">Integrations</div>
-                <div className="settings-card">
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-label">LMS Integration</div>
-                      <div className="settings-hint">Connect to Google Classroom or Moodle</div>
-                    </div>
-                    <Toggle on={lmsIntegration} onClick={() => setLmsIntegration(!lmsIntegration)} />
-                  </div>
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-label">SMS Gateway</div>
-                      <div className="settings-hint">Send SMS alerts to parents</div>
-                    </div>
-                    <Toggle on={smsGateway} onClick={() => setSmsGateway(!smsGateway)} />
-                  </div>
-                </div>
-              </div>
-
               <div id="sec-backup" className="settings-section">
                 <div className="settings-section-title">Backup & Logs</div>
                 <div className="settings-card">
                   <div className="settings-row">
                     <div>
                       <div className="settings-label">Auto-Backup</div>
-                      <div className="settings-hint">Daily database backup to cloud storage</div>
+                      <div className="settings-hint">Run the configured database backup schedule</div>
                     </div>
                     <Toggle on={autoBackup} onClick={() => setAutoBackup(!autoBackup)} />
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Backup Frequency</div>
+                      <div className="settings-hint">Choose how often the scheduled backup runs</div>
+                    </div>
+                    <select value={backupFrequency} onChange={e => setBackupFrequency(e.target.value)} style={{ width:'auto' }}>
+                      <option value="daily">Every day</option><option value="weekly">Every week</option><option value="monthly">Every month</option>
+                    </select>
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Backup Time</div>
+                      <div className="settings-hint">Default is midnight (12:00 AM)</div>
+                    </div>
+                    <input type="time" value={backupTime} onChange={e => setBackupTime(e.target.value)} style={{ width:'auto' }} />
                   </div>
                   <div className="settings-row">
                     <div>
@@ -135,6 +132,18 @@ const SettingsTab = () => {
                     <select value={activityLogsDays} onChange={e => setActivityLogsDays(e.target.value)} style={{ width:'auto' }}>
                       <option>30 days</option><option>90 days</option><option>1 year</option>
                     </select>
+                  </div>
+                  <div className="settings-history">
+                    <div className="settings-label">Backup History</div>
+                    <div className="settings-hint">Scheduled backup records will appear here with date and time.</div>
+                    {backupHistory.length === 0 && <div className="settings-history-empty">No backup history yet.</div>}
+                    {backupHistory.map(backup => <div className="settings-history-item" key={backup.id}>{new Date(backup.started_at).toLocaleString()} · {backup.status}</div>)}
+                  </div>
+                  <div className="settings-history">
+                    <div className="settings-label">Activity Log History</div>
+                    <div className="settings-hint">Recent admin activity retained according to the selected period.</div>
+                    {activityLogs.length === 0 && <div className="settings-history-empty">No activity logs yet.</div>}
+                    {activityLogs.map(log => <div className="settings-history-item" key={log.id}>{log.action} · {new Date(log.created_at).toLocaleString()}</div>)}
                   </div>
                 </div>
               </div>
@@ -156,9 +165,7 @@ const SettingsTab = () => {
                       <div className="settings-label">Language</div>
                       <div className="settings-hint">Portal display language</div>
                     </div>
-                    <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width:'auto' }}>
-                      <option>English</option><option>Filipino</option>
-                    </select>
+                    <select value="English" disabled style={{ width:'auto' }}><option>English</option></select>
                   </div>
                 </div>
               </div>

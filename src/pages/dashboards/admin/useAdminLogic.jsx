@@ -438,7 +438,7 @@ export const useAdminLogic = (userData) => {
     try {
       let featuredImageUrl = nImageUrl || null;
       if (nImageFile) {
-        const filePath = `news/${userData?.uid || 'admin'}/${Date.now()}-${nImageFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
+        const filePath = `${userData?.uid || 'admin'}/${Date.now()}-${nImageFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
         const { error: uploadError } = await supabase.storage.from('news-images').upload(filePath, nImageFile, { cacheControl: '3600', upsert: false });
         if (uploadError) throw uploadError;
         const { data: publicUrlData } = supabase.storage.from('news-images').getPublicUrl(filePath);

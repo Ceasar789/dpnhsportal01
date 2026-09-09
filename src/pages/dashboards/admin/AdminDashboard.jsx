@@ -356,23 +356,23 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-title   { font-size: 16px; font-weight: 600; }
         .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 5px; }
         .cal-nav:hover { background: rgba(255,255,255,0.06); color: var(--text); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-        .cal-head { background: var(--card-bg); padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: 10px; overflow: hidden; }
+        .cal-head { background: #f8fafc; padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #64748b; }
         .cal-cell { background: var(--card-bg); min-height: 80px; padding: 8px; position: relative; }
         .cal-cell.weekend { background: rgba(254,226,226,.55); }
         .cal-cell.holiday { background: rgba(254,226,226,.8); }
-        .cal-cell:hover { background: var(--card2); }
-        .cal-day { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
-        .cal-cell.today .cal-day { background: var(--accent); color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-        .cal-cell.other-month .cal-day { color: var(--text-dim); }
-        .cal-event { font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .cal-cell:hover { background: #f1f5f9; }
+        .cal-day { font-size: 13px; color: #475569; margin-bottom: 4px; }
+        .cal-cell.today .cal-day { background: #2563eb; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+        .cal-cell.other-month .cal-day { color: #94a3b8; }
+        .cal-event { font-size: 11px; font-weight: 600; padding: 3px 6px; border-radius: 4px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .cal-event:hover { opacity: 0.8; }
-        .ev-blue   { background: rgba(59,130,246,0.3);  color: #93c5fd; }
-        .ev-yellow { background: rgba(245,158,11,0.3);  color: #fcd34d; }
-        .ev-green  { background: rgba(34,197,94,0.3);   color: #86efac; }
-        .ev-red    { background: #fee2e2; color: #b91c1c; }
-        .ev-purple { background: rgba(167,139,250,0.3); color: #c4b5fd; }
-        .ev-teal   { background: rgba(45,212,191,0.3);  color: #5eead4; }
+        .ev-blue   { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+        .ev-yellow { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .ev-green  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .ev-red    { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .ev-purple { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
+        .ev-teal   { background: #ccfbf1; color: #0f766e; border: 1px solid #5eead4; }
         .cal-sidebar { width: 200px; flex-shrink: 0; }
         .upcoming-item { padding: 10px 0; border-left: 3px solid; padding-left: 10px; margin-bottom: 10px; }
         .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }

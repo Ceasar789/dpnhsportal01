@@ -37,10 +37,10 @@ const UsersTab = () => {
                   <option value="online">Online</option>
                   <option value="offline">Offline</option>
                 </select>
-                <button className={`archive-toggle ${showArchived ? 'active' : ''}`} type="button" title={showArchived ? 'Show active users' : 'Show archived users'} aria-label={showArchived ? 'Show active users' : 'Show archived users'} onClick={() => setShowArchived(!showArchived)}>
+                <button className="btn btn-primary" onClick={openCreateUser}>+ Create User</button>
+                <button className={`archive-toggle ${showArchived ? 'active' : ''}`} type="button" title={showArchived ? 'Show active users' : 'View archive history'} aria-label={showArchived ? 'Show active users' : 'View archive history'} onClick={() => setShowArchived(!showArchived)}>
                   {showArchived ? <ArchiveRestore size={17} /> : <Archive size={17} />}
                 </button>
-                <button className="btn btn-primary" onClick={openCreateUser}>+ Create User</button>
               </div>
               <div className="table-card">
                 {usersLoading
@@ -63,7 +63,10 @@ const UsersTab = () => {
                           </td>
                           <td style={{ color:'var(--text-muted)' }}>{u.email}</td>
                           <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
-                          <td><span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-red'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`} style={{ marginRight: 5 }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span></td>
+                          <td>{showArchived
+                            ? <span className="badge badge-yellow"><Archive size={12} style={{ marginRight: 5, verticalAlign: 'middle' }} />Archived</span>
+                            : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-red'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`} style={{ marginRight: 5 }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
+                          </td>
                           <td>
                             <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={() => openEditUser(u)}><Pencil size={16} /></button>
                             <button className="icon-action archive-action" title="Archive user" aria-label={`Archive ${u.name || u.email}`} onClick={() => deleteUser(u.id)}><Trash2 size={16} /></button>

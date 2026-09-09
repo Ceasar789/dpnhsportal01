@@ -63,25 +63,27 @@ const CalendarPage = () => {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
+  const getEventType = (event) => event.event_type || event.type || 'Event';
+
   const getEventsForDate = (date) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
     return events.filter(e => {
       const eventDate = e.event_date?.split('T')[0];
+      if (e.end_date) return dateStr >= eventDate && dateStr <= e.end_date.split('T')[0];
       return dateStr === eventDate;
     });
   };
 
   const eventTypes = {
-    Academic: { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
-    Exam: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
-    Holiday: { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
-    Event: { color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
-    Meeting: { color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
+    Event: { color: '#1d4ed8', bg: '#dbeafe' },
+    Deadline: { color: '#92400e', bg: '#fef3c7' },
+    Holiday: { color: '#b91c1c', bg: '#fee2e2' },
+    Other: { color: '#0f766e', bg: '#ccfbf1' },
   };
 
-  const allTypes = ['All', ...new Set(events.map(e => e.type || 'Event').filter(Boolean))];
+  const allTypes = ['All', ...new Set(events.map(getEventType).filter(Boolean))];
 
-  const filteredEvents = filterType === 'All' ? events : events.filter(e => (e.type || 'Event') === filterType);
+  const filteredEvents = filterType === 'All' ? events : events.filter(e => getEventType(e) === filterType);
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -203,6 +205,9 @@ const CalendarPage = () => {
               <ChevronLeft size={20} className="text-gray-600" />
             </button>
             <h2 className="text-xl font-bold text-[#1a2b4a]">{monthNames[month]} {year}</h2>
+            <select value={year} onChange={e => setCurrentDate(new Date(Number(e.target.value), month, 1))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" aria-label="Calendar year">
+              {[...Array(11)].map((_, i) => { const optionYear = new Date().getFullYear() - 5 + i; return <option key={optionYear} value={optionYear}>{optionYear}</option>; })}
+            </select>
             <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
               <ChevronRight size={20} className="text-gray-600" />
             </button>
@@ -249,7 +254,7 @@ const CalendarPage = () => {
                     <div 
                       key={date} 
                       className="h-24 rounded-lg border border-gray-100 p-1.5 transition-colors hover:bg-gray-50 cursor-pointer"
-                      style={{ backgroundColor: isToday ? '#eff6ff' : undefined, borderColor: isToday ? '#3b82f6' : undefined }}
+                      style={{ backgroundColor: isToday ? '#eff6ff' : [0, 6].includes(new Date(year, month, date).getDay()) || dateEvents.some(event => getEventType(event) === 'Holiday') ? '#fef2f2' : '#ffffff', borderColor: isToday ? '#3b82f6' : '#e5e7eb' }}
                       onClick={() => dateEvents.length > 0 && setSelectedEvent(dateEvents[0])}
                     >
                       <span className={`text-sm font-semibold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>{date}</span>
@@ -259,8 +264,8 @@ const CalendarPage = () => {
                             key={idx} 
                             className="text-[10px] px-1.5 py-0.5 rounded truncate font-medium"
                             style={{ 
-                              backgroundColor: eventTypes[evt.type]?.bg || 'rgba(59,130,246,0.12)',
-                              color: eventTypes[evt.type]?.color || '#3b82f6'
+                              backgroundColor: eventTypes[getEventType(evt)]?.bg || '#dbeafe',
+                              color: eventTypes[getEventType(evt)]?.color || '#1d4ed8'
                             }}
                           >
                             {evt.title}
@@ -290,7 +295,7 @@ const CalendarPage = () => {
                       className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: eventTypes[event.type]?.bg || 'rgba(59,130,246,0.12)' }}
                     >
-                      <Calendar size={20} style={{ color: eventTypes[event.type]?.color || '#3b82f6' }} />
+                      <Calendar size={20} style={{ color: eventTypes[getEventType(event)]?.color || '#1d4ed8' }} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-bold text-[#1a2b4a] mb-1 truncate">{event.title}</h4>
@@ -314,11 +319,11 @@ const CalendarPage = () => {
                     <span 
                       className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
                       style={{ 
-                        backgroundColor: eventTypes[event.type]?.bg || 'rgba(59,130,246,0.12)',
-                        color: eventTypes[event.type]?.color || '#3b82f6'
+                        backgroundColor: eventTypes[getEventType(event)]?.bg || '#dbeafe',
+                        color: eventTypes[getEventType(event)]?.color || '#1d4ed8'
                       }}
                     >
-                      {event.type || 'Event'}
+                      {getEventType(event)}
                     </span>
                   </div>
                 </div>

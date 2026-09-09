@@ -573,8 +573,8 @@ export const useAdminLogic = (userData) => {
     await fetchCalEvents(); await fetchStats();
   };
 
-  const typeColor = (t) => ({ Event:'#3b82f6', Deadline:'#f59e0b', Holiday:'#22c55e', Meeting:'#a78bfa', Other:'#2dd4bf' }[t] || '#3b82f6');
-  const typeClass = (t) => ({ Event:'ev-blue', Deadline:'ev-yellow', Holiday:'ev-green', Meeting:'ev-purple', Other:'ev-teal' }[t] || 'ev-blue');
+  const typeColor = (t) => ({ Event:'#60a5fa', Deadline:'#fbbf24', Holiday:'#f87171', Other:'#2dd4bf' }[t] || '#60a5fa');
+  const typeClass = (t) => ({ Event:'ev-blue', Deadline:'ev-yellow', Holiday:'ev-red', Other:'ev-teal' }[t] || 'ev-blue');
 
   const calGrid = useMemo(() => {
     const first = new Date(calYear, calMonth, 1).getDay();

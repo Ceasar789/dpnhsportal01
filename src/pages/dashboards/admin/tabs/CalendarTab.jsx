@@ -15,7 +15,7 @@ const CalendarTab = () => {
     deleteEvent, editEvent, evDate, evDesc, evEnd, evSaving, evTitle,
     evCustomType, evType, handleOverlayClick, modal, nextMonth, openCreateEvent,
     openEditEvent, prevMonth, saveEvent, setCalFilter, setEvCustomType, setEvDate,
-    setEvDesc, setEvEnd, setEvTitle, setEvType, today, typeClass,
+    setCalYear, setEvDesc, setEvEnd, setEvTitle, setEvType, today, typeClass,
     typeColor, upcomingEvents
   } = useAdminContext();
 
@@ -29,6 +29,9 @@ const CalendarTab = () => {
                   <div className="cal-toolbar">
                     <button className="cal-nav" onClick={prevMonth}>‹</button>
                     <span className="cal-title">{MONTHS[calMonth]} {calYear}</span>
+                    <select value={calYear} onChange={e => setCalYear(Number(e.target.value))} style={{ width:'auto' }} aria-label="Calendar year">
+                      {[...Array(11)].map((_, i) => { const year = new Date().getFullYear() - 5 + i; return <option key={year} value={year}>{year}</option>; })}
+                    </select>
                     <button className="cal-nav" onClick={nextMonth}>›</button>
                     <select style={{ marginLeft:8, width:'auto' }}><option>Month</option><option>Week</option></select>
                     <button className="btn btn-primary" style={{ marginLeft:'auto' }} onClick={openCreateEvent}>+ Add Event</button>
@@ -48,8 +51,11 @@ const CalendarTab = () => {
                         if (e.end_date) return ds >= e.event_date && ds <= e.end_date;
                         return e.event_date === ds;
                       });
+                      const dayOfWeek = cell.cur ? new Date(calYear, calMonth, cell.d).getDay() : -1;
+                      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                      const hasHoliday = evs.some(event => event.event_type === 'Holiday');
                       return (
-                        <div key={i} className={`cal-cell ${isToday ? 'today' : ''} ${!cell.cur ? 'other-month' : ''}`}>
+                        <div key={i} className={`cal-cell ${isToday ? 'today' : ''} ${!cell.cur ? 'other-month' : ''} ${isWeekend ? 'weekend' : ''} ${hasHoliday ? 'holiday' : ''}`}>
                           <div className="cal-day">{cell.d}</div>
                           {evs.map((e, j) => (
                             <div key={j} className={`cal-event ${typeClass(e.event_type)}`} onClick={() => openEditEvent(e)} title="Click to edit">
@@ -61,7 +67,7 @@ const CalendarTab = () => {
                     })}
                   </div>
                   <div className="legend">
-                    {[['Event','#3b82f6'],['Deadline','#f59e0b'],['Holiday','#22c55e'],['Meeting','#a78bfa'],['Other','#2dd4bf']].map(([l,c]) => (
+                    {[['Event','#93c5fd'],['Deadline','#fcd34d'],['Holiday','#fca5a5'],['Other','#99f6e4']].map(([l,c]) => (
                       <div key={l} className="legend-item"><div className="legend-dot" style={{ background:c }}></div>{l}</div>
                     ))}
                   </div>

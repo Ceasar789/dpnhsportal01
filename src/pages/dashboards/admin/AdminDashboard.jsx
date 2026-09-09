@@ -373,6 +373,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .ev-red    { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
         .ev-purple { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
         .ev-teal   { background: #ccfbf1; color: #0f766e; border: 1px solid #5eead4; }
+        :root:not(.light) .cal-grid { background: #303642; border-color: #303642; }
+        :root:not(.light) .cal-head { background: #252a33; color: #aeb8c9; }
+        :root:not(.light) .cal-cell { background: #20252d; }
+        :root:not(.light) .cal-cell:hover { background: #292f39; }
+        :root:not(.light) .cal-cell.weekend { background: #2b2931; }
+        :root:not(.light) .cal-cell.holiday { background: #32282d; }
+        :root:not(.light) .cal-day { color: #b6c0d0; }
+        :root:not(.light) .cal-cell.other-month .cal-day { color: #687386; }
+        :root:not(.light) .ev-blue { background: #263b56; color: #bfdbfe; border-color: #41658f; }
+        :root:not(.light) .ev-yellow { background: #413721; color: #fde68a; border-color: #806b31; }
+        :root:not(.light) .ev-green { background: #203b2d; color: #bbf7d0; border-color: #3c7655; }
+        :root:not(.light) .ev-red { background: #422a30; color: #fecaca; border-color: #874852; }
+        :root:not(.light) .ev-purple { background: #352d4d; color: #ddd6fe; border-color: #665497; }
+        :root:not(.light) .ev-teal { background: #1e3c3b; color: #b9f5ec; border-color: #3d7772; }
         .cal-sidebar { width: 200px; flex-shrink: 0; }
         .upcoming-item { padding: 10px 0; border-left: 3px solid; padding-left: 10px; margin-bottom: 10px; }
         .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }

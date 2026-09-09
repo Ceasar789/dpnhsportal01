@@ -1,0 +1,77 @@
+name: Temporary Supabase Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 16 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Check out backup script
+        uses: actions/checkout@v4
+
+      - name: Create backup folders
+        run: mkdir -p backup/database backup/storage
+
+      - name: Record backup start
+        id: backup-history
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_STATUS: running
+          BACKUP_STORAGE_PATH: github-actions/${{ github.run_id }}
+        run: node scripts/backup-history.mjs
+
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          pg_dump "$DATABASE_URL" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --file=backup/database/smartedu.dump
+
+      - name: Download Supabase Storage files
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_DIRECTORY: backup/storage
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          node scripts/backup-storage.mjs
+
+      - name: Compress storage backup
+        run: tar -czf backup/storage.tar.gz -C backup/storage .
+
+      - name: Upload temporary backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartedu-backup-${{ github.run_id }}
+          path: |
+            backup/database/smartedu.dump
+            backup/storage.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Record backup result
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_ID: ${{ steps.backup-history.outputs.backup_id }}
+          BACKUP_STATUS: ${{ job.status == 'success' && 'completed' || 'failed' }}
+          BACKUP_STORAGE_PATH: github-actions/${{ github.run_id }}
+          BACKUP_ERROR_MESSAGE: ${{ job.status == 'success' && '' || 'One or more backup steps failed. Check the GitHub Actions log.' }}
+        run: node scripts/backup-history.mjs

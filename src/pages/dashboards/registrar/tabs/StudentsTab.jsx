@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Search, Plus, Eye, Loader2, Trash2, Edit3, Save } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -34,11 +35,14 @@ const StudentsTab = () => {
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'student')
-      .order('created_at', { ascending: false });
+    const { data, error } = await withRetry(
+      () => supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'student')
+        .order('created_at', { ascending: false }),
+      { label: 'Students fetch' }
+    );
 
     if (error) {
       console.error('Error fetching students:', error);
@@ -128,7 +132,7 @@ const StudentsTab = () => {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${
           toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'

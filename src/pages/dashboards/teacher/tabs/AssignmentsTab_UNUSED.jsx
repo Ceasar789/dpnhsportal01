@@ -163,7 +163,7 @@ const AssignmentsTab_UNUSED = () => {
   });
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}

@@ -9,18 +9,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../../../config/supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useDashboardTheme } from '../../../styles/dashboardTheme';
+import { withRetry } from '../../../lib/supabaseRetry';
+import { validatePassword } from '../../../lib/passwordPolicy';
 
 export const useAdminLogic = (userData) => {
   const { onlineUserIds } = useAuth();
-  const [darkMode, setDarkMode] = useState(false);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.remove('light');
-    } else {
-      document.documentElement.classList.add('light');
-    }
-  }, [darkMode]);
+  const { darkMode, setDarkMode } = useDashboardTheme();
 
   // ❌ DELETE THIS USEEFFECT (removed):
   // useEffect(() => {
@@ -30,7 +25,6 @@ export const useAdminLogic = (userData) => {
   const [page, setPage]                     = useState('overview');
   const [activeSettingsSub, setActiveSettingsSub] = useState('sec-general');
   const [modal, setModal]                   = useState(null);
-  const [logoErr, setLogoErr]               = useState(false);
   const [toast, setToast]                   = useState(null);
   const [notifications, setNotifications]   = useState([]);
 
@@ -74,8 +68,10 @@ export const useAdminLogic = (userData) => {
   const fetchLogs = useCallback(async () => {
     const localLogs = readLocalActivityLogs();
     try {
-      const { data, error } = await supabase
-        .from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5);
+      const { data, error } = await withRetry(
+        () => supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5),
+        { label: 'Activity logs fetch' }
+      );
       if (error) {
         console.warn('Activity logs unavailable; using local activity cache:', error.message);
         setActivityLogs(localLogs.slice(0, 5));
@@ -132,49 +128,52 @@ export const useAdminLogic = (userData) => {
   const fetchStats = useCallback(async () => {
     try {
       const results = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('news').select('*', { count: 'exact', head: true }).eq('status', 'Published'),
-        supabase.from('calendar_events').select('*', { count: 'exact', head: true }),
-        supabase.from('memos').select('*', { count: 'exact', head: true }),
+        withRetry(() => supabase.from('profiles').select('*', { count: 'exact', head: true }), { label: 'Stats: users count fetch' }),
+        withRetry(() => supabase.from('news').select('*', { count: 'exact', head: true }).eq('status', 'Published'), { label: 'Stats: news count fetch' }),
+        withRetry(() => supabase.from('calendar_events').select('*', { count: 'exact', head: true }), { label: 'Stats: events count fetch' }),
+        withRetry(() => supabase.from('memos').select('*', { count: 'exact', head: true }), { label: 'Stats: memos count fetch' }),
       ]);
       const [{ count: users, error: usersErr }, { count: news, error: newsErr }, { count: events, error: eventsErr }, { count: memos, error: memosErr }] = results;
-      
-      if (usersErr && (usersErr.status === 403 || usersErr.status === 406)) {
-        console.warn('Profiles table access denied - check RLS policies');
-      }
-      
-      setStats({ 
-        users: !usersErr ? (users || 0) : 0, 
-        news: !newsErr ? (news || 0) : 0, 
-        events: !eventsErr ? (events || 0) : 0, 
-        memos: !memosErr ? (memos || 0) : 0 
-      });
+
+      // Every failure gets reported, not just 403/406 — a timed-out count was
+      // previously indistinguishable from a genuine zero.
+      [['users', usersErr], ['news', newsErr], ['events', eventsErr], ['memos', memosErr]]
+        .forEach(([label, err]) => {
+          if (err) console.warn(`Stats: ${label} count failed —`, err.message || err);
+        });
+
+      // A failed count keeps its previous value. Rendering "0 Total Users" when
+      // the read simply failed reads as data loss and is worse than stale data.
+      setStats(prev => ({
+        users:  usersErr  ? prev.users  : (users  || 0),
+        news:   newsErr   ? prev.news   : (news   || 0),
+        events: eventsErr ? prev.events : (events || 0),
+        memos:  memosErr  ? prev.memos  : (memos  || 0),
+      }));
     } catch (e) {
       console.warn('Stats fetch error:', e);
-      setStats({ users: 0, news: 0, events: 0, memos: 0 });
     }
   }, []);
 
   const [roleDist, setRoleDist] = useState([]);
   const fetchRoleDist = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('profiles').select('role');
+      const { data, error } = await withRetry(
+        () => supabase.from('profiles').select('role'),
+        { label: 'Role distribution fetch' }
+      );
+      // Keep the last good distribution on failure rather than blanking the
+      // chart, which looks like "this school has no users".
       if (error) {
-        if (error.status === 403 || error.status === 406) {
-          console.warn('Role distribution unavailable - profiles table access denied');
-        } else {
-          console.warn('Role distribution fetch error:', error);
-        }
-        setRoleDist([]);
+        console.warn('Role distribution fetch failed —', error.message || error);
         return;
       }
-      if (!data) { setRoleDist([]); return; }
+      if (!data) return;
       const counts = {};
       data.forEach(r => { counts[r.role] = (counts[r.role] || 0) + 1; });
       setRoleDist(Object.entries(counts).map(([role, count]) => ({ role, count })));
     } catch (e) {
       console.warn('Role distribution error:', e);
-      setRoleDist([]);
     }
   }, []);
 
@@ -200,7 +199,17 @@ export const useAdminLogic = (userData) => {
   const fetchUsers = useCallback(async () => {
     setUL(true);
     try {
-      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      let { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+
+      // The project's connection pool (free-tier, small compute) can be
+      // briefly saturated — retry once after a short pause before giving up,
+      // instead of leaving the list empty until a manual refresh/re-login.
+      if (error) {
+        console.warn('Users fetch failed, retrying once:', error.message);
+        await new Promise((r) => setTimeout(r, 1500));
+        ({ data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }));
+      }
+
       if (error) {
         if (error.status === 403) {
           console.warn('Users table access denied - check RLS policies on profiles table. Admin may need permission to read profiles.');
@@ -240,7 +249,7 @@ export const useAdminLogic = (userData) => {
       // UPDATE EXISTING USER
       // ════════════════════════════════════════════════
       const { data, error } = await supabase.from('profiles').update({
-        name: uName.trim(), role: uRole, status: uStatus, updated_at: new Date().toISOString()
+        name: uName.trim(), role: uRole, status: uStatus, department: uDept.trim() || null, updated_at: new Date().toISOString()
       }).eq('id', editUser.id).select().single();
       
       if (error) throw error;
@@ -253,7 +262,8 @@ export const useAdminLogic = (userData) => {
       // ════════════════════════════════════════════════
       // CREATE NEW USER
       // ════════════════════════════════════════════════
-      if (!uPass || uPass.length < 6) return showToast('Password must be at least 6 chars', 'error');
+      const passwordError = validatePassword(uPass);
+      if (passwordError) return showToast(passwordError, 'error');
 
       console.log('📋 Starting user creation process...');
       
@@ -301,11 +311,12 @@ export const useAdminLogic = (userData) => {
           const { data: newProfile, error: profileErr } = await supabase
             .from('profiles')
             .upsert([{
-              id: uid, 
-              email: uEmail.trim(), 
-              name: uName.trim(), 
+              id: uid,
+              email: uEmail.trim(),
+              name: uName.trim(),
               role: uRole,
-              status: 'active', 
+              department: uDept.trim() || null,
+              status: 'active',
               created_at: new Date().toISOString()
             }], { onConflict: 'id' })
             .select()
@@ -411,7 +422,10 @@ export const useAdminLogic = (userData) => {
 
   const fetchNews = useCallback(async () => {
     setNL(true);
-    const { data, error } = await supabase.from('news').select('*').order('created_at', { ascending: false });
+    const { data, error } = await withRetry(
+      () => supabase.from('news').select('*').order('created_at', { ascending: false }),
+      { label: 'News fetch' }
+    );
     if (error) { showToast('Error loading news: ' + error.message, 'error'); }
     else setNewsItems(data || []);
     setNL(false);
@@ -429,6 +443,48 @@ export const useAdminLogic = (userData) => {
     setNCustomTarget(n.target_roles?.startsWith('custom:') ? n.target_roles.slice(7) : '');
     openModal('news');
   };
+
+  // ═══════════════════════════════════════════
+  //  ANNOUNCEMENT → NOTIFICATION FAN-OUT
+  //  When a post is published, every user in its target audience gets a
+  //  real notifications row so it shows up in their dashboard.
+  // ═══════════════════════════════════════════
+  const notifyAudience = useCallback(async ({ title, content, targetRoles }) => {
+    // 'custom:<free text>' can't be resolved to roles — skip rather than guess.
+    if (!targetRoles || targetRoles.startsWith('custom:')) return;
+
+    const roles = targetRoles === 'all'
+      ? ['student', 'teacher', 'faculty', 'registrar']
+      : targetRoles.split(',').map(r => r.trim()).filter(Boolean);
+    if (!roles.length) return;
+
+    try {
+      const { data: recipients, error: recipientsError } = await supabase
+        .from('profiles')
+        .select('id, status')
+        .in('role', roles);
+      if (recipientsError) throw recipientsError;
+
+      const rows = (recipients || [])
+        .filter(r => (r.status || 'active').toLowerCase() !== 'archived')
+        .map(r => ({
+          user_id: r.id,
+          title: `New announcement: ${title}`,
+          message: (content || '').replace(/<[^>]*>/g, '').slice(0, 180) || 'A new announcement has been posted.',
+          notification_type: 'announcement',
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }));
+      if (!rows.length) return;
+
+      const { error: insertError } = await supabase.from('notifications').insert(rows);
+      if (insertError) throw insertError;
+    } catch (e) {
+      // Don't fail the publish itself — just surface that the fan-out didn't happen.
+      console.warn('Notification fan-out failed:', e.message);
+      showToast('Post saved, but notifications could not be sent: ' + e.message, 'error');
+    }
+  }, []);
 
   const saveNews = async () => {
     if (newsReadOnly) return showToast('Published news is locked and cannot be edited.', 'error');
@@ -452,6 +508,10 @@ export const useAdminLogic = (userData) => {
         featured_image_url: featuredImageUrl,
         updated_at: new Date().toISOString(),
       };
+      // Only notify when a post newly enters the Published state, so editing
+      // an already-published post doesn't spam the audience again.
+      const becomesPublished = nStatus === 'Published' && editNews?.status !== 'Published';
+
       if (editNews) {
         const { error } = await supabase.from('news').update(payload).eq('id', editNews.id);
         if (error) throw error;
@@ -463,6 +523,11 @@ export const useAdminLogic = (userData) => {
         await logActivity('Created news', `${nTitle} (${nStatus})`);
         showToast('Post created!');
       }
+
+      if (becomesPublished) {
+        await notifyAudience({ title: payload.title, content: payload.content, targetRoles: payload.target_roles });
+      }
+
       await fetchNews(); await fetchStats();
       closeModal();
     } catch (e) {
@@ -471,10 +536,30 @@ export const useAdminLogic = (userData) => {
   };
 
   const updateNewsStatus = async (id, status) => {
-    await supabase.from('news').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
     const newsItem = newsItems.find(n => n.id === id);
+    const becomesPublished = status === 'Published' && newsItem?.status !== 'Published';
+
+    const { error } = await supabase
+      .from('news')
+      .update({
+        status,
+        published_at: status === 'Published' ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+    if (error) return showToast('Error updating status: ' + error.message, 'error');
+
     await logActivity('Updated news status', `${newsItem?.title} → ${status}`);
     showToast(`Post ${status.toLowerCase()}`);
+
+    if (becomesPublished && newsItem) {
+      await notifyAudience({
+        title: newsItem.title,
+        content: newsItem.content,
+        targetRoles: newsItem.target_roles,
+      });
+    }
+
     await fetchNews(); await fetchStats();
   };
 
@@ -513,7 +598,10 @@ export const useAdminLogic = (userData) => {
 
   const fetchCalEvents = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('calendar_events').select('*').order('event_date', { ascending: true });
+      const { data, error } = await withRetry(
+        () => supabase.from('calendar_events').select('*').order('event_date', { ascending: true }),
+        { label: 'Calendar events fetch' }
+      );
       if (error) throw error;
       setCalEvents(data || []);
     } catch (err) {
@@ -612,7 +700,10 @@ export const useAdminLogic = (userData) => {
 
   const fetchMemos = useCallback(async () => {
     setML(true);
-    const { data, error } = await supabase.from('memos').select('*').order('created_at', { ascending: false });
+    const { data, error } = await withRetry(
+      () => supabase.from('memos').select('*').order('created_at', { ascending: false }),
+      { label: 'Memos fetch' }
+    );
     if (error) { showToast('Error loading memos: ' + error.message, 'error'); }
     else {
       setMemos(data || []);
@@ -698,7 +789,10 @@ export const useAdminLogic = (userData) => {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('school_settings').select('*').eq('id', 1).single();
+      const { data, error } = await withRetry(
+        () => supabase.from('school_settings').select('*').eq('id', 1).single(),
+        { label: 'School settings fetch' }
+      );
       if (!error && data) {
         const quarterMap = {
           '1st Semester': '1st Quarter',
@@ -721,7 +815,10 @@ export const useAdminLogic = (userData) => {
         setBackupFrequency(data.backup_frequency || 'daily');
         setBackupTime(data.backup_time || '00:00');
         setActivityLogsDays(data.activity_logs_retention || '90 days');
-        const { data: backups } = await supabase.from('backup_history').select('*').order('started_at', { ascending: false }).limit(10);
+        const { data: backups } = await withRetry(
+          () => supabase.from('backup_history').select('*').order('started_at', { ascending: false }).limit(10),
+          { label: 'Backup history fetch' }
+        );
         setBackupHistory(backups || []);
       } else if (error && (error.code === 'PGRST116' || error.status === 406 || error.status === 400)) {
         // Table doesn't exist or no settings record - use defaults
@@ -864,8 +961,10 @@ export const useAdminLogic = (userData) => {
   //  INITIAL LOAD
   // ═══════════════════════════════════════════
   useEffect(() => {
-    // Add timeout protection (5 seconds max per fetch)
-    const timeout = (promise, ms = 5000) => Promise.race([
+    // Must stay above withRetry's worst case (attempt + 1.5s backoff + retry).
+    // At the old 5s this wrapper killed the retry mid-flight on a slow
+    // connection, so the fetch reported failure the retry would have fixed.
+    const timeout = (promise, ms = 20000) => Promise.race([
       promise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
     ]).catch(err => console.warn('Fetch timeout:', err));
@@ -895,7 +994,7 @@ export const useAdminLogic = (userData) => {
     evCustomType, evSaving, evTitle, evType, fetchCalEvents, fetchLogs, fetchMemos,
     fetchNews, fetchRoleDist, fetchSettings, fetchStats, fetchUsers, filteredMemos,
     filteredNews, filteredUsers, handleOverlayClick, language, logActivity,
-    loginAttemptLimit, logoErr, mBody, mFrom, mSaving, mSubj,
+    loginAttemptLimit, mBody, mFrom, mSaving, mSubj,
     mTo, memoFilter, memoSearch, memos, memosLoading, modal,
     nAuthor, nCat, nContent, nCustomTarget, nSaving, nStatus, nTarget,
     nTitle, nImageFile, nImageUrl, newsReadOnly, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
@@ -907,7 +1006,7 @@ export const useAdminLogic = (userData) => {
     setCalMonth, setCalYear, setDarkMode, setDeleteConfirm, setEditEvent, setEditMemo,
     setEditNews, setEditUser, setEmailNotifications, setEvDate, setEvDesc, setEvEnd,
     setEvCustomType, setEvSaving, setEvTitle, setEvType, setLanguage, setLoginAttemptLimit,
-    setLogoErr, setMBody, setMFrom, setML, setMSaving, setMSubj,
+    setMBody, setMFrom, setML, setMSaving, setMSubj,
     setMTo, setMemoFilter, setMemoSearch, setMemos, setModal, setNAuthor,
     setNCat, setNContent, setNCustomTarget, setNL, setNImageFile, setNImageUrl, setNSaving, setNStatus, setNTarget,
     setNTitle, setNewsCatF, setNewsItems, setNewsSearch, setNewsStatF, setNotifications,

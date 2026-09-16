@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { CalendarCheck, Calendar, Check, X, Loader2, Save, Download } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Table, TR, TD, Badge, Btn } from '../shared/ui';
@@ -25,22 +26,28 @@ const AttendanceTab = () => {
     setLoading(true);
     try {
       // Get sections where this teacher is the adviser
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('sections')
-        .select('id')
-        .eq('adviser_id', userData?.uid);
-      
+      const { data: sectionsData, error: sectionsError } = await withRetry(
+        () => supabase
+          .from('sections')
+          .select('id')
+          .eq('adviser_id', userData?.uid),
+        { label: 'Advisory sections fetch' }
+      );
+
       if (sectionsError) throw sectionsError;
-      
+
       const sectionIds = sectionsData?.map(s => s.id) || [];
-      
+
       // Get students from these sections
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('section_students')
-        .select('student_id, students(id, lrn, profiles(id, name))')
-        .in('section_id', sectionIds)
-        .eq('status', 'active');
-      
+      const { data: studentsData, error: studentsError } = await withRetry(
+        () => supabase
+          .from('section_students')
+          .select('student_id, students(id, lrn, profiles(id, name))')
+          .in('section_id', sectionIds)
+          .eq('status', 'active'),
+        { label: 'Section students fetch' }
+      );
+
       if (studentsError) throw studentsError;
       
       const mappedStudents = (studentsData || []).map(item => ({
@@ -52,12 +59,15 @@ const AttendanceTab = () => {
       setStudents(mappedStudents);
       
       // Get attendance records for selected date from any section
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance')
-        .select('*')
-        .in('section_id', sectionIds)
-        .eq('date', selectedDate);
-      
+      const { data: attendanceData, error: attendanceError } = await withRetry(
+        () => supabase
+          .from('attendance')
+          .select('*')
+          .in('section_id', sectionIds)
+          .eq('date', selectedDate),
+        { label: 'Attendance records fetch' }
+      );
+
       if (attendanceError) throw attendanceError;
       
       const attMap = {};
@@ -141,7 +151,7 @@ const AttendanceTab = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}

@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { GraduationCap, Search, Save, Loader2, Check, Download } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Badge, Btn } from '../shared/ui';
@@ -25,37 +26,46 @@ const GradesTab = () => {
     setLoading(true);
     try {
       // Get sections where this teacher is the adviser
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('sections')
-        .select('id')
-        .eq('adviser_id', userData?.uid);
-      
+      const { data: sectionsData, error: sectionsError } = await withRetry(
+        () => supabase
+          .from('sections')
+          .select('id')
+          .eq('adviser_id', userData?.uid),
+        { label: 'Advisory sections fetch' }
+      );
+
       if (sectionsError) throw sectionsError;
-      
+
       const sectionIds = sectionsData?.map(s => s.id) || [];
-      
+
       // Get grades for these sections
-      let gradesQuery = supabase
-        .from('grades')
-        .select('*')
-        .eq('teacher_id', userData?.uid);
-      
-      if (sectionIds.length > 0) {
-        gradesQuery = gradesQuery.in('section_id', sectionIds);
-      }
-      
-      const { data: gradesData, error: gradesError } = await gradesQuery;
+      const { data: gradesData, error: gradesError } = await withRetry(
+        () => {
+          let gradesQuery = supabase
+            .from('grades')
+            .select('*')
+            .eq('teacher_id', userData?.uid);
+          if (sectionIds.length > 0) {
+            gradesQuery = gradesQuery.in('section_id', sectionIds);
+          }
+          return gradesQuery;
+        },
+        { label: 'Grades fetch' }
+      );
       if (gradesError) throw gradesError;
-      
+
       setGrades(gradesData || []);
-      
+
       // Get students from sections
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('section_students')
-        .select('student_id, students(id, lrn, profiles(id, name, email))')
-        .in('section_id', sectionIds)
-        .eq('status', 'active');
-      
+      const { data: studentsData, error: studentsError } = await withRetry(
+        () => supabase
+          .from('section_students')
+          .select('student_id, students(id, lrn, profiles(id, name, email))')
+          .in('section_id', sectionIds)
+          .eq('status', 'active'),
+        { label: 'Section students fetch' }
+      );
+
       if (studentsError) throw studentsError;
       
       // Map student data
@@ -149,7 +159,7 @@ const GradesTab = () => {
   const subjects = ['English', 'Math', 'Science', 'Filipino'];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}

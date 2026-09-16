@@ -9,6 +9,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { Loader2, Megaphone, Search } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
+import { withRetry } from '../../../../lib/supabaseRetry';
 
 const AnnouncementsTab = () => {
   const { dark } = useTheme();
@@ -22,11 +23,14 @@ const AnnouncementsTab = () => {
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('active', true)
-        .order('created_at', { ascending: false });
+      const { data, error } = await withRetry(
+        () => supabase
+          .from('news')
+          .select('*')
+          .eq('status', 'Published')
+          .order('created_at', { ascending: false }),
+        { label: 'Announcements fetch' }
+      );
 
       if (error) throw error;
       setAnnouncements(data || []);
@@ -41,7 +45,7 @@ const AnnouncementsTab = () => {
 
     const channel = supabase
       .channel('student-announcements')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, fetchAnnouncements)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, fetchAnnouncements)
       .subscribe();
 
     return () => supabase.removeChannel(channel);
@@ -53,7 +57,7 @@ const AnnouncementsTab = () => {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <Toast />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">

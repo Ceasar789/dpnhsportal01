@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../config/supabase';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import FlippingLogo from '../../components/FlippingLogo';
 
 const normalizeRole = (role) => {
   if (!role) return 'student';
@@ -102,7 +103,7 @@ const StudentLogin = () => {
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="bg-white rounded-lg p-10">
           <div className="flex flex-col items-center mb-8">
-            <img src="/capstonelogo.png" alt="DPNHS Logo" style={{ width: '60px', height: '60px' }} />
+            <FlippingLogo size={60} />
             <h2 className="text-2xl font-bold mt-4" style={{ color: '#1a2b4a' }}>Student Login</h2>
             <div className="w-10 h-1 mt-2" style={{ backgroundColor: '#d4a843' }} />
             <p className="text-sm mt-2" style={{ color: '#6B7280' }}>Access your student portal</p>

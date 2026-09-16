@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Mail } from 'lucide-react';
+import FlippingLogo from '../../components/FlippingLogo';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ const ForgotPassword = () => {
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="bg-white rounded-lg p-10">
           <div className="flex flex-col items-center mb-8">
-            <img src="/capstonelogo.png" alt="DPNHS Logo" style={{ width: '60px', height: '60px' }} />
+            <FlippingLogo size={60} />
             <h2 className="text-2xl font-bold mt-4" style={{ color: '#1a2b4a' }}>Reset Password</h2>
             <div className="w-10 h-1 mt-2" style={{ backgroundColor: '#d4a843' }} />
             <p className="text-sm text-center mt-3" style={{ color: '#6B7280' }}>

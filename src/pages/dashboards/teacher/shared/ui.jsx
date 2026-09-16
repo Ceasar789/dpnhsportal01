@@ -85,12 +85,13 @@ export const Modal = ({ title, onClose, children }) => {
   );
 };
 
-export const StatCard = ({ label, value, sub, subColor, icon: Icon, loading, color = '#1908DF' }) => {
+export const StatCard = ({ label, value, sub, subColor, icon: Icon, loading, color = '#1908DF', onClick }) => {
   const { dark } = useTheme();
   const cardBg = dark ? '#1e293b' : '#ffffff';
-  return (
-    <div className="rounded-xl overflow-hidden flex flex-col h-[184px]"
-      style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+  const clickable = typeof onClick === 'function';
+
+  const inner = (
+    <>
       <div className="h-1/2 flex-shrink-0 flex items-center justify-center relative"
         style={{ background: `linear-gradient(180deg, ${color} 0%, ${color} 55%, ${cardBg} 100%)` }}>
         {loading ? (
@@ -104,6 +105,28 @@ export const StatCard = ({ label, value, sub, subColor, icon: Icon, loading, col
         <p className="text-xs font-bold mt-1" style={{ color: dark ? '#e2e8f0' : '#1a2b4a' }}>{label}</p>
         {sub && <p className="text-[11px] mt-0.5" style={{ color: subColor || (dark ? '#64748b' : '#94a3b8') }}>{sub}</p>}
       </div>
+    </>
+  );
+
+  const baseStyle = { border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` };
+
+  // Matches the hover treatment Admin uses for its clickable stat cards.
+  if (clickable) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="rounded-xl overflow-hidden flex flex-col h-[184px] w-full text-left p-0 clickable-stat"
+        style={baseStyle}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl overflow-hidden flex flex-col h-[184px]" style={baseStyle}>
+      {inner}
     </div>
   );
 };
@@ -120,6 +143,14 @@ export const Btn = ({ children, onClick, className = '', variant = 'default', di
     outline: { backgroundColor: 'transparent', color: '#64748b', border: '1px solid #e2e8f0' },
     primary: { backgroundColor: '#2563eb', color: '#ffffff' },
     danger: { backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+    // Soft, header-matching tint — same family as the welcome banner, so it
+    // reads as "branded" without being a loud solid block. Dark/light aware
+    // via the shared banner CSS vars.
+    pastel: {
+      backgroundColor: 'var(--banner-pill-bg, rgba(25,8,223,.08))',
+      color: 'var(--banner-accent, #1908DF)',
+      border: '1px solid var(--banner-pill-border, rgba(25,8,223,.15))',
+    },
   };
   return (
     <button onClick={onClick} disabled={disabled}

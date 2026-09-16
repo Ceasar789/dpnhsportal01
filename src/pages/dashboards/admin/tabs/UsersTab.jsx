@@ -8,13 +8,22 @@ import React from 'react';
 import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { initials, avatarColor, roleBadge, roleLabel } from '../shared/helpers';
+import { useSignedPhotoUrl } from '../../../../hooks/useSignedPhotoUrl';
+import Avatar from '../../../../components/Avatar';
+
+// One per row so each user's photo path resolves to its own signed URL
+// without breaking the rules of hooks inside .map().
+const UserAvatarCell = ({ user }) => {
+  const photoUrl = useSignedPhotoUrl(user.photo_url);
+  return <Avatar className="avatar" src={photoUrl} name={user.name || user.email || ''} size={34} bg={avatarColor(user.name || user.email || '')} />;
+};
 
 const UsersTab = () => {
   const {
     closeModal, deleteUser, editUser, filteredUsers, handleOverlayClick,
     modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
     setStatusFilter, setShowArchived, setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
-    showArchived, statusFilter, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, onlineUsers
+    showArchived, statusFilter, uDept, setUDept, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, onlineUsers
   } = useAdminContext();
 
   return (
@@ -52,9 +61,7 @@ const UsersTab = () => {
                         <tr key={u.id}>
                           <td>
                             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                              <div className="avatar" style={{ background: avatarColor(u.name || u.email || '') }}>
-                                {initials(u.name || u.email)}
-                              </div>
+                              <UserAvatarCell user={u} />
                               <div>
                                 <div style={{ fontWeight:600 }}>{u.name || '—'}</div>
                                 <div style={{ fontSize:11, color:'var(--text-muted)' }}>{roleLabel(u.role)}</div>
@@ -113,6 +120,12 @@ const UsersTab = () => {
               <option value="main_admin">Admin</option>
             </select>
           </div>
+          {(uRole === 'teacher' || uRole === 'faculty') && (
+            <div className="form-row">
+              <label className="form-label">Department / Subject</label>
+              <input className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
+            </div>
+          )}
           {editUser && <div className="form-row">
             <label className="form-label">Account Status</label>
             <select className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)}>
@@ -123,7 +136,7 @@ const UsersTab = () => {
           {!editUser && (
             <div className="form-row">
               <label className="form-label">Password</label>
-              <input className="form-input" type="password" value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 6 characters" />
+              <input className="form-input" type="password" value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char" />
             </div>
           )}
           <div className="modal-actions">

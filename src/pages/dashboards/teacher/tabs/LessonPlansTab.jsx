@@ -4,12 +4,12 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import {
   BookOpen, Plus, Search, Trash2, Edit, X, Check, Upload, Download,
-  FileText, Calendar, Loader2, Eye, Save, FileUp
+  FileText, Calendar, Loader2, Eye, Save, FileUp, AlertTriangle, Sparkles
 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
@@ -33,6 +33,23 @@ const LessonPlansTab = () => {
   const [currentPlanMeta, setCurrentPlanMeta] = useState(null); // { title, file_name, file_url, file_path }
   const [savedPlanId, setSavedPlanId] = useState(null);
 
+  // The editable area is an UNCONTROLLED node (ref-based), not driven by
+  // React re-renders on every keystroke — combining contentEditable with
+  // dangerouslySetInnerHTML on the same node causes the caret to jump/reset
+  // and can scramble typed text, since React reapplies the HTML on every
+  // render. `editorLoadKey` is bumped only when we deliberately want to push
+  // NEW content into the DOM (after generation, or opening a saved plan) —
+  // never as a side effect of the user's own typing.
+  const editorRef = useRef(null);
+  const [editorLoadKey, setEditorLoadKey] = useState(0);
+
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = ilawOutput || '<p style="color:#94a3b8">No content yet. Upload a PDF to generate.</p>';
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorLoadKey]);
+
   // --- View mode: 'list' | 'editor' ---
   const [view, setView] = useState('list');
 
@@ -44,20 +61,35 @@ const LessonPlansTab = () => {
 
   // ── Fetch saved plans ──────────────────────────────────────
   const fetchPlans = useCallback(async () => {
+    if (!userData?.uid) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('lesson_plans')
         .select('*')
-        .eq('teacher_id', userData?.uid)
+        .eq('teacher_id', userData.uid)
         .order('created_at', { ascending: false });
+
+      // The project's connection pool (free-tier, small compute) is
+      // occasionally saturated for a few seconds — retry once after a
+      // short pause instead of leaving the list looking empty.
+      if (error) {
+        console.warn('Lesson plans fetch failed, retrying once:', error.message);
+        await new Promise(r => setTimeout(r, 1500));
+        ({ data, error } = await supabase
+          .from('lesson_plans')
+          .select('*')
+          .eq('teacher_id', userData.uid)
+          .order('created_at', { ascending: false }));
+      }
+
       if (error) throw error;
       setPlans(data || []);
     } catch (err) {
       showToast('Error loading plans: ' + err.message, 'error');
     }
     setLoading(false);
-  }, [userData, showToast]);
+  }, [userData?.uid, showToast]);
 
   useEffect(() => {
     fetchPlans();
@@ -244,60 +276,85 @@ IMPORTANT:
 - Return ONLY the HTML, nothing else.
 - Make the lesson plan detailed and specific to the PDF content, written in clear professional English appropriate for a DepEd lesson plan.`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+    const callOnce = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout — large PDFs / long output need room
 
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
-                  { text: prompt },
-                ],
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
+                    { text: prompt },
+                  ],
+                },
+              ],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 65536,
+                // This is a large-but-deterministic structured-HTML fill-in task, not a
+                // reasoning task — turning off "thinking" gives the full token budget to
+                // the actual output instead of internal reasoning, which is what was
+                // causing intermittent MAX_TOKENS cutoffs on longer PDFs/plans.
+                thinkingConfig: { thinkingBudget: 0 },
               },
-            ],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 16384,
-            },
-          }),
+            }),
+          }
+        );
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => null);
+          throw new Error(errData?.error?.message || `Gemini API error (${response.status})`);
         }
-      );
-      clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData?.error?.message || `Gemini API error (${response.status})`);
+        const data = await response.json();
+        const candidate = data?.candidates?.[0];
+        if (!candidate) throw new Error('No candidates in Gemini response.');
+
+        const text = candidate?.content?.parts?.[0]?.text || '';
+        const finishReason = candidate?.finishReason;
+
+        if (!text) {
+          if (finishReason === 'MAX_TOKENS') {
+            throw new Error('Gemini ran out of output space before writing anything usable. Try again, or use a shorter/simpler PDF.');
+          }
+          throw new Error('Empty response text from Gemini.');
+        }
+
+        const cleaned = text.replace(/```html/gi, '').replace(/```/g, '').trim();
+
+        // MAX_TOKENS with actual text means the plan was cut off partway —
+        // still usable (teacher can edit/finish it) rather than being discarded outright.
+        if (finishReason === 'MAX_TOKENS') {
+          return { html: cleaned, truncated: true };
+        }
+        return { html: cleaned, truncated: false };
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          throw new Error('Gemini API timed out after 90 seconds. Try a smaller PDF.');
+        }
+        throw err;
       }
+    };
 
-      const data = await response.json();
-      console.log('🔍 Gemini raw response:', data); // Debug: see full response
-
-      const candidate = data?.candidates?.[0];
-      if (!candidate) throw new Error('No candidates in Gemini response — check console for raw response');
-      
-      const finishReason = candidate?.finishReason;
-      if (finishReason === 'MAX_TOKENS') {
-        throw new Error('Output was cut off (MAX_TOKENS). Try increasing maxOutputTokens.');
-      }
-
-      const text = candidate?.content?.parts?.[0]?.text || '';
-      if (!text) throw new Error('Empty response text from Gemini — check console for raw response');
-
-      return text.replace(/```html/gi, '').replace(/```/g, '').trim();
+    // Transient failures (rate limits, network blips) are common on the free
+    // tier — one retry after a short pause recovers most of them instead of
+    // failing the whole upload outright.
+    try {
+      return await callOnce();
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === 'AbortError') {
-        throw new Error('Gemini API timed out after 60 seconds. Try a smaller PDF or simpler prompt.');
-      }
-      throw err;
+      console.warn('Gemini generation failed, retrying once:', err.message);
+      await new Promise(r => setTimeout(r, 2000));
+      return await callOnce();
     }
   };
 
@@ -352,10 +409,16 @@ IMPORTANT:
       setGenerating(true);
       setUploadProgress('🤖 Gemini AI is analyzing your PDF and generating ILAW lesson plan...');
 
-      const html = await callGeminiWithPDF(base64, file.name);
+      const { html, truncated } = await callGeminiWithPDF(base64, file.name);
       setIlawOutput(html);
+      setEditorLoadKey(k => k + 1);
       setView('editor');
-      showToast('✅ ILAW Lesson Plan generated! You can now edit and save it.', 'success');
+      showToast(
+        truncated
+          ? '⚠️ Lesson plan generated but was cut off near the end — review and finish it, or try regenerating.'
+          : '✅ ILAW Lesson Plan generated! You can now edit and save it.',
+        truncated ? 'error' : 'success'
+      );
     } catch (err) {
       console.error('PDF Upload Error:', err);
       showToast('Error: ' + err.message, 'error');
@@ -417,6 +480,10 @@ IMPORTANT:
   // ── Print ──────────────────────────────────────────────────
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('Print popup was blocked by your browser. Please allow popups for this site and try again.', 'error');
+      return;
+    }
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -492,6 +559,7 @@ th{background:#f3f4f6;}
   // ── Load saved plan into editor ────────────────────────────
   const handleViewPlan = (plan) => {
     setIlawOutput(plan.objectives || '');
+    setEditorLoadKey(k => k + 1);
     setCurrentPlanMeta({
       title: plan.title,
       file_name: plan.file_name,
@@ -595,7 +663,7 @@ th{background:#f3f4f6;}
   // RENDER
   // ══════════════════════════════════════════════════════════
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}
@@ -603,25 +671,34 @@ th{background:#f3f4f6;}
       )}
 
       {/* ── HEADER ── */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3 rounded-lg px-4 py-3"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+        <div className="flex items-center gap-3 min-w-0">
           {view === 'editor' && (
-            <button onClick={() => setView('list')} className="flex items-center gap-1 text-sm font-medium hover:opacity-70 transition"
-              style={{ color: dark ? '#94a3b8' : '#64748b' }}>
-              ← Back to list
+            <button onClick={() => setView('list')} className="flex items-center gap-1 text-sm font-medium hover:opacity-70 transition flex-shrink-0"
+              style={{ color: 'var(--banner-subtext)' }}>
+              ← Back
             </button>
           )}
-          <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            {view === 'editor' ? (currentPlanMeta?.title || 'ILAW Lesson Plan') : 'Lesson Plans'}
-          </h1>
-          <Badge color="#16a34a" bg="rgba(22,163,74,0.12)">AI-Powered · Gemini</Badge>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold truncate" style={{ color: 'var(--banner-text)' }}>
+              {view === 'editor' ? (currentPlanMeta?.title || 'ILAW Lesson Plan') : 'Lesson Plans'}
+            </h1>
+            {view === 'editor' && currentPlanMeta?.file_name && (
+              <p className="text-xs truncate" style={{ color: 'var(--banner-subtext)' }}>📄 {currentPlanMeta.file_name}</p>
+            )}
+          </div>
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold flex-shrink-0" style={{ backgroundColor: 'rgba(22,163,74,0.15)', color: '#16a34a' }}>
+            <Sparkles size={16} />
+            AI-Powered · Gemini
+          </span>
         </div>
 
         {view === 'editor' && ilawOutput && (
-          <div className="flex gap-2 flex-wrap">
-            <Btn variant="outline" onClick={handlePrint}><Eye size={15} /> Print</Btn>
-            <Btn variant="outline" onClick={handleDownload}><Download size={15} /> Download</Btn>
-            <Btn onClick={handleSaveIlawPlan} disabled={saving}>
+          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+            <Btn variant="pastel" onClick={handlePrint}><Eye size={15} /> Print</Btn>
+            <Btn variant="pastel" onClick={handleDownload}><Download size={15} /> Download</Btn>
+            <Btn variant="pastel" onClick={handleSaveIlawPlan} disabled={saving}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
               {savedPlanId ? 'Save Changes' : 'Save Plan'}
             </Btn>
@@ -683,45 +760,53 @@ th{background:#f3f4f6;}
               </Card>
             ) : (
               plans.map(plan => (
-                <Card key={plan.id} className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-base truncate" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{plan.title}</h3>
-                      <p className="text-xs mt-0.5" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-                        {plan.subject} · {new Date(plan.created_at).toLocaleDateString()}
-                      </p>
+                <Card key={plan.id} className="overflow-hidden" style={{ transition: 'transform .15s, box-shadow .15s' }}>
+                  {/* Accent strip — same pastel family as the rest of the dashboard */}
+                  <div style={{ height: 4, background: 'var(--banner-bg)' }} />
+                  <div className="p-5">
+                    <div className="flex items-start justify-between mb-3 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-base truncate" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{plan.title}</h3>
+                        <p className="text-xs mt-0.5" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                          {plan.subject} · {new Date(plan.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        {plan.ai_generated && (
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: 'rgba(22,163,74,0.15)', color: '#16a34a' }}>
+                            <Sparkles size={11} /> AI
+                          </span>
+                        )}
+                        <Badge
+                          color={plan.status === 'draft' ? '#d97706' : '#16a34a'}
+                          bg={plan.status === 'draft' ? 'rgba(217,119,6,0.12)' : 'rgba(22,163,74,0.12)'}>
+                          {plan.status || 'draft'}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex gap-2 ml-3 flex-shrink-0">
-                      {plan.ai_generated && <Badge color="#3b82f6" bg="rgba(59,130,246,0.12)">AI</Badge>}
-                      <Badge
-                        color={plan.status === 'draft' ? '#d97706' : '#16a34a'}
-                        bg={plan.status === 'draft' ? 'rgba(217,119,6,0.12)' : 'rgba(22,163,74,0.12)'}>
-                        {plan.status || 'draft'}
-                      </Badge>
-                    </div>
-                  </div>
 
-                  {plan.file_name && (
-                    <div className="flex items-center gap-2 mb-3 p-2 rounded-lg"
-                      style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-                      <FileText size={14} style={{ color: '#3b82f6' }} />
-                      <span className="text-xs truncate" style={{ color: '#3b82f6' }}>{plan.file_name}</span>
-                      {plan.file_url && (
-                        <a href={plan.file_url} target="_blank" rel="noopener noreferrer"
-                          className="text-xs ml-auto flex-shrink-0" style={{ color: '#64748b' }}>Open ↗</a>
-                      )}
-                    </div>
-                  )}
+                    {plan.file_name && (
+                      <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg"
+                        style={{ backgroundColor: 'var(--banner-pill-bg, #f8fafc)', border: '1px solid var(--banner-pill-border, #e2e8f0)' }}>
+                        <FileText size={14} style={{ color: 'var(--banner-accent, #1908DF)' }} />
+                        <span className="text-xs truncate" style={{ color: 'var(--banner-accent, #1908DF)' }}>{plan.file_name}</span>
+                        {plan.file_url && (
+                          <a href={plan.file_url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs ml-auto flex-shrink-0 hover:underline" style={{ color: 'var(--banner-subtext, #64748b)' }}>Open ↗</a>
+                        )}
+                      </div>
+                    )}
 
-                  <div className="flex gap-2">
-                    <Btn variant="outline" className="flex-1" onClick={() => handleViewPlan(plan)}>
-                      <Eye size={14} /> View & Edit
-                    </Btn>
-                    <button onClick={() => handleDeletePlan(plan.id)}
-                      className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
-                      style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex gap-2">
+                      <Btn variant="pastel" className="flex-1 justify-center" onClick={() => handleViewPlan(plan)}>
+                        <Eye size={14} /> View & Edit
+                      </Btn>
+                      <button onClick={() => handleDeletePlan(plan.id)}
+                        className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+                        style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </Card>
               ))
@@ -759,30 +844,27 @@ th{background:#f3f4f6;}
       {view === 'editor' && (
         <div className="space-y-4">
 
-          {/* Toolbar */}
-          <Card className="p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
-                📄 {currentPlanMeta?.file_name || 'Manual Plan'}
-              </span>
-              <div className="ml-auto flex gap-2 flex-wrap">
-                <Btn variant="outline" onClick={handlePrint}><Eye size={14} /> Print</Btn>
-                <Btn variant="outline" onClick={handleDownload}><Download size={14} /> Download .doc</Btn>
-                <Btn onClick={handleSaveIlawPlan} disabled={saving}>
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  {savedPlanId ? 'Save Changes' : 'Save Plan'}
-                </Btn>
-              </div>
-            </div>
-          </Card>
-
           {/* Editable ILAW output */}
           <Card className="p-6">
+            {ilawOutput && (
+              <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3"
+                style={{
+                  backgroundColor: dark ? 'rgba(217,119,6,0.12)' : '#fffbeb',
+                  border: `1px solid ${dark ? 'rgba(217,119,6,0.3)' : '#fde68a'}`,
+                }}>
+                <AlertTriangle size={14} style={{ color: '#d97706', flexShrink: 0, marginTop: 2 }} />
+                <p className="text-xs" style={{ color: dark ? '#fbbf24' : '#92400e' }}>
+                  This lesson plan was generated with AI (Gemini) and can make mistakes. Please review and verify all
+                  content — objectives, activities, and assessments — before using it in class.
+                </p>
+              </div>
+            )}
             <p className="text-xs mb-3 font-medium" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
               ✏️ Click anywhere in the lesson plan below to edit it directly
             </p>
             <style>{ilawStyles}</style>
             <div
+              ref={editorRef}
               contentEditable
               suppressContentEditableWarning
               onInput={e => setIlawOutput(e.currentTarget.innerHTML)}
@@ -793,7 +875,6 @@ th{background:#f3f4f6;}
                 border: `1px dashed ${dark ? '#475569' : '#cbd5e1'}`,
                 backgroundColor: dark ? '#0f172a' : '#fafafa',
               }}
-              dangerouslySetInnerHTML={{ __html: ilawOutput || '<p style="color:#94a3b8">No content yet. Upload a PDF to generate.</p>' }}
             />
           </Card>
         </div>

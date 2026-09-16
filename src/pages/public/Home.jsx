@@ -185,7 +185,7 @@ const Home = () => {
         {/* CTA Buttons */}
         <div className="flex flex-wrap gap-4">
           <button
-            onClick={() => navigate('/admission')}
+            onClick={() => navigate('/student-login')}
             className="font-work font-bold text-sm tracking-widest px-8 py-4 rounded hover:opacity-90 transition-opacity"
             style={{ 
               backgroundColor: '#FEB300', 
@@ -199,7 +199,7 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate('/academics')}
+            onClick={() => navigate('/#vision')}
             className="flex items-center gap-2 px-5 py-4 rounded border-2 border-white text-white font-work font-bold tracking-widest hover:bg-white/10 transition-colors"
             style={{ height: '58px' }}
           >
@@ -239,7 +239,8 @@ const Home = () => {
   // VISION CARD (Desktop only)
   // ============================================
   const VisionCard = () => (
-    <div 
+    <div
+      id="vision"
       className="absolute right-0 bottom-0 bg-white p-10"
       style={{ width: '447px', height: '438px' }}
     >

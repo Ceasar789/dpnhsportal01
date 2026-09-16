@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import {
   Search, X, Check, Eye, Loader2
 } from 'lucide-react';
@@ -43,10 +44,13 @@ const PreEnrollmentTab = () => {
 
   const fetchEnrollments = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('pre_enrollments')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await withRetry(
+      () => supabase
+        .from('pre_enrollment')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      { label: 'Faculty pre-enrollment fetch' }
+    );
 
     if (error) {
       showToast('Error loading enrollments: ' + error.message, 'error');
@@ -62,7 +66,7 @@ const PreEnrollmentTab = () => {
     // Real-time subscription
     const channel = supabase
       .channel('faculty-pre-enrollment')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollments' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, (payload) => {
         if (payload.eventType === 'UPDATE' && selectedEnrollment?.id === payload.new.id) {
           setSelectedEnrollment(payload.new);
         }
@@ -83,7 +87,7 @@ const PreEnrollmentTab = () => {
 
     setSaving(true);
     const { error } = await supabase
-      .from('pre_enrollments')
+      .from('pre_enrollment')
       .update({
         documents: newDocs,
         status: newStatus,
@@ -110,7 +114,7 @@ const PreEnrollmentTab = () => {
 
     setSaving(true);
     const { error } = await supabase
-      .from('pre_enrollments')
+      .from('pre_enrollment')
       .update({ status: 'approved', updated_at: new Date().toISOString() })
       .eq('id', id);
 
@@ -128,7 +132,7 @@ const PreEnrollmentTab = () => {
 
     setSaving(true);
     const { error } = await supabase
-      .from('pre_enrollments')
+      .from('pre_enrollment')
       .update({ status: 'rejected', updated_at: new Date().toISOString() })
       .eq('id', id);
 
@@ -149,7 +153,7 @@ const PreEnrollmentTab = () => {
   });
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {/* Toast */}
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${

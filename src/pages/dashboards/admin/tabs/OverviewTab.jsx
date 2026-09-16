@@ -25,27 +25,29 @@ const OverviewTab = () => {
             <div>
               <div
                 style={{
-                  borderRadius: 24, padding: '36px 24px', marginBottom: 24, textAlign: 'center',
-                  background: 'linear-gradient(135deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)',
-                  boxShadow: '0 10px 30px rgba(25,8,223,.22)'
+                  borderRadius: 16, padding: '20px 24px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16,
+                  background: 'var(--banner-bg)', border: '1px solid var(--banner-border)',
+                  boxShadow: '0 4px 16px rgba(25,8,223,.10)'
                 }}
               >
                 <img
                   src="/capstonelogo.png"
                   alt="School Logo"
-                  style={{ width: 90, height: 90, objectFit: 'contain', borderRadius: '50%', margin: '0 auto 16px', display: 'block', filter: 'drop-shadow(0 8px 18px rgba(0,0,0,.3))' }}
+                  style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
-                  Welcome to <span style={{ color: '#FFC542' }}>EduScribe</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--banner-text)', marginBottom: 2 }}>
+                    Welcome to <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>
+                    Dela Paz National High School
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', marginBottom: 20 }}>
-                  Dela Paz National High School
-                </div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 16, padding: '10px 24px', backgroundColor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.28)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', borderRadius: 12, padding: '12px 24px', backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)', flexShrink: 0 }}>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase' }}>Academic Year</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{settings.academic_year} · {settings.semester}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>Academic Year</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--banner-text)' }}>{settings.academic_year} · {settings.semester}</div>
                   </div>
                 </div>
               </div>

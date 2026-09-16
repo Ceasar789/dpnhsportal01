@@ -9,6 +9,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { Award, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
+import { withRetry } from '../../../../lib/supabaseRetry';
 
 const AssignmentsTab = () => {
   const { dark } = useTheme();
@@ -25,7 +26,7 @@ const AssignmentsTab = () => {
       let query = supabase.from('assignments').select('*').eq('student_id', userData?.uid).order('due_date', { ascending: true });
       if (filterStatus !== 'all') query = query.eq('status', filterStatus);
 
-      const { data, error } = await query;
+      const { data, error } = await withRetry(() => query, { label: 'Assignments fetch' });
       if (error) throw error;
       setAssignments(data || []);
     } catch (err) {
@@ -63,7 +64,7 @@ const AssignmentsTab = () => {
   const statuses = ['all', 'pending', 'submitted', 'graded'];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <Toast />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">

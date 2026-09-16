@@ -3,6 +3,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';  // ✅ fixed path (moved up one level)
 import ProtectedRoute from './ProtectedRoute';
+import PageTransition from '../components/PageTransition';
 
 // Public Pages
 import Home     from '../pages/public/Home';
@@ -30,21 +31,21 @@ const AppRoutes = () => {
     <AuthProvider>
       <Routes>
         {/* PUBLIC ROUTES */}
-        <Route path="/"         element={<Home />} />
-        <Route path="/news"     element={<News />} />
-        <Route path="/calendar" element={<Calendar />} />
-        <Route path="/login"    element={<Login />} />
+        <Route path="/"         element={<PageTransition><Home /></PageTransition>} />
+        <Route path="/news"     element={<PageTransition><News /></PageTransition>} />
+        <Route path="/calendar" element={<PageTransition><Calendar /></PageTransition>} />
+        <Route path="/login"    element={<PageTransition><Login /></PageTransition>} />
 
         {/* AUTH ROUTES */}
-        <Route path="/student-login"   element={<StudentLogin />} />
-        <Route path="/faculty-login"   element={<FacultyLogin />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password"  element={<ResetPassword />} />
-        <Route path="/verify-email"    element={<VerifyEmail />} />
+        <Route path="/student-login"   element={<PageTransition><StudentLogin /></PageTransition>} />
+        <Route path="/faculty-login"   element={<PageTransition><FacultyLogin /></PageTransition>} />
+        <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
+        <Route path="/reset-password"  element={<PageTransition><ResetPassword /></PageTransition>} />
+        <Route path="/verify-email"    element={<PageTransition><VerifyEmail /></PageTransition>} />
 
         {/* PROTECTED */}
         <Route path="/change-password" element={
-          <ProtectedRoute><ChangePassword /></ProtectedRoute>
+          <ProtectedRoute><PageTransition><ChangePassword /></PageTransition></ProtectedRoute>
         } />
 
         {/* DASHBOARDS */}

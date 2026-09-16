@@ -11,6 +11,7 @@ import {
   BookOpen, CalendarCheck, CheckCircle, ClipboardList, Clock, FileText, Loader2, RefreshCw
 } from 'lucide-react';
 import { useTheme, useToast, Card, Badge, StatCard } from '../hooks';
+import { withRetry } from '../../../../lib/supabaseRetry';
 
 const OverviewTab = () => {
   const { dark } = useTheme();
@@ -33,11 +34,14 @@ const OverviewTab = () => {
     try {
       // Get student profile with error handling
       try {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userData?.uid)
-          .single();
+        const { data: profile, error: profileError } = await withRetry(
+          () => supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userData?.uid)
+            .single(),
+          { label: 'Student profile fetch' }
+        );
 
         if (profile && !profileError) {
           setStudentInfo({
@@ -58,13 +62,16 @@ const OverviewTab = () => {
         const [assignments, quizzes] = await Promise.all([
           (async () => {
             try {
-              const { data, error } = await supabase
-                .from('assignments')
-                .select('*')
-                .eq('student_id', userData?.uid)
-                .eq('status', 'pending')
-                .order('due_date', { ascending: true })
-                .limit(3);
+              const { data, error } = await withRetry(
+                () => supabase
+                  .from('assignments')
+                  .select('*')
+                  .eq('student_id', userData?.uid)
+                  .eq('status', 'pending')
+                  .order('due_date', { ascending: true })
+                  .limit(3),
+                { label: 'Overview upcoming assignments fetch' }
+              );
               return error ? [] : (data || []);
             } catch (e) {
               console.warn('Assignments fetch error:', e);
@@ -73,13 +80,16 @@ const OverviewTab = () => {
           })(),
           (async () => {
             try {
-              const { data, error } = await supabase
-                .from('quizzes')
-                .select('*')
-                .eq('student_id', userData?.uid)
-                .eq('status', 'upcoming')
-                .order('date', { ascending: true })
-                .limit(2);
+              const { data, error } = await withRetry(
+                () => supabase
+                  .from('quizzes')
+                  .select('*')
+                  .eq('student_id', userData?.uid)
+                  .eq('status', 'upcoming')
+                  .order('date', { ascending: true })
+                  .limit(2),
+                { label: 'Overview upcoming quizzes fetch' }
+              );
               return error ? [] : (data || []);
             } catch (e) {
               console.warn('Quizzes fetch error:', e);
@@ -141,30 +151,31 @@ const OverviewTab = () => {
   }, [userData?.uid, fetchOverview]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <Toast />
 
       <div
-        className="rounded-3xl px-6 py-9 mb-6 text-center relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)', boxShadow: '0 10px 30px rgba(25,8,223,.22)' }}
+        className="rounded-2xl px-6 py-5 mb-6 flex items-center gap-4 relative overflow-hidden"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)', boxShadow: '0 4px 16px rgba(25,8,223,.10)' }}
       >
         <img
           src="/capstonelogo.png"
           alt="School Logo"
-          className="w-24 h-24 object-contain rounded-full mx-auto mb-4"
-          style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,.3))' }}
+          className="w-14 h-14 object-contain rounded-full flex-shrink-0"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-        <h2 className="text-2xl font-extrabold text-white mb-1">
-          Welcome back, <span style={{ color: '#FFC542' }}>{studentInfo.name}</span>!
-        </h2>
-        <p className="text-xs font-bold tracking-widest text-white/75 uppercase mb-5">
-          Grade {studentInfo.grade}-{studentInfo.section} · ID: {studentInfo.studentId}
-        </p>
-        <div className="inline-flex items-center rounded-2xl px-6 py-2.5" style={{ backgroundColor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.28)' }}>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>
+            Welcome back, <span style={{ color: 'var(--banner-accent)' }}>{studentInfo.name}</span>!
+          </h2>
+          <p className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--banner-subtext)' }}>
+            Grade {studentInfo.grade}-{studentInfo.section} · ID: {studentInfo.studentId}
+          </p>
+        </div>
+        <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
           <div>
-            <p className="text-[10px] font-bold tracking-wide text-white/70 uppercase">School Year</p>
-            <p className="text-base font-extrabold text-white">2025–2026</p>
+            <p className="text-[10px] font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
+            <p className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>2025–2026</p>
           </div>
         </div>
       </div>

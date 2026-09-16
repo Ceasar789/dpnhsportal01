@@ -9,6 +9,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { FileText, Loader2, RefreshCw } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
+import { withRetry } from '../../../../lib/supabaseRetry';
 
 const QuizzesTab = () => {
   const { dark } = useTheme();
@@ -21,11 +22,14 @@ const QuizzesTab = () => {
   const fetchQuizzes = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('quizzes')
-        .select('*')
-        .eq('student_id', userData?.uid)
-        .order('date', { ascending: false });
+      const { data, error } = await withRetry(
+        () => supabase
+          .from('quizzes')
+          .select('*')
+          .eq('student_id', userData?.uid)
+          .order('date', { ascending: false }),
+        { label: 'Quizzes fetch' }
+      );
 
       if (error) throw error;
       setQuizzes(data || []);
@@ -47,7 +51,7 @@ const QuizzesTab = () => {
   }, [userData?.uid, fetchQuizzes]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <Toast />
 
       <div className="flex items-center justify-between mb-6">

@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Calendar, Plus, Clock, MapPin, BookOpen, Eye, Loader2, Trash2 } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -31,14 +32,28 @@ const SchedulingTab = () => {
   const fetchSchedules = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data: classes }, { data: exams }] = await Promise.all([
-        supabase.from('class_schedules').select('*').order('created_at', { ascending: false }),
-        supabase.from('exam_schedules').select('*').order('date', { ascending: true })
-      ]);
-      setSchedules(classes || []);
-      setExamSchedules(exams || []);
+      const { data, error } = await withRetry(
+        () => supabase
+          .from('schedules')
+          .select('*, sections(name), profiles!teacher_id(name)')
+          .order('created_at', { ascending: false }),
+        { label: 'Schedules fetch' }
+      );
+      if (error) throw error;
+
+      setSchedules((data || []).map(schedule => ({
+        ...schedule,
+        section: schedule.sections?.name || schedule.section_id,
+        instructor: schedule.profiles?.name || schedule.teacher_id,
+        day: schedule.day_of_week,
+        time: `${schedule.start_time} - ${schedule.end_time}`,
+        room: schedule.room_number || '',
+        students: '',
+        dept: '',
+      })));
+      setExamSchedules([]);
     } catch (err) {
-      showToast('Error fetching schedules', 'error');
+      showToast('Error fetching class schedules: ' + err.message, 'error');
     }
     setLoading(false);
   }, []);
@@ -46,37 +61,24 @@ const SchedulingTab = () => {
   useEffect(() => {
     fetchSchedules();
     const channels = [
-      supabase.channel('registrar-schedules').on('postgres_changes', { event: '*', schema: 'public', table: 'class_schedules' }, fetchSchedules).subscribe(),
-      supabase.channel('registrar-exams').on('postgres_changes', { event: '*', schema: 'public', table: 'exam_schedules' }, fetchSchedules).subscribe()
+      supabase.channel('registrar-schedules').on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, fetchSchedules).subscribe()
     ];
     return () => channels.forEach(ch => supabase.removeChannel(ch));
-  }, []);
+  }, [fetchSchedules]);
 
   const handleAddSchedule = async () => {
-    setSaving(true);
-    const table = activeView === 'classes' ? 'class_schedules' : 'exam_schedules';
-    try {
-      const { error } = await supabase.from(table).insert([{
-        ...newSchedule,
-        created_at: new Date().toISOString()
-      }]);
-      if (error) throw error;
-
-      showToast('Schedule added successfully');
-      setShowAddModal(false);
-      setNewSchedule({ subject: '', section: '', room: '', instructor: '', day: '', time: '', dept: '', students: '', type: 'Written' });
-      fetchSchedules();
-    } catch (err) {
-      showToast('Error: ' + err.message, 'error');
-    }
-    setSaving(false);
+    showToast(
+      activeView === 'classes'
+        ? 'Create schedule is temporarily disabled until section and teacher IDs can be selected.'
+        : 'Examination schedules are not available in the current database schema.',
+      'error'
+    );
   };
 
   const handleDeleteSchedule = async (id) => {
     if (!window.confirm('Delete this schedule?')) return;
-    const table = activeView === 'classes' ? 'class_schedules' : 'exam_schedules';
     try {
-      const { error } = await supabase.from(table).delete().eq('id', id);
+      const { error } = await supabase.from('schedules').delete().eq('id', id);
       if (error) throw error;
       showToast('Schedule deleted');
       fetchSchedules();
@@ -91,7 +93,7 @@ const SchedulingTab = () => {
     : examSchedules;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${
           toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'
@@ -100,7 +102,7 @@ const SchedulingTab = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <PageHeader title="Scheduling" subtitle="Manage class schedules and examination timetables" />
-        <Btn onClick={() => setShowAddModal(true)}><Plus size={16} /> New Schedule</Btn>
+        <Btn onClick={() => setShowAddModal(true)} disabled><Plus size={16} /> New Schedule</Btn>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">

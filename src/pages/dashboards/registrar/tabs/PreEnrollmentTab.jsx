@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Search, Check, X, RotateCcw, Loader2, School } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -28,10 +29,13 @@ const PreEnrollmentTab = () => {
   const fetchEnrollments = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('pre_enrollments')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await withRetry(
+        () => supabase
+          .from('pre_enrollment')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        { label: 'Pre-enrollment fetch' }
+      );
 
       if (error) throw error;
 
@@ -47,7 +51,7 @@ const PreEnrollmentTab = () => {
     fetchEnrollments();
     const channel = supabase
       .channel('registrar-pre-enrollment')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollments' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, (payload) => {
         if (payload.eventType === 'UPDATE' && selected?.id === payload.new.id) {
           setSelected(payload.new);
         }
@@ -68,7 +72,7 @@ const PreEnrollmentTab = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('pre_enrollments')
+        .from('pre_enrollment')
         .update({ documents: newDocs, status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', selected.id);
 
@@ -93,7 +97,7 @@ const PreEnrollmentTab = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('pre_enrollments')
+        .from('pre_enrollment')
         .update({ status: 'approved', updated_at: new Date().toISOString() })
         .eq('id', selected.id);
 
@@ -105,7 +109,8 @@ const PreEnrollmentTab = () => {
         user_id: selected.student_id,
         title: 'Enrollment Approved',
         message: 'Your pre-enrollment has been approved. Welcome to Dela Paz National High School!',
-        type: 'success',
+        notification_type: 'enrollment',
+        is_read: false,
         created_at: new Date().toISOString()
       }]);
 
@@ -128,7 +133,7 @@ const PreEnrollmentTab = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('pre_enrollments')
+        .from('pre_enrollment')
         .update({ status: 'incomplete', notes: noteText, updated_at: new Date().toISOString() })
         .eq('id', selected.id);
 
@@ -140,7 +145,8 @@ const PreEnrollmentTab = () => {
         user_id: selected.student_id,
         title: 'Enrollment Needs Revision',
         message: noteText || 'Your enrollment application needs additional documents or corrections.',
-        type: 'warning',
+        notification_type: 'warning',
+        is_read: false,
         created_at: new Date().toISOString()
       }]);
 
@@ -166,7 +172,7 @@ const PreEnrollmentTab = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('pre_enrollments')
+        .from('pre_enrollment')
         .update({ status: 'rejected', updated_at: new Date().toISOString() })
         .eq('id', selected.id);
 
@@ -178,7 +184,8 @@ const PreEnrollmentTab = () => {
         user_id: selected.student_id,
         title: 'Enrollment Rejected',
         message: 'Your enrollment application has been rejected. Please contact the registrar office.',
-        type: 'error',
+        notification_type: 'error',
+        is_read: false,
         created_at: new Date().toISOString()
       }]);
 
@@ -204,7 +211,7 @@ const PreEnrollmentTab = () => {
   const ss = (status) => STATUS_MAP[status] || STATUS_MAP.pending;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${
           toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'

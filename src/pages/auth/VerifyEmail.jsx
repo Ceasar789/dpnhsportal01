@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Mail } from 'lucide-react';
+import FlippingLogo from '../../components/FlippingLogo';
 
 const VerifyEmail = () => {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ const VerifyEmail = () => {
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="bg-white rounded-lg p-10 text-center">
           <div className="flex flex-col items-center mb-6">
-            <img src="/capstonelogo.png" alt="DPNHS Logo" style={{ width: '60px', height: '60px' }} />
+            <FlippingLogo size={60} />
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mt-4 mb-3">
               <Mail size={32} className="text-blue-600" />
             </div>

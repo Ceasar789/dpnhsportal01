@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Users, ClipboardList, FileText, Activity, Loader2, FileCheck, UserCheck, Shield, BarChart3, History, RefreshCw, Sparkles, UserPlus } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -27,12 +28,12 @@ const DashboardTab = () => {
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ count: totalStudents }, { count: pendingPreEnroll }, 
+      const [{ count: totalStudents }, { count: pendingPreEnroll },
              { count: enrolledThisSem }, { count: docsForReview }] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
-        supabase.from('pre_enrollments').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'Active'),
-        supabase.from('documents').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+        withRetry(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'), { label: 'Total students count fetch' }),
+        withRetry(() => supabase.from('pre_enrollment').select('*', { count: 'exact', head: true }).eq('status', 'Pending'), { label: 'Pending pre-enrollment count fetch' }),
+        withRetry(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'active'), { label: 'Enrolled this semester count fetch' }),
+        withRetry(() => supabase.from('documents').select('*', { count: 'exact', head: true }), { label: 'Docs for review count fetch' })
       ]);
 
       setStats({
@@ -42,19 +43,25 @@ const DashboardTab = () => {
         docsForReview: (docsForReview || 0).toLocaleString()
       });
 
-      const { data: logs } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(6);
+      const { data: logs } = await withRetry(
+        () => supabase
+          .from('activity_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(6),
+        { label: 'Activity logs fetch' }
+      );
       setActivity(logs || []);
 
-      const { data: ann } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('active', true)
-        .order('created_at', { ascending: false })
-        .limit(3);
+      const { data: ann } = await withRetry(
+        () => supabase
+          .from('news')
+          .select('*')
+          .eq('status', 'Published')
+          .order('created_at', { ascending: false })
+          .limit(3),
+        { label: 'Announcements fetch' }
+      );
       setAnnouncements(ann || []);
     } catch (err) {
       console.error('Dashboard data fetch error:', err);
@@ -69,7 +76,7 @@ const DashboardTab = () => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchDashboardData)
         .subscribe(),
       supabase.channel('registrar-dash-pre')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollments' }, fetchDashboardData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, fetchDashboardData)
         .subscribe(),
       supabase.channel('registrar-dash-docs')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, fetchDashboardData)
@@ -93,28 +100,29 @@ const DashboardTab = () => {
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <div
-        className="rounded-3xl px-6 py-9 mb-6 text-center relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)', boxShadow: '0 10px 30px rgba(25,8,223,.22)' }}
+        className="rounded-2xl px-6 py-5 mb-6 flex items-center gap-4 relative overflow-hidden"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)', boxShadow: '0 4px 16px rgba(25,8,223,.10)' }}
       >
         <img
           src="/capstonelogo.png"
           alt="School Logo"
-          className="w-24 h-24 object-contain rounded-full mx-auto mb-4"
-          style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,.3))' }}
+          className="w-14 h-14 object-contain rounded-full flex-shrink-0"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-        <h2 className="text-2xl font-extrabold text-white mb-1">
-          Welcome to <span style={{ color: '#FFC542' }}>EduScribe</span>
-        </h2>
-        <p className="text-xs font-bold tracking-widest text-white/75 uppercase mb-5">
-          Dela Paz National High School
-        </p>
-        <div className="inline-flex items-center rounded-2xl px-6 py-2.5" style={{ backgroundColor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.28)' }}>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>
+            Welcome to <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
+          </h2>
+          <p className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--banner-subtext)' }}>
+            Dela Paz National High School
+          </p>
+        </div>
+        <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
           <div>
-            <p className="text-[10px] font-bold tracking-wide text-white/70 uppercase">School Year</p>
-            <p className="text-base font-extrabold text-white">2025–2026</p>
+            <p className="text-[10px] font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
+            <p className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>2025–2026</p>
           </div>
         </div>
       </div>

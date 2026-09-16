@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Facebook, BookOpen, Globe, Users, School, Camera, MessageCircle, Search } from 'lucide-react';
+import FlippingLogo from '../../components/FlippingLogo';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -39,11 +40,7 @@ const Login = () => {
     >
       {/* Logo + EduScribe Branding */}
       <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-        <img 
-          src="/capstonelogo.png" 
-          alt="DPNHS Logo" 
-          style={{ height: isMobile ? '50px' : '60px', borderRadius: '50%' }} 
-        />
+        <FlippingLogo size={isMobile ? 50 : 60} />
         {!isMobile && (
           <div className="ml-4 flex flex-col justify-center">
             <h1 className="font-work font-bold text-2xl tracking-tight leading-none">
@@ -139,14 +136,7 @@ const Login = () => {
 
       {/* Center Logo */}
       <div className="relative z-20 flex flex-col items-center justify-center">
-        <div 
-          className="rounded-full bg-cover bg-center mb-8"
-          style={{ 
-            width: '380px',
-            height: '380px',
-            backgroundImage: 'url(/capstonelogo.png)'
-          }}
-        />
+        <FlippingLogo size={380} className="mb-8" />
         <h2 className="text-4xl font-bold leading-tight mb-4 text-center">
           Welcome Back.
         </h2>

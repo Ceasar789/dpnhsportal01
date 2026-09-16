@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Users, TrendingUp, TrendingDown, PieChart, Activity, Loader2 } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader, DonutChart } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -22,10 +23,10 @@ const AnalyticsTab = () => {
     setLoading(true);
     try {
       const [{ data: monthly }, { data: depts }, { data: gender }, { data: yearLevels }] = await Promise.all([
-        supabase.from('enrollment_stats_monthly').select('*').order('month', { ascending: true }),
-        supabase.from('enrollment_by_dept').select('*').order('current', { ascending: false }),
-        supabase.from('gender_distribution').select('*'),
-        supabase.from('enrollment_by_year_level').select('*')
+        withRetry(() => supabase.from('enrollment_stats_monthly').select('*').order('month', { ascending: true }), { label: 'Monthly enrollment stats fetch' }),
+        withRetry(() => supabase.from('enrollment_by_dept').select('*').order('current', { ascending: false }), { label: 'Department comparison fetch' }),
+        withRetry(() => supabase.from('gender_distribution').select('*'), { label: 'Gender distribution fetch' }),
+        withRetry(() => supabase.from('enrollment_by_year_level').select('*'), { label: 'Year level distribution fetch' })
       ]);
 
       setMonthlyData(monthly || []);
@@ -47,7 +48,7 @@ const AnalyticsTab = () => {
   const totalDropped = monthlyData.reduce((sum, d) => sum + (d.dropped || 0), 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <PageHeader title="Analytics" subtitle="Enrollment reports and data visualization" />
 
       {/* Top KPIs */}

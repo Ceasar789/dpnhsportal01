@@ -1,183 +1,261 @@
 // ============================================
 // FILE: src/pages/dashboards/teacher/tabs/StudentsTab.jsx
-// STUDENTS TAB — Full Supabase CRUD
-// Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
+// STUDENTS TAB — view-only roster, split into Advisory vs Subjects Handled.
+// Teachers have no authority to create/edit/delete student accounts — that
+// belongs to the registrar's enrollment flow — so this is read-only.
 // ============================================
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
-import { Users, UserPlus, Search, Trash2, Edit, X, Check, Loader2, Plus } from 'lucide-react';
+import { withRetry } from '../../../../lib/supabaseRetry';
+import { Users, GraduationCap, Search, Loader2 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
-import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
+import { Card, Table, TR, TD, Badge } from '../shared/ui';
+
+// Given a list of section ids, resolves their full student roster
+// (section_students -> students -> profiles) as one flat array.
+// students.id has no FK to profiles, so the profiles lookup is a
+// separate query rather than a nested select embed.
+const fetchRosterForSections = async (sectionIds) => {
+  if (!sectionIds.length) return [];
+
+  const { data: enrollments, error: enrollErr } = await withRetry(
+    () => supabase
+      .from('section_students')
+      .select('student_id, section_id, status')
+      .in('section_id', sectionIds)
+      .eq('status', 'active')
+      .order('enrollment_date', { ascending: false }),
+    { label: 'Section enrollments fetch' }
+  );
+  if (enrollErr) throw enrollErr;
+  if (!enrollments?.length) return [];
+
+  const studentIds = [...new Set(enrollments.map(e => e.student_id))];
+
+  const [{ data: students, error: studentsErr }, { data: profiles, error: profilesErr }] = await Promise.all([
+    withRetry(() => supabase.from('students').select('id, lrn').in('id', studentIds), { label: 'Students fetch' }),
+    withRetry(() => supabase.from('profiles').select('id, name, email, status').in('id', studentIds), { label: 'Profiles fetch' }),
+  ]);
+  if (studentsErr) throw studentsErr;
+  if (profilesErr) throw profilesErr;
+
+  const lrnById = new Map((students || []).map(s => [s.id, s.lrn]));
+  const profileById = new Map((profiles || []).map(p => [p.id, p]));
+
+  return enrollments.map(e => {
+    const profile = profileById.get(e.student_id);
+    return {
+      id: e.student_id,
+      sectionId: e.section_id,
+      lrn: lrnById.get(e.student_id) || '—',
+      name: profile?.name || '—',
+      email: profile?.email || '—',
+      active: (profile?.status || 'active').toLowerCase() !== 'archived',
+    };
+  });
+};
+
+const RosterTable = ({ students }) => (
+  <Table headers={['#', 'Name', 'LRN', 'Email', 'Status']}>
+    {students.map((s, i) => (
+      <TR key={s.id}>
+        <TD>{i + 1}</TD>
+        <TD><span className="font-medium">{s.name}</span></TD>
+        <TD>{s.lrn}</TD>
+        <TD>{s.email}</TD>
+        <TD>
+          <Badge color={s.active ? '#16a34a' : '#dc2626'} bg={s.active ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'}>
+            {s.active ? 'Active' : 'Inactive'}
+          </Badge>
+        </TD>
+      </TR>
+    ))}
+    {students.length === 0 && (
+      <tr><td colSpan={5} className="text-center py-8 text-sm" style={{ color: 'var(--text-muted, #94a3b8)' }}>No students found</td></tr>
+    )}
+  </Table>
+);
 
 const StudentsTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
   const { toast, showToast } = useToast();
-  const [studentList, setStudentList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({ lrn: '', name: '', email: '', status: 'Active' });
-  const [saving, setSaving] = useState(false);
 
-  const fetchStudents = useCallback(async () => {
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [advisorySection, setAdvisorySections] = useState([]); // sections this teacher advises
+  const [advisoryStudents, setAdvisoryStudents] = useState([]);
+  const [handledGroups, setHandledGroups] = useState([]); // [{ sectionId, sectionLabel, subject, students }]
+
+  const fetchData = useCallback(async () => {
+    if (!userData?.uid) return;
     setLoading(true);
     try {
-      // Get sections where this teacher is the adviser
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('sections')
-        .select('id')
-        .eq('adviser_id', userData?.uid);
-      
-      if (sectionsError) throw sectionsError;
-      
-      const sectionIds = sectionsData?.map(s => s.id) || [];
-      
-      if (sectionIds.length === 0) {
-        setStudentList([]);
-        setLoading(false);
-        return;
-      }
-      
-      // Get students enrolled in those sections
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('section_students')
-        .select('student_id, students(*, profiles(*))')
-        .in('section_id', sectionIds)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-      
-      if (studentsError) throw studentsError;
-      
-      // Map student data to include both students and profiles info
-      const mappedStudents = (studentsData || []).map(item => ({
-        id: item.students?.id,
-        lrn: item.students?.lrn,
-        name: item.students?.profiles?.name,
-        email: item.students?.profiles?.email,
-        status: item.status === 'active' ? 'Active' : 'Inactive',
-        ...item.students?.profiles
+      // ── Advisory sections (homeroom) ─────────────────────────────────
+      const { data: advisorySections, error: advisoryErr } = await withRetry(
+        () => supabase
+          .from('sections')
+          .select('id, name, grade_level')
+          .eq('adviser_id', userData.uid),
+        { label: 'Advisory sections fetch' }
+      );
+      if (advisoryErr) throw advisoryErr;
+      setAdvisorySections(advisorySections || []);
+
+      const advisoryIds = (advisorySections || []).map(s => s.id);
+      const advisoryRoster = await fetchRosterForSections(advisoryIds);
+      setAdvisoryStudents(advisoryRoster);
+
+      // ── Subjects handled: sections taught via schedule but not advised ──
+      const { data: schedules, error: schedErr } = await withRetry(
+        () => supabase
+          .from('schedules')
+          .select('section_id, subject, sections(name, grade_level)')
+          .eq('teacher_id', userData.uid),
+        { label: 'Teaching schedules fetch' }
+      );
+      if (schedErr) throw schedErr;
+
+      const advisorySet = new Set(advisoryIds);
+      const handledEntries = (schedules || []).filter(s => !advisorySet.has(s.section_id));
+
+      // De-dupe by (section_id, subject) — a schedule can repeat across days.
+      const uniqueByKey = new Map();
+      handledEntries.forEach(s => {
+        const key = `${s.section_id}::${s.subject}`;
+        if (!uniqueByKey.has(key)) uniqueByKey.set(key, s);
+      });
+
+      const handledSectionIds = [...new Set([...uniqueByKey.values()].map(s => s.section_id))];
+      const handledRoster = await fetchRosterForSections(handledSectionIds);
+      const rosterBySection = new Map();
+      handledRoster.forEach(s => {
+        if (!rosterBySection.has(s.sectionId)) rosterBySection.set(s.sectionId, []);
+        rosterBySection.get(s.sectionId).push(s);
+      });
+
+      const groups = [...uniqueByKey.values()].map(s => ({
+        sectionId: s.section_id,
+        sectionLabel: [s.sections?.grade_level, s.sections?.name].filter(Boolean).join(' — ') || 'Unnamed section',
+        subject: s.subject || 'Untitled subject',
+        students: rosterBySection.get(s.section_id) || [],
       }));
-      
-      setStudentList(mappedStudents);
+      setHandledGroups(groups);
     } catch (error) {
       showToast('Error loading students: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [userData, showToast]);
+  }, [userData?.uid, showToast]);
 
   useEffect(() => {
-    fetchStudents();
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (!userData?.uid) return undefined;
     const channel = supabase
-      .channel('teacher-students')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchStudents)
+      .channel(`teacher-students-${userData.uid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'section_students' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules', filter: `teacher_id=eq.${userData.uid}` }, fetchData)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [fetchStudents]);
+  }, [userData?.uid, fetchData]);
 
-  const handleAddStudent = async (e) => {
-    e.preventDefault();
-    if (!formData.name || !formData.email) return;
-    setSaving(true);
-    
-    try {
-      // In a real app, students are created via the student signup process
-      // This creates a student record linked to this teacher's section
-      // For now, we'll just show an error since students need to be enrolled via sections
-      showToast('Note: Students are enrolled through the Sections management. Please create a section first and add students to it.', 'error');
-    } catch (error) {
-      showToast('Error: ' + error.message, 'error');
-    }
-    setSaving(false);
+  const matchesSearch = (s) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return s.name?.toLowerCase().includes(q) || s.lrn?.toLowerCase().includes(q);
   };
 
-  const handleDeleteStudent = async (id) => {
-    if (!confirm('Delete this student?')) return;
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
-    if (error) showToast('Error deleting: ' + error.message, 'error');
-    else {
-      showToast('Student deleted');
-      fetchStudents();
-    }
-  };
+  const filteredAdvisory = advisoryStudents.filter(matchesSearch);
+  const filteredHandledGroups = handledGroups.map(g => ({ ...g, students: g.students.filter(matchesSearch) }));
 
-  const filtered = studentList.filter(s =>
-    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || s.lrn?.includes(searchQuery)
-  );
+  const mutedColor = dark ? '#64748b' : '#94a3b8';
+  const textColor = dark ? '#f1f5f9' : '#1a2b4a';
+  const advisoryLabel = advisorySection.length
+    ? advisorySection.map(s => [s.grade_level, s.name].filter(Boolean).join(' — ')).join(', ')
+    : null;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}
         </div>
       )}
-      
+
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Students — My Advisory</h1>
-        <Btn onClick={() => setShowAddModal(true)}><Plus size={16} /> Add Student</Btn>
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: textColor }}>Students</h1>
+          <p className="text-sm mt-0.5" style={{ color: mutedColor }}>Your advisory class and the sections you teach</p>
+        </div>
+        <div className="relative w-full md:w-72">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: mutedColor }} />
+          <input type="text" placeholder="Search by name or LRN..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            className="w-full h-10 pl-9 pr-4 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: textColor }} />
+        </div>
       </div>
 
-      <div className="relative mb-6">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
-        <input type="text" placeholder="Search students..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }} />
-      </div>
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-blue-500" /></div>
+      ) : (
+        <div className="flex flex-col gap-8">
+          {/* MY ADVISORY */}
+          <section>
+            <div className="flex items-center gap-2 rounded-lg px-4 py-2.5 mb-3" style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+              <GraduationCap size={16} style={{ color: 'var(--banner-accent)' }} />
+              <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--banner-text)' }}>My Advisory</h2>
+              {advisoryLabel && (
+                <span className="text-xs font-medium" style={{ color: 'var(--banner-subtext)' }}>— {advisoryLabel}</span>
+              )}
+            </div>
+            <Card>
+              {advisorySection.length === 0 ? (
+                <div className="text-center py-10 px-6">
+                  <p className="text-sm font-medium" style={{ color: textColor }}>You are not assigned as an adviser yet</p>
+                  <p className="text-xs mt-1" style={{ color: mutedColor }}>This section appears once the registrar assigns you as a section adviser.</p>
+                </div>
+              ) : (
+                <RosterTable students={filteredAdvisory} />
+              )}
+            </Card>
+          </section>
 
-      <Card>
-        {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
-        ) : (
-          <Table headers={['#', 'Name', 'LRN', 'Email', 'Status', 'Actions']}>
-            {filtered.map((s, i) => (
-              <TR key={s.id}>
-                <TD>{i + 1}</TD>
-                <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{s.name}</span></TD>
-                <TD>{s.lrn || '—'}</TD>
-                <TD>{s.email}</TD>
-                <TD>
-                  <Badge color={s.status === 'Active' ? '#16a34a' : '#dc2626'}
-                    bg={s.status === 'Active' ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'}>
-                    {s.status}
-                  </Badge>
-                </TD>
-                <TD>
-                  <div className="flex gap-3">
-                    <button className="text-xs text-blue-500 hover:text-blue-700 font-medium">Edit</button>
-                    <button onClick={() => handleDeleteStudent(s.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
-                  </div>
-                </TD>
-              </TR>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No students found</td></tr>
-            )}
-          </Table>
-        )}
-      </Card>
-
-      {showAddModal && (
-        <Modal title="Add New Student" onClose={() => setShowAddModal(false)}>
-          <form onSubmit={handleAddStudent} className="flex flex-col gap-4">
-            {[
-              { label: 'LRN', key: 'lrn', type: 'text' },
-              { label: 'Full Name', key: 'name', type: 'text' },
-              { label: 'Email', key: 'email', type: 'email' },
-            ].map(({ label, key, type }) => (
-              <div key={key}>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{label}</label>
-                <Input type={type} required value={formData[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })} />
+          {/* SUBJECTS I HANDLE */}
+          <section>
+            <div className="flex items-center gap-2 rounded-lg px-4 py-2.5 mb-3" style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+              <Users size={16} style={{ color: 'var(--banner-accent)' }} />
+              <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--banner-text)' }}>Subjects I Handle</h2>
+            </div>
+            {filteredHandledGroups.length === 0 ? (
+              <Card>
+                <div className="text-center py-10 px-6">
+                  <p className="text-sm font-medium" style={{ color: textColor }}>No other sections assigned yet</p>
+                  <p className="text-xs mt-1" style={{ color: mutedColor }}>This appears once your teaching schedule is set up by the registrar.</p>
+                </div>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {filteredHandledGroups.map(group => (
+                  <Card key={`${group.sectionId}-${group.subject}`}>
+                    <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: textColor }}>{group.subject}</p>
+                        <p className="text-xs mt-0.5" style={{ color: mutedColor }}>{group.sectionLabel}</p>
+                      </div>
+                      <Badge color="#d97706" bg="rgba(217,119,6,0.12)">{group.students.length} students</Badge>
+                    </div>
+                    <RosterTable students={group.students} />
+                  </Card>
+                ))}
               </div>
-            ))}
-            <button type="submit" disabled={saving} className="w-full h-10 rounded-lg text-white text-sm font-semibold hover:opacity-90 mt-1 flex items-center justify-center gap-2"
-              style={{ backgroundColor: '#1e3a5f' }}>
-              {saving && <Loader2 size={16} className="animate-spin" />} Add Student
-            </button>
-          </form>
-        </Modal>
+            )}
+          </section>
+        </div>
       )}
     </div>
   );

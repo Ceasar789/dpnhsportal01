@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { useAuth } from '../../../../context/AuthContext';
 import {
   Plus, X, Trash2, Loader2, Sparkles, ClipboardList, ChevronLeft,
@@ -617,11 +618,20 @@ const SubmissionsView = ({ assessment, onBack, showToast, refreshList }) => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: itemsData } = await supabase.from('assessment_items').select('*').eq('assessment_id', assessment.id).order('order_index');
-      const { data: subsData } = await supabase.from('assessment_submissions').select('*, profiles(name)').eq('assessment_id', assessment.id);
+      const { data: itemsData } = await withRetry(
+        () => supabase.from('assessment_items').select('*').eq('assessment_id', assessment.id).order('order_index'),
+        { label: 'Assessment items fetch' }
+      );
+      const { data: subsData } = await withRetry(
+        () => supabase.from('assessment_submissions').select('*, profiles(name)').eq('assessment_id', assessment.id),
+        { label: 'Assessment submissions fetch' }
+      );
       const subIds = (subsData || []).map(s => s.id);
       const { data: answersData } = subIds.length
-        ? await supabase.from('submission_answers').select('*').in('submission_id', subIds)
+        ? await withRetry(
+            () => supabase.from('submission_answers').select('*').in('submission_id', subIds),
+            { label: 'Submission answers fetch' }
+          )
         : { data: [] };
       setItems(itemsData || []);
       setSubmissions(subsData || []);
@@ -983,11 +993,14 @@ const AssessmentsTab = () => {
 
   const fetchAssessments = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('assessments')
-      .select('*, assessment_submissions(id, status)')
-      .eq('teacher_id', userData?.uid)
-      .order('created_at', { ascending: false });
+    const { data, error } = await withRetry(
+      () => supabase
+        .from('assessments')
+        .select('*, assessment_submissions(id, status)')
+        .eq('teacher_id', userData?.uid)
+        .order('created_at', { ascending: false }),
+      { label: 'Assessments fetch' }
+    );
     if (error) showToast('Error: ' + error.message, 'error');
     else setAssessments(data || []);
     setLoading(false);
@@ -1020,7 +1033,7 @@ const AssessmentsTab = () => {
   const pendingChecksCount = assessments.reduce((sum, a) => sum + (a.assessment_submissions?.filter(s => s.status === 'submitted').length || 0), 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto relative">
+    <div className="p-6 relative">
       <ToastBanner toast={toast} />
 
       {selected ? (

@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import {
   CheckSquare, Check, FileCheck, AlertCircle, Plus, Filter, Loader2
 } from 'lucide-react';
@@ -24,25 +25,37 @@ const OverviewTab = () => {
   const fetchStats = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0];
 
-    const { data: pending } = await supabase
-      .from('pre_enrollments')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
+    const { data: pending } = await withRetry(
+      () => supabase
+        .from('pre_enrollment')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending'),
+      { label: 'Faculty overview pending checklists fetch' }
+    );
 
-    const { data: completed } = await supabase
-      .from('pre_enrollments')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'approved')
-      .gte('updated_at', today);
+    const { data: completed } = await withRetry(
+      () => supabase
+        .from('pre_enrollment')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved')
+        .gte('updated_at', today),
+      { label: 'Faculty overview completed today fetch' }
+    );
 
-    const { data: total } = await supabase
-      .from('pre_enrollments')
-      .select('*', { count: 'exact', head: true });
+    const { data: total } = await withRetry(
+      () => supabase
+        .from('pre_enrollment')
+        .select('*', { count: 'exact', head: true }),
+      { label: 'Faculty overview total processed fetch' }
+    );
 
-    const { data: missing } = await supabase
-      .from('pre_enrollments')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'incomplete');
+    const { data: missing } = await withRetry(
+      () => supabase
+        .from('pre_enrollment')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'incomplete'),
+      { label: 'Faculty overview missing documents fetch' }
+    );
 
     setStats({
       pendingChecklists: pending?.length || 0,
@@ -59,7 +72,7 @@ const OverviewTab = () => {
     // Real-time updates
     const channel = supabase
       .channel('faculty-stats')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollments' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, () => {
         fetchStats();
       })
       .subscribe();
@@ -68,26 +81,27 @@ const OverviewTab = () => {
   }, []);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <div
-        className="rounded-3xl px-6 py-9 mb-6 text-center relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)', boxShadow: '0 10px 30px rgba(25,8,223,.22)' }}
+        className="rounded-2xl px-6 py-5 mb-6 flex items-center gap-4 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg,#D7DEFA 0%,#C9D3F6 55%,#DCEBFF 100%)', border: '1px solid rgba(25,8,223,0.14)', boxShadow: '0 4px 16px rgba(25,8,223,.10)' }}
       >
         <img
           src="/capstonelogo.png"
           alt="School Logo"
-          className="w-24 h-24 object-contain rounded-full mx-auto mb-4"
-          style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,.3))' }}
+          className="w-14 h-14 object-contain rounded-full flex-shrink-0"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-        <h2 className="text-2xl font-extrabold text-white mb-1">
-          Welcome to <span style={{ color: '#FFC542' }}>EduScribe</span>
-        </h2>
-        <p className="text-xs font-bold tracking-widest text-white/75 uppercase mb-5">Dela Paz National High School</p>
-        <div className="inline-flex items-center rounded-2xl px-6 py-2.5" style={{ backgroundColor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.28)' }}>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-extrabold" style={{ color: '#1a2b4a' }}>
+            Welcome to <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
+          </h2>
+          <p className="text-xs font-bold tracking-widest uppercase" style={{ color: '#4d5b8a' }}>Dela Paz National High School</p>
+        </div>
+        <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,.75)', border: '1px solid rgba(25,8,223,.16)' }}>
           <div>
-            <p className="text-[10px] font-bold tracking-wide text-white/70 uppercase">Academic Year</p>
-            <p className="text-base font-extrabold text-white">2025–2026</p>
+            <p className="text-[10px] font-bold tracking-wide uppercase" style={{ color: '#4d5b8a' }}>Academic Year</p>
+            <p className="text-lg font-extrabold" style={{ color: '#1a2b4a' }}>2025–2026</p>
           </div>
         </div>
       </div>

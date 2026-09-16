@@ -2,16 +2,21 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import Avatar from '../Avatar';
+import NotificationBell from '../NotificationBell';
+import { useSignedPhotoUrl } from '../../hooks/useSignedPhotoUrl';
+import FlippingLogo from '../FlippingLogo';
 import {
   LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings,
   BookOpen, GraduationCap, ClipboardList, CalendarCheck, Megaphone,
-  CheckSquare, LogOut, Menu, ChevronRight, ChevronLeft, Search, Bell
+  CheckSquare, LogOut, Menu, ChevronRight, ChevronLeft
 } from 'lucide-react';
 
 const DashboardLayout = ({ role, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, userData } = useAuth();
+  const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -88,41 +93,25 @@ const DashboardLayout = ({ role, children }) => {
         </button>
 
         <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-          <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full flex-shrink-0 overflow-hidden">
-            <img src="/capstonelogo.png" alt="School Logo" className="w-full h-full object-contain"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          </div>
+          <FlippingLogo className="w-12 h-12 sm:w-16 sm:h-16" />
           <div className="hidden sm:block leading-tight">
-            <h1 className="font-work font-extrabold text-xl tracking-wide">
+            <h1 className="font-work font-extrabold text-2xl tracking-wide">
               <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
             </h1>
-            <p className="font-work text-xs mt-0.5 text-white/85">{portalLabels[role] || 'Dashboard'}</p>
+            <p className="font-work text-sm mt-0.5 text-white/85">{portalLabels[role] || 'Dashboard'}</p>
           </div>
         </div>
 
-        <div className="flex-1 hidden md:flex justify-center">
-          <div className="w-full max-w-md flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm">
-            <Search size={15} className="text-slate-400 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="bg-transparent outline-none text-sm w-full text-slate-700 placeholder:text-slate-400"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0">
-          <button className="w-9 h-9 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors relative">
-            <Bell size={16} />
-          </button>
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-            style={{ backgroundColor: '#FFC542', color: '#12069f' }}
+        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+          <NotificationBell />
+          <Avatar
+            src={photoUrl}
+            name={userData?.name || roleLabels[role] || 'User'}
+            size={36}
+            bg="#FFC542"
+            color="#12069f"
             title={userData?.name || roleLabels[role] || 'User'}
-          >
-            {(userData?.name || roleLabels[role] || 'U')[0].toUpperCase()}
-          </div>
+          />
         </div>
       </header>
 
@@ -143,7 +132,7 @@ const DashboardLayout = ({ role, children }) => {
         >
           <button
             onClick={() => setSidebarCollapsed(c => !c)}
-            className="hidden lg:flex absolute -right-3 top-7 w-6 h-6 rounded-full items-center justify-center shadow-md z-10 bg-white text-slate-500"
+            className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full items-center justify-center shadow-md z-10 bg-white text-slate-500"
             style={{ border: `1px solid ${borderColor}` }}
           >
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
@@ -156,12 +145,13 @@ const DashboardLayout = ({ role, children }) => {
               aria-expanded={profileOpen}
               aria-label="Toggle profile menu"
             >
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-              style={{ backgroundColor: '#FFC542', color: '#12069f' }}
-            >
-              {(userData?.name || 'U')[0].toUpperCase()}
-            </div>
+            <Avatar
+              src={photoUrl}
+              name={userData?.name || 'User'}
+              size={36}
+              bg="#FFC542"
+              color="#12069f"
+            />
             {!sidebarCollapsed && (
               <div className="min-w-0">
                 <p className="text-sm font-bold truncate text-[#1a2b4a]">{userData?.name || 'User'}</p>
@@ -172,7 +162,7 @@ const DashboardLayout = ({ role, children }) => {
             </button>
             {profileOpen && !sidebarCollapsed && (
               <button
-                onClick={() => navigate('/change-password')}
+                onClick={() => { navigate('profile'); setProfileOpen(false); }}
                 className="mt-3 w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100"
               >
                 <Settings size={15} />

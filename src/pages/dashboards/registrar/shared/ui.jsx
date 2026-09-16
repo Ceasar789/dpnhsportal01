@@ -5,9 +5,10 @@
 // ============================================
 
 import React from 'react';
+import { DashboardThemeStyles } from '../../../../styles/dashboardTheme';
 
 export const Card = ({ children, className = '', style = {} }) => (
-  <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--reg-surface)', border: '1px solid var(--reg-border)', ...style }}>
+  <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', ...style }}>
     {children}
   </div>
 );
@@ -20,9 +21,9 @@ export const Badge = ({ children, color, bg, style = {} }) => (
 
 export const Btn = ({ children, onClick, className = '', variant = 'default', style = {}, disabled }) => {
   const variants = {
-    default: { backgroundColor: 'var(--reg-navy)', color: '#ffffff' },
-    outline: { backgroundColor: 'transparent', color: 'var(--reg-muted)', border: '1px solid var(--reg-border)' },
-    gold:    { backgroundColor: 'var(--reg-gold)', color: 'var(--reg-navy)' },
+    default: { backgroundColor: 'var(--accent)', color: '#ffffff' },
+    outline: { backgroundColor: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)' },
+    gold:    { backgroundColor: 'var(--reg-gold)', color: 'var(--accent)' },
     danger:  { backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' },
   };
   return (
@@ -34,15 +35,15 @@ export const Btn = ({ children, onClick, className = '', variant = 'default', st
 };
 
 export const SectionTitle = ({ children }) => (
-  <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--reg-muted)' }}>
+  <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
     {children}
   </h2>
 );
 
 export const PageHeader = ({ title, subtitle }) => (
   <div className="mb-6">
-    <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--reg-text)' }}>{title}</h1>
-    <p className="text-sm" style={{ color: 'var(--reg-muted)' }}>{subtitle}</p>
+    <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text)' }}>{title}</h1>
+    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
   </div>
 );
 
@@ -63,54 +64,43 @@ export const DonutChart = ({ slices, total }) => {
             style={{ transform: `rotate(${rotate}deg)`, transformOrigin: `${cx}px ${cy}px` }} />
         );
       })}
-      <text x={cx} y={cy - 7} textAnchor="middle" fontSize={19} fontWeight={700} fill="var(--reg-text)">{total.toLocaleString()}</text>
-      <text x={cx} y={cy + 13} textAnchor="middle" fontSize={11} fill="var(--reg-muted)">students</text>
+      <text x={cx} y={cy - 7} textAnchor="middle" fontSize={19} fontWeight={700} fill="var(--text)">{total.toLocaleString()}</text>
+      <text x={cx} y={cy + 13} textAnchor="middle" fontSize={11} fill="var(--text-muted)">students</text>
     </svg>
   );
 };
 
+// Aliases every legacy --reg-* variable to the shared Admin-derived theme
+// variables so existing tab files (not yet migrated) keep rendering
+// correctly, while the sidebar/header now consume the shared vars directly.
 export const ThemeStyles = () => (
-  <style>{`
-    :root {
-      --reg-bg: #f8fafc;
-      --reg-surface: #ffffff;
-      --reg-surface-hover: #f1f5f9;
-      --reg-border: #e2e8f0;
-      --reg-text: #1a2b4a;
-      --reg-text-secondary: #334155;
-      --reg-muted: #64748b;
-      --reg-muted-light: #94a3b8;
-      --reg-sidebar-bg: #ffffff;
-      --reg-sidebar-text: #475569;
-      --reg-sidebar-active-bg: #eef0f5;
-      --reg-sidebar-active-text: #1908DF;
-      --reg-header-bg: #ffffff;
-      --reg-input-bg: #f8fafc;
-      --reg-navy: #1908DF;
-      --reg-gold: #FFC542;
-      --reg-green: #16A34A;
-      --reg-amber: #D97706;
-      --reg-red: #DC2626;
-      --reg-blue: #2563EB;
-      --reg-purple: #7C3AED;
-    }
-    .dark {
-      --reg-bg: #0f172a;
-      --reg-surface: #1e293b;
-      --reg-surface-hover: #0f172a;
-      --reg-border: #334155;
-      --reg-text: #f1f5f9;
-      --reg-text-secondary: #cbd5e1;
-      --reg-muted: #94a3b8;
-      --reg-muted-light: #64748b;
-      --reg-sidebar-bg: #1e293b;
-      --reg-sidebar-text: #94a3b8;
-      --reg-sidebar-active-bg: rgba(25,8,223,0.22);
-      --reg-sidebar-active-text: #c7c2ff;
-      --reg-header-bg: #1e293b;
-      --reg-input-bg: #0f172a;
-      --reg-navy: #1908DF;
-    }
-  `}</style>
+  <>
+    <DashboardThemeStyles />
+    <style>{`
+      :root, :root.light {
+        --reg-bg: var(--bg);
+        --reg-surface: var(--card-bg);
+        --reg-surface-hover: var(--card2);
+        --reg-border: var(--border);
+        --reg-text: var(--text);
+        --reg-text-secondary: var(--text);
+        --reg-muted: var(--text-muted);
+        --reg-muted-light: var(--text-dim);
+        --reg-sidebar-bg: var(--sidebar-bg);
+        --reg-sidebar-text: var(--text-muted);
+        --reg-sidebar-active-bg: #eef0f5;
+        --reg-sidebar-active-text: var(--accent);
+        --reg-header-bg: var(--card-bg);
+        --reg-input-bg: var(--bg);
+        --reg-navy: var(--accent);
+        --reg-gold: #FFC542;
+        --reg-green: var(--green);
+        --reg-amber: var(--yellow);
+        --reg-red: var(--red);
+        --reg-blue: #2563EB;
+        --reg-purple: var(--purple);
+      }
+    `}</style>
+  </>
 );
 

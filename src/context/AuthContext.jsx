@@ -62,6 +62,10 @@ export const AuthProvider = ({ children }) => {
   const mountedRef = useRef(true);
   const loginInProgressRef = useRef(false);
   const userDataRef = useRef(null);
+  // Guards against a slow/stale profile fetch (initSession, a background
+  // TOKEN_REFRESHED auth event, etc.) overwriting fresher data — e.g. one
+  // just written by updateProfile() — if it resolves later out of order.
+  const profileOpSeqRef = useRef(0);
 
   // Announce the authenticated user to the shared Realtime presence channel.
   useEffect(() => {
@@ -125,33 +129,55 @@ export const AuthProvider = ({ children }) => {
   }, [userData?.uid, sessionTimeoutMs]);
 
   // ─── Fetch profile from profiles table ───────────────────────────────────
-  const fetchProfile = async (userId, email, metadata) => {
+  // Retries once after a short pause if the first attempt times out — the
+  // project's connection pool (free-tier, small compute) is occasionally
+  // saturated for a few seconds, and a lot of the time a retry a moment
+  // later goes through fine, avoiding a manual re-login to recover.
+  const fetchProfileOnce = async (userId) => {
+    const profilePromise = supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    // Safety net: if the profiles query hangs (e.g. connection pool
+    // saturation on the backend), don't block forever.
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { code: 'CLIENT_TIMEOUT' } }), 8000)
+    );
+
+    return Promise.race([profilePromise, timeoutPromise]);
+  };
+
+  // Returns { profile, fetchFailed }. The distinction matters: a failed READ is
+  // not the same answer as "this account has no profile row". Collapsing both
+  // to null lets a connection hiccup silently demote a real admin to student,
+  // because normalizeRole(null) === 'student'.
+  const fetchProfile = async (userId) => {
     try {
-      const profilePromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      // Safety net: if the profiles query hangs (e.g. a slow/misbehaving
-      // RLS policy on the backend), don't block login forever. Give up
-      // after 8s and fall back to auth metadata for role/name instead.
-      const timeoutPromise = new Promise((resolve) =>
-        setTimeout(() => resolve({ data: null, error: { code: 'CLIENT_TIMEOUT' } }), 8000)
-      );
-
-      const { data, error: profileError } = await Promise.race([profilePromise, timeoutPromise]);
+      let { data, error: profileError } = await fetchProfileOnce(userId);
 
       if (profileError?.code === 'CLIENT_TIMEOUT') {
-        console.warn('⚠️ Profile fetch timed out after 8s — continuing with auth metadata only');
-      } else if (profileError && profileError.code !== 'PGRST116') {
-        console.warn('⚠️ Profile fetch warning:', profileError.message);
+        console.warn('⚠️ Profile fetch timed out after 8s — retrying once...');
+        await new Promise((r) => setTimeout(r, 1500));
+        ({ data, error: profileError } = await fetchProfileOnce(userId));
       }
 
-      return data || null;
+      if (profileError?.code === 'CLIENT_TIMEOUT') {
+        console.warn('⚠️ Profile fetch timed out again — role cannot be verified');
+        return { profile: null, fetchFailed: true };
+      }
+
+      // PGRST116 is "no rows matched", a real answer rather than a failure.
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.warn('⚠️ Profile fetch failed:', profileError.message);
+        return { profile: null, fetchFailed: true };
+      }
+
+      return { profile: data || null, fetchFailed: false };
     } catch (err) {
       console.warn('⚠️ fetchProfile error:', err.message);
-      return null;
+      return { profile: null, fetchFailed: true };
     }
   };
 
@@ -160,6 +186,7 @@ export const AuthProvider = ({ children }) => {
     mountedRef.current = true;
 
     const initSession = async () => {
+      const opSeq = ++profileOpSeqRef.current;
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
@@ -168,26 +195,37 @@ export const AuthProvider = ({ children }) => {
         }
 
         if (session?.user && mountedRef.current) {
-          const profile = await fetchProfile(
-            session.user.id,
-            session.user.email,
-            session.user.user_metadata || {}
-          );
+          const { profile, fetchFailed } = await fetchProfile(session.user.id);
           if (isArchivedProfile(profile)) {
             await supabase.auth.signOut({ scope: 'local' });
             return;
           }
-          const role = normalizeRole(
-            profile?.role ||
-            session.user.user_metadata?.role ||
-            (userDataRef.current?.uid === session.user.id ? userDataRef.current.role : null)
-          );
+          // Role comes ONLY from the profiles row. `user_metadata` is writable
+          // by the account holder (supabase.auth.updateUser({data:{...}})), so
+          // trusting it here would let any user grant themselves any role.
+          // The cached fallback is a previous successful read of this same
+          // profile, so it is server-derived too — it only covers the case
+          // where the profile fetch times out on a flaky connection.
+          const cachedRole = userDataRef.current?.uid === session.user.id
+            ? userDataRef.current.role
+            : null;
+
+          // Unreadable profile and no previously-verified role: staying
+          // unauthenticated sends them to login, which beats guessing a role
+          // and dropping them on the wrong dashboard.
+          if (fetchFailed && !cachedRole) return;
+
+          const role = normalizeRole(profile?.role || cachedRole);
           const built = buildUserData(session.user, profile, role);
 
-          setUser(session.user);
-          setUserData(built);
-          userDataRef.current = built;
-          setIsAuthenticated(true);
+          // Skip applying this result if a newer profile operation (e.g.
+          // updateProfile, or a later auth event) has already started.
+          if (profileOpSeqRef.current === opSeq) {
+            setUser(session.user);
+            setUserData(built);
+            userDataRef.current = built;
+            setIsAuthenticated(true);
+          }
         }
       } catch (err) {
         console.error('❌ initSession error:', err.message);
@@ -204,28 +242,30 @@ export const AuthProvider = ({ children }) => {
         if (!mountedRef.current) return;
 
         console.log('🔄 Auth state change:', event);
+        const opSeq = ++profileOpSeqRef.current;
 
         if (session?.user) {
-          const profile = await fetchProfile(
-            session.user.id,
-            session.user.email,
-            session.user.user_metadata || {}
-          );
+          const { profile, fetchFailed } = await fetchProfile(session.user.id);
           if (isArchivedProfile(profile)) {
             await supabase.auth.signOut({ scope: 'local' });
             return;
           }
-          const role = normalizeRole(
-            profile?.role ||
-            session.user.user_metadata?.role ||
-            (userDataRef.current?.uid === session.user.id ? userDataRef.current.role : null)
-          );
+          // Role comes ONLY from the profiles row — see the note in initSession.
+          const cachedRole = userDataRef.current?.uid === session.user.id
+            ? userDataRef.current.role
+            : null;
+
+          if (fetchFailed && !cachedRole) return;
+
+          const role = normalizeRole(profile?.role || cachedRole);
           const built = buildUserData(session.user, profile, role);
 
-          setUser(session.user);
-          setUserData(built);
-          userDataRef.current = built;
-          setIsAuthenticated(true);
+          if (profileOpSeqRef.current === opSeq) {
+            setUser(session.user);
+            setUserData(built);
+            userDataRef.current = built;
+            setIsAuthenticated(true);
+          }
         } else if (!loginInProgressRef.current) {
           setUser(null);
           setUserData(null);
@@ -285,11 +325,17 @@ export const AuthProvider = ({ children }) => {
 
         console.log('✅ Supabase Auth login successful:', data.user.email);
 
-        const profile = await fetchProfile(
-          data.user.id,
-          data.user.email,
-          data.user.user_metadata || {}
-        );
+        const { profile, fetchFailed } = await fetchProfile(data.user.id);
+
+        // Signing in without a verified role would hand an admin the student
+        // dashboard. Stop here and let them retry instead of guessing.
+        if (fetchFailed) {
+          await supabase.auth.signOut();
+          const unavailableErr = new Error('PROFILE_UNAVAILABLE');
+          unavailableErr.userMessage =
+            'Could not verify your account right now. Please check your connection and try again.';
+          throw unavailableErr;
+        }
 
         if (isArchivedProfile(profile)) {
           await supabase.auth.signOut();
@@ -298,9 +344,8 @@ export const AuthProvider = ({ children }) => {
           throw archivedErr;
         }
 
-        const role = normalizeRole(
-          data.user.user_metadata?.role || profile?.role
-        );
+        // Profiles row only — never user_metadata (self-writable, see above).
+        const role = normalizeRole(profile?.role);
 
         // ─── Role gate: runs BEFORE setIsAuthenticated(true) ───────────────
         // If the caller specified which role they expect (e.g. the dropdown
@@ -341,7 +386,11 @@ export const AuthProvider = ({ children }) => {
 
     // All retries failed (or role mismatch short-circuited the loop)
     const msg = lastError?.userMessage || lastError?.message || 'Login failed. Please try again.';
-    if (lastError?.message !== 'ARCHIVED_ACCOUNT' && !lastError?.message?.startsWith('ROLE_MISMATCH:')) {
+    // A connection failure is not a wrong password — it must not count toward
+    // the lockout, or a flaky network would lock a legitimate user out.
+    if (lastError?.message !== 'ARCHIVED_ACCOUNT'
+        && lastError?.message !== 'PROFILE_UNAVAILABLE'
+        && !lastError?.message?.startsWith('ROLE_MISMATCH:')) {
       const failures = recordLoginFailure(email);
       if (failures >= 5) lastError.userMessage = 'Too many failed login attempts. The next login attempt is blocked.';
     }
@@ -384,19 +433,33 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (updates) => {
     if (!user) throw new Error('Not authenticated');
 
-    const { error: updateError } = await supabase
+    // Privilege fields are never settable through self-service profile edits —
+    // only an admin may change them, through the admin user-management flow.
+    // (The database RLS policy enforces this too; this is the client-side half.)
+    const { role: _role, status: _status, id: _id, ...safeUpdates } = updates;
+
+    const opSeq = ++profileOpSeqRef.current;
+
+    // Use the row returned by the UPDATE itself (UPDATE ... RETURNING) rather
+    // than a separate follow-up SELECT — one less round-trip through RLS,
+    // and avoids a slow re-fetch racing with (and losing to) this update.
+    const { data: profile, error: updateError } = await supabase
       .from('profiles')
-      .update(updates)
-      .eq('id', user.id);
+      .update(safeUpdates)
+      .eq('id', user.id)
+      .select()
+      .single();
 
     if (updateError) throw updateError;
 
-    // Refresh userData
-    const profile = await fetchProfile(user.id, user.email, user.user_metadata || {});
-    const role = normalizeRole(user.user_metadata?.role || profile?.role);
+    const role = normalizeRole(profile?.role);
     const built = buildUserData(user, profile, role);
-    setUserData(built);
-    userDataRef.current = built;
+
+    // Only commit if nothing newer (a fresh login, another save) started meanwhile.
+    if (profileOpSeqRef.current === opSeq) {
+      setUserData(built);
+      userDataRef.current = built;
+    }
   };
 
   // ─── Role helpers ─────────────────────────────────────────────────────────

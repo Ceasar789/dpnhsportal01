@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Users, BookOpen, Loader2, GraduationCap, Columns } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader, DonutChart } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -25,22 +26,28 @@ const OverviewTab = () => {
     setLoading(true);
     try {
       const [{ count: students }, { count: teachers }, { count: sections }, { count: subjects }] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher'),
-        supabase.from('sections').select('*', { count: 'exact', head: true }),
-        supabase.from('subjects').select('*', { count: 'exact', head: true })
+        withRetry(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'), { label: 'Students count fetch' }),
+        withRetry(() => supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher'), { label: 'Teachers count fetch' }),
+        withRetry(() => supabase.from('sections').select('*', { count: 'exact', head: true }), { label: 'Sections count fetch' }),
+        withRetry(() => supabase.from('subjects').select('*', { count: 'exact', head: true }), { label: 'Subjects count fetch' })
       ]);
 
-      const { data: recent } = await supabase
-        .from('pre_enrollments')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
+      const { data: recent } = await withRetry(
+        () => supabase
+          .from('pre_enrollment')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        { label: 'Recent enrollments fetch' }
+      );
 
-      const { data: deptStats } = await supabase
-        .from('enrollment_by_dept')
-        .select('*')
-        .order('current', { ascending: false });
+      const { data: deptStats } = await withRetry(
+        () => supabase
+          .from('enrollment_by_dept')
+          .select('*')
+          .order('current', { ascending: false }),
+        { label: 'Department stats fetch' }
+      );
 
       setOverviewData({
         totalStudents: students || 0,
@@ -68,26 +75,27 @@ const OverviewTab = () => {
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <div
-        className="rounded-3xl px-6 py-9 mb-6 text-center relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg,#12069f 0%,#1908DF 55%,#3a2bf0 100%)', boxShadow: '0 10px 30px rgba(25,8,223,.22)' }}
+        className="rounded-2xl px-6 py-5 mb-6 flex items-center gap-4 relative overflow-hidden"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)', boxShadow: '0 4px 16px rgba(25,8,223,.10)' }}
       >
         <img
           src="/capstonelogo.png"
           alt="School Logo"
-          className="w-24 h-24 object-contain rounded-full mx-auto mb-4"
-          style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,.3))' }}
+          className="w-14 h-14 object-contain rounded-full flex-shrink-0"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-        <h2 className="text-2xl font-extrabold text-white mb-1">
-          Welcome to <span style={{ color: '#FFC542' }}>EduScribe</span>
-        </h2>
-        <p className="text-xs font-bold tracking-widest text-white/75 uppercase mb-5">Dela Paz National High School</p>
-        <div className="inline-flex items-center rounded-2xl px-6 py-2.5" style={{ backgroundColor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.28)' }}>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>
+            Welcome to <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
+          </h2>
+          <p className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--banner-subtext)' }}>Dela Paz National High School</p>
+        </div>
+        <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
           <div>
-            <p className="text-[10px] font-bold tracking-wide text-white/70 uppercase">School Year</p>
-            <p className="text-base font-extrabold text-white">2025–2026</p>
+            <p className="text-[10px] font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
+            <p className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>2025–2026</p>
           </div>
         </div>
       </div>

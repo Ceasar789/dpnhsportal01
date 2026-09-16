@@ -9,6 +9,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { AlertTriangle, CalendarCheck, CheckCircle, Clock, Loader2, RefreshCw } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
+import { withRetry } from '../../../../lib/supabaseRetry';
 
 const AttendanceTab = () => {
   const { dark } = useTheme();
@@ -22,11 +23,14 @@ const AttendanceTab = () => {
   const fetchAttendance = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('student_id', userData?.uid)
-        .order('date', { ascending: false });
+      const { data, error } = await withRetry(
+        () => supabase
+          .from('attendance')
+          .select('*')
+          .eq('student_id', userData?.uid)
+          .order('date', { ascending: false }),
+        { label: 'Attendance fetch' }
+      );
 
       if (error) throw error;
 
@@ -56,7 +60,7 @@ const AttendanceTab = () => {
   const attendanceRate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <Toast />
 
       <div className="flex items-center justify-between mb-6">

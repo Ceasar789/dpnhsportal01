@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Search, Check, X, Upload, Eye, Loader2, Trash2 } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -29,8 +30,8 @@ const DocumentsTab = () => {
     setLoading(true);
     try {
       const [{ data: docs }, { data: stats }] = await Promise.all([
-        supabase.from('documents').select('*').order('created_at', { ascending: false }),
-        supabase.from('document_stats').select('*')
+        withRetry(() => supabase.from('documents').select('*').order('created_at', { ascending: false }), { label: 'Documents fetch' }),
+        withRetry(() => supabase.from('document_stats').select('*'), { label: 'Document stats fetch' })
       ]);
       setDocuments(docs || []);
       setDocStats(stats || []);
@@ -106,7 +107,7 @@ const DocumentsTab = () => {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${
           toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'

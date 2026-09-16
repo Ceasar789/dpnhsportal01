@@ -7,6 +7,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Lock, Eye, EyeOff } from 'lucide-react';
+import { validatePassword, PASSWORD_HINT } from '../../lib/passwordPolicy';
+import FlippingLogo from '../../components/FlippingLogo';
 
 const ChangePassword = () => {
   const navigate = useNavigate();
@@ -20,7 +22,8 @@ const ChangePassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password.length < 8) { setMessage('Password must be at least 8 characters'); return; }
+    const passwordError = validatePassword(password);
+    if (passwordError) { setMessage(passwordError); return; }
     if (password !== confirmPassword) { setMessage('Passwords do not match'); return; }
 
     setIsLoading(true);
@@ -42,7 +45,7 @@ const ChangePassword = () => {
       <div className="w-full max-w-md mx-4">
         <div className="bg-white rounded-lg p-10 shadow-sm">
           <div className="flex flex-col items-center mb-8">
-            <img src="/capstonelogo.png" alt="DPNHS Logo" style={{ width: '60px', height: '60px' }} />
+            <FlippingLogo size={60} />
             <h2 className="text-2xl font-bold mt-4" style={{ color: '#1a2b4a' }}>Change Password</h2>
             <div className="w-10 h-1 mt-2" style={{ backgroundColor: '#d4a843' }} />
             {userData?.email && (
@@ -75,6 +78,9 @@ const ChangePassword = () => {
                     {showPassword ? <EyeOff size={20} style={{ color: '#9CA3AF' }} /> : <Eye size={20} style={{ color: '#9CA3AF' }} />}
                   </button>
                 </div>
+                {label === 'NEW PASSWORD' && (
+                  <p className="text-xs mt-1.5" style={{ color: '#9CA3AF' }}>{PASSWORD_HINT}</p>
+                )}
               </div>
             ))}
 

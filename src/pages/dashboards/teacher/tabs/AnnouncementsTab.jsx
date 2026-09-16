@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { withRetry } from '../../../../lib/supabaseRetry';
 import { Calendar, Clock, Megaphone, Plus, Search, Trash2, Edit, X, Check, Loader2 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Modal, Badge, Btn } from '../shared/ui';
@@ -22,12 +23,15 @@ const AnnouncementsTab = () => {
 
   const fetchNews = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('news')
-      .select('*')
-      .eq('status', 'Published')
-      .order('created_at', { ascending: false });
-    
+    const { data, error } = await withRetry(
+      () => supabase
+        .from('news')
+        .select('*')
+        .eq('status', 'Published')
+        .order('created_at', { ascending: false }),
+      { label: 'Announcements fetch' }
+    );
+
     if (error) {
       showToast('Error loading news: ' + error.message, 'error');
     } else {
@@ -59,7 +63,7 @@ const AnnouncementsTab = () => {
   });
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}

@@ -7,15 +7,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { Sun, Moon, Search, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
+import PageTransition from '../../../components/PageTransition';
+import NotificationBell from '../../../components/NotificationBell';
 import { initials, avatarColor, roleBadge, roleLabel } from './shared/helpers';
+import Avatar from '../../../components/Avatar';
+import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import OverviewTab from './tabs/OverviewTab';
 import UsersTab from './tabs/UsersTab';
 import NewsTab from './tabs/NewsTab';
 import CalendarTab from './tabs/CalendarTab';
 import MemosTab from './tabs/MemosTab';
 import SettingsTab from './tabs/SettingsTab';
+import ProfileTab from '../../profile/ProfileTab';
+import FlippingLogo from '../../../components/FlippingLogo';
 
 // ============================================
 // MAIN ADMIN DASHBOARD — auth guard, then mounts AdminProvider
@@ -41,9 +47,42 @@ const AdminDashboard = () => {
     );
   }
 
+  // Navigating during render is a side effect React does not guarantee will
+  // run, which is why a denied user used to land on a blank page. Show the
+  // reason instead — including the role actually read from the profiles row,
+  // so a misconfigured account is diagnosable without digging through the DB.
   if (!userData || userData.role !== 'main_admin') {
-    navigate('/faculty-login', { replace: true });
-    return null;
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#1a1d23', flexDirection: 'column',
+        gap: 12, padding: 24, textAlign: 'center'
+      }}>
+        <h1 style={{ color: '#f1f5f9', fontSize: 20, fontWeight: 700 }}>
+          Administrator access required
+        </h1>
+        <p style={{ color: '#8b92a5', fontSize: 14, maxWidth: 420 }}>
+          This account is not registered as an administrator, so the admin
+          dashboard cannot be opened.
+        </p>
+        <div style={{
+          background: '#23272f', border: '1px solid #2e3340', borderRadius: 8,
+          padding: '12px 16px', color: '#8b92a5', fontSize: 13, textAlign: 'left'
+        }}>
+          <div>Signed in as: <strong style={{ color: '#f1f5f9' }}>{userData?.email || '— not signed in —'}</strong></div>
+          <div>Detected role: <strong style={{ color: '#f1f5f9' }}>{userData?.role || '— none —'}</strong></div>
+        </div>
+        <button
+          onClick={() => navigate('/faculty-login', { replace: true })}
+          style={{
+            marginTop: 8, padding: '10px 20px', borderRadius: 8, border: 'none',
+            background: '#3b82f6', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+          }}
+        >
+          Go to login
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -60,8 +99,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { darkMode, page, setDarkMode, setPage, toast, logoErr, setLogoErr,
+  const { darkMode, page, setDarkMode, setPage, toast,
     activeSettingsSub, scrollToSection, settings, deleteConfirm, setDeleteConfirm } = useAdminContext();
+  const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
 
   return (
     <div className="dashboard-shell">
@@ -83,6 +123,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           --red: #ef4444;
           --purple: #a78bfa;
           --teal: #2dd4bf;
+          --banner-bg: linear-gradient(135deg, #1c2340 0%, #212a4a 55%, #1a2140 100%);
+          --banner-text: #f1f5f9;
+          --banner-subtext: #a8b3d9;
+          --banner-accent: #8b93ff;
+          --banner-border: rgba(255,255,255,0.10);
+          --banner-pill-bg: rgba(255,255,255,0.10);
+          --banner-pill-border: rgba(255,255,255,0.18);
+          --heading-accent: #8b93ff;
           --nav-bg: #ffffff;
           --nav-border: #e2e8f0;
           --nav-text: #1a2b4a;
@@ -109,6 +157,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           --red: #dc2626;
           --purple: #7c3aed;
           --teal: #0d9488;
+          --banner-bg: linear-gradient(135deg, #D7DEFA 0%, #C9D3F6 55%, #DCEBFF 100%);
+          --banner-text: #1a2b4a;
+          --banner-subtext: #4d5b8a;
+          --banner-accent: #1908DF;
+          --banner-border: rgba(25,8,223,0.14);
+          --banner-pill-bg: rgba(255,255,255,.75);
+          --banner-pill-border: rgba(25,8,223,.16);
+          --heading-accent: #6366a3;
           --nav-bg: #ffffff;
           --nav-border: #e2e8f0;
           --nav-text: #1a2b4a;
@@ -145,14 +201,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           margin-right: 32px;
         }
         .nav-menu-btn { display: none; }
-        .nav-logo img {
-          width: 56px; height: 56px;
+        .nav-logo > img {
+          width: 64px; height: 64px;
           border-radius: 50%;
           object-fit: contain;
           flex-shrink: 0;
         }
         .nav-logo-icon {
-          width: 56px; height: 56px;
+          width: 64px; height: 64px;
           background: #ffffff;
           border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
@@ -160,9 +216,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           color: #1908DF; flex-shrink: 0;
         }
         .nav-logo-text { display: flex; flex-direction: column; line-height: 1.2; font-family: 'Work Sans', sans-serif; }
-        .nav-logo-text span:first-child { font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: #FEB300; }
+        .nav-logo-text span:first-child { font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: #FEB300; }
         .nav-logo-text span:first-child i { color: #00D4FF; font-style: normal; }
-        .nav-logo-text span:last-child { font-size: 12px; color: rgba(255,255,255,.85); font-weight: 500; }
+        .nav-logo-text span:last-child { font-size: 14px; color: rgba(255,255,255,.85); font-weight: 500; }
 
         .nav-links { display: flex; gap: 2px; flex: 1; }
         .nav-link {
@@ -190,23 +246,21 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
         .nav-search-btn {
-          width: 36px; height: 36px; border-radius: 50%;
+          width: 40px; height: 40px; border-radius: 50%;
           border: none; background: rgba(255,255,255,.12); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           color: #ffffff; transition: background .15s;
         }
         .nav-search-btn:hover { background: rgba(255,255,255,.22); }
-        .nav-search { width: 260px; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #ffffff; color: #64748b; }
-        .nav-search input { width: 100%; border: none; outline: none; background: transparent; color: #334155; font: inherit; padding: 0; }
         .nav-toggle-btn {
-          width: 36px; height: 36px; border-radius: 50%;
+          width: 40px; height: 40px; border-radius: 50%;
           border: none; background: rgba(255,255,255,.12); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           color: #ffffff; transition: all .2s;
         }
         .nav-toggle-btn:hover { background: rgba(255,255,255,.22); }
         .nav-avatar {
-          width: 36px; height: 36px; border-radius: 50%;
+          width: 40px; height: 40px; border-radius: 50%;
           background: #FFC542;
           display: flex; align-items: center; justify-content: center;
           font-size: 11px; font-weight: 700; color: #12069f;
@@ -241,7 +295,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar-sub { padding: 7px 20px 7px 28px; cursor: pointer; color: var(--text-dim); font-size: 12px; transition: all .15s; }
         .sidebar-sub:hover { color: var(--text-muted); }
         .sidebar-sub.active { color: var(--accent); }
-        .sidebar-collapse { position: absolute; right: -12px; top: 28px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+        .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
         .sidebar-logout { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--border); }
         .main { flex: 1; padding: 24px 32px; overflow-y: auto; }
 
@@ -452,7 +506,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         @media(max-width:900px) {
           .nav-menu-btn { display: flex; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; align-items: center; justify-content: center; cursor: pointer; }
-          .nav-search { display: none; }
           .layout { min-height: calc(100vh - 76px); }
           .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 50; transform: translateX(-100%); width: 256px; }
           .sidebar.mobile-open { transform: translateX(0); }
@@ -495,21 +548,16 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           <Menu size={20} />
         </button>
         <div className="nav-logo">
-          {!logoErr
-            ? <img src="/capstonelogo.png" alt="logo" onError={() => setLogoErr(true)} />
-            : <div className="nav-logo-icon">DP</div>}
+          <FlippingLogo size={64} />
           <div className="nav-logo-text">
             <span><b>Edu</b><i>Scribe</i></span>
             <span>Admin Portal</span>
           </div>
         </div>
         <div className="nav-actions">
-          <div className="nav-search">
-            <Search size={15} />
-            <input placeholder="Search..." aria-label="Search dashboard" />
-          </div>
+          <NotificationBell />
           <button className="nav-toggle-btn" title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} onClick={() => setDarkMode(d => !d)}>
-            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
       </nav>
@@ -527,13 +575,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               aria-label="Toggle profile menu"
               style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left' }}
             >
-            <div className="nav-avatar" style={{ background: avatarColor(userData?.name || 'Admin User'), width: 36, height: 36, display: 'flex', visibility: 'visible' }}>{initials(userData?.name || 'Admin User')}</div>
+            <Avatar className="nav-avatar" src={photoUrl} name={userData?.name || 'Admin User'} size={36} style={{ display: 'flex', visibility: 'visible' }} />
             {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin User'}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Administrator</div></div>}
             {!sidebarCollapsed && <ChevronRight size={15} style={{ marginLeft: 'auto', color: 'var(--text-muted)', transform: profileOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />}
             </button>
             {profileOpen && !sidebarCollapsed && (
               <button
-                onClick={() => navigate('/change-password')}
+                onClick={() => { setPage('profile'); setProfileOpen(false); }}
                 style={{ width: '100%', marginTop: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8, color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 13, fontWeight: 600 }}
               >
                 <Settings size={15} />
@@ -579,14 +627,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         </div>
 
         <div className="main">
-
-          {page === 'overview' && <OverviewTab />}
-          {page === 'users' && <UsersTab />}
-          {page === 'news' && <NewsTab />}
-          {page === 'calendar' && <CalendarTab />}
-          {page === 'memos' && <MemosTab />}
-          {page === 'settings' && <SettingsTab />}
-
+          <PageTransition transitionKey={page}>
+            {page === 'overview' && <OverviewTab />}
+            {page === 'users' && <UsersTab />}
+            {page === 'news' && <NewsTab />}
+            {page === 'calendar' && <CalendarTab />}
+            {page === 'memos' && <MemosTab />}
+            {page === 'settings' && <SettingsTab />}
+            {page === 'profile' && <ProfileTab />}
+          </PageTransition>
         </div>
       </div>
 

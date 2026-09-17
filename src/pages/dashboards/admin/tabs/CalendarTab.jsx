@@ -22,8 +22,10 @@ const CalendarTab = () => {
   return (
     <>
             <div>
-              <div className="page-title">Calendar Management</div>
-              <div className="page-sub">Manage academic events, deadlines, and announcements</div>
+              <div className="page-header-bar">
+                <div className="page-title">Calendar Management</div>
+                <div className="page-sub">Manage academic events, deadlines, and announcements</div>
+              </div>
               <div style={{ display:'flex', gap:16 }}>
                 <div style={{ flex:1 }}>
                   <div className="cal-toolbar">

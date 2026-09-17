@@ -21,8 +21,10 @@ const NewsTab = () => {
   return (
     <>
             <div>
-              <div className="page-title">News Management</div>
-              <div className="page-sub">Create, edit, archive, and publish portal announcements</div>
+              <div className="page-header-bar">
+                <div className="page-title">News Management</div>
+                <div className="page-sub">Create, edit, archive, and publish portal announcements</div>
+              </div>
               <div className="toolbar">
                 <input placeholder="Search articles..." value={newsSearch} onChange={e => setNewsSearch(e.target.value)} style={{ flex:1, maxWidth:260 }} />
                 <select value={newsCatF} onChange={e => setNewsCatF(e.target.value)} style={{ width:'auto' }}>

@@ -305,6 +305,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .page-title { font-size: 22px; font-weight: 700; color: var(--text); }
         .page-sub { color: var(--text-muted); font-size: 13px; margin-top: 3px; margin-bottom: 20px; }
+        .page-header-bar { border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; background: var(--banner-bg); border: 1px solid var(--banner-border); }
+        .page-header-bar .page-title { color: var(--banner-text); }
+        .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }
         .btn { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
         .btn-primary { background: var(--accent); color: #fff; }
         .btn-primary:hover { background: var(--accent-hover); }

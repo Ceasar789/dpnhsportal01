@@ -29,8 +29,10 @@ const UsersTab = () => {
   return (
     <>
             <div>
-              <div className="page-title">User Management</div>
-              <div className="page-sub">Create accounts and assign roles across the portal</div>
+              <div className="page-header-bar">
+                <div className="page-title">User Management</div>
+                <div className="page-sub">Create accounts and assign roles across the portal</div>
+              </div>
               <div className="toolbar">
                 <input type="search" name="portal-user-search" autoComplete="new-password" autoCorrect="off" spellCheck="false" placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} style={{ flex:1, maxWidth:280 }} />
                 <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ width:'auto' }}>

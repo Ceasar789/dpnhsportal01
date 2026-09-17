@@ -28,8 +28,10 @@ const SectionsTab = () => {
   return (
     <>
       <div>
-        <div className="page-title">Sections</div>
-        <div className="page-sub">Class sections for {schoolYear}, their advisers, and their student rosters.</div>
+        <div className="page-header-bar">
+          <div className="page-title">Sections</div>
+          <div className="page-sub">Class sections for {schoolYear}, their advisers, and their student rosters.</div>
+        </div>
 
         <div className="toolbar">
           <button className="btn btn-primary" onClick={openCreateSection}>

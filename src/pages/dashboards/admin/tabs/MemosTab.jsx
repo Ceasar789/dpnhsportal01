@@ -20,8 +20,10 @@ const MemosTab = () => {
   return (
     <>
             <div>
-              <div className="page-title">Memo Management</div>
-              <div className="page-sub">Compose and distribute official memos to departments or all users</div>
+              <div className="page-header-bar">
+                <div className="page-title">Memo Management</div>
+                <div className="page-sub">Compose and distribute official memos to departments or all users</div>
+              </div>
               <div className="toolbar">
                 <input placeholder="Search memos..." value={memoSearch} onChange={e => setMemoSearch(e.target.value)} style={{ flex:1, maxWidth:240 }} />
                 <select value={memoFilter} onChange={e => setMemoFilter(e.target.value)} style={{ width:'auto' }}>

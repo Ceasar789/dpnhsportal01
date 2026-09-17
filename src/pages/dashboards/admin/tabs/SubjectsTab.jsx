@@ -19,8 +19,10 @@ const SubjectsTab = () => {
   return (
     <>
       <div>
-        <div className="page-title">Subjects</div>
-        <div className="page-sub">The subjects taught at this school. Schedules and lesson plans refer to this list.</div>
+        <div className="page-header-bar">
+          <div className="page-title">Subjects</div>
+          <div className="page-sub">The subjects taught at this school. Schedules and lesson plans refer to this list.</div>
+        </div>
 
         <div className="toolbar">
           <button className="btn btn-primary" onClick={openCreateSubject}>

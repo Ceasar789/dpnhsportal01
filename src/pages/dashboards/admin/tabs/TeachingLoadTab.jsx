@@ -37,8 +37,10 @@ const TeachingLoadTab = () => {
 
   return (
     <div>
-      <div className="page-title">Teaching Load</div>
-      <div className="page-sub">Which subjects each teacher holds, and at which grade level.</div>
+      <div className="page-header-bar">
+        <div className="page-title">Teaching Load</div>
+        <div className="page-sub">Which subjects each teacher holds, and at which grade level.</div>
+      </div>
 
       <div className="toolbar">
         <label className="form-label" style={{ marginRight: 8 }}>School Year</label>

@@ -35,8 +35,10 @@ const SchedulesTab = () => {
   return (
     <>
       <div>
-        <div className="page-title">Schedules</div>
-        <div className="page-sub">Who teaches what, to which section, and when — for {schoolYear}.</div>
+        <div className="page-header-bar">
+          <div className="page-title">Schedules</div>
+          <div className="page-sub">Who teaches what, to which section, and when — for {schoolYear}.</div>
+        </div>
 
         <div className="toolbar">
           <button className="btn btn-primary" onClick={openCreateSchedule}>

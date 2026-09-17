@@ -20,8 +20,10 @@ const SettingsTab = () => {
 
   return (
             <div>
-              <div className="page-title">System Settings</div>
-              <div className="page-sub">Configure portal name, academic year, and system preferences</div>
+              <div className="page-header-bar">
+                <div className="page-title">System Settings</div>
+                <div className="page-sub">Configure portal name, academic year, and system preferences</div>
+              </div>
 
               <div id="sec-general" className="settings-section">
                 <div className="settings-section-title">General</div>

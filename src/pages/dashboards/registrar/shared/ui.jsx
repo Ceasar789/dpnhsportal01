@@ -40,11 +40,21 @@ export const SectionTitle = ({ children }) => (
   </h2>
 );
 
-export const PageHeader = ({ title, subtitle }) => (
-  <div className="mb-6">
-    <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text)' }}>{title}</h1>
-    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
-  </div>
+// `plain` skips the pastel bar for the two tabs (Dashboard, Overview) that
+// already sit directly beneath the big "Welcome to EduScribe" banner — a
+// second pastel box right under the first would just look doubled up.
+export const PageHeader = ({ title, subtitle, plain = false }) => (
+  plain ? (
+    <div className="mb-6">
+      <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text)' }}>{title}</h1>
+      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
+    </div>
+  ) : (
+    <div className="mb-6 rounded-lg px-5 py-4" style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+      <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--banner-text)' }}>{title}</h1>
+      <p className="text-sm" style={{ color: 'var(--banner-subtext)' }}>{subtitle}</p>
+    </div>
+  )
 );
 
 export const DonutChart = ({ slices, total }) => {

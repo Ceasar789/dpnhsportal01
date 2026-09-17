@@ -100,7 +100,7 @@ const OverviewTab = () => {
         </div>
       </div>
 
-      <PageHeader title="System Overview" subtitle="At-a-glance view of the entire school system" />
+      <PageHeader plain title="System Overview" subtitle="At-a-glance view of the entire school system" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {statCards.map(s => {

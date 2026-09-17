@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
-import { Calendar, Plus, Clock, MapPin, BookOpen, Eye, Loader2, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, BookOpen, Eye, Loader2 } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
 
@@ -75,18 +75,6 @@ const SchedulingTab = () => {
     );
   };
 
-  const handleDeleteSchedule = async (id) => {
-    if (!window.confirm('Delete this schedule?')) return;
-    try {
-      const { error } = await supabase.from('schedules').delete().eq('id', id);
-      if (error) throw error;
-      showToast('Schedule deleted');
-      fetchSchedules();
-    } catch (err) {
-      showToast('Error deleting schedule', 'error');
-    }
-  };
-
   const depts = ['All', ...new Set(schedules.map(s => s.dept).filter(Boolean))];
   const filtered = activeView === 'classes'
     ? schedules.filter(s => filterDept === 'All' || s.dept === filterDept)
@@ -103,6 +91,10 @@ const SchedulingTab = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <PageHeader title="Scheduling" subtitle="Manage class schedules and examination timetables" />
         <Btn onClick={() => setShowAddModal(true)} disabled><Plus size={16} /> New Schedule</Btn>
+      </div>
+
+      <div className="page-sub" style={{ marginTop: 4 }}>
+        Schedules are managed by the Administrator. This view is read-only.
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -194,10 +186,6 @@ const SchedulingTab = () => {
                     <div className="flex gap-2">
                       <button className="p-1.5 rounded-md transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20" style={{ color: 'var(--reg-blue)' }} title="View">
                         <Eye size={14} />
-                      </button>
-                      <button onClick={() => handleDeleteSchedule(item.id)}
-                        className="p-1.5 rounded-md transition-colors hover:bg-red-50 dark:hover:bg-red-900/20" style={{ color: 'var(--reg-red)' }} title="Delete">
-                        <Trash2 size={14} />
                       </button>
                     </div>
                   </td>

@@ -215,6 +215,18 @@ export const AuthProvider = ({ children }) => {
           // and dropping them on the wrong dashboard.
           if (fetchFailed && !cachedRole) return;
 
+          // A transient failure with a cached role must not touch userData at
+          // all. Rebuilding it here would call buildUserData with profile =
+          // null, which wipes photo_url/name/department even though the role
+          // itself is fine — on screen that reads as "the admin's photo and
+          // name disappeared", triggered by nothing more than a dropped tab
+          // refresh. Leaving the existing state alone is strictly safer than
+          // guessing with a blank profile.
+          if (fetchFailed) {
+            if (mountedRef.current) setLoading(false);
+            return;
+          }
+
           const role = normalizeRole(profile?.role || cachedRole);
           const built = buildUserData(session.user, profile, role);
 
@@ -256,6 +268,16 @@ export const AuthProvider = ({ children }) => {
             : null;
 
           if (fetchFailed && !cachedRole) return;
+
+          // Same reasoning as initSession: a transient failure with a cached
+          // role must leave userData untouched rather than rebuild it with a
+          // null profile. This is the path a browser tab-visibility refresh
+          // takes, so without this a photo/name flicker on tab-switch is a
+          // dropped read away, not a real account change.
+          if (fetchFailed) {
+            if (mountedRef.current) setLoading(false);
+            return;
+          }
 
           const role = normalizeRole(profile?.role || cachedRole);
           const built = buildUserData(session.user, profile, role);

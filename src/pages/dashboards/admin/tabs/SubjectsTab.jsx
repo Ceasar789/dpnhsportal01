@@ -9,11 +9,12 @@ import { useAdminContext } from '../AdminContext';
 
 const SubjectsTab = () => {
   const {
-    subjects, subjectsLoading, subjectModal, editingSubject,
+    subjects, subjectsLoading, subjectsError, fetchSubjects, subjectModal, editingSubject,
     sName, setSName, sCode, setSCode, sActive, setSActive, sSaving,
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
-    handleOverlayClick,
   } = useAdminContext();
+
+  const closeSubjectOverlay = (e) => { if (e.target === e.currentTarget) closeSubjectModal(); };
 
   return (
     <>
@@ -35,6 +36,13 @@ const SubjectsTab = () => {
           <tbody>
             {subjectsLoading ? (
               <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>Loading subjects…</td></tr>
+            ) : subjectsError ? (
+              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>
+                Could not load subjects. Check your connection and try again.
+                <div style={{ marginTop: 10 }}>
+                  <button className="btn btn-ghost" onClick={() => fetchSubjects()}>Retry</button>
+                </div>
+              </td></tr>
             ) : subjects.length === 0 ? (
               <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>No subjects yet. Add the first one.</td></tr>
             ) : subjects.map(s => (
@@ -53,7 +61,7 @@ const SubjectsTab = () => {
       </div>
 
       {subjectModal && (
-        <div className="modal-overlay open" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={closeSubjectOverlay}>
           <div className="modal">
             <div className="modal-title">{editingSubject ? 'Edit Subject' : 'Add Subject'}</div>
 

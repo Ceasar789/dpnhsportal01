@@ -10,10 +10,11 @@ import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { canTeachSection } from '../../../lib/academicRules';
 
-export const useAcademicLogic = (showToast) => {
+export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   // ── Subjects ──────────────────────────────────────────────────────────────
   const [subjects, setSubjects] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [subjectsError, setSubjectsError] = useState(false);
 
   const [subjectModal, setSubjectModal] = useState(null);
   const [editingSubject, setEditingSubject] = useState(null);
@@ -27,13 +28,17 @@ export const useAcademicLogic = (showToast) => {
       () => supabase.from('subjects').select('*').order('name'),
       { label: 'Subjects fetch' }
     );
-    // A failed read keeps the previous list. Rendering an empty table here
-    // would read as "this school has no subjects".
+    // A failed read must be visibly different from a genuinely empty table —
+    // on first load there IS no "previous list" to fall back to, so leaving
+    // state as [] here renders as "this school has no subjects", which is
+    // exactly the confusion that has caused user-visible incidents before.
     if (error) {
       console.warn('Subjects fetch failed —', error.message);
+      setSubjectsError(true);
       setSubjectsLoading(false);
       return;
     }
+    setSubjectsError(false);
     setSubjects(data || []);
     setSubjectsLoading(false);
   }, []);
@@ -75,11 +80,21 @@ export const useAcademicLogic = (showToast) => {
     fetchSubjects();
   };
 
-  const deleteSubject = async (id) => {
-    const { error } = await supabase.from('subjects').delete().eq('id', id);
-    if (error) return showToast(`Could not delete subject: ${error.message}`, 'error');
-    showToast('Subject deleted');
-    fetchSubjects();
+  const deleteSubject = (id) => {
+    const subject = subjects.find(s => s.id === id);
+    setDeleteConfirm({
+      label: subject?.name || subject?.code || 'this subject',
+      title: 'Delete Subject?',
+      message: 'This subject will be permanently deleted.',
+      warning: 'Every teaching-load entry for this subject will be deleted along with it. This cannot be undone.',
+      confirmLabel: 'Yes, Delete',
+      onConfirm: async () => {
+        const { error } = await supabase.from('subjects').delete().eq('id', id);
+        if (error) return showToast(`Could not delete subject: ${error.message}`, 'error');
+        showToast('Subject deleted');
+        fetchSubjects();
+      },
+    });
   };
 
   useEffect(() => { fetchSubjects(); }, [fetchSubjects]);
@@ -99,14 +114,21 @@ export const useAcademicLogic = (showToast) => {
   // ── Teaching load ─────────────────────────────────────────────────────────
   const [teachingLoad, setTeachingLoad] = useState([]);
   const [teachingLoadLoading, setTeachingLoadLoading] = useState(true);
+  const [teachingLoadError, setTeachingLoadError] = useState(false);
   const [teachers, setTeachers] = useState([]);
+  const [teachersError, setTeachersError] = useState(false);
 
   const fetchTeachers = useCallback(async () => {
     const { data, error } = await withRetry(
       () => supabase.from('profiles').select('id, name, email').eq('role', 'teacher').order('name'),
       { label: 'Teachers fetch' }
     );
-    if (error) { console.warn('Teachers fetch failed —', error.message); return; }
+    if (error) {
+      console.warn('Teachers fetch failed —', error.message);
+      setTeachersError(true);
+      return;
+    }
+    setTeachersError(false);
     setTeachers(data || []);
   }, []);
 
@@ -117,9 +139,11 @@ export const useAcademicLogic = (showToast) => {
     );
     if (error) {
       console.warn('Teaching load fetch failed —', error.message);
+      setTeachingLoadError(true);
       setTeachingLoadLoading(false);
       return;
     }
+    setTeachingLoadError(false);
     setTeachingLoad(data || []);
     setTeachingLoadLoading(false);
   }, [schoolYear]);
@@ -180,6 +204,7 @@ export const useAcademicLogic = (showToast) => {
   // ── Sections ──────────────────────────────────────────────────────────────
   const [sections, setSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(true);
+  const [sectionsError, setSectionsError] = useState(false);
   const [sectionModal, setSectionModal] = useState(null);
   const [editingSection, setEditingSection] = useState(null);
   const [secName, setSecName] = useState('');
@@ -195,9 +220,11 @@ export const useAcademicLogic = (showToast) => {
     );
     if (error) {
       console.warn('Sections fetch failed —', error.message);
+      setSectionsError(true);
       setSectionsLoading(false);
       return;
     }
+    setSectionsError(false);
     setSections(data || []);
     setSectionsLoading(false);
   }, [schoolYear]);
@@ -242,7 +269,7 @@ export const useAcademicLogic = (showToast) => {
     if (error) {
       return showToast(
         error.code === '23505'
-          ? 'A section with that name already exists.'
+          ? `A section named "${name}" already exists for ${schoolYear}.`
           : `Could not save section: ${error.message}`,
         'error'
       );
@@ -252,17 +279,28 @@ export const useAcademicLogic = (showToast) => {
     fetchSections();
   };
 
-  const deleteSection = async (id) => {
-    const { error } = await supabase.from('sections').delete().eq('id', id);
-    if (error) return showToast(`Could not delete section: ${error.message}`, 'error');
-    showToast('Section deleted');
-    fetchSections();
+  const deleteSection = (id) => {
+    const section = sections.find(s => s.id === id);
+    setDeleteConfirm({
+      label: section?.name || 'this section',
+      title: 'Delete Section?',
+      message: 'This section will be permanently deleted, along with its class list and any schedules tied to it.',
+      warning: null,
+      confirmLabel: 'Yes, Delete',
+      onConfirm: async () => {
+        const { error } = await supabase.from('sections').delete().eq('id', id);
+        if (error) return showToast(`Could not delete section: ${error.message}`, 'error');
+        showToast('Section deleted');
+        fetchSections();
+      },
+    });
   };
 
   // ── Class list ────────────────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState(null);
   const [classList, setClassList] = useState([]);
   const [classListLoading, setClassListLoading] = useState(false);
+  const [classListError, setClassListError] = useState(false);
   const [unassignedStudents, setUnassignedStudents] = useState([]);
 
   const loadClassList = useCallback(async (section) => {
@@ -274,6 +312,7 @@ export const useAcademicLogic = (showToast) => {
     );
     if (error) {
       console.warn('Class list fetch failed —', error.message);
+      setClassListError(true);
       setClassListLoading(false);
       return;
     }
@@ -283,10 +322,16 @@ export const useAcademicLogic = (showToast) => {
     const ids = (rows || []).map(r => r.student_id);
     let names = [];
     if (ids.length > 0) {
-      const { data: profiles } = await withRetry(
+      const { data: profiles, error: profilesError } = await withRetry(
         () => supabase.from('profiles').select('id, name, email').in('id', ids),
         { label: 'Class list profiles fetch' }
       );
+      if (profilesError) {
+        console.warn('Class list profiles fetch failed —', profilesError.message);
+        setClassListError(true);
+        setClassListLoading(false);
+        return;
+      }
       names = profiles || [];
     }
 
@@ -295,10 +340,17 @@ export const useAcademicLogic = (showToast) => {
       return { id: r.id, student_id: r.student_id, name: p?.name || '—', email: p?.email || '' };
     }));
 
-    const { data: allStudents } = await withRetry(
+    const { data: allStudents, error: allStudentsError } = await withRetry(
       () => supabase.from('profiles').select('id, name, email').eq('role', 'student').eq('status', 'active').order('name'),
       { label: 'Student pool fetch' }
     );
+    if (allStudentsError) {
+      console.warn('Student pool fetch failed —', allStudentsError.message);
+      setClassListError(true);
+      setClassListLoading(false);
+      return;
+    }
+    setClassListError(false);
     setUnassignedStudents((allStudents || []).filter(s => !ids.includes(s.id)));
     setClassListLoading(false);
   }, []);
@@ -349,6 +401,7 @@ export const useAcademicLogic = (showToast) => {
   // ── Schedules ─────────────────────────────────────────────────────────────
   const [schedules, setSchedules] = useState([]);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
+  const [schedulesError, setSchedulesError] = useState(false);
   const [scheduleModal, setScheduleModal] = useState(null);
   const [schedTeacher, setSchedTeacher] = useState('');
   const [schedSubject, setSchedSubject] = useState('');
@@ -366,9 +419,11 @@ export const useAcademicLogic = (showToast) => {
     );
     if (error) {
       console.warn('Schedules fetch failed —', error.message);
+      setSchedulesError(true);
       setSchedulesLoading(false);
       return;
     }
+    setSchedulesError(false);
     setSchedules(data || []);
     setSchedulesLoading(false);
   }, [schoolYear]);
@@ -416,31 +471,44 @@ export const useAcademicLogic = (showToast) => {
     fetchSchedules();
   };
 
-  const deleteSchedule = async (id) => {
-    const { error } = await supabase.from('schedules').delete().eq('id', id);
-    if (error) return showToast(`Could not delete schedule: ${error.message}`, 'error');
-    showToast('Schedule deleted');
-    fetchSchedules();
+  const deleteSchedule = (id) => {
+    const schedule = schedules.find(s => s.id === id);
+    const sectionName = sections.find(s => s.id === schedule?.section_id)?.name;
+    const subjectName = subjects.find(s => s.id === schedule?.subject_id)?.name;
+    const label = [subjectName, sectionName].filter(Boolean).join(' — ') || 'this schedule';
+    setDeleteConfirm({
+      label,
+      title: 'Delete Schedule?',
+      message: 'This schedule entry will be permanently deleted.',
+      warning: null,
+      confirmLabel: 'Yes, Delete',
+      onConfirm: async () => {
+        const { error } = await supabase.from('schedules').delete().eq('id', id);
+        if (error) return showToast(`Could not delete schedule: ${error.message}`, 'error');
+        showToast('Schedule deleted');
+        fetchSchedules();
+      },
+    });
   };
 
   useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
 
   return {
-    subjects, subjectsLoading, fetchSubjects,
+    subjects, subjectsLoading, subjectsError, fetchSubjects,
     subjectModal, editingSubject,
     sName, setSName, sCode, setSCode, sActive, setSActive, sSaving,
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
     schoolYear, setSchoolYear,
-    teachingLoad, teachingLoadLoading, fetchTeachingLoad,
-    teachers, addLoad, removeLoad, copyLoadFromYear,
-    sections, sectionsLoading, fetchSections,
+    teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad,
+    teachers, teachersError, addLoad, removeLoad, copyLoadFromYear,
+    sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,
     secCapacity, setSecCapacity, secSaving,
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
-    activeSection, classList, classListLoading, unassignedStudents,
+    activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
-    schedules, schedulesLoading, fetchSchedules,
+    schedules, schedulesLoading, schedulesError, fetchSchedules,
     scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
     schedTeacher, setSchedTeacher, schedSubject, setSchedSubject,
     schedSection, setSchedSection, schedDay, setSchedDay,

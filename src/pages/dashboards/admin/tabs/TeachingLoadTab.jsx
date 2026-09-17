@@ -12,8 +12,9 @@ import { GRADE_LEVELS } from '../../../../lib/academicRules';
 
 const TeachingLoadTab = () => {
   const {
-    schoolYear, setSchoolYear, teachers, subjects,
-    teachingLoad, teachingLoadLoading, addLoad, removeLoad, copyLoadFromYear,
+    schoolYear, setSchoolYear, teachers, teachersError, subjects,
+    teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad, fetchTeachers,
+    addLoad, removeLoad, copyLoadFromYear,
   } = useAdminContext();
 
   const [rowTeacher, setRowTeacher] = useState('');
@@ -22,10 +23,17 @@ const TeachingLoadTab = () => {
 
   const subjectName = (id) => subjects.find(s => s.id === id)?.code || '—';
 
+  // Only a well-formed "YYYY-YYYY" year can be shifted back a year — anything
+  // else (an in-progress edit, garbage input) would otherwise produce
+  // "NaN-NaN" and a copy button that silently does nothing useful.
+  const isValidSchoolYear = /^\d{4}-\d{4}$/.test(schoolYear);
+
   const previousYear = () => {
+    if (!isValidSchoolYear) return null;
     const start = parseInt(schoolYear.split('-')[0], 10) - 1;
     return `${start}-${start + 1}`;
   };
+  const prevYear = previousYear();
 
   return (
     <div>
@@ -36,10 +44,12 @@ const TeachingLoadTab = () => {
         <label className="form-label" style={{ marginRight: 8 }}>School Year</label>
         <input className="form-input" style={{ width: 140 }} value={schoolYear}
           onChange={e => setSchoolYear(e.target.value)} placeholder="2025-2026" />
-        <button className="btn btn-ghost" onClick={() => copyLoadFromYear(previousYear())}>
-          <Copy size={15} style={{ marginRight: 6 }} />
-          Copy from {previousYear()}
-        </button>
+        {prevYear && (
+          <button className="btn btn-ghost" onClick={() => copyLoadFromYear(prevYear)}>
+            <Copy size={15} style={{ marginRight: 6 }} />
+            Copy from {prevYear}
+          </button>
+        )}
       </div>
 
       <div className="form-row" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -72,6 +82,13 @@ const TeachingLoadTab = () => {
         <tbody>
           {teachingLoadLoading ? (
             <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>Loading teaching load…</td></tr>
+          ) : teachersError || teachingLoadError ? (
+            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>
+              Could not load. Check your connection and try again.
+              <div style={{ marginTop: 10 }}>
+                <button className="btn btn-ghost" onClick={() => { if (teachersError) fetchTeachers(); if (teachingLoadError) fetchTeachingLoad(); }}>Retry</button>
+              </div>
+            </td></tr>
           ) : teachers.length === 0 ? (
             <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>No teachers yet. Create teacher accounts in User Management first.</td></tr>
           ) : teachers.map(t => {

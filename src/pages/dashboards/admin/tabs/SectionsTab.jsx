@@ -11,18 +11,19 @@ import { GRADE_LEVELS } from '../../../../lib/academicRules';
 
 const SectionsTab = () => {
   const {
-    schoolYear, teachers, sections, sectionsLoading,
+    schoolYear, teachers, sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,
     secCapacity, setSecCapacity, secSaving,
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
-    activeSection, classList, classListLoading, unassignedStudents,
+    activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
-    handleOverlayClick,
   } = useAdminContext();
 
   const [pick, setPick] = useState('');
   const adviserName = (id) => teachers.find(t => t.id === id)?.name || '—';
+  const closeSectionOverlay = (e) => { if (e.target === e.currentTarget) closeSectionModal(); };
+  const closeClassListOverlay = (e) => { if (e.target === e.currentTarget) closeClassList(); };
 
   return (
     <>
@@ -44,6 +45,13 @@ const SectionsTab = () => {
           <tbody>
             {sectionsLoading ? (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>Loading sections…</td></tr>
+            ) : sectionsError ? (
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>
+                Could not load sections. Check your connection and try again.
+                <div style={{ marginTop: 10 }}>
+                  <button className="btn btn-ghost" onClick={() => fetchSections()}>Retry</button>
+                </div>
+              </td></tr>
             ) : sections.length === 0 ? (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>No sections for {schoolYear} yet.</td></tr>
             ) : sections.map(s => (
@@ -64,7 +72,7 @@ const SectionsTab = () => {
       </div>
 
       {sectionModal && (
-        <div className="modal-overlay open" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={closeSectionOverlay}>
           <div className="modal">
             <div className="modal-title">{editingSection ? 'Edit Section' : 'Add Section'}</div>
 
@@ -105,7 +113,7 @@ const SectionsTab = () => {
       )}
 
       {activeSection && (
-        <div className="modal-overlay open" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={closeClassListOverlay}>
           <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-title">{activeSection.name} — Class List</div>
 
@@ -125,6 +133,13 @@ const SectionsTab = () => {
               <tbody>
                 {classListLoading ? (
                   <tr><td colSpan={4} style={{ textAlign: 'center', padding: 16 }}>Loading class list…</td></tr>
+                ) : classListError ? (
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 16 }}>
+                    Could not load. Check your connection and try again.
+                    <div style={{ marginTop: 10 }}>
+                      <button className="btn btn-ghost" onClick={() => openClassList(activeSection)}>Retry</button>
+                    </div>
+                  </td></tr>
                 ) : classList.length === 0 ? (
                   <tr><td colSpan={4} style={{ textAlign: 'center', padding: 16 }}>No students in this section yet.</td></tr>
                 ) : classList.map((c, i) => (

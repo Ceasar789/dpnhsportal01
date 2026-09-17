@@ -22,7 +22,7 @@ export const AdminProvider = ({ userData, children }) => {
   const adminLogic = useAdminLogic(userData);
   // Reuses the toast already owned by useAdminLogic so both halves of the
   // dashboard surface messages the same way.
-  const academicLogic = useAcademicLogic(adminLogic.showToast);
+  const academicLogic = useAcademicLogic(adminLogic.showToast, adminLogic.setDeleteConfirm);
 
   return (
     <AdminContext.Provider value={{ ...adminLogic, ...academicLogic }}>

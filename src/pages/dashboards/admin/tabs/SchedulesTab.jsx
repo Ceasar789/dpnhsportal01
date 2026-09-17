@@ -14,16 +14,16 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const SchedulesTab = () => {
   const {
     schoolYear, teachers, subjects, sections, teachingLoad,
-    schedules, schedulesLoading,
+    schedules, schedulesLoading, schedulesError, fetchSchedules,
     scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
     schedTeacher, setSchedTeacher, schedSubject, setSchedSubject,
     schedSection, setSchedSection, schedDay, setSchedDay,
     schedStart, setSchedStart, schedEnd, setSchedEnd,
     schedRoom, setSchedRoom, schedSaving,
-    handleOverlayClick,
   } = useAdminContext();
 
   const nameOf = (list, id, field = 'name') => list.find(x => x.id === id)?.[field] || '—';
+  const closeScheduleOverlay = (e) => { if (e.target === e.currentTarget) closeScheduleModal(); };
 
   // The subject picker offers only what this teacher holds, so an invalid
   // pairing cannot be chosen in the first place. saveSchedule still checks,
@@ -52,6 +52,13 @@ const SchedulesTab = () => {
           <tbody>
             {schedulesLoading ? (
               <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24 }}>Loading schedules…</td></tr>
+            ) : schedulesError ? (
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24 }}>
+                Could not load schedules. Check your connection and try again.
+                <div style={{ marginTop: 10 }}>
+                  <button className="btn btn-ghost" onClick={() => fetchSchedules()}>Retry</button>
+                </div>
+              </td></tr>
             ) : schedules.length === 0 ? (
               <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24 }}>No schedules for {schoolYear} yet.</td></tr>
             ) : schedules.map(s => (
@@ -70,7 +77,7 @@ const SchedulesTab = () => {
       </div>
 
       {scheduleModal && (
-        <div className="modal-overlay open" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={closeScheduleOverlay}>
           <div className="modal">
             <div className="modal-title">Add Schedule</div>
 

@@ -668,9 +668,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               <AlertTriangle size={26} color="var(--red)" />
             </div>
           </div>
-          <div className="modal-title" style={{ textAlign: 'center', marginBottom: 8 }}>Archive User?</div>
+          <div className="modal-title" style={{ textAlign: 'center', marginBottom: 8 }}>
+            {deleteConfirm?.title || 'Archive User?'}
+          </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.6 }}>
-            This user will be moved to the archive and removed from the active user list:
+            {deleteConfirm?.message || 'This user will be moved to the archive and removed from the active user list:'}
           </p>
           <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
             {deleteConfirm?.label}
@@ -680,9 +682,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               {roleLabel(deleteConfirm.role)}
             </span>
           )}
-          <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 10, marginBottom: 20 }}>
-            The account will not be permanently deleted.
-          </p>
+          {deleteConfirm?.warning !== null && (
+            <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 10, marginBottom: 20 }}>
+              {deleteConfirm?.warning || 'The account will not be permanently deleted.'}
+            </p>
+          )}
           <div className="modal-actions" style={{ justifyContent: 'center', gap: 12 }}>
             <button className="btn btn-ghost" onClick={() => setDeleteConfirm(null)}>
               Cancel
@@ -696,7 +700,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                 if (fn) await fn();
               }}
             >
-              Yes, Archive
+              {deleteConfirm?.confirmLabel || 'Yes, Archive'}
             </button>
           </div>
         </div>

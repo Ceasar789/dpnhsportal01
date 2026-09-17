@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
+import { canTeachSection } from '../../../lib/academicRules';
 
 export const useAcademicLogic = (showToast) => {
   // ── Subjects ──────────────────────────────────────────────────────────────
@@ -345,6 +346,85 @@ export const useAcademicLogic = (showToast) => {
 
   useEffect(() => { fetchSections(); }, [fetchSections]);
 
+  // ── Schedules ─────────────────────────────────────────────────────────────
+  const [schedules, setSchedules] = useState([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(true);
+  const [scheduleModal, setScheduleModal] = useState(null);
+  const [schedTeacher, setSchedTeacher] = useState('');
+  const [schedSubject, setSchedSubject] = useState('');
+  const [schedSection, setSchedSection] = useState('');
+  const [schedDay, setSchedDay] = useState('Monday');
+  const [schedStart, setSchedStart] = useState('08:00');
+  const [schedEnd, setSchedEnd] = useState('09:00');
+  const [schedRoom, setSchedRoom] = useState('');
+  const [schedSaving, setSchedSaving] = useState(false);
+
+  const fetchSchedules = useCallback(async () => {
+    const { data, error } = await withRetry(
+      () => supabase.from('schedules').select('*').eq('school_year', schoolYear).order('day_of_week').order('start_time'),
+      { label: 'Schedules fetch' }
+    );
+    if (error) {
+      console.warn('Schedules fetch failed —', error.message);
+      setSchedulesLoading(false);
+      return;
+    }
+    setSchedules(data || []);
+    setSchedulesLoading(false);
+  }, [schoolYear]);
+
+  const openCreateSchedule = () => {
+    setSchedTeacher(''); setSchedSubject(''); setSchedSection('');
+    setSchedDay('Monday'); setSchedStart('08:00'); setSchedEnd('09:00'); setSchedRoom('');
+    setScheduleModal('create');
+  };
+
+  const closeScheduleModal = () => setScheduleModal(null);
+
+  const saveSchedule = async () => {
+    if (!schedTeacher || !schedSubject || !schedSection) {
+      return showToast('Teacher, subject and section are all required', 'error');
+    }
+    if (schedEnd <= schedStart) {
+      return showToast('End time must be after start time', 'error');
+    }
+
+    const section = sections.find(s => s.id === schedSection);
+    const teacherLoad = teachingLoad.filter(l => l.teacher_id === schedTeacher);
+
+    // The guard: a teacher may only be scheduled to a subject and grade level
+    // they actually hold. Tested in src/lib/academicRules.test.js.
+    const verdict = canTeachSection(teacherLoad, schedSubject, section);
+    if (!verdict.ok) return showToast(verdict.reason, 'error');
+
+    setSchedSaving(true);
+    const { error } = await supabase.from('schedules').insert([{
+      section_id: schedSection,
+      teacher_id: schedTeacher,
+      subject_id: schedSubject,
+      day_of_week: schedDay,
+      start_time: schedStart,
+      end_time: schedEnd,
+      room_number: schedRoom.trim() || null,
+      school_year: schoolYear,
+    }]);
+    setSchedSaving(false);
+
+    if (error) return showToast(`Could not save schedule: ${error.message}`, 'error');
+    showToast('Schedule created');
+    setScheduleModal(null);
+    fetchSchedules();
+  };
+
+  const deleteSchedule = async (id) => {
+    const { error } = await supabase.from('schedules').delete().eq('id', id);
+    if (error) return showToast(`Could not delete schedule: ${error.message}`, 'error');
+    showToast('Schedule deleted');
+    fetchSchedules();
+  };
+
+  useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
+
   return {
     subjects, subjectsLoading, fetchSubjects,
     subjectModal, editingSubject,
@@ -360,5 +440,11 @@ export const useAcademicLogic = (showToast) => {
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
     activeSection, classList, classListLoading, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
+    schedules, schedulesLoading, fetchSchedules,
+    scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
+    schedTeacher, setSchedTeacher, schedSubject, setSchedSubject,
+    schedSection, setSchedSection, schedDay, setSchedDay,
+    schedStart, setSchedStart, schedEnd, setSchedEnd,
+    schedRoom, setSchedRoom, schedSaving,
   };
 };

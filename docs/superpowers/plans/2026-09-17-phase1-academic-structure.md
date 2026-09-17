@@ -807,7 +807,7 @@ const SubjectsTab = () => {
       </div>
 
       {subjectModal && (
-        <div className="modal-overlay" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={handleOverlayClick}>
           <div className="modal">
             <div className="modal-title">{editingSubject ? 'Edit Subject' : 'Add Subject'}</div>
 
@@ -1469,7 +1469,7 @@ const SectionsTab = () => {
       </div>
 
       {sectionModal && (
-        <div className="modal-overlay" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={handleOverlayClick}>
           <div className="modal">
             <div className="modal-title">{editingSection ? 'Edit Section' : 'Add Section'}</div>
 
@@ -1510,7 +1510,7 @@ const SectionsTab = () => {
       )}
 
       {activeSection && (
-        <div className="modal-overlay" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={handleOverlayClick}>
           <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-title">{activeSection.name} — Class List</div>
 
@@ -1800,7 +1800,7 @@ const SchedulesTab = () => {
       </div>
 
       {scheduleModal && (
-        <div className="modal-overlay" onClick={handleOverlayClick}>
+        <div className="modal-overlay open" onClick={handleOverlayClick}>
           <div className="modal">
             <div className="modal-title">Add Schedule</div>
 

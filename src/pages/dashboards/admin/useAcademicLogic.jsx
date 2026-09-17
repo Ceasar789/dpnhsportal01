@@ -320,38 +320,43 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     // students.id references auth.users, not profiles, so the name has to be
     // fetched separately rather than through a PostgREST embed.
     const ids = (rows || []).map(r => r.student_id);
-    let names = [];
-    if (ids.length > 0) {
-      const { data: profiles, error: profilesError } = await withRetry(
-        () => supabase.from('profiles').select('id, name, email').in('id', ids),
-        { label: 'Class list profiles fetch' }
+
+    // These two reads are independent of each other — the student pool query
+    // doesn't need `ids` until the client-side filter below — so they run
+    // concurrently instead of one after the other. On the free-tier
+    // connection pool this halves the round trips this function makes,
+    // which is what was making every open/add/remove feel sluggish.
+    const [profilesResult, allStudentsResult] = await Promise.all([
+      ids.length > 0
+        ? withRetry(
+            () => supabase.from('profiles').select('id, name, email').in('id', ids),
+            { label: 'Class list profiles fetch' }
+          )
+        : Promise.resolve({ data: [], error: null }),
+      withRetry(
+        () => supabase.from('profiles').select('id, name, email').eq('role', 'student').eq('status', 'active').order('name'),
+        { label: 'Student pool fetch' }
+      ),
+    ]);
+
+    if (profilesResult.error || allStudentsResult.error) {
+      console.warn(
+        'Class list load failed —',
+        (profilesResult.error || allStudentsResult.error).message
       );
-      if (profilesError) {
-        console.warn('Class list profiles fetch failed —', profilesError.message);
-        setClassListError(true);
-        setClassListLoading(false);
-        return;
-      }
-      names = profiles || [];
+      setClassListError(true);
+      setClassListLoading(false);
+      return;
     }
 
+    const names = profilesResult.data || [];
     setClassList((rows || []).map(r => {
       const p = names.find(n => n.id === r.student_id);
       return { id: r.id, student_id: r.student_id, name: p?.name || '—', email: p?.email || '' };
     }));
 
-    const { data: allStudents, error: allStudentsError } = await withRetry(
-      () => supabase.from('profiles').select('id, name, email').eq('role', 'student').eq('status', 'active').order('name'),
-      { label: 'Student pool fetch' }
-    );
-    if (allStudentsError) {
-      console.warn('Student pool fetch failed —', allStudentsError.message);
-      setClassListError(true);
-      setClassListLoading(false);
-      return;
-    }
     setClassListError(false);
-    setUnassignedStudents((allStudents || []).filter(s => !ids.includes(s.id)));
+    setUnassignedStudents((allStudentsResult.data || []).filter(s => !ids.includes(s.id)));
     setClassListLoading(false);
   }, []);
 

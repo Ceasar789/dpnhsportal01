@@ -782,7 +782,7 @@ const SubjectsTab = () => {
           </button>
         </div>
 
-        <table className="data-table">
+        <div className="table-card"><table>
           <thead>
             <tr><th>Code</th><th>Subject</th><th>Status</th><th style={{ width: 110 }}>Actions</th></tr>
           </thead>
@@ -797,13 +797,13 @@ const SubjectsTab = () => {
                 <td>{s.name}</td>
                 <td>{s.is_active === false ? 'Inactive' : 'Active'}</td>
                 <td>
-                  <button className="icon-btn" title="Edit" onClick={() => openEditSubject(s)}><Pencil size={15} /></button>
-                  <button className="icon-btn" title="Delete" onClick={() => deleteSubject(s.id)}><Trash2 size={15} /></button>
+                  <button className="icon-action" title="Edit" onClick={() => openEditSubject(s)}><Pencil size={15} /></button>
+                  <button className="icon-action" title="Delete" onClick={() => deleteSubject(s.id)}><Trash2 size={15} /></button>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {subjectModal && (
@@ -847,8 +847,8 @@ export default SubjectsTab;
 
 - [ ] **Step 5: Confirm the CSS classes used above exist**
 
-Run: `grep -cE "\.data-table|\.icon-btn|\.modal-overlay|\.modal-title" src/pages/dashboards/admin/AdminDashboard.jsx`
-Expected: a non-zero count. If any class is missing, add it to the `<style>` block in `AdminDashboard.jsx` beside the existing `.modal` rules, matching their visual weight.
+Run: `grep -cE "\.table-card|\.icon-action|\.modal-overlay|\.modal-title" src/pages/dashboards/admin/AdminDashboard.jsx`
+Expected: 4 or more. These classes already exist and are the ones `UsersTab.jsx` and `MemosTab.jsx` use — a `.table-card` wrapper around a bare `<table>`, and `.icon-action` for row buttons. Do not invent new table or button classes; the admin dashboard has one styling system and it must stay that way.
 
 - [ ] **Step 6: Wire the tab into the sidebar and page switch**
 
@@ -1098,7 +1098,7 @@ const TeachingLoadTab = () => {
         </button>
       </div>
 
-      <table className="data-table">
+      <div className="table-card"><table>
         <thead><tr><th>Teacher</th><th>Holds</th></tr></thead>
         <tbody>
           {teachingLoadLoading ? (
@@ -1124,7 +1124,7 @@ const TeachingLoadTab = () => {
             );
           })}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 };
@@ -1134,10 +1134,13 @@ export default TeachingLoadTab;
 
 - [ ] **Step 3: Add the chip styles**
 
-In `AdminDashboard.jsx`'s `<style>` block, beside the existing badge rules, add:
+A removable pill is the one piece of UI the admin dashboard does not already
+have — `.badge` has no remove affordance. Define `.chip` to borrow `.badge`'s
+visual language (line 324 of `AdminDashboard.jsx`) so it reads as part of the
+same system rather than a second one. Add beside the badge rules:
 
 ```css
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; margin: 2px 4px 2px 0; border-radius: 999px; background: var(--accent-soft, rgba(25,8,223,.10)); color: var(--accent); font-size: 12px; font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; color: #60a5fa; border: 1px solid #1d4ed8; background: rgba(59,130,246,0.1); }
 .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: 0; opacity: .7; }
 .chip-x:hover { opacity: 1; }
 ```
@@ -1439,7 +1442,7 @@ const SectionsTab = () => {
           </button>
         </div>
 
-        <table className="data-table">
+        <div className="table-card"><table>
           <thead>
             <tr><th>Section</th><th>Grade Level</th><th>Adviser</th><th>Capacity</th><th style={{ width: 160 }}>Actions</th></tr>
           </thead>
@@ -1455,14 +1458,14 @@ const SectionsTab = () => {
                 <td>{adviserName(s.adviser_id)}</td>
                 <td>{s.capacity}</td>
                 <td>
-                  <button className="icon-btn" title="Class list" onClick={() => openClassList(s)}><Users size={15} /></button>
-                  <button className="icon-btn" title="Edit" onClick={() => openEditSection(s)}><Pencil size={15} /></button>
-                  <button className="icon-btn" title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} /></button>
+                  <button className="icon-action" title="Class list" onClick={() => openClassList(s)}><Users size={15} /></button>
+                  <button className="icon-action" title="Edit" onClick={() => openEditSection(s)}><Pencil size={15} /></button>
+                  <button className="icon-action" title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} /></button>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {sectionModal && (
@@ -1522,7 +1525,7 @@ const SectionsTab = () => {
               }}>Add</button>
             </div>
 
-            <table className="data-table">
+            <div className="table-card"><table>
               <thead><tr><th>#</th><th>Student</th><th>Email</th><th style={{ width: 60 }}></th></tr></thead>
               <tbody>
                 {classListLoading ? (
@@ -1534,11 +1537,11 @@ const SectionsTab = () => {
                     <td>{i + 1}</td>
                     <td>{c.name}</td>
                     <td>{c.email}</td>
-                    <td><button className="icon-btn" title="Remove" onClick={() => removeStudentFromSection(c.id)}><X size={15} /></button></td>
+                    <td><button className="icon-action" title="Remove" onClick={() => removeStudentFromSection(c.id)}><X size={15} /></button></td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
 
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={closeClassList}>Close</button>
@@ -1772,7 +1775,7 @@ const SchedulesTab = () => {
           </button>
         </div>
 
-        <table className="data-table">
+        <div className="table-card"><table>
           <thead>
             <tr><th>Section</th><th>Subject</th><th>Teacher</th><th>Day</th><th>Time</th><th>Room</th><th style={{ width: 60 }}></th></tr>
           </thead>
@@ -1789,11 +1792,11 @@ const SchedulesTab = () => {
                 <td>{s.day_of_week}</td>
                 <td>{String(s.start_time).slice(0, 5)}–{String(s.end_time).slice(0, 5)}</td>
                 <td>{s.room_number || '—'}</td>
-                <td><button className="icon-btn" title="Delete" onClick={() => deleteSchedule(s.id)}><Trash2 size={15} /></button></td>
+                <td><button className="icon-action" title="Delete" onClick={() => deleteSchedule(s.id)}><Trash2 size={15} /></button></td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {scheduleModal && (

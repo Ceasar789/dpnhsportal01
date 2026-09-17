@@ -6,6 +6,7 @@
 
 import React, { createContext, useContext } from 'react';
 import { useAdminLogic } from './useAdminLogic';
+import { useAcademicLogic } from './useAcademicLogic';
 
 export const AdminContext = createContext(null);
 
@@ -19,9 +20,12 @@ export const useAdminContext = () => {
 
 export const AdminProvider = ({ userData, children }) => {
   const adminLogic = useAdminLogic(userData);
+  // Reuses the toast already owned by useAdminLogic so both halves of the
+  // dashboard surface messages the same way.
+  const academicLogic = useAcademicLogic(adminLogic.showToast);
 
   return (
-    <AdminContext.Provider value={adminLogic}>
+    <AdminContext.Provider value={{ ...adminLogic, ...academicLogic }}>
       {children}
     </AdminContext.Provider>
   );

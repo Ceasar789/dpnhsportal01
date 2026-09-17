@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
@@ -16,6 +16,7 @@ import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import OverviewTab from './tabs/OverviewTab';
 import UsersTab from './tabs/UsersTab';
+import SubjectsTab from './tabs/SubjectsTab';
 import NewsTab from './tabs/NewsTab';
 import CalendarTab from './tabs/CalendarTab';
 import MemosTab from './tabs/MemosTab';
@@ -592,6 +593,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           {[
             ['overview',  'Overview', LayoutDashboard],
             ['users',     'User Management', Users],
+            ['subjects',  'Subjects', BookMarked],
             ['news',      'News Management', Newspaper],
             ['calendar',  'Calendar', Calendar],
             ['memos',     'Memos', FileText],
@@ -630,6 +632,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           <PageTransition transitionKey={page}>
             {page === 'overview' && <OverviewTab />}
             {page === 'users' && <UsersTab />}
+            {page === 'subjects' && <SubjectsTab />}
             {page === 'news' && <NewsTab />}
             {page === 'calendar' && <CalendarTab />}
             {page === 'memos' && <MemosTab />}

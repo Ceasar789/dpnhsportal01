@@ -83,10 +83,106 @@ export const useAcademicLogic = (showToast) => {
 
   useEffect(() => { fetchSubjects(); }, [fetchSubjects]);
 
+  // ── School year ───────────────────────────────────────────────────────────
+  // Every academic record is scoped by year, so one selector drives the
+  // Teaching Load, Sections and Schedules screens.
+  const currentSchoolYear = () => {
+    const now = new Date();
+    // The DepEd school year opens in June; before then we are still in the
+    // year that began last calendar year.
+    const startYear = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${startYear}-${startYear + 1}`;
+  };
+  const [schoolYear, setSchoolYear] = useState(currentSchoolYear());
+
+  // ── Teaching load ─────────────────────────────────────────────────────────
+  const [teachingLoad, setTeachingLoad] = useState([]);
+  const [teachingLoadLoading, setTeachingLoadLoading] = useState(true);
+  const [teachers, setTeachers] = useState([]);
+
+  const fetchTeachers = useCallback(async () => {
+    const { data, error } = await withRetry(
+      () => supabase.from('profiles').select('id, name, email').eq('role', 'teacher').order('name'),
+      { label: 'Teachers fetch' }
+    );
+    if (error) { console.warn('Teachers fetch failed —', error.message); return; }
+    setTeachers(data || []);
+  }, []);
+
+  const fetchTeachingLoad = useCallback(async () => {
+    const { data, error } = await withRetry(
+      () => supabase.from('teacher_subjects').select('*').eq('school_year', schoolYear),
+      { label: 'Teaching load fetch' }
+    );
+    if (error) {
+      console.warn('Teaching load fetch failed —', error.message);
+      setTeachingLoadLoading(false);
+      return;
+    }
+    setTeachingLoad(data || []);
+    setTeachingLoadLoading(false);
+  }, [schoolYear]);
+
+  const addLoad = async (teacherId, subjectId, gradeLevel) => {
+    if (!teacherId || !subjectId || !gradeLevel) {
+      return showToast('Pick a teacher, a subject and a grade level', 'error');
+    }
+    const { error } = await supabase.from('teacher_subjects').insert([{
+      teacher_id: teacherId, subject_id: subjectId,
+      grade_level: gradeLevel, school_year: schoolYear,
+    }]);
+    // 23505 is unique_violation: this teacher already holds that subject and grade.
+    if (error) {
+      return showToast(
+        error.code === '23505'
+          ? 'That teacher already holds this subject at this grade level.'
+          : `Could not add: ${error.message}`,
+        'error'
+      );
+    }
+    showToast('Teaching load added');
+    fetchTeachingLoad();
+  };
+
+  const removeLoad = async (id) => {
+    const { error } = await supabase.from('teacher_subjects').delete().eq('id', id);
+    if (error) return showToast(`Could not remove: ${error.message}`, 'error');
+    showToast('Teaching load removed');
+    fetchTeachingLoad();
+  };
+
+  const copyLoadFromYear = async (fromYear) => {
+    const { data, error } = await withRetry(
+      () => supabase.from('teacher_subjects').select('teacher_id, subject_id, grade_level').eq('school_year', fromYear),
+      { label: 'Teaching load copy read' }
+    );
+    if (error) { showToast(`Could not read ${fromYear}: ${error.message}`, 'error'); return 0; }
+    if (!data || data.length === 0) { showToast(`No teaching load found for ${fromYear}`, 'error'); return 0; }
+
+    const rows = data.map(r => ({ ...r, school_year: schoolYear }));
+    // Rows already present in the target year are skipped rather than failing
+    // the whole copy, so the button is safe to press twice.
+    const { error: insertError } = await supabase
+      .from('teacher_subjects')
+      .upsert(rows, { onConflict: 'teacher_id,subject_id,grade_level,school_year', ignoreDuplicates: true });
+
+    if (insertError) { showToast(`Could not copy: ${insertError.message}`, 'error'); return 0; }
+
+    showToast(`Copied ${rows.length} entries from ${fromYear}`);
+    fetchTeachingLoad();
+    return rows.length;
+  };
+
+  useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
+  useEffect(() => { fetchTeachingLoad(); }, [fetchTeachingLoad]);
+
   return {
     subjects, subjectsLoading, fetchSubjects,
     subjectModal, editingSubject,
     sName, setSName, sCode, setSCode, sActive, setSActive, sSaving,
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
+    schoolYear, setSchoolYear,
+    teachingLoad, teachingLoadLoading, fetchTeachingLoad,
+    teachers, addLoad, removeLoad, copyLoadFromYear,
   };
 };

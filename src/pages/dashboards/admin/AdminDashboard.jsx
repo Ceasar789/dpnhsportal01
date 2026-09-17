@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked } from 'lucide-react';
+import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked, GraduationCap } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
@@ -17,6 +17,7 @@ import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import OverviewTab from './tabs/OverviewTab';
 import UsersTab from './tabs/UsersTab';
 import SubjectsTab from './tabs/SubjectsTab';
+import TeachingLoadTab from './tabs/TeachingLoadTab';
 import NewsTab from './tabs/NewsTab';
 import CalendarTab from './tabs/CalendarTab';
 import MemosTab from './tabs/MemosTab';
@@ -327,6 +328,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .badge-green   { color: #4ade80; border-color: #15803d; background: rgba(34,197,94,0.1); }
         .badge-teal    { color: #5eead4; border-color: #0f766e; background: rgba(45,212,191,0.1); }
         .badge-yellow  { color: #fbbf24; border-color: #b45309; background: rgba(245,158,11,0.1); }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; color: #60a5fa; border: 1px solid #1d4ed8; background: rgba(59,130,246,0.1); }
+        .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: 0; opacity: .7; }
+        .chip-x:hover { opacity: 1; }
         .badge-red     { color: #f87171; border-color: #b91c1c; background: rgba(239,68,68,0.1); }
         .badge-purple  { color: #c4b5fd; border-color: #6d28d9; background: rgba(167,139,250,0.1); }
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -594,6 +598,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             ['overview',  'Overview', LayoutDashboard],
             ['users',     'User Management', Users],
             ['subjects',  'Subjects', BookMarked],
+            ['teaching-load', 'Teaching Load', GraduationCap],
             ['news',      'News Management', Newspaper],
             ['calendar',  'Calendar', Calendar],
             ['memos',     'Memos', FileText],
@@ -633,6 +638,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             {page === 'overview' && <OverviewTab />}
             {page === 'users' && <UsersTab />}
             {page === 'subjects' && <SubjectsTab />}
+            {page === 'teaching-load' && <TeachingLoadTab />}
             {page === 'news' && <NewsTab />}
             {page === 'calendar' && <CalendarTab />}
             {page === 'memos' && <MemosTab />}

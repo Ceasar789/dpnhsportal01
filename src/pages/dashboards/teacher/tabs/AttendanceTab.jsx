@@ -158,8 +158,9 @@ const AttendanceTab = () => {
         </div>
       )}
       
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Attendance</h1>
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 rounded-lg px-4 py-3"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>Attendance</h1>
         <div className="flex items-center gap-3">
           <input 
             type="date" 

@@ -60,8 +60,9 @@ const AnnouncementsTab = () => {
     <div className="p-6">
       <Toast />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Announcements</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 rounded-lg px-4 py-3"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>Announcements</h1>
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: dark ? '#64748b' : '#94a3b8' }} />
           <input 

@@ -163,10 +163,14 @@ const PreEnrollmentTab = () => {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+      {/* Faculty has no dark mode and does not mount the shared theme CSS
+          vars, so this uses the same fixed pastel palette as this
+          dashboard's own Overview banner, not var(--banner-*). */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 rounded-lg px-4 py-3"
+        style={{ background: 'linear-gradient(135deg,#D7DEFA 0%,#C9D3F6 55%,#DCEBFF 100%)', border: '1px solid rgba(25,8,223,0.14)' }}>
         <div>
-          <h1 className="font-work font-bold text-2xl text-[#1a2b4a] mb-1">Pre-Enrollment Checklist</h1>
-          <p className="text-sm text-[#64748B]">Verify student documents</p>
+          <h1 className="font-work font-bold text-2xl mb-1" style={{ color: '#1a2b4a' }}>Pre-Enrollment Checklist</h1>
+          <p className="text-sm" style={{ color: '#4d5b8a' }}>Verify student documents</p>
         </div>
         {saving && <Loader2 className="animate-spin text-blue-500" size={24} />}
       </div>

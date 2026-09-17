@@ -67,8 +67,9 @@ const AssignmentsTab = () => {
     <div className="p-6">
       <Toast />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>My Assignments</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 rounded-lg px-4 py-3"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>My Assignments</h1>
         <div className="flex gap-2">
           {statuses.map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}

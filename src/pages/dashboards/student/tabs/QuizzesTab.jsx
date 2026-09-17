@@ -54,8 +54,9 @@ const QuizzesTab = () => {
     <div className="p-6">
       <Toast />
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>My Quizzes</h1>
+      <div className="flex items-center justify-between mb-6 rounded-lg px-4 py-3"
+        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
+        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>My Quizzes</h1>
         <button onClick={fetchQuizzes} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
           <RefreshCw size={16} />
         </button>

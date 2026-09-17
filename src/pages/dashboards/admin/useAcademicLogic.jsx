@@ -500,7 +500,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
     schoolYear, setSchoolYear,
     teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad,
-    teachers, teachersError, addLoad, removeLoad, copyLoadFromYear,
+    teachers, teachersError, fetchTeachers, addLoad, removeLoad, copyLoadFromYear,
     sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,

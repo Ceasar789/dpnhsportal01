@@ -7,8 +7,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
-import { Calendar, Plus, Clock, MapPin, BookOpen, Eye, Loader2 } from 'lucide-react';
-import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
+import { Calendar, Clock, MapPin, BookOpen, Eye, Loader2 } from 'lucide-react';
+import { Card, Badge, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
 
 const SchedulingTab = () => {
@@ -17,11 +17,6 @@ const SchedulingTab = () => {
   const [schedules, setSchedules] = useState([]);
   const [examSchedules, setExamSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newSchedule, setNewSchedule] = useState({
-    subject: '', section: '', room: '', instructor: '', day: '', time: '', dept: '', students: '', type: 'Written'
-  });
-  const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
   const showToast = (msg, type = 'success') => {
@@ -32,18 +27,30 @@ const SchedulingTab = () => {
   const fetchSchedules = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await withRetry(
-        () => supabase
-          .from('schedules')
-          .select('*, sections(name), profiles!teacher_id(name)')
-          .order('created_at', { ascending: false }),
-        { label: 'Schedules fetch' }
-      );
+      const [{ data, error }, { data: subjectRows, error: subjectsErr }] = await Promise.all([
+        withRetry(
+          () => supabase
+            .from('schedules')
+            .select('*, sections(name), profiles!teacher_id(name)')
+            .order('created_at', { ascending: false }),
+          { label: 'Schedules fetch' }
+        ),
+        withRetry(
+          () => supabase.from('subjects').select('id, name'),
+          { label: 'Subjects registry fetch' }
+        ),
+      ]);
       if (error) throw error;
+      if (subjectsErr) throw subjectsErr;
+
+      // subject_id is the registry's source of truth; the legacy free-text
+      // `subject` column is only a fallback for pre-registry rows.
+      const subjectNameById = new Map((subjectRows || []).map(s => [s.id, s.name]));
 
       setSchedules((data || []).map(schedule => ({
         ...schedule,
         section: schedule.sections?.name || schedule.section_id,
+        subject: (schedule.subject_id ? subjectNameById.get(schedule.subject_id) : null) || schedule.subject || 'Untitled subject',
         instructor: schedule.profiles?.name || schedule.teacher_id,
         day: schedule.day_of_week,
         time: `${schedule.start_time} - ${schedule.end_time}`,
@@ -66,15 +73,6 @@ const SchedulingTab = () => {
     return () => channels.forEach(ch => supabase.removeChannel(ch));
   }, [fetchSchedules]);
 
-  const handleAddSchedule = async () => {
-    showToast(
-      activeView === 'classes'
-        ? 'Create schedule is temporarily disabled until section and teacher IDs can be selected.'
-        : 'Examination schedules are not available in the current database schema.',
-      'error'
-    );
-  };
-
   const depts = ['All', ...new Set(schedules.map(s => s.dept).filter(Boolean))];
   const filtered = activeView === 'classes'
     ? schedules.filter(s => filterDept === 'All' || s.dept === filterDept)
@@ -90,7 +88,6 @@ const SchedulingTab = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <PageHeader title="Scheduling" subtitle="Manage class schedules and examination timetables" />
-        <Btn onClick={() => setShowAddModal(true)} disabled><Plus size={16} /> New Schedule</Btn>
       </div>
 
       <div className="page-sub" style={{ marginTop: 4 }}>
@@ -198,68 +195,6 @@ const SchedulingTab = () => {
           </table>
         </div>
       </Card>
-
-      {/* Add Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="rounded-lg p-6 w-full max-w-md" style={{ backgroundColor: 'var(--reg-surface)', border: '1px solid var(--reg-border)' }}>
-            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--reg-text)' }}>
-              Add {activeView === 'classes' ? 'Class' : 'Exam'} Schedule
-            </h3>
-            <div className="space-y-3">
-              <input placeholder="Subject *" value={newSchedule.subject} onChange={e => setNewSchedule({...newSchedule, subject: e.target.value})}
-                className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-              <input placeholder="Section *" value={newSchedule.section} onChange={e => setNewSchedule({...newSchedule, section: e.target.value})}
-                className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-              <input placeholder="Room" value={newSchedule.room} onChange={e => setNewSchedule({...newSchedule, room: e.target.value})}
-                className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-              <input placeholder="Instructor" value={newSchedule.instructor} onChange={e => setNewSchedule({...newSchedule, instructor: e.target.value})}
-                className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-              <input placeholder="Day(s)" value={newSchedule.day} onChange={e => setNewSchedule({...newSchedule, day: e.target.value})}
-                className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-              <input placeholder="Time (e.g. 8:00 AM - 10:00 AM)" value={newSchedule.time} onChange={e => setNewSchedule({...newSchedule, time: e.target.value})}
-                className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-              {activeView === 'classes' ? (
-                <>
-                  <input placeholder="Department" value={newSchedule.dept} onChange={e => setNewSchedule({...newSchedule, dept: e.target.value})}
-                    className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-                  <input placeholder="Student Count" value={newSchedule.students} onChange={e => setNewSchedule({...newSchedule, students: e.target.value})}
-                    className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-                </>
-              ) : (
-                <>
-                  <input placeholder="Date (YYYY-MM-DD)" value={newSchedule.day} onChange={e => setNewSchedule({...newSchedule, day: e.target.value})}
-                    className="w-full p-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }} />
-                  <select value={newSchedule.type} onChange={e => setNewSchedule({...newSchedule, type: e.target.value})}
-                    className="w-full p-2.5 rounded-lg border text-sm outline-none"
-                    style={{ borderColor: 'var(--reg-border)', background: 'var(--reg-input-bg)', color: 'var(--reg-text)' }}>
-                    <option value="Written">Written</option>
-                    <option value="Practical">Practical</option>
-                    <option value="Final">Final</option>
-                  </select>
-                </>
-              )}
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:bg-gray-50"
-                style={{ borderColor: 'var(--reg-border)', color: 'var(--reg-muted)' }}>Cancel</button>
-              <button onClick={handleAddSchedule} disabled={saving} className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: 'var(--reg-navy)' }}>
-                {saving ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Add Schedule'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

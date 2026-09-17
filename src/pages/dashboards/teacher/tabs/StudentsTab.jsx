@@ -109,22 +109,41 @@ const StudentsTab = () => {
       setAdvisoryStudents(advisoryRoster);
 
       // ── Subjects handled: sections taught via schedule but not advised ──
-      const { data: schedules, error: schedErr } = await withRetry(
-        () => supabase
-          .from('schedules')
-          .select('section_id, subject, sections(name, grade_level)')
-          .eq('teacher_id', userData.uid),
-        { label: 'Teaching schedules fetch' }
-      );
+      // subject_id is the registry's source of truth; the legacy free-text
+      // `subject` column is only read as a fallback for pre-registry rows
+      // where subject_id is still null.
+      const [{ data: schedules, error: schedErr }, { data: subjectRows, error: subjectsErr }] = await Promise.all([
+        withRetry(
+          () => supabase
+            .from('schedules')
+            .select('section_id, subject, subject_id, sections(name, grade_level)')
+            .eq('teacher_id', userData.uid),
+          { label: 'Teaching schedules fetch' }
+        ),
+        withRetry(
+          () => supabase.from('subjects').select('id, name, code'),
+          { label: 'Subjects registry fetch' }
+        ),
+      ]);
       if (schedErr) throw schedErr;
+      if (subjectsErr) throw subjectsErr;
+
+      const subjectById = new Map((subjectRows || []).map(s => [s.id, s]));
+      const subjectLabel = (s) => {
+        if (s.subject_id) return subjectById.get(s.subject_id)?.name || 'Untitled subject';
+        return s.subject || 'Untitled subject';
+      };
 
       const advisorySet = new Set(advisoryIds);
       const handledEntries = (schedules || []).filter(s => !advisorySet.has(s.section_id));
 
-      // De-dupe by (section_id, subject) — a schedule can repeat across days.
+      // De-dupe by (section_id, subject_id) — a schedule can repeat across
+      // days. Falls back to the legacy subject text only for older rows that
+      // have no subject_id, so two different subjects in the same section
+      // never collapse into one group.
       const uniqueByKey = new Map();
       handledEntries.forEach(s => {
-        const key = `${s.section_id}::${s.subject}`;
+        const key = `${s.section_id}::${s.subject_id || s.subject}`;
         if (!uniqueByKey.has(key)) uniqueByKey.set(key, s);
       });
 
@@ -138,8 +157,9 @@ const StudentsTab = () => {
 
       const groups = [...uniqueByKey.values()].map(s => ({
         sectionId: s.section_id,
+        subjectKey: s.subject_id || s.subject,
         sectionLabel: [s.sections?.grade_level, s.sections?.name].filter(Boolean).join(' — ') || 'Unnamed section',
-        subject: s.subject || 'Untitled subject',
+        subject: subjectLabel(s),
         students: rosterBySection.get(s.section_id) || [],
       }));
       setHandledGroups(groups);
@@ -241,7 +261,7 @@ const StudentsTab = () => {
             ) : (
               <div className="flex flex-col gap-4">
                 {filteredHandledGroups.map(group => (
-                  <Card key={`${group.sectionId}-${group.subject}`}>
+                  <Card key={`${group.sectionId}-${group.subjectKey}`}>
                     <div className="px-5 pt-4 pb-2 flex items-center justify-between">
                       <div>
                         <p className="text-sm font-bold" style={{ color: textColor }}>{group.subject}</p>

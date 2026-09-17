@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked, GraduationCap } from 'lucide-react';
+import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked, GraduationCap, Columns } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
@@ -18,6 +18,7 @@ import OverviewTab from './tabs/OverviewTab';
 import UsersTab from './tabs/UsersTab';
 import SubjectsTab from './tabs/SubjectsTab';
 import TeachingLoadTab from './tabs/TeachingLoadTab';
+import SectionsTab from './tabs/SectionsTab';
 import NewsTab from './tabs/NewsTab';
 import CalendarTab from './tabs/CalendarTab';
 import MemosTab from './tabs/MemosTab';
@@ -599,6 +600,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             ['users',     'User Management', Users],
             ['subjects',  'Subjects', BookMarked],
             ['teaching-load', 'Teaching Load', GraduationCap],
+            ['sections', 'Sections', Columns],
             ['news',      'News Management', Newspaper],
             ['calendar',  'Calendar', Calendar],
             ['memos',     'Memos', FileText],
@@ -639,6 +641,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             {page === 'users' && <UsersTab />}
             {page === 'subjects' && <SubjectsTab />}
             {page === 'teaching-load' && <TeachingLoadTab />}
+            {page === 'sections' && <SectionsTab />}
             {page === 'news' && <NewsTab />}
             {page === 'calendar' && <CalendarTab />}
             {page === 'memos' && <MemosTab />}

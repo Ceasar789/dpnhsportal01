@@ -176,6 +176,175 @@ export const useAcademicLogic = (showToast) => {
   useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
   useEffect(() => { fetchTeachingLoad(); }, [fetchTeachingLoad]);
 
+  // ── Sections ──────────────────────────────────────────────────────────────
+  const [sections, setSections] = useState([]);
+  const [sectionsLoading, setSectionsLoading] = useState(true);
+  const [sectionModal, setSectionModal] = useState(null);
+  const [editingSection, setEditingSection] = useState(null);
+  const [secName, setSecName] = useState('');
+  const [secGrade, setSecGrade] = useState('');
+  const [secAdviser, setSecAdviser] = useState('');
+  const [secCapacity, setSecCapacity] = useState('40');
+  const [secSaving, setSecSaving] = useState(false);
+
+  const fetchSections = useCallback(async () => {
+    const { data, error } = await withRetry(
+      () => supabase.from('sections').select('*').eq('school_year', schoolYear).order('grade_level').order('name'),
+      { label: 'Sections fetch' }
+    );
+    if (error) {
+      console.warn('Sections fetch failed —', error.message);
+      setSectionsLoading(false);
+      return;
+    }
+    setSections(data || []);
+    setSectionsLoading(false);
+  }, [schoolYear]);
+
+  const openCreateSection = () => {
+    setEditingSection(null);
+    setSecName(''); setSecGrade(''); setSecAdviser(''); setSecCapacity('40');
+    setSectionModal('create');
+  };
+
+  const openEditSection = (section) => {
+    setEditingSection(section);
+    setSecName(section.name || '');
+    setSecGrade(section.grade_level || '');
+    setSecAdviser(section.adviser_id || '');
+    setSecCapacity(String(section.capacity ?? 40));
+    setSectionModal('edit');
+  };
+
+  const closeSectionModal = () => setSectionModal(null);
+
+  const saveSection = async () => {
+    const name = secName.trim();
+    if (!name) return showToast('Section name is required', 'error');
+    if (!secGrade) return showToast('Grade level is required', 'error');
+
+    setSecSaving(true);
+    const payload = {
+      name,
+      grade_level: secGrade,
+      adviser_id: secAdviser || null,
+      capacity: parseInt(secCapacity, 10) || 40,
+      school_year: schoolYear,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = editingSection
+      ? await supabase.from('sections').update(payload).eq('id', editingSection.id)
+      : await supabase.from('sections').insert([payload]);
+
+    setSecSaving(false);
+    if (error) {
+      return showToast(
+        error.code === '23505'
+          ? 'A section with that name already exists.'
+          : `Could not save section: ${error.message}`,
+        'error'
+      );
+    }
+    showToast(editingSection ? 'Section updated' : 'Section created');
+    setSectionModal(null);
+    fetchSections();
+  };
+
+  const deleteSection = async (id) => {
+    const { error } = await supabase.from('sections').delete().eq('id', id);
+    if (error) return showToast(`Could not delete section: ${error.message}`, 'error');
+    showToast('Section deleted');
+    fetchSections();
+  };
+
+  // ── Class list ────────────────────────────────────────────────────────────
+  const [activeSection, setActiveSection] = useState(null);
+  const [classList, setClassList] = useState([]);
+  const [classListLoading, setClassListLoading] = useState(false);
+  const [unassignedStudents, setUnassignedStudents] = useState([]);
+
+  const loadClassList = useCallback(async (section) => {
+    setClassListLoading(true);
+
+    const { data: rows, error } = await withRetry(
+      () => supabase.from('section_students').select('id, student_id').eq('section_id', section.id).eq('status', 'active'),
+      { label: 'Class list fetch' }
+    );
+    if (error) {
+      console.warn('Class list fetch failed —', error.message);
+      setClassListLoading(false);
+      return;
+    }
+
+    // students.id references auth.users, not profiles, so the name has to be
+    // fetched separately rather than through a PostgREST embed.
+    const ids = (rows || []).map(r => r.student_id);
+    let names = [];
+    if (ids.length > 0) {
+      const { data: profiles } = await withRetry(
+        () => supabase.from('profiles').select('id, name, email').in('id', ids),
+        { label: 'Class list profiles fetch' }
+      );
+      names = profiles || [];
+    }
+
+    setClassList((rows || []).map(r => {
+      const p = names.find(n => n.id === r.student_id);
+      return { id: r.id, student_id: r.student_id, name: p?.name || '—', email: p?.email || '' };
+    }));
+
+    const { data: allStudents } = await withRetry(
+      () => supabase.from('profiles').select('id, name, email').eq('role', 'student').eq('status', 'active').order('name'),
+      { label: 'Student pool fetch' }
+    );
+    setUnassignedStudents((allStudents || []).filter(s => !ids.includes(s.id)));
+    setClassListLoading(false);
+  }, []);
+
+  const openClassList = (section) => { setActiveSection(section); loadClassList(section); };
+  const closeClassList = () => { setActiveSection(null); setClassList([]); };
+
+  const addStudentToSection = async (studentId) => {
+    if (!activeSection) return;
+
+    // section_students.student_id is a foreign key to students(id), but nothing
+    // in this app has ever written that table — a student exists only in
+    // profiles. Without this row the insert below fails with a foreign key
+    // violation for every student. students.id references auth.users(id), the
+    // same id profiles uses, so the row can be created from the id alone.
+    const { error: studentRowError } = await supabase
+      .from('students')
+      .upsert([{ id: studentId }], { onConflict: 'id', ignoreDuplicates: true });
+
+    if (studentRowError) {
+      return showToast(`Could not prepare student record: ${studentRowError.message}`, 'error');
+    }
+
+    const { error } = await supabase.from('section_students').insert([{
+      section_id: activeSection.id, student_id: studentId, status: 'active',
+    }]);
+    if (error) {
+      return showToast(
+        error.code === '23505'
+          ? 'That student is already in this section.'
+          : `Could not add student: ${error.message}`,
+        'error'
+      );
+    }
+    showToast('Student added to section');
+    loadClassList(activeSection);
+  };
+
+  const removeStudentFromSection = async (rowId) => {
+    const { error } = await supabase.from('section_students').delete().eq('id', rowId);
+    if (error) return showToast(`Could not remove student: ${error.message}`, 'error');
+    showToast('Student removed from section');
+    loadClassList(activeSection);
+  };
+
+  useEffect(() => { fetchSections(); }, [fetchSections]);
+
   return {
     subjects, subjectsLoading, fetchSubjects,
     subjectModal, editingSubject,
@@ -184,5 +353,12 @@ export const useAcademicLogic = (showToast) => {
     schoolYear, setSchoolYear,
     teachingLoad, teachingLoadLoading, fetchTeachingLoad,
     teachers, addLoad, removeLoad, copyLoadFromYear,
+    sections, sectionsLoading, fetchSections,
+    sectionModal, editingSection,
+    secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,
+    secCapacity, setSecCapacity, secSaving,
+    openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
+    activeSection, classList, classListLoading, unassignedStudents,
+    openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
   };
 };

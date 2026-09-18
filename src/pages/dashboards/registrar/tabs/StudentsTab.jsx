@@ -178,7 +178,7 @@ const StudentsTab = () => {
             <thead>
               <tr style={{ backgroundColor: 'var(--reg-surface-hover)' }}>
                 {['Student No.', 'Name', 'Course', 'Year', 'Status', 'Date Added', 'Actions'].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--reg-muted-light)' }}>{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold" style={{ color: 'var(--reg-muted-light)' }}>{h}</th>
                 ))}
               </tr>
             </thead>

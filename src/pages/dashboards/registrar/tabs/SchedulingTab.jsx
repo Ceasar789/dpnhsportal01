@@ -146,7 +146,7 @@ const SchedulingTab = () => {
                   ? ['Subject', 'Section', 'Instructor', 'Schedule', 'Room', 'Students', 'Actions']
                   : ['Subject', 'Section', 'Type', 'Date', 'Time', 'Room', 'Actions']
                 ).map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--reg-muted-light)' }}>{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold" style={{ color: 'var(--reg-muted-light)' }}>{h}</th>
                 ))}
               </tr>
             </thead>

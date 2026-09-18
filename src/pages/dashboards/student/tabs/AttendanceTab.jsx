@@ -107,7 +107,7 @@ const AttendanceTab = () => {
       {/* Attendance Rate Bar */}
       <Card className="p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Attendance Rate</h2>
+          <h2 className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Attendance Rate</h2>
           <span className="text-sm font-bold" style={{ color: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#d97706' : '#dc2626' }}>
             {attendanceRate}%
           </span>
@@ -139,7 +139,7 @@ const AttendanceTab = () => {
               <thead>
                 <tr style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
                   {['Date', 'Status', 'Subject', 'Notes'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: dark ? '#94a3b8' : '#94a3b8' }}>{h}</th>
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold" style={{ color: dark ? '#94a3b8' : '#94a3b8' }}>{h}</th>
                   ))}
                 </tr>
               </thead>

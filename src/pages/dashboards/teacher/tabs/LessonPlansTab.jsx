@@ -815,8 +815,8 @@ th{background:#f3f4f6;}
 
           {/* Right: Quick Create */}
           <Card className="p-5 h-fit">
-            <h2 className="text-sm font-semibold uppercase tracking-wider mb-4"
-              style={{ color: dark ? '#64748b' : '#94a3b8' }}>Quick Create (Manual)</h2>
+            <h2 className="text-sm font-semibold mb-4"
+              style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Quick Create (Manual)</h2>
             <form onSubmit={handleQuickCreate} className="space-y-3">
               <Input placeholder="Title" required value={quickForm.title}
                 onChange={e => setQuickForm({ ...quickForm, title: e.target.value })} />

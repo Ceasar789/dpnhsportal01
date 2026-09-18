@@ -34,8 +34,11 @@ export const Btn = ({ children, onClick, className = '', variant = 'default', st
   );
 };
 
+// Matches the Admin dashboard's .chart-title treatment (title case, full-
+// strength text color) rather than a muted uppercase label, so a card
+// heading reads the same whichever dashboard it's on.
 export const SectionTitle = ({ children }) => (
-  <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+  <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text)' }}>
     {children}
   </h2>
 );

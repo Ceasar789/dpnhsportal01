@@ -70,10 +70,23 @@ student downloads it, answers on paper, the teacher encodes the score) or
 questions (the student answers in the app), or both. Either way the score lands
 in `worksheet_submissions`, distinguished by `source`.
 
-**Auto-check, then teacher review, then release.** The system pre-computes what
-it can; the teacher sees every item, can override any of them, and only then
-releases the result. The student sees nothing until release. This is the safeguard
-against an auto-checker marking a correct answer wrong.
+**Auto-check is per worksheet, and off by default.** The question builder carries
+a `checking_mode` toggle. In `auto`, the review screen pre-fills each item's
+points from the checker. In `manual`, it shows the same answers with empty points
+boxes and the teacher fills in everything. The teacher picks once, while building,
+when they can see the mix of question types in front of them.
+
+The default is `manual`. A false positive is the dangerous direction: an
+auto-checker that marks a *wrong* answer correct looks right on the review screen
+and slips through, while one that marks a *correct* answer wrong is obvious and
+gets fixed. Defaulting to manual means a teacher who never thinks about the
+setting still gets the safe behaviour, and auto-check is something they opt into
+deliberately — typically for an all-multiple-choice worksheet, where it cannot be
+wrong.
+
+**Review, then release.** Whichever mode, the teacher sees every item, sets or
+confirms the points, and only then releases. The student sees nothing until
+release.
 
 **Checking runs in the teacher's browser, not the student's.** Answer keys live in
 a table students cannot read at all. If checking ran client-side for the student,
@@ -101,6 +114,13 @@ created. Once worksheets carry questions, it is redundant; removing it leaves
 one system to explain instead of a working one beside a broken one.
 
 ## Data model
+
+### Changed table
+
+```
+worksheets
+  + checking_mode  IN (auto, manual)  DEFAULT 'manual'
+```
 
 ### New tables
 
@@ -187,12 +207,14 @@ expected never scoring above the item's points.
 
 - **Post to section** — pick a section the teacher handles and a due date.
 - **Question builder** — add, edit, reorder and delete items; pick a type per
-  item; set options, accepted answers and points. Saving writes `worksheet_items`
-  and `worksheet_item_keys` together.
+  item; set options, accepted answers and points. Carries the `checking_mode`
+  toggle. Saving writes `worksheet_items` and `worksheet_item_keys` together.
 - **Check submissions** — the class list with each student's status. Opening one
-  runs the auto-check in the browser, shows every item with the student's answer
-  beside the expected answer and a pre-filled points box the teacher can change,
-  then **Save & Release** writes the score and sets `released`.
+  shows every item with the student's answer beside the expected answer and a
+  points box per item. In `auto` mode those boxes arrive pre-filled by the
+  checker and are marked as such, so the teacher can see what was machine-scored
+  versus what they typed; in `manual` mode they start empty. **Save & Release**
+  writes the score and sets `released`.
 - **Encode score** — for the paper path: a single score box per student, writing a
   `manual` submission with no answers.
 
@@ -234,9 +256,11 @@ attendance from today onward; there is no history. "No attendance recorded yet"
 and "0% present" mean opposite things and must not render alike.
 
 **Auto-check disagreement.** Identification and enumeration will sometimes mark a
-defensible answer wrong. The release gate is the mitigation, and the review screen
-must make overriding a single item fast — if it is tedious, teachers will release
-without reading, and the gate stops protecting anything.
+defensible answer wrong, and — more dangerously — a mistyped answer key can mark a
+wrong answer right, which looks correct on review and slips through. The
+manual-by-default toggle and the release gate are the mitigations, and the review
+screen must make overriding a single item fast. If it is tedious, teachers will
+release without reading and the gate stops protecting anything.
 
 **Grade-level format.** `sections.grade_level` stores `Grade 7`. The banner
 currently renders `Grade {grade}-{section}`, which would read "Grade Grade

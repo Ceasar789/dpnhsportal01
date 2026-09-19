@@ -54,6 +54,17 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
 
+-- Ties an answer's item to the worksheet its submission actually belongs to,
+-- so a student cannot attach an answer for an item from an unrelated worksheet.
+CREATE OR REPLACE FUNCTION item_belongs_to_submission(p_submission_id UUID, p_item_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM worksheet_submissions sub
+    JOIN worksheet_items wi ON wi.worksheet_id = sub.worksheet_id
+    WHERE sub.id = p_submission_id AND wi.id = p_item_id
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
 ALTER TABLE worksheet_sections     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worksheet_items        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worksheet_item_keys    ENABLE ROW LEVEL SECURITY;
@@ -79,6 +90,16 @@ CREATE POLICY ws_items_write ON worksheet_items FOR ALL TO authenticated
   USING (is_admin() OR teacher_owns_worksheet(worksheet_id))
   WITH CHECK (is_admin() OR teacher_owns_worksheet(worksheet_id));
 
+-- worksheets — students otherwise have no path to this table at all: they can
+-- read worksheet_items/worksheet_sections but not the worksheet row those
+-- point at, so title/description/checking_mode come back null on every
+-- embed. This adds the narrow student path only; the existing teacher-owner
+-- and admin policies on worksheets are untouched (permissive policies OR
+-- together).
+DROP POLICY IF EXISTS ws_worksheets_student_read ON worksheets;
+CREATE POLICY ws_worksheets_student_read ON worksheets FOR SELECT TO authenticated
+  USING (student_can_see_worksheet(id));
+
 -- worksheet_item_keys — no student branch at all, by design.
 DROP POLICY IF EXISTS ws_keys_all ON worksheet_item_keys;
 CREATE POLICY ws_keys_all ON worksheet_item_keys FOR ALL TO authenticated
@@ -101,6 +122,8 @@ CREATE POLICY ws_subs_teacher_write ON worksheet_submissions FOR ALL TO authenti
 CREATE POLICY ws_subs_student_write ON worksheet_submissions FOR ALL TO authenticated
   USING (student_id = auth.uid() AND status <> 'checked')
   WITH CHECK (student_id = auth.uid()
+              AND student_can_see_worksheet(worksheet_id)
+              AND student_in_section(section_id)
               AND status IN ('in_progress','submitted')
               AND released = FALSE
               AND score IS NULL AND total_points IS NULL
@@ -119,6 +142,7 @@ CREATE POLICY ws_answers_teacher_write ON worksheet_answers FOR ALL TO authentic
 CREATE POLICY ws_answers_student_write ON worksheet_answers FOR ALL TO authenticated
   USING (own_submission(submission_id) AND submission_open(submission_id))
   WITH CHECK (own_submission(submission_id) AND submission_open(submission_id)
+              AND item_belongs_to_submission(submission_id, item_id)
               AND is_correct IS NULL AND points_earned IS NULL);
 
 -- A student may move their submission in_progress -> submitted, and nothing
@@ -126,9 +150,20 @@ CREATE POLICY ws_answers_student_write ON worksheet_answers FOR ALL TO authentic
 CREATE OR REPLACE FUNCTION guard_worksheet_submission_write()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- auth.uid() IS NULL means this write did not come through a user session
+  -- at all (Supabase SQL Editor, service role, seed/migration scripts) — it
+  -- is not a student bypass, so let it through unguarded.
   IF auth.uid() IS NULL THEN RETURN NEW; END IF;
   IF is_admin() OR teacher_owns_worksheet(NEW.worksheet_id) THEN RETURN NEW; END IF;
 
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.remarks IS NOT NULL OR NEW.status <> 'in_progress' THEN
+      RAISE EXCEPTION 'A student may only create a submission with status in_progress and no remarks';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- From here on TG_OP = 'UPDATE'.
   IF NEW.score        IS DISTINCT FROM OLD.score
      OR NEW.total_points IS DISTINCT FROM OLD.total_points
      OR NEW.released     IS DISTINCT FROM OLD.released
@@ -137,13 +172,37 @@ BEGIN
     RAISE EXCEPTION 'Only the worksheet owner may set scoring fields';
   END IF;
 
+  IF NEW.remarks      IS DISTINCT FROM OLD.remarks
+     OR NEW.source       IS DISTINCT FROM OLD.source
+     OR NEW.worksheet_id IS DISTINCT FROM OLD.worksheet_id
+     OR NEW.section_id   IS DISTINCT FROM OLD.section_id THEN
+    RAISE EXCEPTION 'Only the worksheet owner may change remarks, source, worksheet_id or section_id';
+  END IF;
+
+  -- Status may only move in_progress -> in_progress (no-op), in_progress ->
+  -- submitted (server sets submitted_at), or submitted -> submitted (no-op).
+  -- Anything else, including submitted -> in_progress, is rejected.
+  IF OLD.status = 'in_progress' AND NEW.status = 'in_progress' THEN
+    IF NEW.submitted_at IS DISTINCT FROM OLD.submitted_at THEN
+      RAISE EXCEPTION 'Students may not set submitted_at';
+    END IF;
+  ELSIF OLD.status = 'in_progress' AND NEW.status = 'submitted' THEN
+    NEW.submitted_at := NOW();
+  ELSIF OLD.status = 'submitted' AND NEW.status = 'submitted' THEN
+    IF NEW.submitted_at IS DISTINCT FROM OLD.submitted_at THEN
+      RAISE EXCEPTION 'Students may not change submitted_at';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Students may not change submission status from % to %', OLD.status, NEW.status;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS guard_worksheet_submission ON worksheet_submissions;
 CREATE TRIGGER guard_worksheet_submission
-  BEFORE UPDATE ON worksheet_submissions
+  BEFORE INSERT OR UPDATE ON worksheet_submissions
   FOR EACH ROW EXECUTE FUNCTION guard_worksheet_submission_write();
 
 -- ============================================

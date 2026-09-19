@@ -305,7 +305,7 @@ export function scoreSubmission(items, keysByItemId, answersByItemId) {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test`
-Expected: PASS — 17 existing tests from Phase 1 plus 24 new ones.
+Expected: PASS — the existing Phase 1 tests in `academicRules.test.js` plus every test in this file, with no failures and no skips.
 
 - [ ] **Step 5: Verify the build**
 
@@ -577,9 +577,16 @@ CREATE POLICY ws_subs_read ON worksheet_submissions FOR SELECT TO authenticated
 CREATE POLICY ws_subs_teacher_write ON worksheet_submissions FOR ALL TO authenticated
   USING (is_admin() OR teacher_owns_worksheet(worksheet_id))
   WITH CHECK (is_admin() OR teacher_owns_worksheet(worksheet_id));
+-- The scoring columns are pinned NULL here as well as in the trigger below,
+-- because the trigger only fires BEFORE UPDATE — without this a student could
+-- INSERT their own submission with a score already filled in.
 CREATE POLICY ws_subs_student_write ON worksheet_submissions FOR ALL TO authenticated
   USING (student_id = auth.uid() AND status <> 'checked')
-  WITH CHECK (student_id = auth.uid() AND status IN ('in_progress','submitted') AND released = FALSE);
+  WITH CHECK (student_id = auth.uid()
+              AND status IN ('in_progress','submitted')
+              AND released = FALSE
+              AND score IS NULL AND total_points IS NULL
+              AND checked_by IS NULL AND checked_at IS NULL);
 
 -- worksheet_answers — a student writes only `answer`, and only while their
 -- submission is still open. is_correct and points_earned stay the teacher's.

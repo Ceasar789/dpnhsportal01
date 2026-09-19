@@ -19,7 +19,11 @@ ALTER TABLE worksheets ADD COLUMN IF NOT EXISTS checking_mode VARCHAR(10) NOT NU
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'worksheets_checking_mode_check') THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'worksheets_checking_mode_check'
+      AND conrelid = 'worksheets'::regclass
+  ) THEN
     ALTER TABLE worksheets ADD CONSTRAINT worksheets_checking_mode_check
       CHECK (checking_mode IN ('auto', 'manual'));
   END IF;

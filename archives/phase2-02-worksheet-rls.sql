@@ -111,6 +111,8 @@ CREATE POLICY ws_keys_all ON worksheet_item_keys FOR ALL TO authenticated
 DROP POLICY IF EXISTS ws_subs_read         ON worksheet_submissions;
 DROP POLICY IF EXISTS ws_subs_teacher_write ON worksheet_submissions;
 DROP POLICY IF EXISTS ws_subs_student_write ON worksheet_submissions;
+DROP POLICY IF EXISTS ws_subs_student_insert ON worksheet_submissions;
+DROP POLICY IF EXISTS ws_subs_student_update ON worksheet_submissions;
 CREATE POLICY ws_subs_read ON worksheet_submissions FOR SELECT TO authenticated
   USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_id = auth.uid());
 CREATE POLICY ws_subs_teacher_write ON worksheet_submissions FOR ALL TO authenticated
@@ -119,7 +121,23 @@ CREATE POLICY ws_subs_teacher_write ON worksheet_submissions FOR ALL TO authenti
 -- The scoring columns are pinned NULL here as well as in the trigger below,
 -- because the trigger only fires BEFORE UPDATE — without this a student could
 -- INSERT their own submission with a score already filled in.
-CREATE POLICY ws_subs_student_write ON worksheet_submissions FOR ALL TO authenticated
+--
+-- Students get INSERT and UPDATE only, never DELETE: FOR ALL would let a
+-- student DELETE their own row (no BEFORE UPDATE/INSERT trigger fires on
+-- DELETE, and there is no WITH CHECK on DELETE to stop it) and re-INSERT a
+-- fresh in_progress one — un-submission by another route, and one that also
+-- destroys a submission the teacher already scored and released. Clearing a
+-- submission for a retry is a teacher action, already covered by
+-- ws_subs_teacher_write.
+CREATE POLICY ws_subs_student_insert ON worksheet_submissions FOR INSERT TO authenticated
+  WITH CHECK (student_id = auth.uid()
+              AND student_can_see_worksheet(worksheet_id)
+              AND student_in_section(section_id)
+              AND status IN ('in_progress','submitted')
+              AND released = FALSE
+              AND score IS NULL AND total_points IS NULL
+              AND checked_by IS NULL AND checked_at IS NULL);
+CREATE POLICY ws_subs_student_update ON worksheet_submissions FOR UPDATE TO authenticated
   USING (student_id = auth.uid() AND status <> 'checked')
   WITH CHECK (student_id = auth.uid()
               AND student_can_see_worksheet(worksheet_id)
@@ -157,9 +175,10 @@ BEGIN
   IF is_admin() OR teacher_owns_worksheet(NEW.worksheet_id) THEN RETURN NEW; END IF;
 
   IF TG_OP = 'INSERT' THEN
-    IF NEW.remarks IS NOT NULL OR NEW.status <> 'in_progress' THEN
-      RAISE EXCEPTION 'A student may only create a submission with status in_progress and no remarks';
+    IF NEW.remarks IS NOT NULL OR NEW.status <> 'in_progress' OR NEW.source <> 'online' THEN
+      RAISE EXCEPTION 'A student may only create an online submission with status in_progress and no remarks';
     END IF;
+    NEW.submitted_at := NULL;
     RETURN NEW;
   END IF;
 

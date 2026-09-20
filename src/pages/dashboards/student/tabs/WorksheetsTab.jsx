@@ -18,7 +18,13 @@ import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 // write — named explicitly everywhere (never a bare `.select()`) so a
 // change to the table never silently starts handing this file scoring
 // columns it should not have.
-const SUBMISSION_FIELDS = 'id, worksheet_id, status, released, score, total_points';
+// The list view needs a row for EVERY submission — released or not — to label
+// each card and to reopen an in-progress one. It does not need the scores of
+// the unreleased ones, and RLS hands back whole rows, so asking for them would
+// put a number the student is not meant to see into their browser. The scores
+// are fetched separately, filtered to released in the query itself.
+const SUBMISSION_STATE_FIELDS = 'id, worksheet_id, status, released';
+const SUBMISSION_SCORE_FIELDS = 'worksheet_id, score, total_points';
 
 // Debounce window for autosaving free-typed answers (identification,
 // enumeration, essay) as the student types, in addition to the existing
@@ -119,7 +125,7 @@ const StudentWorksheetsTab = () => {
     const ids = [...new Set((postings || []).map(p => p.worksheet_id))];
     if (ids.length === 0) { setLoadError(false); setRows([]); setLoading(false); return; }
 
-    const [sheetResult, subResult] = await Promise.all([
+    const [sheetResult, subResult, scoreResult] = await Promise.all([
       withRetry(() => supabase.from('worksheets').select('id, title, subject').in('id', ids),
         { label: 'Student worksheets fetch' }),
       // Reads the student's own submission rows so their status/score can be
@@ -128,14 +134,18 @@ const StudentWorksheetsTab = () => {
       // then fail on the UNIQUE(worksheet_id, student_id) constraint. Both
       // branches below fall into the shared loadError state instead.
       withRetry(() => supabase.from('worksheet_submissions')
-        .select(SUBMISSION_FIELDS)
+        .select(SUBMISSION_STATE_FIELDS)
         .eq('student_id', userData.uid),
         { label: 'Student submissions fetch' }),
+      withRetry(() => supabase.from('worksheet_submissions')
+        .select(SUBMISSION_SCORE_FIELDS)
+        .eq('student_id', userData.uid).eq('released', true),
+        { label: 'Student released scores fetch' }),
     ]);
 
-    if (sheetResult.error || subResult.error) {
+    if (sheetResult.error || subResult.error || scoreResult.error) {
       console.warn('Student worksheets load failed —',
-        (sheetResult.error || subResult.error).message);
+        (sheetResult.error || subResult.error || scoreResult.error).message);
       setLoadError(true); setLoading(false); return;
     }
 
@@ -143,7 +153,14 @@ const StudentWorksheetsTab = () => {
     setRows((postings || []).map(p => ({
       posting: p,
       sheet: (sheetResult.data || []).find(w => w.id === p.worksheet_id),
-      submission: (subResult.data || []).find(s => s.worksheet_id === p.worksheet_id) || null,
+      // The score is merged back in only for released submissions, which is
+      // the only case statusLabel renders a number for anyway.
+      submission: (() => {
+        const state = (subResult.data || []).find(s => s.worksheet_id === p.worksheet_id);
+        if (!state) return null;
+        const score = (scoreResult.data || []).find(s => s.worksheet_id === p.worksheet_id);
+        return score ? { ...state, ...score } : state;
+      })(),
     })).filter(r => r.sheet));
     setLoading(false);
   }, [userData?.uid]);
@@ -184,7 +201,10 @@ const StudentWorksheetsTab = () => {
         section_id: row.posting.section_id,
         source: 'online',
         status: 'in_progress',
-      }]).select(SUBMISSION_FIELDS).single();
+      // State only, for the same reason as the recovery read below. The
+      // INSERT policy pins the scoring columns NULL anyway, so there would be
+      // nothing to return.
+      }]).select(SUBMISSION_STATE_FIELDS).single();
 
       if (createError) {
         if (createError.code === '23505') {
@@ -194,7 +214,9 @@ const StudentWorksheetsTab = () => {
           // Recover by reading the existing row instead of leaving the
           // student stuck with no way back in.
           const { data: existing, error: fetchError } = await withRetry(
-            () => supabase.from('worksheet_submissions').select(SUBMISSION_FIELDS)
+            // State only: this path reopens a worksheet, and the answering
+            // view never renders a score, so there is no reason to pull one.
+            () => supabase.from('worksheet_submissions').select(SUBMISSION_STATE_FIELDS)
               .eq('worksheet_id', row.sheet.id).eq('student_id', userData.uid).single(),
             { label: 'Student existing submission recovery fetch' }
           );

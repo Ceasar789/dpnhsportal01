@@ -40,7 +40,10 @@ const OverviewTab = () => {
   const [loadError, setLoadError] = useState(false);
 
   const fetchOverview = useCallback(async () => {
-    if (!userData?.uid) return;
+    // The banner reads `loading` now, so bailing without clearing it would
+    // leave "Loading your enrolment…" on screen forever rather than falling
+    // back to a static line.
+    if (!userData?.uid) { setLoading(false); return; }
     setLoading(true);
 
     // Grade level and section come from the enrolment record — profiles has
@@ -110,7 +113,11 @@ const OverviewTab = () => {
 
     // Already released-only by the query above; the remaining filter just
     // skips a worksheet worth zero points, which would divide by zero.
-    const released = (scoreResult.data || []).filter(s => Number(s.total_points) > 0);
+    // A released row with a NULL score would read as 0% and drag the mean
+    // down — a teacher who released before entering a score should not cost
+    // the student a number they never earned.
+    const released = (scoreResult.data || [])
+      .filter(s => s.score !== null && s.score !== undefined && Number(s.total_points) > 0);
     setPerformance(released.length === 0 ? null : {
       percent: Math.round(
         released.reduce((sum, s) => sum + (Number(s.score) / Number(s.total_points)) * 100, 0) / released.length

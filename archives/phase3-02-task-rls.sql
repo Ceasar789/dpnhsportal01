@@ -29,6 +29,19 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
 
+-- Same grant as student_assigned_task, but also pins the section: used only
+-- on INSERT, where nothing else constrains worksheet_submissions.section_id.
+-- task_assignees.section_id already carries the section the student was
+-- distributed under, so it is the correct source of truth for this check —
+-- not student_in_section, which is the section they currently sit in.
+CREATE OR REPLACE FUNCTION student_assigned_task_in_section(p_task_id UUID, p_section_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM task_assignees
+    WHERE task_id = p_task_id AND student_id = auth.uid() AND section_id = p_section_id
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
 ALTER TABLE task_assignees ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS task_assignees_teacher_all ON task_assignees;
@@ -70,10 +83,18 @@ CREATE POLICY ws_sections_read ON worksheet_sections FOR SELECT TO authenticated
 -- left the section could read the task yet be unable to submit it. Only the
 -- section test is replaced here — student_id = auth.uid() and every scoring
 -- pin are unchanged from phase2-02.
+--
+-- INSERT additionally pins section_id to the one the student was actually
+-- distributed under (student_assigned_task_in_section), not merely to a
+-- section they currently sit in: nothing else validates section_id on
+-- INSERT, and phase2-02's old student_in_section(section_id) check would
+-- otherwise have quietly gone missing, letting an assigned student file
+-- their submission under any section UUID they choose. The trigger already
+-- pins section_id immutable on UPDATE, so checking it once here is enough.
 DROP POLICY IF EXISTS ws_subs_student_insert ON worksheet_submissions;
 CREATE POLICY ws_subs_student_insert ON worksheet_submissions FOR INSERT TO authenticated
   WITH CHECK (student_id = auth.uid()
-              AND student_assigned_task(worksheet_id)
+              AND student_assigned_task_in_section(worksheet_id, section_id)
               AND status IN ('in_progress','submitted')
               AND released = FALSE
               AND score IS NULL AND total_points IS NULL
@@ -138,7 +159,20 @@ BEGIN
   -- submitted (no-op). Anything else, including submitted -> in_progress, is
   -- rejected.
   IF OLD.status = 'in_progress' AND NEW.status = 'submitted' THEN
-    NEW.submitted_at := NOW();
+    -- Same Manila conversion as is_late below, and for the same reason: this
+    -- assigns a timestamptz into a naive TIMESTAMP column, and leaving it as
+    -- NOW() would store it in the session's zone (UTC on Supabase) while
+    -- due_at/is_late are in Manila wall-clock time. Without this, a teacher
+    -- could see a submitted_at that reads hours *before* the deadline sitting
+    -- next to is_late = TRUE, which looks like the lateness flag is the bug.
+    --
+    -- Reminder for the next person: this repo's TIMESTAMP columns are mixed.
+    -- due_at, is_late and now submitted_at are Manila wall-clock. But
+    -- task_assignees.assigned_at and worksheet_sections.posted_at still
+    -- default to CURRENT_TIMESTAMP, which is UTC wall-clock — those were not
+    -- touched in this round and are NOT comparable to due_at/submitted_at
+    -- without the same AT TIME ZONE conversion.
+    NEW.submitted_at := (NOW() AT TIME ZONE 'Asia/Manila');
     SELECT due_at INTO v_due FROM task_assignees
       WHERE task_id = NEW.worksheet_id AND student_id = NEW.student_id;
     -- due_at is a naive TIMESTAMP holding the school's local wall-clock time

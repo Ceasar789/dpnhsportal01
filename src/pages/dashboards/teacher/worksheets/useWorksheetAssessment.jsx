@@ -109,6 +109,12 @@ export const useWorksheetAssessment = (showToast) => {
 
   // Loads one worksheet's questions plus its answer key (keyed by item id).
   // The key lives in a separate table so students never fetch it.
+  //
+  // `keys` maps item id -> the whole key ROW ({ correct_answer }), not the
+  // bare correct_answer value: checkItem/scoreSubmission in worksheetChecking
+  // both expect `key?.correct_answer`, and its own tests assert that shape.
+  // Mapping to the bare value here would make Task 7's auto-checker read
+  // `undefined.correct_answer` for every item and mark the whole class wrong.
   const loadItems = useCallback(async (worksheetId) => {
     const { data: items, error } = await withRetry(
       () => supabase.from('worksheet_items').select('*').eq('worksheet_id', worksheetId).order('position'),
@@ -132,7 +138,7 @@ export const useWorksheetAssessment = (showToast) => {
         showToast('Could not load the answer key. Check your connection.', 'error');
         return null;
       }
-      keys = Object.fromEntries((keyRows || []).map(k => [k.item_id, k.correct_answer]));
+      keys = Object.fromEntries((keyRows || []).map(k => [k.item_id, { correct_answer: k.correct_answer }]));
     }
 
     return { items: items || [], keys };
@@ -175,16 +181,27 @@ export const useWorksheetAssessment = (showToast) => {
       return false;
     }
 
-    if (items.length === 0) { showToast('Questions saved'); return true; }
+    if (items.length === 0) {
+      const { error: countError } = await supabase
+        .from('worksheets').update({ items: 0 }).eq('id', worksheetId);
+      if (countError) console.warn('Worksheet item-count update failed —', countError.message);
+      showToast('Questions saved');
+      return true;
+    }
 
-    const rows = items.map((it, index) => ({
-      worksheet_id: worksheetId,
-      position: index + 1,
-      question: it.question,
-      item_type: it.item_type,
-      options: it.options && it.options.length > 0 ? it.options : null,
-      points: Number(it.points) || 1,
-    }));
+    const rows = items.map((it, index) => {
+      const pts = Number(it.points);
+      return {
+        worksheet_id: worksheetId,
+        position: index + 1,
+        question: it.question,
+        item_type: it.item_type,
+        options: it.options && it.options.length > 0 ? it.options : null,
+        // A deliberate 0 must stay 0 — only fall back to 1 when the value
+        // genuinely isn't a usable number (blank, NaN, negative).
+        points: Number.isFinite(pts) && pts >= 0 ? pts : 1,
+      };
+    });
 
     const { data: inserted, error: insertError } = await supabase
       .from('worksheet_items').insert(rows).select('id, position');
@@ -204,9 +221,39 @@ export const useWorksheetAssessment = (showToast) => {
     if (keyRows.length > 0) {
       const { error: keyError } = await supabase.from('worksheet_item_keys').insert(keyRows);
       if (keyError) {
-        showToast(`Questions saved but the answer key failed: ${keyError.message}`, 'error');
+        // Items are already committed with no (or a partial) key. Leaving
+        // them in place would make the worksheet look answerable while every
+        // auto-check silently fails, and once a student submits, the guard
+        // above makes the questions permanently un-fixable. So clean up the
+        // half-written items immediately rather than leaving that trap.
+        const insertedIds = (inserted || []).map(row => row.id);
+        const { error: cleanupError } = await supabase
+          .from('worksheet_items').delete().in('id', insertedIds);
+        if (cleanupError) {
+          showToast(
+            `Could not save the answer key (${keyError.message}), and the half-saved ` +
+            `questions could not be removed either (${cleanupError.message}). ` +
+            `Reopen this worksheet and try saving again right away.`,
+            'error'
+          );
+        } else {
+          showToast(
+            `Could not save the answer key: ${keyError.message}. ` +
+            `The half-saved questions were removed — try saving again.`,
+            'error'
+          );
+        }
         return false;
       }
+    }
+
+    // Keep the worksheet card's displayed item count truthful — it is a
+    // hand-typed column from the old upload flow and saveItems is now the
+    // source of truth for worksheets built here.
+    const { error: countError } = await supabase
+      .from('worksheets').update({ items: items.length }).eq('id', worksheetId);
+    if (countError) {
+      console.warn('Worksheet item-count update failed —', countError.message);
     }
 
     showToast('Questions saved');

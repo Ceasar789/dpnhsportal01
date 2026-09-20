@@ -35,6 +35,18 @@ const DistributeModal = ({
   // useWorksheetAssessment's fetchMySections), so the first entry is the
   // right default without this modal needing to know which is which itself.
   const [sectionId, setSectionId] = useState(sections[0]?.id || '');
+
+  // `sections` can arrive (or refresh, after a Retry) after this modal has
+  // already mounted with an empty list — a teacher who opens Distribute
+  // mid-fetch, or while `sectionsError` is showing, gets `sectionId = ''`
+  // even though the <select> renders its first option as if it were chosen.
+  // Sync the default in once sections show up, but only while nothing has
+  // been picked yet — never override a choice the teacher already made.
+  useEffect(() => {
+    if (!sectionId && sections.length > 0) {
+      setSectionId(sections[0].id);
+    }
+  }, [sections, sectionId]);
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState(DEFAULT_DUE_TIME);
 
@@ -120,7 +132,14 @@ const DistributeModal = ({
   const readFailed = rosterError || assigneesError || submissionsError;
   const retryAll = () => { loadRoster(); loadMeta(); };
 
-  const willReceive = roster.filter(r => isTicked(r.student_id)).length;
+  // "N will receive this" has to mean what it says: only students this click
+  // actually adds. Anyone already assigned is force-ticked (isTicked) so the
+  // roster reads honestly, but counting them here would claim a send that
+  // distributeTask itself will skip. Reported separately instead of folded
+  // into one misleading total.
+  const newlyTicked = roster.filter(r => isTicked(r.student_id) && !assignedIds.has(r.student_id)).length;
+  const alreadyTicked = roster.filter(r => isTicked(r.student_id) && assignedIds.has(r.student_id)).length;
+  const willReceive = newlyTicked;
 
   const submit = async () => {
     setResult(null);
@@ -131,6 +150,16 @@ const DistributeModal = ({
     if (!aliveRef.current) return;
     setSaving(false);
     if (res.ok) {
+      // `added` empty means the write happened but inserted nobody — every
+      // ticked student already held this task (distributeTask's own
+      // skip-set, recomputed fresh at write time, came up empty). That is
+      // not a distribution: closing here would let the teacher believe
+      // students were just sent a task when nothing changed. Keep the modal
+      // open and say so, using distributeTask's own message.
+      if (!res.added || res.added.length === 0) {
+        setResult({ tone: 'warning', text: res.message || 'Nothing new was distributed.' });
+        return;
+      }
       onClose();
       return;
     }
@@ -191,7 +220,9 @@ const DistributeModal = ({
             </div>
 
             {result && (
-              <p className="text-xs font-semibold" style={{ color: result.tone === 'error' ? '#dc2626' : '#16a34a' }}>
+              <p className="text-xs font-semibold" style={{
+                color: result.tone === 'error' ? '#dc2626' : result.tone === 'warning' ? '#d97706' : '#16a34a',
+              }}>
                 {result.text}
               </p>
             )}
@@ -247,7 +278,8 @@ const DistributeModal = ({
             <div className="flex items-center justify-end gap-2 pt-1">
               {!rosterLoading && !metaLoading && !readFailed && roster.length > 0 && (
                 <span className="text-xs mr-auto" style={muted}>
-                  {willReceive} of {roster.length} will receive this
+                  {willReceive} will receive this
+                  {alreadyTicked > 0 && ` · ${alreadyTicked} already have it`}
                 </span>
               )}
               <Btn onClick={onClose}>Cancel</Btn>

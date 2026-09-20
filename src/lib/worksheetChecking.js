@@ -1,7 +1,10 @@
 // ============================================
 // FILE: src/lib/worksheetChecking.js
-// Scoring rules for worksheet items. Pure — no React, no Supabase — so the
-// rules that decide a student's mark can be tested directly.
+// Scoring rules for worksheet items, plus the normalisation the question
+// builder applies to points and accepted answers before they are stored —
+// the two belong together, because what the builder writes is exactly what
+// the checker later reads. Pure — no React, no Supabase — so the rules that
+// decide a student's mark can be tested directly.
 //
 // This runs in the TEACHER's browser at review time, never the student's:
 // it needs the answer key, and a key that reaches a student's client can be

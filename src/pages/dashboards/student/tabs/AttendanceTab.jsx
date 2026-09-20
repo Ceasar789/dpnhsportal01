@@ -11,6 +11,10 @@ import { AlertTriangle, CalendarCheck, CheckCircle, Clock, Loader2, RefreshCw } 
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 
+// Attendance status is stored capitalised ('Present', 'Absent', 'Late',
+// 'Excused'). Normalising on read means either casing renders correctly.
+const statusKey = (row) => String(row?.status || '').toLowerCase();
+
 const AttendanceTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
@@ -34,9 +38,15 @@ const AttendanceTab = () => {
 
       if (error) throw error;
 
-      const present = data?.filter(r => r.status === 'present').length || 0;
-      const late = data?.filter(r => r.status === 'late').length || 0;
-      const absent = data?.filter(r => r.status === 'absent').length || 0;
+      // The teacher writes 'Present' / 'Absent' / 'Late' / 'Excused'
+      // capitalised (teacher/tabs/AttendanceTab.jsx maps 'P' -> 'Present'),
+      // and the CHECK constraint stores them that way. Comparing lowercase
+      // here matched nothing, so this tab read 0 present, 0 late and 0 absent
+      // however much attendance had actually been recorded. Compared
+      // case-insensitively so either casing counts.
+      const present = data?.filter(r => statusKey(r) === 'present').length || 0;
+      const late = data?.filter(r => statusKey(r) === 'late').length || 0;
+      const absent = data?.filter(r => statusKey(r) === 'absent').length || 0;
 
       setStats({ present, late, absent, total: data?.length || 0 });
       setRecords(data || []);
@@ -151,8 +161,8 @@ const AttendanceTab = () => {
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge 
-                        color={r.status === 'present' ? '#16a34a' : r.status === 'late' ? '#d97706' : '#dc2626'}
-                        bg={r.status === 'present' ? 'rgba(22,163,74,0.12)' : r.status === 'late' ? 'rgba(217,119,6,0.12)' : 'rgba(220,38,38,0.12)'}
+                        color={statusKey(r) === 'present' ? '#16a34a' : statusKey(r) === 'late' ? '#d97706' : '#dc2626'}
+                        bg={statusKey(r) === 'present' ? 'rgba(22,163,74,0.12)' : statusKey(r) === 'late' ? 'rgba(217,119,6,0.12)' : 'rgba(220,38,38,0.12)'}
                       >
                         {r.status}
                       </Badge>

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { ITEM_TYPES, normalizeAnswer, checkItem, scoreSubmission } from './worksheetChecking';
+import {
+  ITEM_TYPES, TRUE_FALSE_VALUES, normalizeAnswer, normalizePoints,
+  splitAcceptedAnswers, checkItem, scoreSubmission,
+} from './worksheetChecking';
 
 const mc   = { id: 'i1', item_type: 'multiple_choice', points: 2 };
 const tf   = { id: 'i2', item_type: 'true_false',      points: 1 };
@@ -12,6 +15,56 @@ describe('ITEM_TYPES', () => {
     expect(ITEM_TYPES).toEqual([
       'multiple_choice', 'true_false', 'identification', 'enumeration', 'essay',
     ]);
+  });
+});
+
+describe('TRUE_FALSE_VALUES', () => {
+  it('is exactly these two strings, since answering UIs must match them', () => {
+    expect(TRUE_FALSE_VALUES).toEqual(['True', 'False']);
+  });
+});
+
+describe('normalizePoints', () => {
+  it('keeps a deliberate 0 as 0', () => {
+    expect(normalizePoints(0)).toBe(0);
+    expect(normalizePoints('0')).toBe(0);
+  });
+
+  it('treats a blank or whitespace-only string as absent, falling back to 1', () => {
+    expect(normalizePoints('')).toBe(1);
+    expect(normalizePoints('   ')).toBe(1);
+  });
+
+  it('treats null/undefined as absent, falling back to 1', () => {
+    expect(normalizePoints(null)).toBe(1);
+    expect(normalizePoints(undefined)).toBe(1);
+  });
+
+  it('falls back to 1 for NaN and negative values', () => {
+    expect(normalizePoints('abc')).toBe(1);
+    expect(normalizePoints(-2)).toBe(1);
+  });
+
+  it('keeps a genuine positive or fractional value', () => {
+    expect(normalizePoints('2.5')).toBe(2.5);
+    expect(normalizePoints(3)).toBe(3);
+  });
+});
+
+describe('splitAcceptedAnswers', () => {
+  it('splits, trims and drops blanks', () => {
+    expect(splitAcceptedAnswers('Rizal, Jose Rizal ,, ')).toEqual(['Rizal', 'Jose Rizal']);
+  });
+
+  it('returns an empty list for separators-only input, not a false answer', () => {
+    expect(splitAcceptedAnswers(',')).toEqual([]);
+    expect(splitAcceptedAnswers(', , ')).toEqual([]);
+  });
+
+  it('returns an empty list for blank or missing input', () => {
+    expect(splitAcceptedAnswers('')).toEqual([]);
+    expect(splitAcceptedAnswers(null)).toEqual([]);
+    expect(splitAcceptedAnswers(undefined)).toEqual([]);
   });
 });
 

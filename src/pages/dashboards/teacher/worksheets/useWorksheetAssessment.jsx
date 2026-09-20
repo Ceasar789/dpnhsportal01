@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { normalizePoints } from '../../../../lib/worksheetChecking';
 
 export const useWorksheetAssessment = (showToast) => {
   const { userData } = useAuth();
@@ -189,19 +190,14 @@ export const useWorksheetAssessment = (showToast) => {
       return true;
     }
 
-    const rows = items.map((it, index) => {
-      const pts = Number(it.points);
-      return {
-        worksheet_id: worksheetId,
-        position: index + 1,
-        question: it.question,
-        item_type: it.item_type,
-        options: it.options && it.options.length > 0 ? it.options : null,
-        // A deliberate 0 must stay 0 — only fall back to 1 when the value
-        // genuinely isn't a usable number (blank, NaN, negative).
-        points: Number.isFinite(pts) && pts >= 0 ? pts : 1,
-      };
-    });
+    const rows = items.map((it, index) => ({
+      worksheet_id: worksheetId,
+      position: index + 1,
+      question: it.question,
+      item_type: it.item_type,
+      options: it.options && it.options.length > 0 ? it.options : null,
+      points: normalizePoints(it.points),
+    }));
 
     const { data: inserted, error: insertError } = await supabase
       .from('worksheet_items').insert(rows).select('id, position');

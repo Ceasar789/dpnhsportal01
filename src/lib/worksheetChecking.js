@@ -12,6 +12,33 @@ export const ITEM_TYPES = [
   'multiple_choice', 'true_false', 'identification', 'enumeration', 'essay',
 ];
 
+// The exact strings a true/false answer key is stored as, and so the exact
+// strings any answering UI (teacher builder, student submission form) must
+// use — normalizeAnswer is case/whitespace-tolerant, but the two options
+// still have to be these two words for a match to ever be possible.
+export const TRUE_FALSE_VALUES = ['True', 'False'];
+
+// Normalizes a raw "points" value from the question builder into a safe
+// number. An <input type="number"> reports '' the instant it is cleared to
+// retype, and Number('') is 0 — finite and >= 0 — so a blank/whitespace
+// value must be treated as absent, not as a deliberate 0. A genuine 0 (or
+// any other finite, non-negative number) is kept exactly as given.
+export function normalizePoints(rawPoints) {
+  const raw = typeof rawPoints === 'string' ? rawPoints.trim() : rawPoints;
+  const pts = raw === '' || raw === null || raw === undefined ? NaN : Number(raw);
+  return Number.isFinite(pts) && pts >= 0 ? pts : 1;
+}
+
+// Splits a comma-separated "accepted answers" string (identification /
+// enumeration key input) into a clean list. A key of just "," or ", ,"
+// passes a simple non-empty check but must not be allowed to produce a real
+// key row with zero usable answers — that is unscorable in exactly the way
+// a missing key row is, just self-inflicted by the input rather than a
+// failed save.
+export function splitAcceptedAnswers(raw) {
+  return String(raw ?? '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
 export function normalizeAnswer(value) {
   if (value === null || value === undefined) return '';
   return String(value).trim().replace(/\s+/g, ' ').toLowerCase();

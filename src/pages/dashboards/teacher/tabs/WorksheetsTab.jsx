@@ -18,6 +18,7 @@ import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import PostToSectionModal from '../worksheets/PostToSectionModal';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
+import EncodeScoresModal from '../worksheets/EncodeScoresModal';
 
 const WorksheetsTab = () => {
   const { dark } = useTheme();
@@ -35,6 +36,7 @@ const WorksheetsTab = () => {
   const [postingWorksheet, setPostingWorksheet] = useState(null);
   const [buildingWorksheet, setBuildingWorksheet] = useState(null);
   const [checkingWorksheet, setCheckingWorksheet] = useState(null);
+  const [encodingWorksheet, setEncodingWorksheet] = useState(null);
 
   const filters = ['All', 'English', 'Math', 'Science', 'Filipino', 'Araling Panlipunan'];
 
@@ -295,6 +297,11 @@ const WorksheetsTab = () => {
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#94a3b8' : '#64748b' }}>
                 Check
               </button>
+              <button onClick={() => setEncodingWorksheet(ws)} className="h-8 px-2.5 rounded-lg text-xs font-semibold"
+                title="For a class that answered on paper — type each student's total"
+                style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#94a3b8' : '#64748b' }}>
+                Encode scores
+              </button>
               <button onClick={() => handleDelete(ws.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 <Trash2 size={14} />
@@ -425,6 +432,18 @@ const WorksheetsTab = () => {
           loadAnswers={assessment.loadAnswers}
           releaseScore={assessment.releaseScore}
           onClose={() => setCheckingWorksheet(null)}
+        />
+      )}
+
+      {encodingWorksheet && (
+        <EncodeScoresModal
+          worksheet={encodingWorksheet}
+          postings={assessment.postings}
+          sections={assessment.mySections}
+          loadClassList={assessment.loadClassList}
+          loadSubmissions={assessment.loadSubmissions}
+          encodeManualScore={assessment.encodeManualScore}
+          onClose={() => setEncodingWorksheet(null)}
         />
       )}
     </div>

@@ -8,7 +8,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
-import { normalizePoints } from '../../../../lib/worksheetChecking';
+import { normalizePoints, round2 } from '../../../../lib/worksheetChecking';
 
 export const useWorksheetAssessment = (showToast) => {
   const { userData } = useAuth();
@@ -372,31 +372,162 @@ export const useWorksheetAssessment = (showToast) => {
     return true;
   };
 
+  // The active class list for one section, names attached.
+  //
+  // Returns null — never [] — when either read fails. The caller has to be
+  // able to tell "this read broke" from "this section really is empty":
+  // rendering a failed read as an empty class list would tell a teacher their
+  // section has no students, and they would go and re-add a class that is
+  // already there.
+  const loadClassList = useCallback(async (sectionId) => {
+    const { data: rows, error } = await withRetry(
+      () => supabase.from('section_students')
+        .select('student_id').eq('section_id', sectionId).eq('status', 'active'),
+      { label: 'Class list fetch' }
+    );
+    if (error) {
+      console.warn('Class list fetch failed —', error.message);
+      return null;
+    }
+
+    const ids = [...new Set((rows || []).map(r => r.student_id))];
+    if (ids.length === 0) return [];
+
+    // students.id references auth.users, not profiles, so the name comes from
+    // a separate query rather than a PostgREST embed.
+    const { data: names, error: nameError } = await withRetry(
+      () => supabase.from('profiles').select('id, name').in('id', ids),
+      { label: 'Class list names fetch' }
+    );
+    if (nameError) {
+      console.warn('Class list names fetch failed —', nameError.message);
+      return null;
+    }
+
+    return ids.map(id => ({
+      student_id: id,
+      name: (names || []).find(n => n.id === id)?.name || '—',
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
+
   // For a class that answered on paper: writes a submission directly with
   // released already true. There is no per-item review here because there
   // are no online per-item answers to review — the teacher is attesting to
   // the total score themselves, so the gate this hook otherwise enforces
   // (release only after seeing items) does not apply to this path.
-  const encodeManualScore = async (worksheetId, sectionId, studentId, score, totalPoints) => {
-    const { error } = await supabase.from('worksheet_submissions').upsert([{
-      worksheet_id: worksheetId,
-      student_id: studentId,
-      section_id: sectionId,
+  //
+  // Returns `{ ok, reason, message }`, not a bare boolean, because the caller
+  // encodes a whole class in a loop and has to tell the outcomes apart: an
+  // invalid box, a student who is not on the class list, and a student who
+  // already answered ONLINE each need a different thing said about them, next
+  // to that student's row, not as a single anonymous toast. Nothing here
+  // toasts: a class of forty would otherwise fire forty toasts.
+  //
+  // `reason` is one of: 'invalid-total', 'invalid-score', 'lookup-failed',
+  // 'online-conflict', 'not-in-class-list', 'write-failed'.
+  const encodeManualScore = async (
+    worksheetId, sectionId, studentId, score, totalPoints, { overwriteOnline = false } = {}
+  ) => {
+    // Number('') is 0 and Number('abc') is NaN — and NaN JSON-serialises to
+    // null. Unguarded, an empty box would release a zero the teacher never
+    // typed, and a typo would release a NULL score with released = true,
+    // which the student's Overview would then have to make sense of. Both
+    // are rejected here rather than in the UI alone, because a guard that
+    // only lives in the caller is one caller away from being gone.
+    const total = Number(totalPoints);
+    if (!Number.isFinite(total) || total <= 0) {
+      return { ok: false, reason: 'invalid-total', message: 'Set a total above zero first.' };
+    }
+    const raw = typeof score === 'string' ? score.trim() : score;
+    if (raw === '' || raw === null || raw === undefined) {
+      return { ok: false, reason: 'invalid-score', message: 'No score typed.' };
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value)) {
+      return { ok: false, reason: 'invalid-score', message: 'That score is not a number.' };
+    }
+    // A number input's min/max only constrain its steppers — a typed value
+    // goes straight through, and DECIMAL(6,2) will happily store 55 out of 20.
+    if (value < 0 || value > total) {
+      return { ok: false, reason: 'invalid-score', message: `Score must be between 0 and ${total}.` };
+    }
+
+    // Look the row up before writing. A blind upsert on (worksheet_id,
+    // student_id) would overwrite an ONLINE submission's source, status and
+    // score — silently converting a student's real, item-by-item answers into
+    // a hand-typed paper total, with the answers still sitting in
+    // worksheet_answers contradicting it. That decision is the teacher's, so
+    // it is surfaced ('online-conflict') and only carried out when they come
+    // back with overwriteOnline.
+    const { data: existing, error: lookupError } = await withRetry(
+      () => supabase.from('worksheet_submissions')
+        .select('id, source, status, score, total_points, released')
+        .eq('worksheet_id', worksheetId).eq('student_id', studentId).maybeSingle(),
+      { label: 'Existing submission lookup' }
+    );
+    if (lookupError) {
+      console.warn('Existing submission lookup failed —', lookupError.message);
+      return {
+        ok: false,
+        reason: 'lookup-failed',
+        message: `Could not check for an existing submission (${lookupError.message}) — nothing was saved.`,
+      };
+    }
+
+    if (existing && existing.source === 'online' && !overwriteOnline) {
+      return {
+        ok: false,
+        reason: 'online-conflict',
+        existing,
+        message: 'This student answered in the app. Choose whether to replace that submission.',
+      };
+    }
+
+    const stamp = new Date().toISOString();
+    const scored = {
       source: 'manual',
       status: 'checked',
       released: true,
-      score: Number(score),
-      total_points: Number(totalPoints),
+      score: round2(value),
+      total_points: round2(total),
       checked_by: userData?.uid || null,
-      checked_at: new Date().toISOString(),
-    }], { onConflict: 'worksheet_id,student_id' });
+      checked_at: stamp,
+      // The old upsert never set this on its conflict-update path, so an
+      // edited score kept the created_at-era updated_at forever.
+      updated_at: stamp,
+    };
+
+    // Explicit update/insert rather than upsert: the conflict path of an
+    // upsert is exactly where updated_at went missing, and an update by id
+    // also leaves created_at and section_id history alone.
+    const { error } = existing
+      ? await supabase.from('worksheet_submissions').update(scored).eq('id', existing.id)
+      : await supabase.from('worksheet_submissions')
+          .insert([{ worksheet_id: worksheetId, student_id: studentId, section_id: sectionId, ...scored }]);
 
     if (error) {
-      showToast(`Could not save the score: ${error.message}`, 'error');
-      return false;
+      // 23503 is foreign_key_violation. worksheet_submissions.student_id
+      // references students(id) — not profiles — so someone who was never
+      // added to a class list has no row there to point at.
+      if (error.code === '23503') {
+        return {
+          ok: false,
+          reason: 'not-in-class-list',
+          message: 'This person has no student record yet — add them to a section in Class List first.',
+        };
+      }
+      // 23505 is unique_violation on (worksheet_id, student_id): a submission
+      // appeared between the lookup above and this insert.
+      if (error.code === '23505') {
+        return {
+          ok: false,
+          reason: 'write-failed',
+          message: 'A submission for this student was created just now — reopen this window and try again.',
+        };
+      }
+      return { ok: false, reason: 'write-failed', message: error.message };
     }
-    showToast('Score saved');
-    return true;
+    return { ok: true, score: round2(value), totalPoints: round2(total) };
   };
 
   return {
@@ -405,5 +536,6 @@ export const useWorksheetAssessment = (showToast) => {
     postWorksheet,
     loadItems, saveItems, setCheckingMode,
     loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
+    loadClassList,
   };
 };

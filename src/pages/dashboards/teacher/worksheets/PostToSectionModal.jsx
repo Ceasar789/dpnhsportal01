@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { Modal, Btn } from '../shared/ui';
 import { useTheme } from '../hooks';
 
-const PostToSectionModal = ({ worksheet, sections, sectionsError, onPost, onClose }) => {
+const PostToSectionModal = ({ worksheet, sections, sectionsError, onRetrySections, onPost, onClose }) => {
   const { dark } = useTheme();
   const [sectionId, setSectionId] = useState('');
   const [dueAt, setDueAt] = useState('');
@@ -31,7 +31,10 @@ const PostToSectionModal = ({ worksheet, sections, sectionsError, onPost, onClos
       <div className="flex flex-col gap-4">
         {sectionsError ? (
           <p className="text-sm" style={{ color: '#dc2626' }}>
-            Could not load your sections. Check your connection and reopen this window.
+            Could not load your sections.
+            <button onClick={onRetrySections} className="ml-2 underline font-semibold" style={{ color: '#dc2626' }}>
+              Retry
+            </button>
           </p>
         ) : sections.length === 0 ? (
           <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>

@@ -288,7 +288,14 @@ const WorksheetsTab = () => {
                 <Trash2 size={14} />
               </button>
             </div>
-            {assessment.postings.filter(p => p.worksheet_id === ws.id).length > 0 && (
+            {assessment.postingsError ? (
+              <p className="text-[11px] mt-2 flex items-center gap-2" style={{ color: '#dc2626' }}>
+                Posting status could not be loaded.
+                <button onClick={() => assessment.fetchPostings()} className="underline font-semibold" style={{ color: '#dc2626' }}>
+                  Retry
+                </button>
+              </p>
+            ) : assessment.postings.filter(p => p.worksheet_id === ws.id).length > 0 && (
               <p className="text-[11px] mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
                 Posted to {assessment.postings.filter(p => p.worksheet_id === ws.id).length} section(s)
               </p>
@@ -382,6 +389,7 @@ const WorksheetsTab = () => {
           worksheet={postingWorksheet}
           sections={assessment.mySections}
           sectionsError={assessment.sectionsError}
+          onRetrySections={assessment.fetchMySections}
           onPost={assessment.postWorksheet}
           onClose={() => setPostingWorksheet(null)}
         />

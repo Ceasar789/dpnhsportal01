@@ -9,6 +9,12 @@
 -- A student with no row here cannot see the task at all. Not "sees it, cannot
 -- open it" — cannot see it.
 --
+-- This file also backfills task_assignees from the existing worksheet_sections
+-- postings, so that once phase3-02 moves the read gate onto this table,
+-- everything already posted to a section keeps working for the students
+-- already enrolled in it — without the backfill, task_assignees starts empty
+-- and phase3-02 would make every existing task vanish from every student.
+--
 -- Run in: Supabase Dashboard -> SQL Editor -> New query -> Run (without RLS)
 -- ============================================
 
@@ -48,6 +54,18 @@ CREATE TABLE IF NOT EXISTS task_assignees (
 CREATE INDEX IF NOT EXISTS idx_task_assignees_student ON task_assignees(student_id);
 CREATE INDEX IF NOT EXISTS idx_task_assignees_task    ON task_assignees(task_id);
 
+-- Backfill: one assignee row per (worksheet, actively-enrolled student of a
+-- section that worksheet was posted to), carrying over the section's due_at
+-- and posted_at. ON CONFLICT DO NOTHING makes this safe to run again — a
+-- second run inserts nothing new, since every row it would produce already
+-- exists (or the teacher/system has since changed due dates per student,
+-- which this must not clobber).
+INSERT INTO task_assignees (task_id, student_id, section_id, due_at, assigned_at)
+SELECT ws.worksheet_id, ss.student_id, ws.section_id, ws.due_at, ws.posted_at
+FROM worksheet_sections ws
+JOIN section_students ss ON ss.section_id = ws.section_id AND ss.status = 'active'
+ON CONFLICT (task_id, student_id) DO NOTHING;
+
 -- ============================================
 -- VERIFY — expect the table, the two new columns, and the CHECK.
 -- ============================================
@@ -62,3 +80,8 @@ ORDER BY table_name;
 
 SELECT conname FROM pg_constraint
 WHERE conrelid = 'worksheets'::regclass AND conname = 'worksheets_task_type_check';
+
+-- How many assignee rows the backfill produced. Compare against
+-- SELECT COUNT(*) FROM worksheet_sections to sanity-check: this will usually
+-- be larger (one row per student per posting, not one row per posting).
+SELECT COUNT(*) AS task_assignees_backfilled FROM task_assignees;

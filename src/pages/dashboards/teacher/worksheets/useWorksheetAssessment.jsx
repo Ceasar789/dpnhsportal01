@@ -94,29 +94,61 @@ export const useWorksheetAssessment = (showToast) => {
   // replacement, for both the per-card badge and the "Distributed" tile.
   // Returns null-equivalent via the error flag — never a quietly-empty
   // `{}` — so a failed read cannot be mistaken for "nothing distributed".
+  //
+  // `assigneeCountsLoading` starts true and only clears once the first fetch
+  // settles, on the success path AND the error path. Without it, the window
+  // between mount and the first response has assigneeCounts = {} and
+  // assigneeCountsError = false — indistinguishable from "genuinely nobody
+  // has anything" — so every badge would flash "Not distributed" and every
+  // tile would read 0 on every page load, and for as long as withRetry keeps
+  // backing off on a flaky connection. That is the exact false statement
+  // this whole feature exists to stop making, just moved to a different
+  // window. Consumers must treat "loading" as its own state, never as 0.
   const [assigneeCounts, setAssigneeCounts] = useState({});
   const [assigneeCountsError, setAssigneeCountsError] = useState(false);
+  const [assigneeCountsLoading, setAssigneeCountsLoading] = useState(true);
 
+  // Paged rather than one unbounded select: task_assignees is one row per
+  // (task, student), so a modest school (30 tasks x 40 students) clears
+  // PostgREST's default 1000-row response cap easily. A capped select does
+  // not error when it's truncated — it just quietly hands back page one,
+  // which would make older tasks read "Not distributed" and undercount the
+  // tile with nothing on screen suggesting anything is wrong. Paging with
+  // .range() until a short page comes back gets the whole table; a page
+  // that errors discards whatever was accumulated so far and reports a
+  // failure instead of a confidently wrong partial count. Do not simplify
+  // this back to a single unbounded select.
   const fetchAssigneeCounts = useCallback(async () => {
-    const { data, error } = await withRetry(
-      () => supabase.from('task_assignees').select('task_id, student_id'),
-      { label: 'Task assignee counts fetch' }
-    );
-    if (error) {
-      console.warn('Task assignee counts fetch failed —', error.message);
-      setAssigneeCountsError(true);
-      return;
-    }
+    setAssigneeCountsLoading(true);
+    const PAGE_SIZE = 1000;
     const seen = new Set();
     const counts = {};
-    (data || []).forEach(row => {
-      const key = `${row.task_id}:${row.student_id}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      counts[row.task_id] = (counts[row.task_id] || 0) + 1;
-    });
+    let from = 0;
+    while (true) {
+      const { data, error } = await withRetry(
+        () => supabase.from('task_assignees')
+          .select('task_id, student_id')
+          .range(from, from + PAGE_SIZE - 1),
+        { label: 'Task assignee counts fetch' }
+      );
+      if (error) {
+        console.warn('Task assignee counts fetch failed —', error.message);
+        setAssigneeCountsError(true);
+        setAssigneeCountsLoading(false);
+        return;
+      }
+      (data || []).forEach(row => {
+        const key = `${row.task_id}:${row.student_id}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        counts[row.task_id] = (counts[row.task_id] || 0) + 1;
+      });
+      if (!data || data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
     setAssigneeCountsError(false);
     setAssigneeCounts(counts);
+    setAssigneeCountsLoading(false);
   }, []);
 
   useEffect(() => { fetchMySections(); }, [fetchMySections]);
@@ -760,6 +792,6 @@ export const useWorksheetAssessment = (showToast) => {
     loadClassList,
     mySubject, subjectError, subjectConflict, subjectLoading, fetchMySubject,
     loadAssignees, distributeTask,
-    assigneeCounts, assigneeCountsError, fetchAssigneeCounts,
+    assigneeCounts, assigneeCountsError, assigneeCountsLoading, fetchAssigneeCounts,
   };
 };

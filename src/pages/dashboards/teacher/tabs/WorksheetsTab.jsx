@@ -272,19 +272,25 @@ const WorksheetsTab = () => {
           { label: 'Total Worksheets', value: stats.total },
           {
             label: 'Distributed',
-            value: assessment.assigneeCountsError ? '—' : stats.distributed,
-            color: assessment.assigneeCountsError ? '#dc2626' : '#16a34a',
+            // Loading and error are both "not a real number yet" states —
+            // neither may render as 0 or as the eventual value, or the tile
+            // makes the exact same false claim finding 4 existed to remove,
+            // just from a different window (first paint, or a slow retry).
+            value: assessment.assigneeCountsLoading ? '…' : assessment.assigneeCountsError ? '—' : stats.distributed,
+            color: assessment.assigneeCountsLoading ? (dark ? '#64748b' : '#94a3b8')
+              : assessment.assigneeCountsError ? '#dc2626' : '#16a34a',
           },
           {
             label: 'Not distributed',
-            value: assessment.assigneeCountsError ? '—' : (stats.total - stats.distributed),
-            color: assessment.assigneeCountsError ? '#dc2626' : '#d97706',
+            value: assessment.assigneeCountsLoading ? '…' : assessment.assigneeCountsError ? '—' : (stats.total - stats.distributed),
+            color: assessment.assigneeCountsLoading ? (dark ? '#64748b' : '#94a3b8')
+              : assessment.assigneeCountsError ? '#dc2626' : '#d97706',
           },
         ].map((stat, idx) => (
           <Card key={idx} className="p-4">
             <p className="text-xs mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{stat.label}</p>
             <p className="text-2xl font-bold" style={{ color: stat.color || (dark ? '#f1f5f9' : '#1a2b4a') }}>{stat.value}</p>
-            {assessment.assigneeCountsError && idx > 0 && (
+            {assessment.assigneeCountsError && !assessment.assigneeCountsLoading && idx > 0 && (
               <button onClick={() => assessment.fetchAssigneeCounts()}
                 className="text-[11px] underline font-semibold mt-1" style={{ color: '#dc2626' }}>
                 Retry
@@ -321,10 +327,16 @@ const WorksheetsTab = () => {
                 <FileText size={20} style={{ color: '#3b82f6' }} />
               </div>
               {/* `ws.status` is a dead column — nothing writes it anymore.
-                  The badge is derived from real assignee rows instead. A
-                  failed count read must not silently look like "not
-                  distributed", so it gets its own distinct label + retry. */}
-              {assessment.assigneeCountsError ? (
+                  The badge is derived from real assignee rows instead. Both
+                  a failed read AND the window before the first read settles
+                  must render as their own neutral state — neither may fall
+                  through to "Not distributed", which is a positive claim of
+                  0 that is not yet (or no longer) known to be true. */}
+              {assessment.assigneeCountsLoading ? (
+                <Badge color={dark ? '#94a3b8' : '#64748b'} bg={dark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.12)'}>
+                  Checking…
+                </Badge>
+              ) : assessment.assigneeCountsError ? (
                 <span className="flex items-center gap-2">
                   <Badge color="#dc2626" bg="rgba(220,38,38,0.12)">Status unknown</Badge>
                   <button onClick={() => assessment.fetchAssigneeCounts()}
@@ -446,7 +458,11 @@ const WorksheetsTab = () => {
                 </div>
                 <div>
                   <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Status</p>
-                  {assessment.assigneeCountsError ? (
+                  {assessment.assigneeCountsLoading ? (
+                    <Badge color={dark ? '#94a3b8' : '#64748b'} bg={dark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.12)'}>
+                      Checking…
+                    </Badge>
+                  ) : assessment.assigneeCountsError ? (
                     <Badge color="#dc2626" bg="rgba(220,38,38,0.12)">Status unknown</Badge>
                   ) : (() => {
                     const count = assessment.assigneeCounts[previewingWorksheet.id] || 0;

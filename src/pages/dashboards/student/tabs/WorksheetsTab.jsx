@@ -62,7 +62,40 @@ const StudentWorksheetsTab = () => {
   const failedWrites = useRef({});
 
   useEffect(() => () => {
-    Object.values(saveTimers.current).forEach(clearTimeout);
+    // Fire, don't drop: an unmount mid-typing (the student uses the sidebar)
+    // would otherwise lose whatever has not yet been blurred or debounced.
+    Object.values(saveTimers.current).forEach(({ timer, run }) => {
+      clearTimeout(timer);
+      run({ silent: true });
+    });
+  }, []);
+
+  // All three maps are keyed by item id, and item ids belong to ONE worksheet.
+  // The refs, though, live as long as the component, while opening another
+  // worksheet swaps `items`, `answers` and `submission` underneath them. Left
+  // uncleared, a failure recorded against worksheet A's item would block
+  // submitting worksheet B — naming a question B does not have — and a debounce
+  // timer left over from A would fire with B's submission id, writing an answer
+  // whose item belongs to a different worksheet. Clearing on every switch is
+  // what keeps this per-worksheet state honest.
+  // Bumped on every worksheet switch. A write already in flight when the
+  // student leaves still completes — their answer is saved — but its
+  // bookkeeping is discarded, so a failure belonging to the worksheet they
+  // left cannot block the one they just opened.
+  const saveGenRef = useRef(0);
+
+  const resetSaveState = useCallback(() => {
+    // Timers are fired, not dropped: a pending timer holds typing the student
+    // has done but not yet blurred, and the closure that fires it still has
+    // the correct submission. Cancelling them would silently lose that work.
+    Object.values(saveTimers.current).forEach(({ timer, run }) => {
+      clearTimeout(timer);
+      run({ silent: true });
+    });
+    saveTimers.current = {};
+    pendingWrites.current = {};
+    failedWrites.current = {};
+    saveGenRef.current += 1;
   }, []);
 
   const muted = { color: dark ? '#64748b' : '#94a3b8' };
@@ -127,6 +160,7 @@ const StudentWorksheetsTab = () => {
   };
 
   const open = async (row) => {
+    resetSaveState();
     setBusy(true);
     const { data: itemRows, error } = await withRetry(
       () => supabase.from('worksheet_items')
@@ -214,6 +248,7 @@ const StudentWorksheetsTab = () => {
   // is used by the flush path, which reports one clear failure of its own
   // instead of stacking a duplicate per-field toast.
   const writeAnswer = useCallback((itemId, value, { silent = false } = {}) => {
+    const gen = saveGenRef.current;
     let selfPromise;
     selfPromise = supabase.from('worksheet_answers').upsert([{
       submission_id: submission.id, item_id: itemId, answer: value,
@@ -225,6 +260,14 @@ const StudentWorksheetsTab = () => {
         // this item — an older write settling after a newer one started
         // must not delete the newer write's still-in-flight entry.
         if (pendingWrites.current[itemId] === selfPromise) delete pendingWrites.current[itemId];
+
+        // The student has moved to another worksheet since this write began.
+        // It still completed against the right submission, but recording its
+        // outcome now would attach it to a worksheet it has nothing to do with.
+        if (gen !== saveGenRef.current) {
+          if (result.error) console.warn('Answer save failed after leaving the worksheet —', result.error.message);
+          return result;
+        }
 
         if (result.error) {
           failedWrites.current[itemId] = true;
@@ -245,7 +288,7 @@ const StudentWorksheetsTab = () => {
   const saveAnswer = useCallback((itemId, value) => {
     setAnswers(prev => ({ ...prev, [itemId]: value }));
     if (saveTimers.current[itemId]) {
-      clearTimeout(saveTimers.current[itemId]);
+      clearTimeout(saveTimers.current[itemId].timer);
       delete saveTimers.current[itemId];
     }
     writeAnswer(itemId, value);
@@ -258,11 +301,15 @@ const StudentWorksheetsTab = () => {
   // (leaving via the sidebar, closing the tab) is no longer silently lost.
   const debouncedSaveAnswer = useCallback((itemId, value) => {
     setAnswers(prev => ({ ...prev, [itemId]: value }));
-    if (saveTimers.current[itemId]) clearTimeout(saveTimers.current[itemId]);
-    saveTimers.current[itemId] = setTimeout(() => {
+    if (saveTimers.current[itemId]) clearTimeout(saveTimers.current[itemId].timer);
+    // `run` lets the flush and the worksheet-switch reset fire this same
+    // pending write immediately, with the value and submission captured here
+    // rather than whatever is current when they call it.
+    const run = (opts) => {
       delete saveTimers.current[itemId];
-      writeAnswer(itemId, value);
-    }, TYPING_SAVE_DEBOUNCE_MS);
+      return writeAnswer(itemId, value, opts);
+    };
+    saveTimers.current[itemId] = { timer: setTimeout(() => run(), TYPING_SAVE_DEBOUNCE_MS), run };
   }, [writeAnswer]);
 
   // Flushes every pending debounced save and waits for every write
@@ -282,12 +329,21 @@ const StudentWorksheetsTab = () => {
   // blocks submission, and answering that item again (which fires a new
   // write and clears the flag on success) is what un-blocks it.
   const flushPendingSaves = useCallback(async () => {
-    Object.keys(saveTimers.current).forEach((itemId) => {
-      clearTimeout(saveTimers.current[itemId]);
-      delete saveTimers.current[itemId];
-      writeAnswer(itemId, answers[itemId], { silent: true });
+    Object.values(saveTimers.current).forEach(({ timer, run }) => {
+      clearTimeout(timer);
+      run({ silent: true });
     });
     await Promise.all(Object.values(pendingWrites.current));
+
+    // Retry anything still marked failed, once, before judging. A transient
+    // blip then heals itself with no action from the student — which matters
+    // most for multiple choice and true/false, where "answer it again" is not
+    // advice they can follow: re-clicking the option already selected fires no
+    // change event, so there would be no way to clear the flag at all.
+    const stale = Object.keys(failedWrites.current);
+    if (stale.length > 0) {
+      await Promise.all(stale.map((itemId) => writeAnswer(itemId, answers[itemId], { silent: true })));
+    }
 
     const failedIds = Object.keys(failedWrites.current);
     if (failedIds.length === 0) return { ok: true };
@@ -348,7 +404,7 @@ const StudentWorksheetsTab = () => {
     return (
       <div className="p-6">
         <Toast />
-        <button onClick={() => setActive(null)} className="text-sm mb-4" style={muted}>← Back</button>
+        <button onClick={() => { resetSaveState(); setActive(null); }} className="text-sm mb-4" style={muted}>← Back</button>
         <h1 className="text-xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{active.sheet.title}</h1>
         <p className="text-xs mb-4" style={muted}>{active.sheet.subject}</p>
 

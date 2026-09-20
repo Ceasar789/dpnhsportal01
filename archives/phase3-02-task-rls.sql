@@ -72,9 +72,21 @@ CREATE POLICY ws_worksheets_student_read ON worksheets FOR SELECT TO authenticat
 -- student could still enumerate which tasks exist for their section through
 -- the API — which contradicts "cannot see the task at all". The teacher branch
 -- is unchanged.
+--
+-- The student branch keys on (worksheet_id, section_id) via
+-- student_assigned_task_in_section, not worksheet_id alone: a worksheet
+-- posted to two of a student's sections has two worksheet_sections rows, one
+-- per section, but the student is only assigned under one of them. Gating on
+-- worksheet_id alone let them read BOTH postings — a duplicate card on the
+-- student surface (which keys one card per posting), where only the posting
+-- matching their actual assignee row can be opened and the other fails
+-- student_assigned_task_in_section at submission time with a bare RLS error,
+-- and where they could see a deadline (due_at) for a section they were never
+-- actually given the task under.
 DROP POLICY IF EXISTS ws_sections_read ON worksheet_sections;
 CREATE POLICY ws_sections_read ON worksheet_sections FOR SELECT TO authenticated
-  USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_assigned_task(worksheet_id));
+  USING (is_admin() OR teacher_owns_worksheet(worksheet_id)
+                    OR student_assigned_task_in_section(worksheet_id, section_id));
 
 -- The write side of worksheet_submissions must agree with the read side about
 -- who holds a task, or a student who was never assigned can still POST a
@@ -168,10 +180,16 @@ BEGIN
     --
     -- Reminder for the next person: this repo's TIMESTAMP columns are mixed.
     -- due_at, is_late and now submitted_at are Manila wall-clock. But
-    -- task_assignees.assigned_at and worksheet_sections.posted_at still
-    -- default to CURRENT_TIMESTAMP, which is UTC wall-clock — those were not
-    -- touched in this round and are NOT comparable to due_at/submitted_at
-    -- without the same AT TIME ZONE conversion.
+    -- task_assignees.assigned_at, worksheet_sections.posted_at, and — on
+    -- this very row — worksheet_submissions.created_at and .updated_at still
+    -- default to CURRENT_TIMESTAMP, which is UTC wall-clock. created_at in
+    -- particular sits right next to the now-Manila submitted_at: a
+    -- submission started at 01:00 and submitted at 01:30 Manila time will
+    -- show created_at from the previous afternoon (UTC) beside
+    -- submitted_at = 01:30, making a 30-minute gap look like eight and a
+    -- half hours. None of these were touched in this round and are NOT
+    -- comparable to due_at/submitted_at/is_late without the same AT TIME
+    -- ZONE conversion.
     NEW.submitted_at := (NOW() AT TIME ZONE 'Asia/Manila');
     SELECT due_at INTO v_due FROM task_assignees
       WHERE task_id = NEW.worksheet_id AND student_id = NEW.student_id;

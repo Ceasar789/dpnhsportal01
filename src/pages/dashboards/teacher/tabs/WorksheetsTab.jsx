@@ -4,7 +4,7 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
@@ -38,8 +38,6 @@ const WorksheetsTab = () => {
   const [buildingWorksheet, setBuildingWorksheet] = useState(null);
   const [checkingWorksheet, setCheckingWorksheet] = useState(null);
   const [encodingWorksheet, setEncodingWorksheet] = useState(null);
-
-  const filters = ['All', 'English', 'Math', 'Science', 'Filipino', 'Araling Panlipunan'];
 
   const fetchWorksheets = useCallback(async () => {
     setLoading(true);
@@ -231,6 +229,15 @@ const WorksheetsTab = () => {
     }
     setSaving(false);
   };
+
+  // Derived from the worksheets actually on this teacher's list, not a
+  // hardcoded registry — a literal list drifts from the canonical subject
+  // names (e.g. 'Math' vs the registered 'Mathematics') and leaves newer
+  // subjects unreachable. A teacher with one subject just sees two chips.
+  const filters = useMemo(() => {
+    const subjects = [...new Set(worksheets.map(w => w.subject).filter(Boolean))].sort();
+    return ['All', ...subjects];
+  }, [worksheets]);
 
   const filtered = activeFilter === 'All' ? worksheets : worksheets.filter(w => w.subject === activeFilter);
   const stats = {

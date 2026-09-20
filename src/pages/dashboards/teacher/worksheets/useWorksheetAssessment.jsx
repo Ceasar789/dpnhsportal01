@@ -262,10 +262,127 @@ export const useWorksheetAssessment = (showToast) => {
     showToast(mode === 'auto' ? 'Auto-checking on' : 'Manual checking only');
   }, [showToast]);
 
+  // Every submission for a worksheet, with the answering student's name
+  // attached. student_id references students(id), which is itself keyed to
+  // auth.users — not profiles — so the name has to be fetched as a second
+  // round trip rather than through a PostgREST embed.
+  const loadSubmissions = useCallback(async (worksheetId) => {
+    const { data: subs, error } = await withRetry(
+      () => supabase.from('worksheet_submissions')
+        .select('id, student_id, section_id, status, released, score, total_points, source')
+        .eq('worksheet_id', worksheetId),
+      { label: 'Worksheet submissions fetch' }
+    );
+    if (error) {
+      console.warn('Worksheet submissions fetch failed —', error.message);
+      return null;
+    }
+
+    const ids = [...new Set((subs || []).map(s => s.student_id))];
+    let names = [];
+    if (ids.length > 0) {
+      const { data, error: nameError } = await withRetry(
+        () => supabase.from('profiles').select('id, name').in('id', ids),
+        { label: 'Submission student names fetch' }
+      );
+      if (nameError) {
+        console.warn('Submission names fetch failed —', nameError.message);
+        return null;
+      }
+      names = data || [];
+    }
+
+    return (subs || []).map(s => ({
+      ...s,
+      name: names.find(n => n.id === s.student_id)?.name || '—',
+    }));
+  }, []);
+
+  // `{ [item_id]: answer }` for one submission. A failed read returns null,
+  // never `{}` — the caller must treat those two cases differently, since an
+  // empty object here is indistinguishable from "the student answered
+  // nothing" and would let a teacher release a zero for someone who actually
+  // answered everything.
+  const loadAnswers = useCallback(async (submissionId) => {
+    const { data, error } = await withRetry(
+      () => supabase.from('worksheet_answers').select('item_id, answer').eq('submission_id', submissionId),
+      { label: 'Worksheet answers fetch' }
+    );
+    if (error) {
+      console.warn('Worksheet answers fetch failed —', error.message);
+      return null;
+    }
+    return Object.fromEntries((data || []).map(a => [a.item_id, a.answer]));
+  }, []);
+
+  // Writes every item's mark, then flips the submission to checked+released.
+  // This is a multi-row write with no client transaction: if a per-item
+  // update fails partway, the submission's `released` flag (set last) is
+  // never reached, so the student still sees nothing — the gate fails safe.
+  // The already-written item rows are simply overwritten with the same
+  // values on retry, since the caller always resubmits the full perItem set
+  // computed from its own review state, not a diff.
+  const releaseScore = async (submissionId, worksheetId, score, totalPoints, perItem) => {
+    for (const row of perItem) {
+      const { error } = await supabase.from('worksheet_answers')
+        .update({ is_correct: row.isCorrect, points_earned: row.pointsEarned })
+        .eq('submission_id', submissionId).eq('item_id', row.item_id);
+      if (error) {
+        showToast(`Could not save item marks: ${error.message}. Try Save & Release again.`, 'error');
+        return false;
+      }
+    }
+
+    const { error } = await supabase.from('worksheet_submissions').update({
+      status: 'checked',
+      released: true,
+      score,
+      total_points: totalPoints,
+      checked_by: userData?.uid || null,
+      checked_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', submissionId);
+
+    if (error) {
+      showToast(`Could not release: ${error.message}. Item marks were saved — try Save & Release again.`, 'error');
+      return false;
+    }
+    showToast('Score released to the student');
+    return true;
+  };
+
+  // For a class that answered on paper: writes a submission directly with
+  // released already true. There is no per-item review here because there
+  // are no online per-item answers to review — the teacher is attesting to
+  // the total score themselves, so the gate this hook otherwise enforces
+  // (release only after seeing items) does not apply to this path.
+  const encodeManualScore = async (worksheetId, sectionId, studentId, score, totalPoints) => {
+    const { error } = await supabase.from('worksheet_submissions').upsert([{
+      worksheet_id: worksheetId,
+      student_id: studentId,
+      section_id: sectionId,
+      source: 'manual',
+      status: 'checked',
+      released: true,
+      score: Number(score),
+      total_points: Number(totalPoints),
+      checked_by: userData?.uid || null,
+      checked_at: new Date().toISOString(),
+    }], { onConflict: 'worksheet_id,student_id' });
+
+    if (error) {
+      showToast(`Could not save the score: ${error.message}`, 'error');
+      return false;
+    }
+    showToast('Score saved');
+    return true;
+  };
+
   return {
     mySections, sectionsError, fetchMySections,
     postings, postingsError, fetchPostings,
     postWorksheet,
     loadItems, saveItems, setCheckingMode,
+    loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
   };
 };

@@ -17,6 +17,7 @@ import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import PostToSectionModal from '../worksheets/PostToSectionModal';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
+import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
 
 const WorksheetsTab = () => {
   const { dark } = useTheme();
@@ -33,6 +34,7 @@ const WorksheetsTab = () => {
   const assessment = useWorksheetAssessment(showToast);
   const [postingWorksheet, setPostingWorksheet] = useState(null);
   const [buildingWorksheet, setBuildingWorksheet] = useState(null);
+  const [checkingWorksheet, setCheckingWorksheet] = useState(null);
 
   const filters = ['All', 'English', 'Math', 'Science', 'Filipino', 'Araling Panlipunan'];
 
@@ -289,6 +291,10 @@ const WorksheetsTab = () => {
                 style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 Questions
               </button>
+              <button onClick={() => setCheckingWorksheet(ws)} className="h-8 px-2.5 rounded-lg text-xs font-semibold"
+                style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#94a3b8' : '#64748b' }}>
+                Check
+              </button>
               <button onClick={() => handleDelete(ws.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 <Trash2 size={14} />
@@ -408,6 +414,17 @@ const WorksheetsTab = () => {
           saveItems={assessment.saveItems}
           setCheckingMode={assessment.setCheckingMode}
           onClose={() => { setBuildingWorksheet(null); fetchWorksheets(); }}
+        />
+      )}
+
+      {checkingWorksheet && (
+        <CheckSubmissionsModal
+          worksheet={checkingWorksheet}
+          loadItems={assessment.loadItems}
+          loadSubmissions={assessment.loadSubmissions}
+          loadAnswers={assessment.loadAnswers}
+          releaseScore={assessment.releaseScore}
+          onClose={() => setCheckingWorksheet(null)}
         />
       )}
     </div>

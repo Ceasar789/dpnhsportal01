@@ -28,6 +28,17 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
 
+-- A plain `EXISTS (SELECT 1 FROM students WHERE id = ...)` inside a policy
+-- runs under the CALLER's own RLS on students, so it would be silently
+-- filtered by students_read the moment that policy changes — the same
+-- footgun phase2-02's header warns about for joining through an
+-- RLS-protected table. SECURITY DEFINER makes this lookup run outside RLS,
+-- like every other helper in this project.
+CREATE OR REPLACE FUNCTION is_student_account(p_user_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (SELECT 1 FROM students WHERE id = p_user_id);
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS notifications_own_read ON notifications;
@@ -53,7 +64,7 @@ DROP POLICY IF EXISTS notifications_staff_insert_for_student ON notifications;
 CREATE POLICY notifications_staff_insert_for_student ON notifications FOR INSERT TO authenticated
   WITH CHECK (
     teaches_student(user_id)
-    OR (is_school_staff() AND EXISTS (SELECT 1 FROM students WHERE id = user_id))
+    OR (is_school_staff() AND is_student_account(user_id))
   );
 
 DROP POLICY IF EXISTS notifications_admin_all ON notifications;

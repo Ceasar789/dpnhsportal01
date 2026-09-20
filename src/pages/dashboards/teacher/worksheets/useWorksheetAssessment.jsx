@@ -87,34 +87,41 @@ export const useWorksheetAssessment = (showToast) => {
     setPostings(data || []);
   }, []);
 
-  const postWorksheet = async (worksheetId, sectionId, dueAt) => {
-    if (!sectionId) { showToast('Pick a section', 'error'); return false; }
-    if (!dueAt) { showToast('Set a due date', 'error'); return false; }
+  // How many students currently hold each task, across every section —
+  // one bulk read for the whole card grid rather than a per-card
+  // loadAssignees(taskId) call. The `status` column this used to derive from
+  // is dead (distribution is task_assignees now); this is its truthful
+  // replacement, for both the per-card badge and the "Distributed" tile.
+  // Returns null-equivalent via the error flag — never a quietly-empty
+  // `{}` — so a failed read cannot be mistaken for "nothing distributed".
+  const [assigneeCounts, setAssigneeCounts] = useState({});
+  const [assigneeCountsError, setAssigneeCountsError] = useState(false);
 
-    const { error } = await supabase.from('worksheet_sections').insert([{
-      worksheet_id: worksheetId,
-      section_id: sectionId,
-      due_at: dueAt,
-      posted_by: userData?.uid || null,
-    }]);
-
+  const fetchAssigneeCounts = useCallback(async () => {
+    const { data, error } = await withRetry(
+      () => supabase.from('task_assignees').select('task_id, student_id'),
+      { label: 'Task assignee counts fetch' }
+    );
     if (error) {
-      // 23505 is unique_violation: already posted to this section.
-      showToast(
-        error.code === '23505'
-          ? 'This worksheet is already posted to that section.'
-          : `Could not post: ${error.message}`,
-        'error'
-      );
-      return false;
+      console.warn('Task assignee counts fetch failed —', error.message);
+      setAssigneeCountsError(true);
+      return;
     }
-    showToast('Worksheet posted');
-    fetchPostings();
-    return true;
-  };
+    const seen = new Set();
+    const counts = {};
+    (data || []).forEach(row => {
+      const key = `${row.task_id}:${row.student_id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      counts[row.task_id] = (counts[row.task_id] || 0) + 1;
+    });
+    setAssigneeCountsError(false);
+    setAssigneeCounts(counts);
+  }, []);
 
   useEffect(() => { fetchMySections(); }, [fetchMySections]);
   useEffect(() => { fetchPostings(); }, [fetchPostings]);
+  useEffect(() => { fetchAssigneeCounts(); }, [fetchAssigneeCounts]);
 
   // Loads one worksheet's questions plus its answer key (keyed by item id).
   // The key lives in a separate table so students never fetch it.
@@ -741,17 +748,18 @@ export const useWorksheetAssessment = (showToast) => {
     }
 
     fetchPostings();
+    fetchAssigneeCounts();
     return { ok: true, added: toAdd, skipped: studentIds.length - toAdd.length, message: '' };
   };
 
   return {
     mySections, sectionsError, fetchMySections,
     postings, postingsError, fetchPostings,
-    postWorksheet,
     loadItems, saveItems, setCheckingMode,
     loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
     loadClassList,
     mySubject, subjectError, subjectConflict, subjectLoading, fetchMySubject,
     loadAssignees, distributeTask,
+    assigneeCounts, assigneeCountsError, fetchAssigneeCounts,
   };
 };

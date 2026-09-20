@@ -41,6 +41,7 @@ const EncodeScoresModal = ({
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(null);   // { done, total } while saving
   // student_id -> the last write result for that row ({ ok, reason, message }).
   const [rowResult, setRowResult] = useState({});
   // student_ids whose existing ONLINE submission the teacher has explicitly
@@ -77,7 +78,15 @@ const EncodeScoresModal = ({
     const prefilled = {};
     subs.forEach(s => {
       byStudent[s.student_id] = s;
-      if (s.score !== null && s.score !== undefined) prefilled[s.student_id] = String(s.score);
+      // Only a previous PAPER score is prefilled. Prefilling an online one
+      // made every run report failures the teacher never asked for — they
+      // typed nothing for those students, yet the rows were attempted and
+      // refused — and the only way to clear the red was to tick "replace",
+      // which converts a genuine online submission to manual carrying a score
+      // the teacher never entered. Online rows are shown and left alone.
+      if (s.source !== 'online' && s.score !== null && s.score !== undefined) {
+        prefilled[s.student_id] = String(s.score);
+      }
     });
     setExisting(byStudent);
     setScores(prefilled);
@@ -98,35 +107,37 @@ const EncodeScoresModal = ({
   const maxPoints = Number(totalPoints);
   const totalIsUsable = Number.isFinite(maxPoints) && maxPoints > 0;
 
-  // The number input's min/max only constrain its steppers — a typed "550"
-  // goes straight through to a DECIMAL(6,2) column that will store it. The
-  // hook rejects an out-of-range score as well; this is the copy of the guard
-  // that stops the teacher typing it in the first place.
-  const clamp = (value, max) => {
-    if (value === '' || value === null || value === undefined) return '';
+  // What the teacher typed is kept EXACTLY as typed, and judged rather than
+  // rewritten. Two reasons this is not a clamp-on-input:
+  //
+  //  - A number input fires onChange per character, so clamping would rewrite
+  //    a value from its own prefixes. Retyping a total of 50 as 40 used to
+  //    pass through "4" first and pull every score in the class down to 4 —
+  //    silently, and then release it, with no un-release path.
+  //  - An in-progress decimal like "12." reports as '' from a number input, so
+  //    coercing on every keystroke threw the digits away while the box still
+  //    showed them.
+  //
+  // The hook rejects an out-of-range or unparseable score before it writes, so
+  // nothing invalid can reach the database. Here it is only flagged.
+  const scoreProblem = (raw) => {
+    const value = String(raw ?? '').trim();
+    if (value === '') return null;
     const n = Number(value);
-    if (!Number.isFinite(n)) return '';
-    const upper = Number.isFinite(max) && max > 0 ? max : n;
-    return String(round2(Math.min(Math.max(n, 0), upper)));
+    if (!Number.isFinite(n)) return 'Not a number';
+    if (n < 0) return 'Below zero';
+    if (totalIsUsable && n > maxPoints) return `Above the ${round2(maxPoints)} total`;
+    return null;
   };
 
   const setScore = (studentId, value) => {
-    setScores(p => ({ ...p, [studentId]: clamp(value, maxPoints) }));
+    setScores(p => ({ ...p, [studentId]: value }));
   };
 
-  // Lowering the total has to pull every already-typed score down with it,
-  // or the boxes would still show marks above a total they can no longer
-  // reach and the save would reject each one individually.
-  const changeTotal = (value) => {
-    setTotalPoints(value);
-    const max = Number(value);
-    if (!Number.isFinite(max) || max <= 0) return;
-    setScores(p => Object.fromEntries(
-      Object.entries(p).map(([id, v]) => [id, v === '' ? '' : clamp(v, max)])
-    ));
-  };
+  const changeTotal = (value) => setTotalPoints(value);
 
-  const typedCount = students.filter(s => (scores[s.student_id] ?? '') !== '').length;
+  const typedCount = students.filter(s => String(scores[s.student_id] ?? '').trim() !== '').length;
+  const problemCount = students.filter(s => scoreProblem(scores[s.student_id])).length;
 
   const submit = async () => {
     if (!totalIsUsable) {
@@ -137,8 +148,19 @@ const EncodeScoresModal = ({
       setSummary({ tone: 'error', text: 'No scores typed yet. A blank box is left alone, not saved as zero.' });
       return;
     }
+    // Refuse the whole run rather than releasing the good rows and reporting
+    // the bad ones: every write here is released the moment it lands, so a
+    // mistyped score is not something the teacher can take back.
+    if (problemCount > 0) {
+      setSummary({
+        tone: 'error',
+        text: `${problemCount} score${problemCount === 1 ? ' is' : 's are'} out of range or not a number — fix ${problemCount === 1 ? 'it' : 'them'} before saving. Nothing has been written.`,
+      });
+      return;
+    }
 
     setSaving(true);
+    setProgress({ done: 0, total: typedCount });
     setSummary(null);
     const results = {};
     let saved = 0;
@@ -146,8 +168,8 @@ const EncodeScoresModal = ({
     let conflicts = 0;
 
     for (const s of students) {
-      const raw = scores[s.student_id];
-      if (raw === undefined || raw === '') continue;   // blank means not yet scored
+      const raw = String(scores[s.student_id] ?? '').trim();
+      if (raw === '') continue;   // blank means not yet scored
       const result = await encodeManualScore(
         worksheet.id, sectionId, s.student_id, raw, totalPoints,
         { overwriteOnline: !!overwrite[s.student_id] }
@@ -158,11 +180,16 @@ const EncodeScoresModal = ({
         failed += 1;
         if (result.reason === 'online-conflict') conflicts += 1;
       }
+      // Each write is a separate round trip, and on a congested pool the run
+      // can take minutes. A button reading only "Saving…" for that long looks
+      // like a hang.
+      if (aliveRef.current) setProgress({ done: saved + failed, total: typedCount });
     }
 
     if (!aliveRef.current) return;
     setRowResult(results);
     setSaving(false);
+    setProgress(null);
 
     if (failed === 0) {
       onClose();
@@ -187,6 +214,10 @@ const EncodeScoresModal = ({
     const result = rowResult[studentId];
     if (result?.ok) return { color: '#16a34a', text: 'Saved and released.' };
     if (result) return { color: '#dc2626', text: result.message };
+    // Typed-but-invalid is flagged here rather than rewritten in the box, so
+    // the teacher sees what they actually entered and fixes it themselves.
+    const problem = scoreProblem(scores[studentId]);
+    if (problem) return { color: '#dc2626', text: `${problem} — this row will not be saved.` };
     const sub = existing[studentId];
     if (sub && sub.source === 'online') {
       return {
@@ -218,7 +249,10 @@ const EncodeScoresModal = ({
             </p>
 
             <div className="flex gap-2">
-              <select value={sectionId} onChange={e => setSectionId(e.target.value)}
+              {/* Both locked while a run is in flight: changing either mid-run
+                  reloads the list underneath the loop, so the per-row results
+                  land on the wrong names. */}
+              <select value={sectionId} disabled={saving} onChange={e => setSectionId(e.target.value)}
                 className="h-9 px-2 rounded text-sm outline-none flex-1" style={fieldStyle}>
                 <option value="">Select section…</option>
                 {posted.map(p => (
@@ -228,7 +262,7 @@ const EncodeScoresModal = ({
                 ))}
               </select>
               <input type="number" min="1" step="1" placeholder="Total points"
-                value={totalPoints} onChange={e => changeTotal(e.target.value)}
+                value={totalPoints} disabled={saving} onChange={e => changeTotal(e.target.value)}
                 className="h-9 w-32 px-2 rounded text-sm outline-none" style={fieldStyle} />
             </div>
 
@@ -291,14 +325,17 @@ const EncodeScoresModal = ({
 
             <div className="flex items-center justify-end gap-2 pt-1">
               {!loading && !loadFailed && students.length > 0 && (
-                <span className="text-xs mr-auto" style={muted}>
+                <span className="text-xs mr-auto" style={problemCount > 0 ? { color: '#dc2626' } : muted}>
                   {typedCount} of {students.length} scored
+                  {problemCount > 0 && ` · ${problemCount} need${problemCount === 1 ? 's' : ''} fixing`}
                 </span>
               )}
               <Btn onClick={onClose}>Close</Btn>
               <Btn variant="primary" onClick={submit}
                 disabled={saving || loading || loadFailed || students.length === 0}>
-                {saving ? 'Saving…' : 'Save scores'}
+                {saving
+                  ? (progress ? `Saving ${progress.done} of ${progress.total}…` : 'Saving…')
+                  : 'Save scores'}
               </Btn>
             </div>
           </>

@@ -110,7 +110,10 @@ const CheckSubmissionsModal = ({
           // A partly-right enumeration comes back isCorrect: false carrying
           // real points. Painting that red would contradict the number in the
           // box beside it, so partial credit gets its own state.
-          const full = Number(r.pointsEarned) >= Number(item?.points ?? 0);
+          // Matches how release() decides is_correct: a zero-point item is
+          // not full credit, so it must not paint green either.
+          const max = Number(item?.points ?? 0);
+          const full = max > 0 && Number(r.pointsEarned) >= max;
           states[r.item_id] = r.isCorrect || full
             ? 'auto-correct'
             : (Number(r.pointsEarned) > 0 ? 'auto-partial' : 'auto-incorrect');
@@ -128,8 +131,11 @@ const CheckSubmissionsModal = ({
 
     // Marks already on record win over the checker's guess: they are what the
     // teacher approved last time, including any override they made.
+    // Clamped like any other mark: these come from the database, so an
+    // out-of-range value written by an older build or by hand would otherwise
+    // be restored and re-released unchecked.
     Object.entries(prior).forEach(([itemId, pts]) => {
-      prefilled[itemId] = pts;
+      prefilled[itemId] = clampMark(itemId, pts);
       flagged[itemId] = false;
     });
 
@@ -188,7 +194,7 @@ const CheckSubmissionsModal = ({
   const STATE_STYLE = {
     'auto-correct': { border: '#16a34a', bg: 'rgba(22,163,74,0.07)', tag: 'Auto — correct', tagColor: '#16a34a' },
     'auto-incorrect': { border: '#dc2626', bg: 'rgba(220,38,38,0.07)', tag: 'Auto — wrong', tagColor: '#dc2626' },
-    'auto-partial': { border: '#0ea5e9', bg: 'rgba(14,165,233,0.07)', tag: 'Auto — partly right', tagColor: '#0284c7' },
+    'auto-partial': { border: '#0ea5e9', bg: 'rgba(14,165,233,0.07)', tag: 'Auto — partly right', tagColor: dark ? '#38bdf8' : '#0284c7' },
     essay: { border: '#d97706', bg: 'rgba(217,119,6,0.07)', tag: 'Essay — score by hand', tagColor: '#d97706' },
     unscorable: { border: '#d97706', bg: 'rgba(217,119,6,0.07)', tag: 'No answer key — score by hand', tagColor: '#d97706' },
     manual: { border: dark ? '#334155' : '#e2e8f0', bg: 'transparent', tag: null, tagColor: null },

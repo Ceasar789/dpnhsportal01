@@ -20,6 +20,14 @@ import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 // columns it should not have.
 const SUBMISSION_FIELDS = 'id, worksheet_id, status, released, score, total_points';
 
+// Debounce window for autosaving free-typed answers (identification,
+// enumeration, essay) as the student types, in addition to the existing
+// save-on-blur. Long enough that ordinary typing does not storm the
+// connection pool this project's hosting tier already struggles with;
+// short enough that a tab close a moment after the last keystroke still
+// has a saved copy once flushed.
+const TYPING_SAVE_DEBOUNCE_MS = 800;
+
 // Maps a Postgres/PostgREST error to a sentence a student can act on,
 // while keeping the raw message (trigger text, RLS denial, constraint
 // name, etc.) in the console for whoever debugs it later.
@@ -222,9 +230,22 @@ const StudentWorksheetsTab = () => {
     writeAnswer(itemId, value);
   }, [writeAnswer]);
 
-  // Flushes every pending debounced save (none exist yet in this commit,
-  // but the mechanism is shared with the debounce added next) and waits
-  // for every outstanding write to settle. Submitting blurs the focused
+  // Debounced save-on-change for free-typed answers (identification,
+  // enumeration, essay). A write per keystroke would storm the connection
+  // pool this project's hosting tier already struggles with, so the write
+  // waits for a short pause in typing — but text typed and never blurred
+  // (leaving via the sidebar, closing the tab) is no longer silently lost.
+  const debouncedSaveAnswer = useCallback((itemId, value) => {
+    setAnswers(prev => ({ ...prev, [itemId]: value }));
+    if (saveTimers.current[itemId]) clearTimeout(saveTimers.current[itemId]);
+    saveTimers.current[itemId] = setTimeout(() => {
+      delete saveTimers.current[itemId];
+      writeAnswer(itemId, value);
+    }, TYPING_SAVE_DEBOUNCE_MS);
+  }, [writeAnswer]);
+
+  // Flushes every pending debounced save and waits for every outstanding
+  // write to settle. Submitting blurs the focused
   // field, which fires its own save — but that save and the status UPDATE
   // below would otherwise race as two independent requests; if the UPDATE
   // won, submission_open() would already be false and the student's last
@@ -317,6 +338,7 @@ const StudentWorksheetsTab = () => {
 
                 {it.item_type === 'identification' && (
                   <input type="text" disabled={done} defaultValue={answers[it.id] || ''}
+                    onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full h-9 px-3 rounded-lg text-sm outline-none"
                     style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',
@@ -326,7 +348,8 @@ const StudentWorksheetsTab = () => {
 
                 {it.item_type === 'enumeration' && (
                   <textarea disabled={done} rows={3}
-                    defaultValue={(answers[it.id] || []).join('\n')}
+                    defaultValue={Array.isArray(answers[it.id]) ? answers[it.id].join('\n') : ''}
+                    onChange={e => debouncedSaveAnswer(it.id, e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
                     onBlur={e => saveAnswer(it.id, e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
                     placeholder="One answer per line"
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -337,6 +360,7 @@ const StudentWorksheetsTab = () => {
 
                 {it.item_type === 'essay' && (
                   <textarea disabled={done} rows={5} defaultValue={answers[it.id] || ''}
+                    onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                     style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',

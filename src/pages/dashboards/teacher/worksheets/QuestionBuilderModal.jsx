@@ -5,7 +5,7 @@
 // answer correct looks right on review and slips through.
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Plus, Trash2, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { Modal, Btn, Input } from '../shared/ui';
 import { useTheme } from '../hooks';
@@ -19,8 +19,15 @@ const TYPE_LABELS = {
   essay: 'Essay',
 };
 
+// The exact strings a true/false key is stored as — and so the exact
+// strings the student-facing answer UI (Task 8) must submit for a match.
+export const TRUE_FALSE_VALUES = ['True', 'False'];
+
+let uidCounter = 0;
+const genUid = () => `new-${Date.now()}-${(uidCounter += 1)}`;
+
 const blankItem = () => ({
-  question: '', item_type: 'multiple_choice',
+  uid: genUid(), question: '', item_type: 'multiple_choice',
   options: ['', '', '', ''], correct_answer: '', points: 1,
 });
 
@@ -38,26 +45,40 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
     color: dark ? '#f1f5f9' : '#1a2b4a',
   };
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const result = await loadItems(worksheet.id);
-      if (!active) return;
-      if (!result) { setLoadFailed(true); setLoading(false); return; }
-      setItems(result.items.map(i => ({
-        question: i.question,
-        item_type: i.item_type,
-        options: i.options || ['', '', '', ''],
-        correct_answer: result.keys[i.id] ?? '',
-        points: i.points,
-      })));
-      setLoading(false);
-    })();
-    return () => { active = false; };
+  // Extracted so the failed-load state can offer a real Retry rather than
+  // telling the teacher to close and reopen the whole modal.
+  const attemptLoad = useCallback(async () => {
+    setLoading(true);
+    setLoadFailed(false);
+    const result = await loadItems(worksheet.id);
+    setLoading(false);
+    if (!result) { setLoadFailed(true); return; }
+    setItems(result.items.map(i => ({
+      // Existing items already have a stable, server-assigned id — reuse it
+      // as the React key so reordering doesn't jumble focus.
+      uid: i.id,
+      question: i.question,
+      item_type: i.item_type,
+      options: i.options || ['', '', '', ''],
+      correct_answer: result.keys[i.id]?.correct_answer ?? '',
+      points: i.points,
+    })));
   }, [worksheet.id, loadItems]);
+
+  useEffect(() => { attemptLoad(); }, [attemptLoad]);
 
   const patch = (index, changes) =>
     setItems(prev => prev.map((it, i) => (i === index ? { ...it, ...changes } : it)));
+
+  const patchOptions = (index, optionIndex, value) => setItems(prev => prev.map((it, i) => {
+    if (i !== index) return it;
+    const options = it.options.map((o, oi) => (oi === optionIndex ? value : o));
+    // If the key pointed at the option that just changed, it no longer
+    // matches anything in the list — clear it rather than silently keeping
+    // an answer key that can never be satisfied.
+    const keyStillValid = options.includes(it.correct_answer);
+    return { ...it, options, correct_answer: keyStillValid ? it.correct_answer : '' };
+  }));
 
   const move = (index, delta) => setItems(prev => {
     const next = [...prev];
@@ -89,14 +110,19 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
   };
 
   return (
-    <Modal title={`Questions — ${worksheet.title}`} onClose={onClose}>
+    <Modal title={`Questions — ${worksheet.title}`} onClose={onClose} size="max-w-2xl">
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin" size={22} /></div>
       ) : loadFailed ? (
-        <p className="text-sm py-6" style={{ color: '#dc2626' }}>
-          Could not load the existing questions. Close this window and try again —
-          saving now would replace them with nothing.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-6 text-sm text-center" style={{ color: '#dc2626' }}>
+          <p>
+            Could not load the existing questions. Saving now would replace them
+            with nothing, so saving stays off until this loads.
+          </p>
+          <button onClick={attemptLoad} className="underline font-semibold" style={{ color: '#dc2626' }}>
+            Retry
+          </button>
+        </div>
       ) : (
         <div className="flex flex-col gap-4">
           <label className="flex items-center gap-2 text-sm" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
@@ -109,7 +135,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
           </label>
 
           {items.map((it, index) => (
-            <div key={index} className="p-3 rounded-lg flex flex-col gap-2"
+            <div key={it.uid} className="p-3 rounded-lg flex flex-col gap-2"
               style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold" style={{ color: dark ? '#94a3b8' : '#64748b' }}>#{index + 1}</span>
@@ -137,19 +163,36 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                 <div className="grid grid-cols-2 gap-2">
                   {it.options.map((opt, oi) => (
                     <Input key={oi} placeholder={`Choice ${oi + 1}`} value={opt}
-                      onChange={e => patch(index, {
-                        options: it.options.map((o, i) => (i === oi ? e.target.value : o)),
-                      })} />
+                      onChange={e => patchOptions(index, oi, e.target.value)} />
                   ))}
                 </div>
               )}
 
-              {it.item_type !== 'essay' && (
+              {it.item_type === 'multiple_choice' && (
+                // A select over the item's own options, not free text: a
+                // typed key that doesn't exactly match an option can never
+                // be satisfied by any student, and would fail silently.
+                <select value={it.correct_answer} onChange={e => patch(index, { correct_answer: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                  <option value="">Select the correct choice…</option>
+                  {it.options.filter(o => o.trim()).map((opt, oi) => (
+                    <option key={oi} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              )}
+
+              {it.item_type === 'true_false' && (
+                <select value={it.correct_answer} onChange={e => patch(index, { correct_answer: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                  <option value="">Select the correct answer…</option>
+                  {TRUE_FALSE_VALUES.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              )}
+
+              {(it.item_type === 'identification' || it.item_type === 'enumeration') && (
                 <Input
                   placeholder={
-                    it.item_type === 'multiple_choice' ? 'Correct choice (exact text)'
-                      : it.item_type === 'true_false' ? 'True or False'
-                      : it.item_type === 'identification' ? 'Accepted answers, comma separated'
+                    it.item_type === 'identification' ? 'Accepted answers, comma separated'
                       : 'Expected answers, comma separated'
                   }
                   value={it.correct_answer}

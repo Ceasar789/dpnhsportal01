@@ -303,16 +303,29 @@ export const useWorksheetAssessment = (showToast) => {
   // empty object here is indistinguishable from "the student answered
   // nothing" and would let a teacher release a zero for someone who actually
   // answered everything.
+  // `prior` carries the marks from a previous release, so reopening a checked
+  // submission shows what the teacher actually approved rather than a blank
+  // scoresheet they would have to retype from memory — and then release a
+  // different score than the one on record.
   const loadAnswers = useCallback(async (submissionId) => {
     const { data, error } = await withRetry(
-      () => supabase.from('worksheet_answers').select('item_id, answer').eq('submission_id', submissionId),
+      () => supabase.from('worksheet_answers')
+        .select('item_id, answer, points_earned, is_correct')
+        .eq('submission_id', submissionId),
       { label: 'Worksheet answers fetch' }
     );
     if (error) {
       console.warn('Worksheet answers fetch failed —', error.message);
       return null;
     }
-    return Object.fromEntries((data || []).map(a => [a.item_id, a.answer]));
+    return {
+      answers: Object.fromEntries((data || []).map(a => [a.item_id, a.answer])),
+      prior: Object.fromEntries(
+        (data || [])
+          .filter(a => a.points_earned !== null && a.points_earned !== undefined)
+          .map(a => [a.item_id, Number(a.points_earned)])
+      ),
+    };
   }, []);
 
   // Writes every item's mark, then flips the submission to checked+released.
@@ -322,15 +335,23 @@ export const useWorksheetAssessment = (showToast) => {
   // The already-written item rows are simply overwritten with the same
   // values on retry, since the caller always resubmits the full perItem set
   // computed from its own review state, not a diff.
+  // Upsert rather than update: a student who left an item blank may have no
+  // answer row at all, and an UPDATE matching zero rows is not an error in
+  // PostgREST — the teacher's mark for that item would vanish silently while
+  // the submission-level score still counted it.
   const releaseScore = async (submissionId, worksheetId, score, totalPoints, perItem) => {
-    for (const row of perItem) {
-      const { error } = await supabase.from('worksheet_answers')
-        .update({ is_correct: row.isCorrect, points_earned: row.pointsEarned })
-        .eq('submission_id', submissionId).eq('item_id', row.item_id);
-      if (error) {
-        showToast(`Could not save item marks: ${error.message}. Try Save & Release again.`, 'error');
-        return false;
-      }
+    const { error: itemError } = await supabase.from('worksheet_answers').upsert(
+      perItem.map(row => ({
+        submission_id: submissionId,
+        item_id: row.item_id,
+        is_correct: row.isCorrect,
+        points_earned: row.pointsEarned,
+      })),
+      { onConflict: 'submission_id,item_id' }
+    );
+    if (itemError) {
+      showToast(`Could not save item marks: ${itemError.message}. Try Save & Release again.`, 'error');
+      return false;
     }
 
     const { error } = await supabase.from('worksheet_submissions').update({

@@ -52,7 +52,10 @@ const toList = (value) => {
   return Array.isArray(value) ? value : [value];
 };
 
-const round2 = (n) => Math.round(n * 100) / 100;
+// Exported because the review screen re-sums the teacher's own marks rather
+// than the checker's, and the two totals must round identically — otherwise
+// what the teacher reads on screen differs from what DECIMAL(6,2) stores.
+export const round2 = (n) => Math.round(n * 100) / 100;
 
 export function checkItem(item, key, answer) {
   const points = Number(item?.points) || 0;

@@ -24,8 +24,11 @@ const SUBMISSION_FIELDS = 'id, worksheet_id, status, released, score, total_poin
 // enumeration, essay) as the student types, in addition to the existing
 // save-on-blur. Long enough that ordinary typing does not storm the
 // connection pool this project's hosting tier already struggles with;
-// short enough that a tab close a moment after the last keystroke still
-// has a saved copy once flushed.
+// short enough that leaving the worksheet, or navigating away inside the
+// app, loses at most the last fraction of a second of typing — both of
+// those fire the pending write rather than dropping it. Closing the browser
+// tab outright is NOT covered: there is no beforeunload handler, so React's
+// cleanup never runs and anything newer than the last write is gone.
 const TYPING_SAVE_DEBOUNCE_MS = 800;
 
 // Maps a Postgres/PostgREST error to a sentence a student can act on,
@@ -265,7 +268,14 @@ const StudentWorksheetsTab = () => {
         // It still completed against the right submission, but recording its
         // outcome now would attach it to a worksheet it has nothing to do with.
         if (gen !== saveGenRef.current) {
-          if (result.error) console.warn('Answer save failed after leaving the worksheet —', result.error.message);
+          if (result.error) {
+            console.warn('Answer save failed after leaving the worksheet —', result.error.message);
+            // Still tell them. The generation guard exists to stop a failure
+            // in the worksheet they left from BLOCKING the one they opened —
+            // not to hide it. Without this, typing the last line of an essay
+            // and clicking Back would lose it in silence.
+            showToast('An answer in the worksheet you just left could not be saved.', 'error');
+          }
           return result;
         }
 

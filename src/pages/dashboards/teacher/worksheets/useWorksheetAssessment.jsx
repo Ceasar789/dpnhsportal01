@@ -9,6 +9,7 @@ import { supabase } from '../../../../config/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { normalizePoints, round2 } from '../../../../lib/worksheetChecking';
+import { TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 
 export const useWorksheetAssessment = (showToast) => {
   const { userData } = useAuth();
@@ -440,6 +441,35 @@ export const useWorksheetAssessment = (showToast) => {
     };
   }, []);
 
+  // Best-effort by design: a failed notification must never roll back the
+  // distribution or the release that caused it. The caller reports that the
+  // work went out but the message did not, which is the truth. Declared
+  // ahead of releaseScore and distributeTask because both call it.
+  const notifyStudents = async (studentIds, { title, message, taskId }) => {
+    if (!studentIds || studentIds.length === 0) return true;
+    const { error } = await supabase.from('notifications').insert(
+      studentIds.map(id => ({
+        user_id: id,
+        title,
+        message,
+        notification_type: 'task',
+        related_entity_type: 'worksheet',
+        related_entity_id: taskId,
+        action_url: '/student-dashboard/tasks',
+      }))
+    );
+    if (error) {
+      // RLS only allows a teacher to address a student they actually teach,
+      // so a failed insert here can legitimately mean "not your student" as
+      // easily as a real outage — neither is a Postgres error worth showing
+      // the teacher raw. Best-effort: the caller already succeeded at the
+      // thing that matters (the task went out, the score was released).
+      console.warn('Notification write failed —', error.message);
+      return false;
+    }
+    return true;
+  };
+
   // Writes every item's mark, then flips the submission to checked+released.
   // This is a multi-row write with no client transaction: if a per-item
   // update fails partway, the submission's `released` flag (set last) is
@@ -466,7 +496,10 @@ export const useWorksheetAssessment = (showToast) => {
       return false;
     }
 
-    const { error } = await supabase.from('worksheet_submissions').update({
+    // .select() piggybacks the student_id onto this same write's response —
+    // this function is never handed one otherwise, and a separate read just
+    // to notify would be a round trip the release itself does not need.
+    const { data: updated, error } = await supabase.from('worksheet_submissions').update({
       status: 'checked',
       released: true,
       score,
@@ -474,12 +507,24 @@ export const useWorksheetAssessment = (showToast) => {
       checked_by: userData?.uid || null,
       checked_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }).eq('id', submissionId);
+    }).eq('id', submissionId).select('student_id').maybeSingle();
 
     if (error) {
       showToast(`Could not release: ${error.message}. Item marks were saved — try Save & Release again.`, 'error');
       return false;
     }
+
+    // The score is released either way — a failed notification must not
+    // turn this into a failure, so its result is not checked here.
+    if (updated?.student_id) {
+      const subjectLabel = mySubject?.name ? `${mySubject.name} score` : 'Score';
+      await notifyStudents([updated.student_id], {
+        title: `${subjectLabel} released`,
+        message: `Your score is ${score} out of ${totalPoints}.`,
+        taskId: worksheetId,
+      });
+    }
+
     showToast('Score released to the student');
     return true;
   };
@@ -794,7 +839,31 @@ export const useWorksheetAssessment = (showToast) => {
 
     fetchPostings();
     fetchAssigneeCounts();
-    return { ok: true, added: toAdd, skipped: studentIds.length - toAdd.length, message: '' };
+
+    // The task already went out — a failed notification here must not turn
+    // this into a failure, only into a truthful `notified: false` the modal
+    // can pass along. `toAdd` is exactly who was newly assigned above: never
+    // a student who already held this task, so a re-distribution notifies
+    // nobody twice.
+    let notified = true;
+    const { data: meta, error: metaError } = await withRetry(
+      () => supabase.from('worksheets').select('title, task_type').eq('id', taskId).maybeSingle(),
+      { label: 'Task metadata fetch for notification' }
+    );
+    if (metaError || !meta) {
+      console.warn('Task metadata fetch failed — notification skipped', metaError?.message);
+      notified = false;
+    } else {
+      const typeLabel = TASK_TYPE_LABELS[meta.task_type] || 'Task';
+      const title = mySubject?.name ? `${typeLabel} — ${mySubject.name}` : typeLabel;
+      const deadline = new Date(dueAt).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+      });
+      const message = `"${meta.title}" is due ${deadline}.`;
+      notified = await notifyStudents(toAdd, { title, message, taskId });
+    }
+
+    return { ok: true, added: toAdd, skipped: studentIds.length - toAdd.length, message: '', notified };
   };
 
   return {

@@ -609,6 +609,51 @@ export const useWorksheetAssessment = (showToast) => {
     return { ok: true, score: round2(value), totalPoints: round2(total) };
   };
 
+  // The teacher's own subject, from their teaching load (teacher_subjects ->
+  // subjects), rather than typed free text. One row per grade level is
+  // normal — a teacher who teaches Math to two grade levels has two rows
+  // naming the same subject — so rows are de-duplicated by subject id before
+  // deciding whether this teacher has one subject, none, or a genuine
+  // conflict (two DIFFERENT subjects, which the admin needs to fix).
+  //
+  // `subjectError` and `mySubject === null` are kept as separate states on
+  // purpose: a failed read must never look like "no subject assigned" — one
+  // means "retry", the other means "ask your admin", and collapsing them
+  // would send the teacher to the wrong fix.
+  const [mySubject, setMySubject] = useState(null);
+  const [subjectError, setSubjectError] = useState(false);
+  // More than one subject assigned. Not an error in the data — a small school
+  // may well do this — but the design says one per teacher, and guessing which
+  // one a task belongs to would file work under the wrong heading silently.
+  const [subjectConflict, setSubjectConflict] = useState(false);
+
+  const fetchMySubject = useCallback(async () => {
+    if (!userData?.uid) return;
+    const { data, error } = await withRetry(
+      () => supabase.from('teacher_subjects')
+        .select('subject_id, subjects(id, name)')
+        .eq('teacher_id', userData.uid),
+      { label: 'Teaching load fetch' }
+    );
+    if (error) {
+      console.warn('Teaching load fetch failed —', error.message);
+      setSubjectError(true);
+      return;
+    }
+    // One row per grade level, so the same subject appears more than once.
+    const unique = [];
+    (data || []).forEach(r => {
+      if (r.subjects?.id && !unique.some(u => u.id === r.subjects.id)) {
+        unique.push({ id: r.subjects.id, name: r.subjects.name });
+      }
+    });
+    setSubjectError(false);
+    setSubjectConflict(unique.length > 1);
+    setMySubject(unique.length === 1 ? unique[0] : null);
+  }, [userData?.uid]);
+
+  useEffect(() => { fetchMySubject(); }, [fetchMySubject]);
+
   return {
     mySections, sectionsError, fetchMySections,
     postings, postingsError, fetchPostings,
@@ -616,5 +661,6 @@ export const useWorksheetAssessment = (showToast) => {
     loadItems, saveItems, setCheckingMode,
     loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
     loadClassList,
+    mySubject, subjectError, subjectConflict, fetchMySubject,
   };
 };

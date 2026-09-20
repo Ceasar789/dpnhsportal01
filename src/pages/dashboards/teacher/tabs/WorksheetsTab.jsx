@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
+import { TASK_TYPES, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import PostToSectionModal from '../worksheets/PostToSectionModal';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
@@ -30,7 +31,7 @@ const WorksheetsTab = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
-  const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', status: 'Draft' });
+  const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', status: 'Draft', task_type: 'worksheet' });
   const [saving, setSaving] = useState(false);
   const assessment = useWorksheetAssessment(showToast);
   const [postingWorksheet, setPostingWorksheet] = useState(null);
@@ -67,17 +68,32 @@ const WorksheetsTab = () => {
 
   const handleAddWorksheet = async (e) => {
     e.preventDefault();
+    if (assessment.subjectError) {
+      showToast('Could not load your teaching load. Check your connection and try again.', 'error');
+      return;
+    }
+    if (assessment.subjectConflict) {
+      showToast('You are assigned more than one subject. Ask your admin to correct your teaching load — a task has to belong to exactly one subject.', 'error');
+      return;
+    }
+    if (!assessment.mySubject) {
+      showToast('No subject is assigned to you yet. Ask your admin to set your teaching load before creating tasks.', 'error');
+      return;
+    }
     setSaving(true);
     const { error } = await supabase.from('worksheets').insert([{
       ...formData,
+      subject: assessment.mySubject.name,
+      subject_id: assessment.mySubject.id,
+      task_type: formData.task_type,
       teacher_id: userData?.uid,
       created_at: new Date().toISOString()
     }]);
-    
+
     if (error) showToast('Error: ' + error.message, 'error');
     else {
       showToast('Worksheet created');
-      setFormData({ title: '', subject: '', pages: '', items: '', status: 'Draft' });
+      setFormData({ title: '', subject: '', pages: '', items: '', status: 'Draft', task_type: 'worksheet' });
       setShowAddModal(false);
       fetchWorksheets();
     }
@@ -119,6 +135,18 @@ const WorksheetsTab = () => {
 
   const handleUploadWorksheet = async (e) => {
     if (!e.target.files?.[0]) return;
+    if (assessment.subjectError) {
+      showToast('Could not load your teaching load. Check your connection and try again.', 'error');
+      return;
+    }
+    if (assessment.subjectConflict) {
+      showToast('You are assigned more than one subject. Ask your admin to correct your teaching load — a task has to belong to exactly one subject.', 'error');
+      return;
+    }
+    if (!assessment.mySubject) {
+      showToast('No subject is assigned to you yet. Ask your admin to set your teaching load before creating tasks.', 'error');
+      return;
+    }
     const file = e.target.files[0];
     setSaving(true);
     
@@ -171,7 +199,9 @@ const WorksheetsTab = () => {
       // Insert into database
       const { data: insertData, error: dbError } = await supabase.from('worksheets').insert([{
         title: titleFromFile || 'Worksheet',
-        subject: 'Uploaded Document',
+        subject: assessment.mySubject.name,
+        subject_id: assessment.mySubject.id,
+        task_type: 'worksheet',
         file_url: publicUrl,
         file_name: file.name,
         file_path: filePath,
@@ -330,12 +360,22 @@ const WorksheetsTab = () => {
         <Modal title="Create Worksheet" onClose={() => setShowAddModal(false)}>
           <form onSubmit={handleAddWorksheet} className="flex flex-col gap-4">
             <Input placeholder="Title" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-            <select value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})}
-              className="w-full h-10 px-3 rounded-lg text-sm outline-none"
-              style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-              <option value="">Select Subject</option>
-              {filters.slice(1).map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <div>
+              <label className="text-xs font-semibold" style={{ color: dark ? '#94a3b8' : '#64748b' }}>Type</label>
+              <select value={formData.task_type}
+                onChange={e => setFormData({ ...formData, task_type: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',
+                         border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
+                         color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                {TASK_TYPES.map(t => <option key={t} value={t}>{TASK_TYPE_LABELS[t]}</option>)}
+              </select>
+            </div>
+            <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+              Subject: <strong style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                {assessment.mySubject?.name || '—'}
+              </strong> (from your teaching load)
+            </p>
             <Input placeholder="Pages" value={formData.pages} onChange={e => setFormData({...formData, pages: e.target.value})} />
             <Input placeholder="Items" value={formData.items} onChange={e => setFormData({...formData, items: e.target.value})} />
             <button type="submit" disabled={saving} className="w-full h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"

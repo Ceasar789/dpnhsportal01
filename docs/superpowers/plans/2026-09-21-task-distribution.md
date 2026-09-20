@@ -389,6 +389,14 @@ DROP POLICY IF EXISTS ws_worksheets_student_read ON worksheets;
 CREATE POLICY ws_worksheets_student_read ON worksheets FOR SELECT TO authenticated
   USING (student_assigned_task(id));
 
+-- Same move for the postings table. Left on student_in_section, an unassigned
+-- student could still enumerate which tasks exist for their section through
+-- the API — which contradicts "cannot see the task at all". The teacher branch
+-- is unchanged.
+DROP POLICY IF EXISTS ws_sections_read ON worksheet_sections;
+CREATE POLICY ws_sections_read ON worksheet_sections FOR SELECT TO authenticated
+  USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_assigned_task(worksheet_id));
+
 -- Rewritten from phase2-02 with one addition: the transition into 'submitted'
 -- now also stamps is_late, from the student's own assignee row. Everything
 -- else — the status machine, the pinned columns, the teacher early-out — is
@@ -524,9 +532,14 @@ CREATE POLICY notifications_own_update ON notifications FOR UPDATE TO authentica
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+-- is_school_staff() is included because the registrar already writes here:
+-- PreEnrollmentTab.jsx notifies a student three times during enrolment, and a
+-- registrar is neither an admin nor a teacher of that student. Without this
+-- branch, enabling RLS would silently break enrolment notifications that work
+-- today.
 DROP POLICY IF EXISTS notifications_teacher_insert ON notifications;
 CREATE POLICY notifications_teacher_insert ON notifications FOR INSERT TO authenticated
-  WITH CHECK (teaches_student(user_id));
+  WITH CHECK (teaches_student(user_id) OR is_school_staff());
 
 DROP POLICY IF EXISTS notifications_admin_all ON notifications;
 CREATE POLICY notifications_admin_all ON notifications FOR ALL TO authenticated

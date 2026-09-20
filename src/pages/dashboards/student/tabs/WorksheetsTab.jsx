@@ -14,6 +14,12 @@ import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 
+// The exact submission columns this file ever reads or asks back after a
+// write — named explicitly everywhere (never a bare `.select()`) so a
+// change to the table never silently starts handing this file scoring
+// columns it should not have.
+const SUBMISSION_FIELDS = 'id, worksheet_id, status, released, score, total_points';
+
 const StudentWorksheetsTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
@@ -55,7 +61,7 @@ const StudentWorksheetsTab = () => {
       // then fail on the UNIQUE(worksheet_id, student_id) constraint. Both
       // branches below fall into the shared loadError state instead.
       withRetry(() => supabase.from('worksheet_submissions')
-        .select('id, worksheet_id, status, released, score, total_points')
+        .select(SUBMISSION_FIELDS)
         .eq('student_id', userData.uid),
         { label: 'Student submissions fetch' }),
     ]);
@@ -76,6 +82,18 @@ const StudentWorksheetsTab = () => {
   }, [userData?.uid]);
 
   useEffect(() => { fetchWorksheets(); }, [fetchWorksheets]);
+
+  // Writes one submission's `submission` field into the matching `rows`
+  // entry in place, without a full refetch. Called the instant a
+  // worksheet_submissions row exists (created here, or recovered below) —
+  // BEFORE any further read that might fail — so backing out (or a failed
+  // saved-answers read) never leaves the list showing "Not started" for a
+  // worksheet that already has a row. Without this, the student's only way
+  // back in is a second INSERT, which UNIQUE(worksheet_id, student_id)
+  // rejects.
+  const rememberSubmission = (postingId, sub) => {
+    setRows(prev => prev.map(r => (r.posting.id === postingId ? { ...r, submission: sub } : r)));
+  };
 
   const open = async (row) => {
     setBusy(true);
@@ -98,12 +116,39 @@ const StudentWorksheetsTab = () => {
         section_id: row.posting.section_id,
         source: 'online',
         status: 'in_progress',
-      }]).select().single();
+      }]).select(SUBMISSION_FIELDS).single();
+
       if (createError) {
-        showToast(`Could not start: ${createError.message}`, 'error');
-        setBusy(false); return;
+        if (createError.code === '23505') {
+          // UNIQUE(worksheet_id, student_id) fired: a submission already
+          // exists for this worksheet (most likely this same lockout from
+          // before this fix — a stale `rows` snapshot after backing out).
+          // Recover by reading the existing row instead of leaving the
+          // student stuck with no way back in.
+          const { data: existing, error: fetchError } = await withRetry(
+            () => supabase.from('worksheet_submissions').select(SUBMISSION_FIELDS)
+              .eq('worksheet_id', row.sheet.id).eq('student_id', userData.uid).single(),
+            { label: 'Student existing submission recovery fetch' }
+          );
+          if (fetchError || !existing) {
+            showToast('Could not reopen this worksheet. Check your connection and try again.', 'error');
+            setBusy(false); return;
+          }
+          sub = existing;
+          showToast('Reopening the worksheet you already started.');
+        } else {
+          showToast(`Could not start: ${createError.message}`, 'error');
+          setBusy(false); return;
+        }
+      } else {
+        sub = data;
       }
-      sub = data;
+
+      // Recorded immediately — before the saved-answers read below, which
+      // can itself fail — so either failure path still leaves `rows`
+      // knowing this submission exists.
+      rememberSubmission(row.posting.id, sub);
+      row = { ...row, submission: sub };
     }
 
     // A failed read here must not render as "no answers saved yet" — for a

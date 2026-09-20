@@ -122,6 +122,25 @@ describe('checkItem — essay', () => {
   });
 });
 
+describe('checkItem — missing key row (not the same as a blank key)', () => {
+  it('multiple choice: returns nulls instead of marking every answer wrong', () => {
+    expect(checkItem(mc, undefined, 'B')).toEqual({ isCorrect: null, pointsEarned: null });
+    expect(checkItem(mc, null, 'B')).toEqual({ isCorrect: null, pointsEarned: null });
+  });
+
+  it('true/false: returns nulls instead of marking every answer wrong', () => {
+    expect(checkItem(tf, undefined, 'True')).toEqual({ isCorrect: null, pointsEarned: null });
+  });
+
+  it('identification: returns nulls instead of marking every answer wrong', () => {
+    expect(checkItem(ident, undefined, 'Rizal')).toEqual({ isCorrect: null, pointsEarned: null });
+  });
+
+  it('enumeration: returns nulls instead of marking every answer wrong', () => {
+    expect(checkItem(enu, undefined, ['Executive'])).toEqual({ isCorrect: null, pointsEarned: null });
+  });
+});
+
 describe('scoreSubmission', () => {
   const items = [mc, ident, essay];
   const keys = { i1: { correct_answer: 'B' }, i3: { correct_answer: ['Rizal'] }, i5: { correct_answer: null } };
@@ -151,5 +170,14 @@ describe('scoreSubmission', () => {
 
   it('tolerates an empty worksheet', () => {
     expect(scoreSubmission([], {}, {})).toEqual({ score: 0, totalPoints: 0, perItem: [] });
+  });
+
+  it('counts a missing key toward totalPoints but not toward score, like an essay', () => {
+    // i3 (identification, 2 pts) has no entry in `keys` at all — a partially
+    // failed save, not a teacher who left the key blank.
+    const result = scoreSubmission(items, { i1: { correct_answer: 'B' } }, { i1: 'B', i3: 'Rizal' });
+    expect(result.perItem).toContainEqual({ item_id: 'i3', isCorrect: null, pointsEarned: null });
+    expect(result.totalPoints).toBe(9);
+    expect(result.score).toBe(2); // only i1's 2 points; i3 and i5 contribute nothing to score
   });
 });

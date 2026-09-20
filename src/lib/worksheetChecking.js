@@ -30,6 +30,12 @@ export function checkItem(item, key, answer) {
   // An essay has no machine-checkable answer; the teacher types the points.
   if (item?.item_type === 'essay') return { isCorrect: null, pointsEarned: null };
 
+  // A non-essay item with no key row at all (as opposed to a key row with an
+  // empty/blank answer) is unscorable, not automatically wrong: a save that
+  // partially failed, or a race during item authoring, must not silently
+  // mark an entire class incorrect on a question nobody could ever match.
+  if (key === null || key === undefined) return { isCorrect: null, pointsEarned: null };
+
   if (item?.item_type === 'multiple_choice' || item?.item_type === 'true_false') {
     const given = normalizeAnswer(answer);
     const correct = normalizeAnswer(key?.correct_answer);

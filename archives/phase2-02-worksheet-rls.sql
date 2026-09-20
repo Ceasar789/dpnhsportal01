@@ -239,11 +239,23 @@ RETURNS TRIGGER AS $$
 BEGIN
   -- Same early-out as guard_worksheet_submission_write above: a write with
   -- no user session (SQL Editor, service role, migration/cleanup scripts)
-  -- did not come from a student or teacher browser, so let it through. This
-  -- also covers the teacher's own app-level cleanup delete after a failed
-  -- answer-key write (see saveItems) — that runs under the same guard this
-  -- trigger enforces, before any submission can exist, so it is unaffected.
+  -- did not come from a student or teacher browser, so let it through.
   IF auth.uid() IS NULL THEN RETURN OLD; END IF;
+
+  -- worksheet_items.worksheet_id is ON DELETE CASCADE from worksheets, so
+  -- deleting the WHOLE worksheet (teacher/admin cleanup, e.g. handleDelete
+  -- in WorksheetsTab.jsx) fires this row trigger too, once per cascaded
+  -- item, inside the same transaction that already removed the parent row.
+  -- That is not a re-save trying to wipe answers out from under students —
+  -- it is the worksheet itself going away, submissions and all — so once
+  -- the parent is gone this must get out of the way rather than raising a
+  -- confusing "cannot delete items" error on a "delete this worksheet"
+  -- action. A plain re-save (saveItems' own delete) always leaves the
+  -- parent worksheets row in place, so this early-out cannot be used to
+  -- dodge the guard below by any route that keeps the worksheet itself.
+  IF NOT EXISTS (SELECT 1 FROM worksheets WHERE id = OLD.worksheet_id) THEN
+    RETURN OLD;
+  END IF;
 
   IF EXISTS (
     SELECT 1 FROM worksheet_submissions WHERE worksheet_id = OLD.worksheet_id
@@ -254,6 +266,22 @@ BEGIN
   RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+-- This trigger exempts nobody once the worksheet itself still exists — not
+-- even is_admin() or the owning teacher, unlike guard_worksheet_submission_write
+-- above. That asymmetry is deliberate: a teacher may legitimately correct
+-- their own submissions' scoring fields, but nobody should be able to
+-- destroy already-submitted student answers by re-saving a worksheet's
+-- questions out from under them. Do not "fix" this by adding an admin/owner
+-- bypass here; deleting the whole worksheet (which the NOT EXISTS check
+-- above already allows) is the correct way to remove submitted answers.
+--
+-- The saveItems cleanup delete (after a failed worksheet_item_keys insert)
+-- is NOT exempted by the auth.uid() IS NULL branch above — it runs from the
+-- teacher's own browser session with a real auth.uid(). It passes this
+-- trigger for a different reason: it always runs immediately after
+-- saveItems' own application-level guard already confirmed zero
+-- worksheet_submissions rows exist for this worksheet, so the EXISTS check
+-- below is false and the delete proceeds.
 
 DROP TRIGGER IF EXISTS guard_worksheet_item_delete ON worksheet_items;
 CREATE TRIGGER guard_worksheet_item_delete

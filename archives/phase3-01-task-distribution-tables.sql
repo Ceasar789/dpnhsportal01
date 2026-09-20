@@ -15,6 +15,16 @@
 -- already enrolled in it — without the backfill, task_assignees starts empty
 -- and phase3-02 would make every existing task vanish from every student.
 --
+-- The backfill is a ONE-TIME migration of pre-existing postings, not an
+-- ongoing sync: it runs only while task_assignees is still empty (see the
+-- WHERE NOT EXISTS guard below). Once Task 6 lets a teacher un-assign a
+-- student — deleting their task_assignees row while the worksheet_sections
+-- posting and the active enrolment both remain — a plain re-run keyed only
+-- on ON CONFLICT DO NOTHING would not see a conflicting row anymore and
+-- would silently re-grant a task that was deliberately taken away. Do not
+-- remove the WHERE NOT EXISTS guard to "sync" this later; write a real sync
+-- as its own file if that is ever needed.
+--
 -- Run in: Supabase Dashboard -> SQL Editor -> New query -> Run (without RLS)
 -- ============================================
 
@@ -56,10 +66,13 @@ CREATE INDEX IF NOT EXISTS idx_task_assignees_task    ON task_assignees(task_id)
 
 -- Backfill: one assignee row per (worksheet, student of a section that
 -- worksheet was posted to), carrying over the section's due_at and
--- posted_at. ON CONFLICT DO NOTHING makes this safe to run again — a second
--- run inserts nothing new, since every row it would produce already exists
--- (or the teacher/system has since changed due dates per student, which
--- this must not clobber).
+-- posted_at. Guarded by WHERE NOT EXISTS (SELECT 1 FROM task_assignees) so
+-- it only ever runs against an empty table — see the header note above for
+-- why this must not be a repeatable sync. ON CONFLICT DO NOTHING is kept as
+-- a second, belt-and-suspenders guard within that single run (e.g. against
+-- the FROM/JOIN producing the same (task_id, student_id) pair twice), not as
+-- the thing making a second invocation of this whole statement safe — the
+-- WHERE NOT EXISTS is what does that.
 --
 -- A student qualifies either by being actively enrolled in the posted-to
 -- section (the general case), or — regardless of current enrolment status —
@@ -76,11 +89,12 @@ INSERT INTO task_assignees (task_id, student_id, section_id, due_at, assigned_at
 SELECT ws.worksheet_id, ss.student_id, ws.section_id, ws.due_at, ws.posted_at
 FROM worksheet_sections ws
 JOIN section_students ss ON ss.section_id = ws.section_id
-WHERE ss.status = 'active'
-   OR EXISTS (
-     SELECT 1 FROM worksheet_submissions s
-     WHERE s.worksheet_id = ws.worksheet_id AND s.student_id = ss.student_id
-   )
+WHERE (ss.status = 'active'
+       OR EXISTS (
+         SELECT 1 FROM worksheet_submissions s
+         WHERE s.worksheet_id = ws.worksheet_id AND s.student_id = ss.student_id
+       ))
+  AND NOT EXISTS (SELECT 1 FROM task_assignees)
 ON CONFLICT (task_id, student_id) DO NOTHING;
 
 -- ============================================

@@ -23,6 +23,11 @@ const AttendanceTab = () => {
   const [stats, setStats] = useState({ present: 0, late: 0, absent: 0, total: 0 });
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  // A dropped read used to leave stats at its all-zero initial value, so the
+  // student saw "0 Present", "0%" and "No attendance records yet" — identical
+  // to genuinely having no attendance. That is the failure this whole phase
+  // set out to remove, so it gets its own state here too.
+  const [loadError, setLoadError] = useState(false);
 
   const fetchAttendance = useCallback(async () => {
     setLoading(true);
@@ -50,8 +55,11 @@ const AttendanceTab = () => {
 
       setStats({ present, late, absent, total: data?.length || 0 });
       setRecords(data || []);
+      setLoadError(false);
     } catch (err) {
-      showToast('Error fetching attendance', 'error');
+      console.warn('Attendance fetch failed —', err?.message);
+      setLoadError(true);
+      showToast('Could not load your attendance. Check your connection.', 'error');
     }
     setLoading(false);
   }, [userData?.uid]);
@@ -88,7 +96,7 @@ const AttendanceTab = () => {
             <CheckCircle size={24} style={{ color: '#16a34a' }} />
           </div>
           <p className="text-3xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : stats.present}
+            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : loadError ? '—' : stats.present}
           </p>
           <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Present</p>
         </Card>
@@ -98,7 +106,7 @@ const AttendanceTab = () => {
             <Clock size={24} style={{ color: '#d97706' }} />
           </div>
           <p className="text-3xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : stats.late}
+            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : loadError ? '—' : stats.late}
           </p>
           <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Late</p>
         </Card>
@@ -108,7 +116,7 @@ const AttendanceTab = () => {
             <AlertTriangle size={24} style={{ color: '#dc2626' }} />
           </div>
           <p className="text-3xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : stats.absent}
+            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : loadError ? '—' : stats.absent}
           </p>
           <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Absent</p>
         </Card>
@@ -118,16 +126,16 @@ const AttendanceTab = () => {
       <Card className="p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Attendance Rate</h2>
-          <span className="text-sm font-bold" style={{ color: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#d97706' : '#dc2626' }}>
-            {attendanceRate}%
+          <span className="text-sm font-bold" style={{ color: loadError ? '#dc2626' : attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#d97706' : '#dc2626' }}>
+            {loadError ? '—' : `${attendanceRate}%`}
           </span>
         </div>
         <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: dark ? '#334155' : '#e2e8f0' }}>
           <div className="h-full rounded-full transition-all" 
-            style={{ width: `${attendanceRate}%`, backgroundColor: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#FEB300' : '#dc2626' }} />
+            style={{ width: loadError ? '0%' : `${attendanceRate}%`, backgroundColor: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#FEB300' : '#dc2626' }} />
         </div>
         <p className="text-xs mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-          {stats.total} total days recorded
+          {loadError ? 'Could not load your attendance.' : `${stats.total} total days recorded`}
         </p>
       </Card>
 
@@ -138,10 +146,21 @@ const AttendanceTab = () => {
         </div>
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="animate-spin" style={{ color: dark ? '#64748b' : '#94a3b8' }} /></div>
+        ) : loadError ? (
+          <div className="p-8 text-center">
+            <p className="text-base font-semibold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+              Could not load your attendance.
+            </p>
+            <p className="mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+              This is a loading problem, not an empty record. Check your connection and try again.
+            </p>
+            <button onClick={fetchAttendance} className="h-9 px-4 rounded-lg text-sm font-semibold"
+              style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
+          </div>
         ) : records.length === 0 ? (
           <div className="p-8 text-center">
             <CalendarCheck size={40} className="mx-auto mb-3" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
-            <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>No attendance records yet.</p>
+            <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>No attendance has been recorded for you yet.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -27,7 +27,7 @@ import { withRetry } from '../../../../lib/supabaseRetry';
 const OverviewTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
-  const { showToast, Toast } = useToast();
+  const { Toast } = useToast();
 
   const [info, setInfo] = useState({
     name: userData?.name || 'Student',
@@ -46,10 +46,17 @@ const OverviewTab = () => {
     // Grade level and section come from the enrolment record — profiles has
     // never had year/section/avg_grade/attendance_rate columns, which is why
     // this tab showed dashes and zeros.
+    // No .limit(1): section_students is UNIQUE on (section_id, student_id),
+    // so a re-sectioned student can hold two rows both marked active. Taking
+    // an arbitrary one made the banner's section vary between loads and hid
+    // the other section's worksheets — while the Worksheets tab, which lets
+    // RLS decide, listed both. Ordered so the banner at least picks the same
+    // one every time.
     const { data: enrolment, error: enrolError } = await withRetry(
       () => supabase.from('section_students')
         .select('section_id, sections(name, grade_level)')
-        .eq('student_id', userData.uid).eq('status', 'active').limit(1),
+        .eq('student_id', userData.uid).eq('status', 'active')
+        .order('section_id'),
       { label: 'Student enrolment fetch' }
     );
     if (enrolError) {
@@ -57,27 +64,38 @@ const OverviewTab = () => {
       setLoadError(true); setLoading(false); return;
     }
 
-    const enrolled = (enrolment || [])[0] || null;
-    const sectionId = enrolled?.section_id || null;
+    const enrolments = enrolment || [];
+    const enrolled = enrolments[0] || null;
+    const sectionIds = enrolments.map(e => e.section_id).filter(Boolean);
 
-    const [idResult, attResult, subResult, postResult] = await Promise.all([
+    const [idResult, attResult, scoreResult, subResult, postResult] = await Promise.all([
       withRetry(() => supabase.from('students').select('student_number, lrn').eq('id', userData.uid).maybeSingle(),
         { label: 'Student number fetch' }),
       withRetry(() => supabase.from('attendance').select('status').eq('student_id', userData.uid),
         { label: 'Student attendance fetch' }),
+      // Two reads rather than one, deliberately. The scores are fetched with
+      // released = true IN THE QUERY, so an unreleased score never crosses
+      // the wire at all — RLS returns the whole row, so filtering in JS would
+      // still put a number the student is not meant to see in their devtools.
+      // The second read is status only, which the pending count needs for
+      // every submission regardless of release.
       withRetry(() => supabase.from('worksheet_submissions')
-        .select('worksheet_id, score, total_points, released, status')
+        .select('worksheet_id, score, total_points')
+        .eq('student_id', userData.uid).eq('released', true),
+        { label: 'Student released scores fetch' }),
+      withRetry(() => supabase.from('worksheet_submissions')
+        .select('worksheet_id, status')
         .eq('student_id', userData.uid),
-        { label: 'Student worksheet submissions fetch' }),
-      sectionId
+        { label: 'Student submission statuses fetch' }),
+      sectionIds.length > 0
         ? withRetry(() => supabase.from('worksheet_sections')
-            .select('id, worksheet_id, due_at').eq('section_id', sectionId),
+            .select('id, worksheet_id, due_at').in('section_id', sectionIds),
             { label: 'Student worksheet postings fetch' })
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (idResult.error || attResult.error || subResult.error || postResult.error) {
-      const first = idResult.error || attResult.error || subResult.error || postResult.error;
+    if (idResult.error || attResult.error || scoreResult.error || subResult.error || postResult.error) {
+      const first = idResult.error || attResult.error || scoreResult.error || subResult.error || postResult.error;
       console.warn('Student overview load failed —', first.message);
       setLoadError(true); setLoading(false); return;
     }
@@ -90,9 +108,9 @@ const OverviewTab = () => {
       section: enrolled?.sections?.name || null,
     });
 
-    // Released submissions only — a score the teacher has not released yet is
-    // not the student's to see.
-    const released = (subResult.data || []).filter(s => s.released && Number(s.total_points) > 0);
+    // Already released-only by the query above; the remaining filter just
+    // skips a worksheet worth zero points, which would divide by zero.
+    const released = (scoreResult.data || []).filter(s => Number(s.total_points) > 0);
     setPerformance(released.length === 0 ? null : {
       percent: Math.round(
         released.reduce((sum, s) => sum + (Number(s.score) / Number(s.total_points)) * 100, 0) / released.length
@@ -100,15 +118,16 @@ const OverviewTab = () => {
       count: released.length,
     });
 
-    // attendance.status is stored capitalized ('Present','Absent','Late',
-    // 'Excused') per the CHECK constraint in archives/database-schema.sql
-    // and what the teacher's Attendance tab actually writes — NOT the
-    // lowercase 'present' the student's own AttendanceTab.jsx compares
-    // against (a pre-existing bug there, out of scope for this tab).
+    // attendance.status is stored capitalised ('Present', 'Absent', 'Late',
+    // 'Excused') — that is what the teacher's tab writes and what the CHECK
+    // constraint allows. Compared case-insensitively anyway, and identically
+    // to the student's own Attendance tab: if the two ever disagreed about a
+    // row, the same dashboard would show two different percentages.
     const attRows = attResult.data || [];
+    const presentCount = attRows.filter(r => String(r.status || '').toLowerCase() === 'present').length;
     setAttendance(attRows.length === 0 ? null : {
-      percent: Math.round((attRows.filter(r => r.status === 'Present').length / attRows.length) * 100),
-      present: attRows.filter(r => r.status === 'Present').length,
+      percent: Math.round((presentCount / attRows.length) * 100),
+      present: presentCount,
       total: attRows.length,
     });
 
@@ -117,11 +136,28 @@ const OverviewTab = () => {
     const submittedIds = new Set(
       (subResult.data || []).filter(s => s.status !== 'in_progress').map(s => s.worksheet_id)
     );
+    // A worksheet is due FOR the whole of its due date. due_at is a TIMESTAMP
+    // and the teacher picks a plain date, so "due Sep 25" is stored as
+    // 2026-09-25 00:00:00 — comparing against that directly dropped the
+    // worksheet from this list at midnight entering the day it was due, while
+    // the Worksheets tab still listed it and still accepted an answer.
+    const endOfDueDay = (value) => {
+      const d = new Date(value);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
     const now = new Date();
     const open = (postResult.data || [])
       .filter(p => !submittedIds.has(p.worksheet_id))
-      .filter(p => !p.due_at || new Date(p.due_at) >= now)
-      .sort((a, b) => new Date(a.due_at || 0) - new Date(b.due_at || 0));
+      .filter(p => !p.due_at || endOfDueDay(p.due_at) >= now)
+      // Undated worksheets sort last, not first: mapping null to the epoch
+      // put "No due date" above something due tomorrow.
+      .sort((a, b) => {
+        if (!a.due_at && !b.due_at) return 0;
+        if (!a.due_at) return 1;
+        if (!b.due_at) return -1;
+        return new Date(a.due_at) - new Date(b.due_at);
+      });
 
     const openIds = open.map(p => p.worksheet_id);
     let sheets = [];
@@ -167,11 +203,25 @@ const OverviewTab = () => {
           <h2 className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>
             Welcome back, <span style={{ color: 'var(--banner-accent)' }}>{info.name}</span>!
           </h2>
+          {/* Three distinct states, never collapsed into one: the read
+              failed, the student is genuinely not enrolled, and the student
+              is enrolled. Falling back to "Not yet enrolled" on a failed read
+              would tell them something false about their own enrolment, and
+              silently dropping the ID would look identical to not having
+              one. */}
           <p className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--banner-subtext)' }}>
-            {info.gradeLevel && info.section
-              ? `${info.gradeLevel} · ${info.section}`
-              : 'Not yet enrolled in a section'}
-            {info.studentId ? ` · ID: ${info.studentId}` : ''}
+            {loading
+              ? 'Loading your enrolment…'
+              : loadError
+                ? 'Could not load your enrolment'
+                : (
+                  <>
+                    {info.gradeLevel && info.section
+                      ? `${info.gradeLevel} · ${info.section}`
+                      : 'Not yet enrolled in a section'}
+                    {info.studentId ? ` · ID: ${info.studentId}` : ''}
+                  </>
+                )}
           </p>
         </div>
         <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
@@ -209,7 +259,9 @@ const OverviewTab = () => {
           label="Pending Tasks"
           value={loading ? <Loader2 className="animate-spin" size={20} />
             : loadError ? '—' : upcoming.length.toString()}
-          sub={loadError ? 'Could not load' : upcoming.length === 0 ? 'Nothing due' : 'worksheets due'}
+          sub={loadError ? 'Could not load'
+            : upcoming.length === 0 ? 'Nothing due'
+            : `worksheet${upcoming.length === 1 ? '' : 's'} due`}
           icon={ClipboardList}
           subColor="#d97706"
           color="#d97706"
@@ -225,16 +277,19 @@ const OverviewTab = () => {
             <RefreshCw size={14} />
           </button>
         </div>
+        {/* loading is checked before loadError so pressing Retry visibly does
+            something — the other cards spin, and this one used to sit frozen
+            on its error message until the refetch finished. */}
         <div className="space-y-3">
-          {loadError ? (
+          {loading ? (
+            <div className="flex justify-center py-10"><Loader2 className="animate-spin" style={{ color: dark ? '#64748b' : '#94a3b8' }} /></div>
+          ) : loadError ? (
             <div className="text-center py-8">
               <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Could not load your tasks.</p>
               <p className="mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Check your connection and try again.</p>
               <button onClick={fetchOverview} className="h-9 px-4 rounded-lg text-sm font-semibold"
                 style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
             </div>
-          ) : loading ? (
-            <div className="flex justify-center py-10"><Loader2 className="animate-spin" style={{ color: dark ? '#64748b' : '#94a3b8' }} /></div>
           ) : upcoming.length === 0 ? (
             <div className="text-center py-8">
               <CheckCircle size={32} className="mx-auto mb-2" style={{ color: dark ? '#334155' : '#cbd5e1' }} />

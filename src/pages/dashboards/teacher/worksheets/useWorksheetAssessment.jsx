@@ -162,15 +162,47 @@ export const useWorksheetAssessment = (showToast) => {
   // builder and re-save — the guard above still protects them because no
   // submissions exist yet at this point (that's the case that got them here).
   const saveItems = useCallback(async (worksheetId, items) => {
-    const { data: existing, error: checkError } = await withRetry(
-      () => supabase.from('worksheet_submissions').select('id').eq('worksheet_id', worksheetId).limit(1),
+    // Keyed on WORK, not on a row existing. The student surface inserts a
+    // submission the moment someone taps Start — before answering anything,
+    // and even for a worksheet with no questions — so checking for any row at
+    // all meant one curious student permanently froze the question builder.
+    // What must not be destroyed is an answer already written, or a submission
+    // the student has finished. Mirrors guard_worksheet_item_delete, which
+    // enforces the same condition in the database.
+    const { data: finished, error: checkError } = await withRetry(
+      () => supabase.from('worksheet_submissions')
+        .select('id, status').eq('worksheet_id', worksheetId).neq('status', 'in_progress').limit(1),
       { label: 'Worksheet submissions guard fetch' }
     );
     if (checkError) {
       showToast('Could not check for existing answers — not saving.', 'error');
       return false;
     }
-    if ((existing || []).length > 0) {
+
+    const { data: openSubs, error: openError } = await withRetry(
+      () => supabase.from('worksheet_submissions').select('id').eq('worksheet_id', worksheetId),
+      { label: 'Worksheet open submissions fetch' }
+    );
+    if (openError) {
+      showToast('Could not check for existing answers — not saving.', 'error');
+      return false;
+    }
+
+    let answered = [];
+    if ((openSubs || []).length > 0) {
+      const { data, error: answerError } = await withRetry(
+        () => supabase.from('worksheet_answers').select('id')
+          .in('submission_id', (openSubs || []).map(s => s.id)).limit(1),
+        { label: 'Worksheet answers guard fetch' }
+      );
+      if (answerError) {
+        showToast('Could not check for existing answers — not saving.', 'error');
+        return false;
+      }
+      answered = data || [];
+    }
+
+    if ((finished || []).length > 0 || answered.length > 0) {
       showToast('Students have already answered this worksheet. Its questions can no longer be changed.', 'error');
       return false;
     }
@@ -474,7 +506,12 @@ export const useWorksheetAssessment = (showToast) => {
       };
     }
 
-    if (existing && existing.source === 'online' && !overwriteOnline) {
+    // Only a submission the student actually FINISHED is a conflict. The
+    // student surface inserts an `online` row the moment someone taps Start,
+    // so treating every online row as a conflict made the teacher tick
+    // "replace their online submission" for a student who merely opened the
+    // worksheet and answered nothing.
+    if (existing && existing.source === 'online' && existing.status !== 'in_progress' && !overwriteOnline) {
       return {
         ok: false,
         reason: 'online-conflict',

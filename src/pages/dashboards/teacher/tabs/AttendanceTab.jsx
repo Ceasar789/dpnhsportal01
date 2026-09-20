@@ -39,23 +39,49 @@ const AttendanceTab = () => {
       const sectionIds = sectionsData?.map(s => s.id) || [];
 
       // Get students from these sections
-      const { data: studentsData, error: studentsError } = await withRetry(
+      // Three plain reads rather than one nested select. `students.id`
+      // references auth.users, and there is no foreign key from `students` to
+      // `profiles` — so PostgREST cannot resolve a `students(profiles(...))`
+      // embed and fails the whole request with PGRST200. That aborted this
+      // fetch, left the class list empty, and meant no teacher could mark
+      // anybody: the reason attendance has never been recorded in this system.
+      const { data: links, error: studentsError } = await withRetry(
         () => supabase
           .from('section_students')
-          .select('student_id, students(id, lrn, profiles(id, name))')
+          .select('student_id, section_id')
           .in('section_id', sectionIds)
           .eq('status', 'active'),
         { label: 'Section students fetch' }
       );
 
       if (studentsError) throw studentsError;
-      
-      const mappedStudents = (studentsData || []).map(item => ({
-        id: item.students?.id,
-        lrn: item.students?.lrn,
-        name: item.students?.profiles?.name
+
+      const studentIds = [...new Set((links || []).map(l => l.student_id))];
+      let studentRows = [];
+      let profileRows = [];
+      if (studentIds.length > 0) {
+        const [studentResult, profileResult] = await Promise.all([
+          withRetry(() => supabase.from('students').select('id, lrn').in('id', studentIds),
+            { label: 'Student records fetch' }),
+          withRetry(() => supabase.from('profiles').select('id, name').in('id', studentIds),
+            { label: 'Student names fetch' }),
+        ]);
+        if (studentResult.error) throw studentResult.error;
+        if (profileResult.error) throw profileResult.error;
+        studentRows = studentResult.data || [];
+        profileRows = profileResult.data || [];
+      }
+
+      // section_id is carried through so marking attendance writes the section
+      // the student is actually enrolled in for this roster, rather than
+      // looking it up again and guessing when they have more than one.
+      const mappedStudents = studentIds.map(id => ({
+        id,
+        lrn: studentRows.find(s => s.id === id)?.lrn || null,
+        name: profileRows.find(p => p.id === id)?.name || 'Unnamed student',
+        sectionId: (links || []).find(l => l.student_id === id)?.section_id || null,
       }));
-      
+
       setStudents(mappedStudents);
       
       // Get attendance records for selected date from any section
@@ -93,21 +119,19 @@ const AttendanceTab = () => {
   const handleMark = async (studentId, status) => {
     setSaving(true);
     try {
-      // Get the section for this student from the selected date
-      const { data: studentSectionData, error: sectionError } = await supabase
-        .from('section_students')
-        .select('section_id')
-        .eq('student_id', studentId)
-        .single();
-      
-      if (sectionError) {
-        showToast('Could not find student section', 'error');
+      // The section comes from the roster row this student was listed under,
+      // not from a fresh lookup. The old `.single()` errored outright for a
+      // student enrolled in two sections, and could otherwise return a section
+      // this teacher neither advises nor handles — which attendance_staff_write
+      // then rejects, with the teacher seeing only a raw policy error.
+      const sectionId = students.find(s => s.id === studentId)?.sectionId || null;
+
+      if (!sectionId) {
+        showToast('Could not tell which section this student belongs to. Refresh and try again.', 'error');
         setSaving(false);
         return;
       }
-      
-      const sectionId = studentSectionData?.section_id;
-      
+
       // Map status code to full status name
       const statusMap = { 'P': 'Present', 'A': 'Absent', 'L': 'Late', 'E': 'Excused' };
       const fullStatus = statusMap[status];

@@ -187,7 +187,7 @@ const AttendanceTab = () => {
                       </Badge>
                     </td>
                     <td className="px-5 py-3.5 text-sm" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{r.subject || '—'}</td>
-                    <td className="px-5 py-3.5 text-sm" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{r.notes || '—'}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{r.remarks || '—'}</td>
                   </tr>
                 ))}
               </tbody>

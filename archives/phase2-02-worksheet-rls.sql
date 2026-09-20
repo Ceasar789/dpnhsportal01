@@ -257,10 +257,23 @@ BEGIN
     RETURN OLD;
   END IF;
 
+  -- The harm this guards against is destroying WORK, so it keys off work
+  -- existing — an answer written, or a submission the student has finished —
+  -- not merely a submission ROW existing. The student surface inserts that row
+  -- the moment a student taps Start, before they have answered anything and
+  -- even for a worksheet with no questions at all. Keying off the row meant
+  -- one student opening a worksheet out of curiosity permanently froze its
+  -- questions, with no way back except deleting the whole worksheet.
   IF EXISTS (
-    SELECT 1 FROM worksheet_submissions WHERE worksheet_id = OLD.worksheet_id
+    SELECT 1
+    FROM worksheet_answers wa
+    JOIN worksheet_items wi ON wi.id = wa.item_id
+    WHERE wi.worksheet_id = OLD.worksheet_id
+  ) OR EXISTS (
+    SELECT 1 FROM worksheet_submissions
+    WHERE worksheet_id = OLD.worksheet_id AND status <> 'in_progress'
   ) THEN
-    RAISE EXCEPTION 'Cannot delete worksheet items once students have submitted answers for this worksheet';
+    RAISE EXCEPTION 'Cannot change the questions: students have already answered this worksheet';
   END IF;
 
   RETURN OLD;

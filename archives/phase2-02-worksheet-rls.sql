@@ -292,9 +292,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 -- is NOT exempted by the auth.uid() IS NULL branch above — it runs from the
 -- teacher's own browser session with a real auth.uid(). It passes this
 -- trigger for a different reason: it always runs immediately after
--- saveItems' own application-level guard already confirmed zero
--- worksheet_submissions rows exist for this worksheet, so the EXISTS check
--- below is false and the delete proceeds.
+-- saveItems' own application-level guard has confirmed that no answer has
+-- been written for this worksheet and that no submission has left
+-- in_progress — the same two conditions the EXISTS check above tests — so
+-- both disjuncts are false and the delete proceeds.
 
 DROP TRIGGER IF EXISTS guard_worksheet_item_delete ON worksheet_items;
 CREATE TRIGGER guard_worksheet_item_delete

@@ -21,9 +21,16 @@ const AttendanceTab = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
+  // Without this, every failure lands in the catch below, shows one passing
+  // toast, and leaves the roster empty — "No students found", which is what an
+  // advisory section with no enrolments looks like. Worse on a refetch: the
+  // previous roster stays while the attendance map is cleared, so a failed
+  // read reads as "nobody is marked today."
+  const [loadError, setLoadError] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       // Get sections where this teacher is the adviser
       const { data: sectionsData, error: sectionsError } = await withRetry(
@@ -37,6 +44,17 @@ const AttendanceTab = () => {
       if (sectionsError) throw sectionsError;
 
       const sectionIds = sectionsData?.map(s => s.id) || [];
+
+      // A teacher who advises no section has nothing to mark. Returning here
+      // rather than issuing `.in('section_id', [])`, which some PostgREST
+      // versions reject outright — that would greet a brand-new teacher with
+      // a red error on a page that is simply not theirs to use yet.
+      if (sectionIds.length === 0) {
+        setStudents([]);
+        setAttendance({});
+        setLoading(false);
+        return;
+      }
 
       // Get students from these sections
       // Three plain reads rather than one nested select. `students.id`
@@ -102,7 +120,9 @@ const AttendanceTab = () => {
       });
       setAttendance(attMap);
     } catch (error) {
-      showToast('Error loading attendance: ' + error.message, 'error');
+      console.warn('Teacher attendance load failed —', error?.message);
+      setLoadError(true);
+      showToast('Could not load your class list. Check your connection.', 'error');
     }
     setLoading(false);
   }, [userData, selectedDate, showToast]);
@@ -216,7 +236,9 @@ const AttendanceTab = () => {
           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
         ) : (
           <Table headers={['#', 'Student', 'Status', 'Actions']}>
-            {students.map((s, i) => (
+            {/* A stale roster under a failed refetch would read as "nobody is
+                marked today", so the rows go with the error state. */}
+            {!loadError && students.map((s, i) => (
               <TR key={s.id}>
                 <TD>{i + 1}</TD>
                 <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{s.name}</span></TD>
@@ -255,8 +277,18 @@ const AttendanceTab = () => {
                 </TD>
               </TR>
             ))}
-            {students.length === 0 && (
-              <tr><td colSpan={4} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No students found</td></tr>
+            {loadError ? (
+              <tr><td colSpan={4} className="text-center py-8 text-sm" style={{ color: '#dc2626' }}>
+                Could not load your class list — this is a loading problem, not an empty section.
+                <div style={{ marginTop: 10 }}>
+                  <button onClick={fetchData} className="h-9 px-4 rounded-lg text-sm font-semibold"
+                    style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
+                </div>
+              </td></tr>
+            ) : students.length === 0 && (
+              <tr><td colSpan={4} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                No students are enrolled in the section you advise yet.
+              </td></tr>
             )}
           </Table>
         )}

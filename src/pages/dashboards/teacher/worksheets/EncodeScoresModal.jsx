@@ -228,7 +228,7 @@ const EncodeScoresModal = ({
     // status 'in_progress' just means the student opened the worksheet; it
     // carries no answers to lose, so encoding a paper score over it is not a
     // decision the teacher needs to be stopped for.
-    if (sub && sub.source === 'online' && sub.status !== 'in_progress') {
+    if (sub && sub.source === 'online' && (sub.status !== 'in_progress' || sub.hasAnswers)) {
       return {
         color: '#d97706',
         text: sub.released
@@ -305,7 +305,8 @@ const EncodeScoresModal = ({
                 const note = rowNote(s.student_id);
                 const conflicted = rowResult[s.student_id]?.reason === 'online-conflict'
                   || (existing[s.student_id]?.source === 'online'
-                      && existing[s.student_id]?.status !== 'in_progress');
+                      && (existing[s.student_id]?.status !== 'in_progress'
+                          || existing[s.student_id]?.hasAnswers));
                 return (
                   <div key={s.student_id} className="flex flex-col gap-1 py-1"
                     style={{ borderBottom: `1px solid ${dark ? '#334155' : '#f1f5f9'}` }}>

@@ -324,7 +324,27 @@ export const useWorksheetAssessment = (showToast) => {
       names = data || [];
     }
 
+    // Which submissions carry real work. A submission row exists from the
+    // moment a student taps Start, so `status` alone cannot tell an untouched
+    // one from a half-answered one — and encoding a paper score over the
+    // second silently buries answers the student wrote. One read for the whole
+    // worksheet rather than one per student.
+    let answeredIds = new Set();
+    const subIds = (subs || []).map(s => s.id);
+    if (subIds.length > 0) {
+      const { data, error: answerError } = await withRetry(
+        () => supabase.from('worksheet_answers').select('submission_id').in('submission_id', subIds),
+        { label: 'Submission answer presence fetch' }
+      );
+      if (answerError) {
+        console.warn('Submission answer presence fetch failed —', answerError.message);
+        return null;
+      }
+      answeredIds = new Set((data || []).map(a => a.submission_id));
+    }
+
     return (subs || []).map(s => ({
+      hasAnswers: answeredIds.has(s.id),
       ...s,
       name: names.find(n => n.id === s.student_id)?.name || '—',
     }));
@@ -506,12 +526,34 @@ export const useWorksheetAssessment = (showToast) => {
       };
     }
 
+    // An in-progress online submission is only a conflict if the student
+    // actually wrote something into it. Same definition of "work" saveItems
+    // uses, so the two guards in this file cannot disagree about whether a
+    // half-answered worksheet counts.
+    let existingHasAnswers = false;
+    if (existing && existing.source === 'online' && existing.status === 'in_progress') {
+      const { data: answerRows, error: answerError } = await withRetry(
+        () => supabase.from('worksheet_answers').select('id').eq('submission_id', existing.id).limit(1),
+        { label: 'Existing submission answer check' }
+      );
+      if (answerError) {
+        console.warn('Existing submission answer check failed —', answerError.message);
+        return {
+          ok: false,
+          reason: 'lookup-failed',
+          message: 'Could not check whether this student already answered in the app — nothing was saved.',
+        };
+      }
+      existingHasAnswers = (answerRows || []).length > 0;
+    }
+
     // Only a submission the student actually FINISHED is a conflict. The
     // student surface inserts an `online` row the moment someone taps Start,
     // so treating every online row as a conflict made the teacher tick
     // "replace their online submission" for a student who merely opened the
     // worksheet and answered nothing.
-    if (existing && existing.source === 'online' && existing.status !== 'in_progress' && !overwriteOnline) {
+    if (existing && existing.source === 'online'
+        && (existing.status !== 'in_progress' || existingHasAnswers) && !overwriteOnline) {
       return {
         ok: false,
         reason: 'online-conflict',

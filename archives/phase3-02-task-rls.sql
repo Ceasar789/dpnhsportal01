@@ -7,9 +7,20 @@
 --
 -- Depends on phase3-01 and on phase2-02 having been run. Safe to run twice.
 --
+-- SUPERSEDES four objects from phase2-02-worksheet-rls.sql: the policies
+-- ws_items_read, ws_worksheets_student_read and ws_sections_read, and the
+-- body of guard_worksheet_submission_write. Re-running phase2-02 after this
+-- file reverts all four to their Phase 2 bodies with no error — if that ever
+-- happens, re-run this file again afterwards.
+--
 -- Run in: Supabase Dashboard -> SQL Editor -> New query -> Run (without RLS)
 -- ============================================
 
+-- Deliberately does NOT require the student's enrolment (section_students) to
+-- still be active: the assignment itself is the grant, made once at
+-- distribution time, and a student who has since left the section should not
+-- lose read access to work they actually did. Do not add an active-enrolment
+-- check here.
 CREATE OR REPLACE FUNCTION student_assigned_task(p_task_id UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -52,6 +63,31 @@ DROP POLICY IF EXISTS ws_sections_read ON worksheet_sections;
 CREATE POLICY ws_sections_read ON worksheet_sections FOR SELECT TO authenticated
   USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_assigned_task(worksheet_id));
 
+-- The write side of worksheet_submissions must agree with the read side about
+-- who holds a task, or a student who was never assigned can still POST a
+-- submission through the API (landing in the teacher's grading roster for
+-- work they were never given), and a student who was assigned but has since
+-- left the section could read the task yet be unable to submit it. Only the
+-- section test is replaced here — student_id = auth.uid() and every scoring
+-- pin are unchanged from phase2-02.
+DROP POLICY IF EXISTS ws_subs_student_insert ON worksheet_submissions;
+CREATE POLICY ws_subs_student_insert ON worksheet_submissions FOR INSERT TO authenticated
+  WITH CHECK (student_id = auth.uid()
+              AND student_assigned_task(worksheet_id)
+              AND status IN ('in_progress','submitted')
+              AND released = FALSE
+              AND score IS NULL AND total_points IS NULL
+              AND checked_by IS NULL AND checked_at IS NULL);
+DROP POLICY IF EXISTS ws_subs_student_update ON worksheet_submissions;
+CREATE POLICY ws_subs_student_update ON worksheet_submissions FOR UPDATE TO authenticated
+  USING (student_id = auth.uid() AND status <> 'checked')
+  WITH CHECK (student_id = auth.uid()
+              AND student_assigned_task(worksheet_id)
+              AND status IN ('in_progress','submitted')
+              AND released = FALSE
+              AND score IS NULL AND total_points IS NULL
+              AND checked_by IS NULL AND checked_at IS NULL);
+
 -- Rewritten from phase2-02 with one addition: the transition into 'submitted'
 -- now also stamps is_late, from the student's own assignee row. Everything
 -- else — the status machine, the pinned columns, the teacher early-out — is
@@ -75,6 +111,9 @@ BEGIN
       RAISE EXCEPTION 'Students may only start a submission, not create a finished one';
     END IF;
     NEW.submitted_at := NULL;
+    -- Pinned false at creation, same reasoning as submitted_at above: the
+    -- client must never be the one deciding lateness, not even by omission.
+    NEW.is_late := FALSE;
     RETURN NEW;
   END IF;
 
@@ -102,7 +141,15 @@ BEGIN
     NEW.submitted_at := NOW();
     SELECT due_at INTO v_due FROM task_assignees
       WHERE task_id = NEW.worksheet_id AND student_id = NEW.student_id;
-    NEW.is_late := (v_due IS NOT NULL AND NOW() > v_due);
+    -- due_at is a naive TIMESTAMP holding the school's local wall-clock time
+    -- (taskFormatting.js's combineDateAndTime writes it with no offset), but
+    -- NOW() is timestamptz. Comparing them directly lets Postgres coerce
+    -- due_at using the session's TimeZone setting, which on Supabase is UTC
+    -- — not the school's, which is Asia/Manila (UTC+8). That silently reads
+    -- up to 8 hours of genuinely-late submissions as on-time. Converting
+    -- NOW() into the same Asia/Manila wall-clock space the column stores
+    -- fixes that without depending on a session setting nobody will check.
+    NEW.is_late := (v_due IS NOT NULL AND (NOW() AT TIME ZONE 'Asia/Manila') > v_due);
   ELSIF (OLD.status = 'in_progress' AND NEW.status = 'in_progress')
      OR (OLD.status = 'submitted'   AND NEW.status = 'submitted') THEN
     IF NEW.submitted_at IS DISTINCT FROM OLD.submitted_at THEN
@@ -136,3 +183,11 @@ SELECT tablename, policyname, qual FROM pg_policies
 WHERE schemaname = 'public'
   AND policyname IN ('ws_items_read','ws_worksheets_student_read')
 ORDER BY tablename;
+
+-- This file only replaces guard_worksheet_submission_write's BODY; the
+-- trigger binding it to worksheet_submissions was created back in
+-- phase2-02 and is not recreated here. Confirm it is still attached — on a
+-- database where it is missing, every check above can come back green while
+-- the entire student write guard (including the is_late stamp) is absent.
+SELECT tgname FROM pg_trigger
+WHERE tgrelid = 'worksheet_submissions'::regclass AND NOT tgisinternal;

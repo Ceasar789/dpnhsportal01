@@ -10,6 +10,13 @@
 -- rather than a policy, because RLS grants or denies a whole row — it cannot
 -- say "this student may set status but not score".
 --
+-- WARNING: archives/phase3-02-task-rls.sql supersedes four objects this file
+-- creates — the policies ws_items_read, ws_worksheets_student_read and
+-- ws_sections_read, and the body of guard_worksheet_submission_write. If
+-- phase3-02 has already been run against this database, re-running this file
+-- reverts all four to their Phase 2 bodies with no error, and phase3-02 must
+-- be re-run afterwards to restore them.
+--
 -- Run in: Supabase Dashboard -> SQL Editor -> New query -> Run (without RLS)
 -- ============================================
 

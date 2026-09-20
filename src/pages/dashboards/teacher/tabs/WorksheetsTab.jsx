@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
+import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
+import PostToSectionModal from '../worksheets/PostToSectionModal';
 
 const WorksheetsTab = () => {
   const { dark } = useTheme();
@@ -27,6 +29,8 @@ const WorksheetsTab = () => {
   const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
   const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', status: 'Draft' });
   const [saving, setSaving] = useState(false);
+  const assessment = useWorksheetAssessment(showToast);
+  const [postingWorksheet, setPostingWorksheet] = useState(null);
 
   const filters = ['All', 'English', 'Math', 'Science', 'Filipino', 'Araling Panlipunan'];
 
@@ -275,11 +279,20 @@ const WorksheetsTab = () => {
                   <Download size={12} /> Download
                 </button>
               )}
+              <button onClick={() => setPostingWorksheet(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                Post
+              </button>
               <button onClick={() => handleDelete(ws.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 <Trash2 size={14} />
               </button>
             </div>
+            {assessment.postings.filter(p => p.worksheet_id === ws.id).length > 0 && (
+              <p className="text-[11px] mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                Posted to {assessment.postings.filter(p => p.worksheet_id === ws.id).length} section(s)
+              </p>
+            )}
           </Card>
         ))}
         {!loading && filtered.length === 0 && (
@@ -362,6 +375,16 @@ const WorksheetsTab = () => {
             </div>
           </div>
         </Modal>
+      )}
+
+      {postingWorksheet && (
+        <PostToSectionModal
+          worksheet={postingWorksheet}
+          sections={assessment.mySections}
+          sectionsError={assessment.sectionsError}
+          onPost={assessment.postWorksheet}
+          onClose={() => setPostingWorksheet(null)}
+        />
       )}
     </div>
   );

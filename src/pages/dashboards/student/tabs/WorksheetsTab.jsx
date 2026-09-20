@@ -166,7 +166,9 @@ const StudentWorksheetsTab = () => {
             setBusy(false); return;
           }
           sub = existing;
-          showToast('Reopening the worksheet you already started.');
+          showToast(existing.status === 'in_progress'
+            ? 'Reopening the worksheet you already started.'
+            : 'This worksheet was already submitted.');
         } else {
           showToast(toStudentMessage(createError, 'Could not start this worksheet. Check your connection and try again.'), 'error');
           setBusy(false); return;
@@ -362,9 +364,14 @@ const StudentWorksheetsTab = () => {
                   {index + 1}. {it.question} <span className="text-xs" style={muted}>({it.points} pts)</span>
                 </p>
 
+                {/* Disabled on `busy` too, not just `done`: submit() awaits
+                    a flush that can take a real moment on a congested pool,
+                    and an answer changed during that window would otherwise
+                    fire a write that races the status UPDATE exactly like
+                    the bug this flush was built to fix. */}
                 {it.item_type === 'multiple_choice' && (it.options || []).map(opt => (
                   <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
-                    <input type="radio" name={it.id} disabled={done} checked={answers[it.id] === opt}
+                    <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
                       onChange={() => saveAnswer(it.id, opt)} />
                     {opt}
                   </label>
@@ -375,14 +382,14 @@ const StudentWorksheetsTab = () => {
                     stores those two options as. */}
                 {it.item_type === 'true_false' && TRUE_FALSE_VALUES.map(opt => (
                   <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
-                    <input type="radio" name={it.id} disabled={done} checked={answers[it.id] === opt}
+                    <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
                       onChange={() => saveAnswer(it.id, opt)} />
                     {opt}
                   </label>
                 ))}
 
                 {it.item_type === 'identification' && (
-                  <input type="text" disabled={done} defaultValue={answers[it.id] || ''}
+                  <input type="text" disabled={done || busy} defaultValue={answers[it.id] || ''}
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full h-9 px-3 rounded-lg text-sm outline-none"
@@ -392,7 +399,7 @@ const StudentWorksheetsTab = () => {
                 )}
 
                 {it.item_type === 'enumeration' && (
-                  <textarea disabled={done} rows={3}
+                  <textarea disabled={done || busy} rows={3}
                     defaultValue={Array.isArray(answers[it.id]) ? answers[it.id].join('\n') : ''}
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
                     onBlur={e => saveAnswer(it.id, e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
@@ -404,7 +411,7 @@ const StudentWorksheetsTab = () => {
                 )}
 
                 {it.item_type === 'essay' && (
-                  <textarea disabled={done} rows={5} defaultValue={answers[it.id] || ''}
+                  <textarea disabled={done || busy} rows={5} defaultValue={answers[it.id] || ''}
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"

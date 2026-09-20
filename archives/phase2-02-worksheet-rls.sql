@@ -227,6 +227,39 @@ CREATE TRIGGER guard_worksheet_submission
   BEFORE INSERT OR UPDATE ON worksheet_submissions
   FOR EACH ROW EXECUTE FUNCTION guard_worksheet_submission_write();
 
+-- The teacher's question-builder UI checks worksheet_submissions before it
+-- deletes worksheet_items to re-save (worksheet_answers.item_id cascades on
+-- that delete). That check and the delete are two separate round trips from
+-- the client, which leaves a TOCTOU window: a student can submit an answer
+-- in between them, and the client has no way to close that from its side.
+-- This trigger closes it at the database, which is the only place both
+-- writes are guaranteed to be serialized against each other.
+CREATE OR REPLACE FUNCTION guard_worksheet_item_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Same early-out as guard_worksheet_submission_write above: a write with
+  -- no user session (SQL Editor, service role, migration/cleanup scripts)
+  -- did not come from a student or teacher browser, so let it through. This
+  -- also covers the teacher's own app-level cleanup delete after a failed
+  -- answer-key write (see saveItems) — that runs under the same guard this
+  -- trigger enforces, before any submission can exist, so it is unaffected.
+  IF auth.uid() IS NULL THEN RETURN OLD; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM worksheet_submissions WHERE worksheet_id = OLD.worksheet_id
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete worksheet items once students have submitted answers for this worksheet';
+  END IF;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS guard_worksheet_item_delete ON worksheet_items;
+CREATE TRIGGER guard_worksheet_item_delete
+  BEFORE DELETE ON worksheet_items
+  FOR EACH ROW EXECUTE FUNCTION guard_worksheet_item_delete();
+
 -- ============================================
 -- VERIFY — every table below must show rls_on = true and at least one policy.
 -- Any policy name you do not recognise should be investigated.
@@ -240,3 +273,6 @@ ORDER BY c.relname, p.cmd;
 
 SELECT tgname FROM pg_trigger
 WHERE tgrelid = 'worksheet_submissions'::regclass AND NOT tgisinternal;
+
+SELECT tgname FROM pg_trigger
+WHERE tgrelid = 'worksheet_items'::regclass AND NOT tgisinternal;

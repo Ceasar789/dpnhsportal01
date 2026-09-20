@@ -16,7 +16,7 @@ import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
 import { TASK_TYPES, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
-import PostToSectionModal from '../worksheets/PostToSectionModal';
+import DistributeModal from '../worksheets/DistributeModal';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
 import EncodeScoresModal from '../worksheets/EncodeScoresModal';
@@ -34,7 +34,7 @@ const WorksheetsTab = () => {
   const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', status: 'Draft', task_type: 'worksheet' });
   const [saving, setSaving] = useState(false);
   const assessment = useWorksheetAssessment(showToast);
-  const [postingWorksheet, setPostingWorksheet] = useState(null);
+  const [distributingTask, setDistributingTask] = useState(null);
   const [buildingWorksheet, setBuildingWorksheet] = useState(null);
   const [checkingWorksheet, setCheckingWorksheet] = useState(null);
   const [encodingWorksheet, setEncodingWorksheet] = useState(null);
@@ -100,15 +100,6 @@ const WorksheetsTab = () => {
       fetchWorksheets();
     }
     setSaving(false);
-  };
-
-  const handleDistribute = async (id) => {
-    const { error } = await supabase.from('worksheets').update({ status: 'Distributed', updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) showToast('Error: ' + error.message, 'error');
-    else {
-      showToast('Worksheet distributed to students');
-      fetchWorksheets();
-    }
   };
 
   const handleDelete = async (id) => {
@@ -316,10 +307,6 @@ const WorksheetsTab = () => {
             <h3 className="text-sm font-semibold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{ws.title}</h3>
             <p className="text-xs mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{ws.subject} · {ws.pages || '—'} pages · {ws.items || '—'} items</p>
             <div className="flex gap-2">
-              {ws.status === 'Draft' && (
-                <button onClick={() => handleDistribute(ws.id)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
-                  style={{ backgroundColor: '#1e3a5f', color: '#ffffff' }}>Distribute</button>
-              )}
               <button onClick={() => handlePreview(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
                 style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 {ws.file_url ? 'View' : 'Preview'}
@@ -330,9 +317,9 @@ const WorksheetsTab = () => {
                   <Download size={12} /> Download
                 </button>
               )}
-              <button onClick={() => setPostingWorksheet(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
+              <button onClick={() => setDistributingTask(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
                 style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-                Post
+                Distribute
               </button>
               <button onClick={() => setBuildingWorksheet(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
                 style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
@@ -464,14 +451,17 @@ const WorksheetsTab = () => {
         </Modal>
       )}
 
-      {postingWorksheet && (
-        <PostToSectionModal
-          worksheet={postingWorksheet}
+      {distributingTask && (
+        <DistributeModal
+          task={distributingTask}
           sections={assessment.mySections}
           sectionsError={assessment.sectionsError}
           onRetrySections={assessment.fetchMySections}
-          onPost={assessment.postWorksheet}
-          onClose={() => setPostingWorksheet(null)}
+          loadClassList={assessment.loadClassList}
+          loadAssignees={assessment.loadAssignees}
+          loadSubmissions={assessment.loadSubmissions}
+          distributeTask={assessment.distributeTask}
+          onClose={() => setDistributingTask(null)}
         />
       )}
 

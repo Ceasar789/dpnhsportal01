@@ -57,9 +57,17 @@ export const useWorksheetAssessment = (showToast) => {
       scheduled = data || [];
     }
 
-    const merged = [...scheduled, ...(advised || [])]
+    // Advised sections are listed first — DistributeModal offers the section
+    // a teacher advises before the ones they merely teach into. A section
+    // that is both (an adviser also scheduled into their own section) must
+    // dedupe to the advised copy, so advised is spread first: the dedupe
+    // below keeps the FIRST occurrence of a given id.
+    const merged = [
+      ...(advised || []).map(s => ({ ...s, isAdviser: true })),
+      ...scheduled.map(s => ({ ...s, isAdviser: false })),
+    ]
       .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      .sort((a, b) => (b.isAdviser - a.isAdviser) || (a.name || '').localeCompare(b.name || ''));
 
     setSectionsError(false);
     setMySections(merged);
@@ -662,6 +670,80 @@ export const useWorksheetAssessment = (showToast) => {
 
   useEffect(() => { fetchMySubject(); }, [fetchMySubject]);
 
+  // Who currently holds this task, and under which section — the source of
+  // truth DistributeModal checks before re-inserting anyone, and the thing
+  // that decides which section_id a resubmit-safe retry writes. Returns
+  // null — never [] — on a failed read: an empty array here would read as
+  // "nobody has this yet" and let a re-open silently re-add students who
+  // already do, or (worse) tell distributeTask nobody needs skipping.
+  const loadAssignees = useCallback(async (taskId) => {
+    const { data, error } = await withRetry(
+      () => supabase.from('task_assignees')
+        .select('student_id, section_id, due_at').eq('task_id', taskId),
+      { label: 'Task assignees fetch' }
+    );
+    if (error) {
+      console.warn('Task assignees fetch failed —', error.message);
+      return null;
+    }
+    return data || [];
+  }, []);
+
+  // Writes the section posting and one assignee row per student. Students
+  // already assigned are skipped rather than re-inserted, so re-opening the
+  // modal to add a latecomer does not disturb anybody else or notify them
+  // twice. Returns the ids actually added so the caller can notify exactly
+  // those and nobody else.
+  //
+  // section_id on every inserted row is the SECTION PASSED IN, never a fresh
+  // lookup of the student's current live enrolment. task_assignees.section_id
+  // is what the RLS submission-insert check (student_assigned_task_in_section)
+  // pins worksheet_submissions.section_id to, so writing anything other than
+  // the section this distribution actually happened under would let that
+  // student's own submission get rejected by the database with a bare RLS
+  // error the student cannot make sense of.
+  const distributeTask = async (taskId, sectionId, studentIds, dueAt) => {
+    if (!sectionId) return { ok: false, message: 'Pick a section first.' };
+    if (!dueAt) return { ok: false, message: 'Set a deadline first.' };
+    if (studentIds.length === 0) return { ok: false, message: 'Tick at least one student.' };
+
+    const existing = await loadAssignees(taskId);
+    if (existing === null) {
+      return { ok: false, message: 'Could not check who already has this task — nothing was sent.' };
+    }
+    const already = new Set(existing.map(a => a.student_id));
+    const toAdd = studentIds.filter(id => !already.has(id));
+
+    // Records that the task reached this section. Phase 2's teacher-facing
+    // summary reads it; the student's own access comes from task_assignees.
+    const { error: sectionError } = await supabase.from('worksheet_sections').upsert([{
+      worksheet_id: taskId, section_id: sectionId, due_at: dueAt, posted_by: userData?.uid || null,
+    }], { onConflict: 'worksheet_id,section_id' });
+    if (sectionError) {
+      return { ok: false, message: `Could not record the posting: ${sectionError.message}` };
+    }
+
+    if (toAdd.length === 0) {
+      return { ok: true, added: [], skipped: studentIds.length, message: 'Everyone ticked already has this task.' };
+    }
+
+    const { error } = await supabase.from('task_assignees').insert(
+      toAdd.map(id => ({
+        task_id: taskId, student_id: id, section_id: sectionId,
+        due_at: dueAt, assigned_by: userData?.uid || null,
+      }))
+    );
+    if (error) {
+      const message = error.code === '23503'
+        ? 'One of these students is not on the class list yet. Ask your admin to add them to the section first.'
+        : `Could not distribute: ${error.message}`;
+      return { ok: false, message };
+    }
+
+    fetchPostings();
+    return { ok: true, added: toAdd, skipped: studentIds.length - toAdd.length, message: '' };
+  };
+
   return {
     mySections, sectionsError, fetchMySections,
     postings, postingsError, fetchPostings,
@@ -670,5 +752,6 @@ export const useWorksheetAssessment = (showToast) => {
     loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
     loadClassList,
     mySubject, subjectError, subjectConflict, subjectLoading, fetchMySubject,
+    loadAssignees, distributeTask,
   };
 };

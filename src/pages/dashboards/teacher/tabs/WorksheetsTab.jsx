@@ -16,6 +16,7 @@ import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import PostToSectionModal from '../worksheets/PostToSectionModal';
+import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 
 const WorksheetsTab = () => {
   const { dark } = useTheme();
@@ -31,6 +32,7 @@ const WorksheetsTab = () => {
   const [saving, setSaving] = useState(false);
   const assessment = useWorksheetAssessment(showToast);
   const [postingWorksheet, setPostingWorksheet] = useState(null);
+  const [buildingWorksheet, setBuildingWorksheet] = useState(null);
 
   const filters = ['All', 'English', 'Math', 'Science', 'Filipino', 'Araling Panlipunan'];
 
@@ -283,6 +285,10 @@ const WorksheetsTab = () => {
                 style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 Post
               </button>
+              <button onClick={() => setBuildingWorksheet(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                Questions
+              </button>
               <button onClick={() => handleDelete(ws.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 <Trash2 size={14} />
@@ -392,6 +398,16 @@ const WorksheetsTab = () => {
           onRetrySections={assessment.fetchMySections}
           onPost={assessment.postWorksheet}
           onClose={() => setPostingWorksheet(null)}
+        />
+      )}
+
+      {buildingWorksheet && (
+        <QuestionBuilderModal
+          worksheet={buildingWorksheet}
+          loadItems={assessment.loadItems}
+          saveItems={assessment.saveItems}
+          setCheckingMode={assessment.setCheckingMode}
+          onClose={() => { setBuildingWorksheet(null); fetchWorksheets(); }}
         />
       )}
     </div>

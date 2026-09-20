@@ -91,6 +91,22 @@ student asked for this: it matches the order they learned about the work.
 Keeping an inert button beside a working one is what caused the original
 confusion.
 
+**Nothing assigned to a student is allowed to have nowhere to appear.** A task
+whose subject is null — every task created before this phase — or whose subject
+is not in the student's schedule still gets a card, labelled `Other`. Dropping
+such a task from the cards would hide assigned work, which is this codebase's
+signature defect wearing a new hat. The `Other` card is rendered only when it
+has something in it.
+
+**The notifications policies are written to be correct whatever state the live
+table is in.** No archived SQL file contains a single policy for
+`notifications`, so its current state is unknown and cannot be assumed. The
+migration enables RLS explicitly and creates every policy the table needs from
+scratch, idempotently: a user reads and updates their own rows, and a teacher
+may INSERT a row addressed to a student they actually teach — insert only, no
+update, no read of other people's notifications. Written this way it is correct
+whether the table today has no policies, partial ones, or RLS switched off.
+
 ## Data model
 
 ### Already present, unused
@@ -236,9 +252,11 @@ and tasks whose subject is not in the schedule need somewhere to go rather than
 disappearing.
 
 **`worksheets.subject` and `subject_id` will disagree.** Existing rows have the
-free-text column filled and the id column null. Either backfill by matching
-names, or accept that tasks created before this phase have no subject card and
-say so. Matching `'Uploaded Document'` to a subject is not possible.
+free-text column filled and the id column null, and `'Uploaded Document'`
+matches no real subject. Resolved by the `Other` card: those tasks are still
+shown, just not under a subject. No backfill is attempted — guessing a subject
+from free text would put work under the wrong heading, which is worse than
+admitting it has none.
 
 **Two writes, no transaction.** Distribution writes `worksheet_sections`,
 `task_assignees` and notifications from the browser. A failure partway must

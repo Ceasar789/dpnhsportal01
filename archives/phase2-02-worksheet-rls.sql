@@ -119,8 +119,9 @@ CREATE POLICY ws_subs_teacher_write ON worksheet_submissions FOR ALL TO authenti
   USING (is_admin() OR teacher_owns_worksheet(worksheet_id))
   WITH CHECK (is_admin() OR teacher_owns_worksheet(worksheet_id));
 -- The scoring columns are pinned NULL here as well as in the trigger below,
--- because the trigger only fires BEFORE UPDATE — without this a student could
--- INSERT their own submission with a score already filled in.
+-- so that the policy denies a pre-scored row outright rather than relying on
+-- the trigger alone — without this a student could INSERT their own submission
+-- with a score already filled in.
 --
 -- Students get INSERT and UPDATE only, never DELETE: FOR ALL would let a
 -- student DELETE their own row (no BEFORE UPDATE/INSERT trigger fires on

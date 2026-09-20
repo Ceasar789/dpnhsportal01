@@ -6,7 +6,7 @@
 // only in the teacher's browser, where the key is actually readable.
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { FileText, Loader2, RefreshCw, Clock } from 'lucide-react';
@@ -19,6 +19,14 @@ import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 // change to the table never silently starts handing this file scoring
 // columns it should not have.
 const SUBMISSION_FIELDS = 'id, worksheet_id, status, released, score, total_points';
+
+// Maps a Postgres/PostgREST error to a sentence a student can act on,
+// while keeping the raw message (trigger text, RLS denial, constraint
+// name, etc.) in the console for whoever debugs it later.
+const toStudentMessage = (error, fallback) => {
+  console.warn(fallback, '—', error?.message);
+  return fallback;
+};
 
 const StudentWorksheetsTab = () => {
   const { dark } = useTheme();
@@ -33,6 +41,17 @@ const StudentWorksheetsTab = () => {
   const [answers, setAnswers] = useState({});
   const [submission, setSubmission] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  // itemId -> pending debounce timer id, and itemId -> the most recent
+  // in-flight (or settled) write promise. Submitting has to flush both:
+  // cancel any timer and fire its write immediately, then await every
+  // write so the very last keystroke is never lost to the submit race.
+  const saveTimers = useRef({});
+  const pendingWrites = useRef({});
+
+  useEffect(() => () => {
+    Object.values(saveTimers.current).forEach(clearTimeout);
+  }, []);
 
   const muted = { color: dark ? '#64748b' : '#94a3b8' };
 
@@ -137,7 +156,7 @@ const StudentWorksheetsTab = () => {
           sub = existing;
           showToast('Reopening the worksheet you already started.');
         } else {
-          showToast(`Could not start: ${createError.message}`, 'error');
+          showToast(toStudentMessage(createError, 'Could not start this worksheet. Check your connection and try again.'), 'error');
           setBusy(false); return;
         }
       } else {
@@ -172,23 +191,64 @@ const StudentWorksheetsTab = () => {
     setBusy(false);
   };
 
+  // The actual write. Records its own promise in pendingWrites so submit()
+  // can await every in-flight/just-flushed write before it locks the
+  // submission by moving its status to 'submitted'. `silent` is used by the
+  // flush path, which reports one clear failure of its own instead of
+  // stacking a duplicate per-field toast.
+  const writeAnswer = useCallback((itemId, value, { silent = false } = {}) => {
+    const promise = supabase.from('worksheet_answers').upsert([{
+      submission_id: submission.id, item_id: itemId, answer: value,
+    }], { onConflict: 'submission_id,item_id' }).then(({ error }) => {
+      if (error) {
+        console.warn('Answer save failed —', error.message);
+        if (!silent) showToast('Could not save that answer. Check your connection.', 'error');
+      }
+      return { error };
+    });
+    pendingWrites.current[itemId] = promise;
+    return promise;
+  }, [submission, showToast]);
+
   // Saved as the student works — this project's hosting tier drops
   // connections, and losing a half-finished worksheet would be worse than
-  // an extra write per answer. This is a write, so it is not wrapped in
-  // withRetry, but a failure still has to be surfaced rather than silently
-  // leaving the student believing the answer is safe.
-  const saveAnswer = async (itemId, value) => {
+  // an extra write per answer.
+  const saveAnswer = useCallback((itemId, value) => {
     setAnswers(prev => ({ ...prev, [itemId]: value }));
-    const { error } = await supabase.from('worksheet_answers').upsert([{
-      submission_id: submission.id, item_id: itemId, answer: value,
-    }], { onConflict: 'submission_id,item_id' });
-    if (error) {
-      showToast('Could not save that answer. Check your connection.', 'error');
+    if (saveTimers.current[itemId]) {
+      clearTimeout(saveTimers.current[itemId]);
+      delete saveTimers.current[itemId];
     }
-  };
+    writeAnswer(itemId, value);
+  }, [writeAnswer]);
+
+  // Flushes every pending debounced save (none exist yet in this commit,
+  // but the mechanism is shared with the debounce added next) and waits
+  // for every outstanding write to settle. Submitting blurs the focused
+  // field, which fires its own save — but that save and the status UPDATE
+  // below would otherwise race as two independent requests; if the UPDATE
+  // won, submission_open() would already be false and the student's last
+  // answer would be rejected with no way to recover it, since the
+  // submission is now read-only. This makes submit() wait the extra
+  // moment instead.
+  const flushPendingSaves = useCallback(async () => {
+    Object.keys(saveTimers.current).forEach((itemId) => {
+      clearTimeout(saveTimers.current[itemId]);
+      delete saveTimers.current[itemId];
+      writeAnswer(itemId, answers[itemId], { silent: true });
+    });
+    const outcomes = await Promise.all(Object.values(pendingWrites.current));
+    return outcomes.every((o) => !o?.error);
+  }, [answers, writeAnswer]);
 
   const submit = async () => {
     setBusy(true);
+    const flushedOk = await flushPendingSaves();
+    if (!flushedOk) {
+      setBusy(false);
+      showToast('Your last answer could not be saved. Check your connection and try again before submitting.', 'error');
+      return;
+    }
     // submitted_at is stamped server-side by guard_worksheet_submission_write
     // (in_progress -> submitted); a student is not allowed to set it, and
     // sending it here would be pointless even though the trigger overwrites it.
@@ -196,7 +256,9 @@ const StudentWorksheetsTab = () => {
       status: 'submitted',
     }).eq('id', submission.id);
     setBusy(false);
-    if (error) return showToast(`Could not submit: ${error.message}`, 'error');
+    if (error) {
+      return showToast(toStudentMessage(error, 'Could not submit. Check your connection and try again.'), 'error');
+    }
     showToast('Submitted. Your teacher will check it.');
     setSubmission(prev => prev ? { ...prev, status: 'submitted' } : prev);
     setActive(null);

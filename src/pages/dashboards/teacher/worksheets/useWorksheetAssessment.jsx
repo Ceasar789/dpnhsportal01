@@ -120,35 +120,48 @@ export const useWorksheetAssessment = (showToast) => {
   // this back to a single unbounded select.
   const fetchAssigneeCounts = useCallback(async () => {
     setAssigneeCountsLoading(true);
-    const PAGE_SIZE = 1000;
+    // Deliberately UNDER PostgREST's default 1000-row cap (db-max-rows), not
+    // equal to it. A page size at or above whatever the server enforces makes
+    // the first page come back short the moment a project tightens that
+    // setting below 1000 — which this loop reads as "that was the last page"
+    // and breaks after one iteration, silently reintroducing the exact
+    // undercount this pagination exists to prevent. A page size below the cap
+    // is never wrong; worst case it costs one extra round trip.
+    const PAGE_SIZE = 500;
     const seen = new Set();
     const counts = {};
     let from = 0;
-    while (true) {
-      const { data, error } = await withRetry(
-        () => supabase.from('task_assignees')
-          .select('task_id, student_id')
-          .range(from, from + PAGE_SIZE - 1),
-        { label: 'Task assignee counts fetch' }
-      );
-      if (error) {
-        console.warn('Task assignee counts fetch failed —', error.message);
-        setAssigneeCountsError(true);
-        setAssigneeCountsLoading(false);
-        return;
+    try {
+      while (true) {
+        const { data, error } = await withRetry(
+          () => supabase.from('task_assignees')
+            .select('task_id, student_id')
+            .range(from, from + PAGE_SIZE - 1),
+          { label: 'Task assignee counts fetch' }
+        );
+        if (error) {
+          console.warn('Task assignee counts fetch failed —', error.message);
+          setAssigneeCountsError(true);
+          return;
+        }
+        (data || []).forEach(row => {
+          const key = `${row.task_id}:${row.student_id}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          counts[row.task_id] = (counts[row.task_id] || 0) + 1;
+        });
+        if (!data || data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
       }
-      (data || []).forEach(row => {
-        const key = `${row.task_id}:${row.student_id}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        counts[row.task_id] = (counts[row.task_id] || 0) + 1;
-      });
-      if (!data || data.length < PAGE_SIZE) break;
-      from += PAGE_SIZE;
+      setAssigneeCountsError(false);
+      setAssigneeCounts(counts);
+    } finally {
+      // Cleared here, structurally, rather than at every return above —
+      // so an exception thrown anywhere in this chain (rather than the
+      // { error } shape supabase-js normally resolves with) still lands on
+      // a state with a working Retry instead of a permanent "Checking…".
+      setAssigneeCountsLoading(false);
     }
-    setAssigneeCountsError(false);
-    setAssigneeCounts(counts);
-    setAssigneeCountsLoading(false);
   }, []);
 
   useEffect(() => { fetchMySections(); }, [fetchMySections]);

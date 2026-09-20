@@ -78,8 +78,10 @@ DROP POLICY IF EXISTS ws_sections_write ON worksheet_sections;
 CREATE POLICY ws_sections_read ON worksheet_sections FOR SELECT TO authenticated
   USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_in_section(section_id));
 CREATE POLICY ws_sections_write ON worksheet_sections FOR ALL TO authenticated
-  USING (is_admin() OR teacher_owns_worksheet(worksheet_id))
-  WITH CHECK (is_admin() OR teacher_owns_worksheet(worksheet_id));
+  USING (is_admin() OR (teacher_owns_worksheet(worksheet_id)
+                         AND (teacher_handles_section(section_id) OR teacher_advises_section(section_id))))
+  WITH CHECK (is_admin() OR (teacher_owns_worksheet(worksheet_id)
+                              AND (teacher_handles_section(section_id) OR teacher_advises_section(section_id))));
 
 -- worksheet_items — questions are readable by the students they were posted to.
 DROP POLICY IF EXISTS ws_items_read  ON worksheet_items;

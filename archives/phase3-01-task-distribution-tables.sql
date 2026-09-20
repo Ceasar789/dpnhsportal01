@@ -54,16 +54,33 @@ CREATE TABLE IF NOT EXISTS task_assignees (
 CREATE INDEX IF NOT EXISTS idx_task_assignees_student ON task_assignees(student_id);
 CREATE INDEX IF NOT EXISTS idx_task_assignees_task    ON task_assignees(task_id);
 
--- Backfill: one assignee row per (worksheet, actively-enrolled student of a
--- section that worksheet was posted to), carrying over the section's due_at
--- and posted_at. ON CONFLICT DO NOTHING makes this safe to run again — a
--- second run inserts nothing new, since every row it would produce already
--- exists (or the teacher/system has since changed due dates per student,
--- which this must not clobber).
+-- Backfill: one assignee row per (worksheet, student of a section that
+-- worksheet was posted to), carrying over the section's due_at and
+-- posted_at. ON CONFLICT DO NOTHING makes this safe to run again — a second
+-- run inserts nothing new, since every row it would produce already exists
+-- (or the teacher/system has since changed due dates per student, which
+-- this must not clobber).
+--
+-- A student qualifies either by being actively enrolled in the posted-to
+-- section (the general case), or — regardless of current enrolment status —
+-- by already having a submission for that worksheet. student_assigned_task()
+-- deliberately keeps read access for a student who has since left a section,
+-- because the assignment is the grant, not the enrolment; skipping the
+-- active check entirely here would honor that for work never touched (wrong
+-- — a transferred student should not receive fresh, untouched work), but
+-- dropping it for work already done would silently orphan a real submission
+-- (a transferred student's already-graded worksheet would lose its items,
+-- its posting and its due date, leaving a bare score with nothing behind
+-- it). The OR EXISTS clause is that second, narrower case only.
 INSERT INTO task_assignees (task_id, student_id, section_id, due_at, assigned_at)
 SELECT ws.worksheet_id, ss.student_id, ws.section_id, ws.due_at, ws.posted_at
 FROM worksheet_sections ws
-JOIN section_students ss ON ss.section_id = ws.section_id AND ss.status = 'active'
+JOIN section_students ss ON ss.section_id = ws.section_id
+WHERE ss.status = 'active'
+   OR EXISTS (
+     SELECT 1 FROM worksheet_submissions s
+     WHERE s.worksheet_id = ws.worksheet_id AND s.student_id = ss.student_id
+   )
 ON CONFLICT (task_id, student_id) DO NOTHING;
 
 -- ============================================

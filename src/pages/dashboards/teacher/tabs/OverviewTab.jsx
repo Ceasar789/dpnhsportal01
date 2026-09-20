@@ -248,8 +248,8 @@ const OverviewTab = () => {
           <Btn onClick={() => navigate('/teacher-dashboard/worksheets')} className="w-full justify-center" variant="pastel">
             <Upload size={16} /> Upload Resource
           </Btn>
-          <Btn onClick={() => navigate('/teacher-dashboard/assignments')} className="w-full justify-center" variant="pastel">
-            <FileText size={16} /> Assessments
+          <Btn onClick={() => navigate('/teacher-dashboard/grades')} className="w-full justify-center" variant="pastel">
+            <FileText size={16} /> Grades
           </Btn>
           <Btn onClick={() => navigate('/teacher-dashboard/announcements')} className="w-full justify-center" variant="pastel">
             <Megaphone size={16} /> Announcements

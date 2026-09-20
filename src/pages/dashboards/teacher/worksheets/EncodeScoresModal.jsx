@@ -132,6 +132,11 @@ const EncodeScoresModal = ({
 
   const setScore = (studentId, value) => {
     setScores(p => ({ ...p, [studentId]: value }));
+    // Editing a row retires whatever the last run said about it. Otherwise a
+    // stale "Saved and released." sits under a number the teacher has since
+    // changed, and a stale failure hides the validation flag on the row that
+    // is now blocking the whole save.
+    setRowResult(p => (p[studentId] === undefined ? p : { ...p, [studentId]: undefined }));
   };
 
   const changeTotal = (value) => setTotalPoints(value);
@@ -302,7 +307,12 @@ const EncodeScoresModal = ({
                     <div className="flex items-center gap-3">
                       <span className="text-xs w-6" style={muted}>{i + 1}</span>
                       <span className="text-sm flex-1" style={bodyText}>{s.name}</span>
-                      <input type="number" min="0" max={totalIsUsable ? maxPoints : undefined} step="0.5"
+                      {/* text, not number: a number input in its bad-input
+                          state hands back '' for an in-progress "12.", so the
+                          box showed 12. while the state held nothing and the
+                          row was skipped at save with no explanation. Now the
+                          raw string survives and scoreProblem judges it. */}
+                      <input type="text" inputMode="decimal" disabled={saving}
                         value={scores[s.student_id] ?? ''}
                         onChange={e => setScore(s.student_id, e.target.value)}
                         className="h-8 w-20 px-2 rounded text-xs outline-none" style={fieldStyle} />
@@ -313,7 +323,7 @@ const EncodeScoresModal = ({
                     )}
                     {conflicted && !rowResult[s.student_id]?.ok && (
                       <label className="text-[11px] ml-9 flex items-center gap-2" style={{ color: '#d97706' }}>
-                        <input type="checkbox" checked={!!overwrite[s.student_id]}
+                        <input type="checkbox" checked={!!overwrite[s.student_id]} disabled={saving}
                           onChange={e => setOverwrite(p => ({ ...p, [s.student_id]: e.target.checked }))} />
                         Replace their online submission with this paper score
                       </label>

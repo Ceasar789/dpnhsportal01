@@ -50,12 +50,16 @@ const StudentWorksheetsTab = () => {
   const [submission, setSubmission] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  // itemId -> pending debounce timer id, and itemId -> the most recent
-  // in-flight (or settled) write promise. Submitting has to flush both:
-  // cancel any timer and fire its write immediately, then await every
-  // write so the very last keystroke is never lost to the submit race.
+  // itemId -> pending debounce timer id; itemId -> the currently in-flight
+  // write promise for that item, removed the instant it settles (this map
+  // must only ever describe writes actually in flight right now — an entry
+  // left behind after settling would be re-inspected by every later flush,
+  // permanently blocking Submit over one long-past failure); itemId -> true
+  // for an item whose most recent write is known to have failed, cleared
+  // the moment a later write for that same item succeeds.
   const saveTimers = useRef({});
   const pendingWrites = useRef({});
+  const failedWrites = useRef({});
 
   useEffect(() => () => {
     Object.values(saveTimers.current).forEach(clearTimeout);
@@ -199,23 +203,38 @@ const StudentWorksheetsTab = () => {
     setBusy(false);
   };
 
-  // The actual write. Records its own promise in pendingWrites so submit()
-  // can await every in-flight/just-flushed write before it locks the
-  // submission by moving its status to 'submitted'. `silent` is used by the
-  // flush path, which reports one clear failure of its own instead of
-  // stacking a duplicate per-field toast.
+  // The actual write. Records its own promise in pendingWrites — removed
+  // the instant it settles — so submit() can await every write genuinely
+  // in flight right now before it locks the submission by moving its
+  // status to 'submitted'. `.catch` turns even an unexpected rejection
+  // into a normal `{ error }` result, so a failed write can never leave an
+  // unhandled rejection or skip the pendingWrites cleanup below. `silent`
+  // is used by the flush path, which reports one clear failure of its own
+  // instead of stacking a duplicate per-field toast.
   const writeAnswer = useCallback((itemId, value, { silent = false } = {}) => {
-    const promise = supabase.from('worksheet_answers').upsert([{
+    let selfPromise;
+    selfPromise = supabase.from('worksheet_answers').upsert([{
       submission_id: submission.id, item_id: itemId, answer: value,
-    }], { onConflict: 'submission_id,item_id' }).then(({ error }) => {
-      if (error) {
-        console.warn('Answer save failed —', error.message);
-        if (!silent) showToast('Could not save that answer. Check your connection.', 'error');
-      }
-      return { error };
-    });
-    pendingWrites.current[itemId] = promise;
-    return promise;
+    }], { onConflict: 'submission_id,item_id' })
+      .then(({ error }) => ({ error }))
+      .catch((err) => ({ error: err }))
+      .then((result) => {
+        // Only clear the map if this write is still the latest one for
+        // this item — an older write settling after a newer one started
+        // must not delete the newer write's still-in-flight entry.
+        if (pendingWrites.current[itemId] === selfPromise) delete pendingWrites.current[itemId];
+
+        if (result.error) {
+          failedWrites.current[itemId] = true;
+          console.warn('Answer save failed —', result.error.message);
+          if (!silent) showToast('Could not save that answer. Check your connection.', 'error');
+        } else {
+          delete failedWrites.current[itemId];
+        }
+        return result;
+      });
+    pendingWrites.current[itemId] = selfPromise;
+    return selfPromise;
   }, [submission, showToast]);
 
   // Saved as the student works — this project's hosting tier drops
@@ -244,46 +263,72 @@ const StudentWorksheetsTab = () => {
     }, TYPING_SAVE_DEBOUNCE_MS);
   }, [writeAnswer]);
 
-  // Flushes every pending debounced save and waits for every outstanding
-  // write to settle. Submitting blurs the focused
-  // field, which fires its own save — but that save and the status UPDATE
-  // below would otherwise race as two independent requests; if the UPDATE
-  // won, submission_open() would already be false and the student's last
+  // Flushes every pending debounced save and waits for every write
+  // currently in flight to settle. Submitting blurs the focused field,
+  // which fires its own save — but that save and the status UPDATE below
+  // would otherwise race as two independent requests; if the UPDATE won,
+  // submission_open() would already be false and the student's last
   // answer would be rejected with no way to recover it, since the
   // submission is now read-only. This makes submit() wait the extra
   // moment instead.
+  //
+  // Failure is judged from failedWrites, not from the settled outcomes of
+  // this call's own Promise.all: pendingWrites only ever holds writes that
+  // are still running, so a write that failed minutes ago (and was never
+  // retried) must not silently re-fail every later submit attempt forever
+  // — only an item whose most recent write is still in the failed state
+  // blocks submission, and answering that item again (which fires a new
+  // write and clears the flag on success) is what un-blocks it.
   const flushPendingSaves = useCallback(async () => {
     Object.keys(saveTimers.current).forEach((itemId) => {
       clearTimeout(saveTimers.current[itemId]);
       delete saveTimers.current[itemId];
       writeAnswer(itemId, answers[itemId], { silent: true });
     });
-    const outcomes = await Promise.all(Object.values(pendingWrites.current));
-    return outcomes.every((o) => !o?.error);
-  }, [answers, writeAnswer]);
+    await Promise.all(Object.values(pendingWrites.current));
+
+    const failedIds = Object.keys(failedWrites.current);
+    if (failedIds.length === 0) return { ok: true };
+
+    const label = (itemId) => {
+      const idx = items.findIndex((i) => i.id === itemId);
+      return idx === -1 ? 'One of your answers' : `Question ${idx + 1}`;
+    };
+    const extra = failedIds.length - 1;
+    const message = extra > 0
+      ? `${label(failedIds[0])} and ${extra} other answer${extra > 1 ? 's' : ''} could not be saved — answer ${extra > 1 ? 'them' : 'it'} again, then submit.`
+      : `${label(failedIds[0])} could not be saved — answer it again, then submit.`;
+    return { ok: false, message };
+  }, [answers, items, writeAnswer]);
 
   const submit = async () => {
     setBusy(true);
-    const flushedOk = await flushPendingSaves();
-    if (!flushedOk) {
+    try {
+      const flushResult = await flushPendingSaves();
+      if (!flushResult.ok) {
+        showToast(flushResult.message, 'error');
+        return;
+      }
+      // submitted_at is stamped server-side by guard_worksheet_submission_write
+      // (in_progress -> submitted); a student is not allowed to set it, and
+      // sending it here would be pointless even though the trigger overwrites it.
+      const { error } = await supabase.from('worksheet_submissions').update({
+        status: 'submitted',
+      }).eq('id', submission.id);
+      if (error) {
+        showToast(toStudentMessage(error, 'Could not submit. Check your connection and try again.'), 'error');
+        return;
+      }
+      showToast('Submitted. Your teacher will check it.');
+      setSubmission(prev => prev ? { ...prev, status: 'submitted' } : prev);
+      setActive(null);
+      fetchWorksheets();
+    } finally {
+      // Always released, even if flushPendingSaves or the update throws
+      // unexpectedly — otherwise the button is stuck reading "Submitting…"
+      // forever with no toast telling the student anything went wrong.
       setBusy(false);
-      showToast('Your last answer could not be saved. Check your connection and try again before submitting.', 'error');
-      return;
     }
-    // submitted_at is stamped server-side by guard_worksheet_submission_write
-    // (in_progress -> submitted); a student is not allowed to set it, and
-    // sending it here would be pointless even though the trigger overwrites it.
-    const { error } = await supabase.from('worksheet_submissions').update({
-      status: 'submitted',
-    }).eq('id', submission.id);
-    setBusy(false);
-    if (error) {
-      return showToast(toStudentMessage(error, 'Could not submit. Check your connection and try again.'), 'error');
-    }
-    showToast('Submitted. Your teacher will check it.');
-    setSubmission(prev => prev ? { ...prev, status: 'submitted' } : prev);
-    setActive(null);
-    fetchWorksheets();
   };
 
   const statusLabel = (row) => {

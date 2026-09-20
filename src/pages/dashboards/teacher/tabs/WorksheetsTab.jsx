@@ -74,6 +74,10 @@ const WorksheetsTab = () => {
       showToast('You are assigned more than one subject. Ask your admin to correct your teaching load — a task has to belong to exactly one subject.', 'error');
       return;
     }
+    if (assessment.subjectLoading) {
+      showToast('Still loading your teaching load — try again in a moment.', 'error');
+      return;
+    }
     if (!assessment.mySubject) {
       showToast('No subject is assigned to you yet. Ask your admin to set your teaching load before creating tasks.', 'error');
       return;
@@ -139,6 +143,10 @@ const WorksheetsTab = () => {
     }
     if (assessment.subjectConflict) {
       showToast('You are assigned more than one subject. Ask your admin to correct your teaching load — a task has to belong to exactly one subject.', 'error');
+      return;
+    }
+    if (assessment.subjectLoading) {
+      showToast('Still loading your teaching load — try again in a moment.', 'error');
       return;
     }
     if (!assessment.mySubject) {
@@ -379,9 +387,15 @@ const WorksheetsTab = () => {
               </select>
             </div>
             <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-              Subject: <strong style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                {assessment.mySubject?.name || '—'}
-              </strong> (from your teaching load)
+              {assessment.subjectLoading ? (
+                <>Loading your teaching load…</>
+              ) : (
+                <>
+                  Subject: <strong style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                    {assessment.mySubject?.name || '—'}
+                  </strong> (from your teaching load)
+                </>
+              )}
             </p>
             <Input placeholder="Pages" value={formData.pages} onChange={e => setFormData({...formData, pages: e.target.value})} />
             <Input placeholder="Items" value={formData.items} onChange={e => setFormData({...formData, items: e.target.value})} />

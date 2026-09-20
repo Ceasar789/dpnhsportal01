@@ -626,6 +626,12 @@ export const useWorksheetAssessment = (showToast) => {
   // may well do this — but the design says one per teacher, and guessing which
   // one a task belongs to would file work under the wrong heading silently.
   const [subjectConflict, setSubjectConflict] = useState(false);
+  // True until the first fetch settles. Without this, the initial triple
+  // (mySubject=null, subjectError=false, subjectConflict=false) is
+  // indistinguishable from "fetch finished, nothing assigned" — a teacher who
+  // opens the create form before the first fetch resolves would be told to
+  // go bother their admin over a load that simply hasn't come back yet.
+  const [subjectLoading, setSubjectLoading] = useState(true);
 
   const fetchMySubject = useCallback(async () => {
     if (!userData?.uid) return;
@@ -638,6 +644,7 @@ export const useWorksheetAssessment = (showToast) => {
     if (error) {
       console.warn('Teaching load fetch failed —', error.message);
       setSubjectError(true);
+      setSubjectLoading(false);
       return;
     }
     // One row per grade level, so the same subject appears more than once.
@@ -650,6 +657,7 @@ export const useWorksheetAssessment = (showToast) => {
     setSubjectError(false);
     setSubjectConflict(unique.length > 1);
     setMySubject(unique.length === 1 ? unique[0] : null);
+    setSubjectLoading(false);
   }, [userData?.uid]);
 
   useEffect(() => { fetchMySubject(); }, [fetchMySubject]);
@@ -661,6 +669,6 @@ export const useWorksheetAssessment = (showToast) => {
     loadItems, saveItems, setCheckingMode,
     loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
     loadClassList,
-    mySubject, subjectError, subjectConflict, fetchMySubject,
+    mySubject, subjectError, subjectConflict, subjectLoading, fetchMySubject,
   };
 };

@@ -91,40 +91,40 @@ const SubjectCards = ({ subjects, tasksBySubject, loading, loadError, onRetry, o
         </p>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {cards.map(subject => {
-        const bucket = tasksBySubject[subject.id] || { total: 0, pendingCount: 0, nearestDue: null };
-        const countdown = formatCountdown(bucket.pendingCount > 0 ? bucket.nearestDue : null, now);
-        const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
-        return (
-          <button
-            key={subject.id}
-            onClick={() => onOpen(subject.id)}
-            className="text-left rounded-xl"
-          >
-            <Card className="p-4 h-full hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: dark ? '#1e3a5f' : '#eff6ff' }}>
-                  <BookOpen size={16} style={{ color: '#3b82f6' }} />
-                </div>
-                <p className="text-sm font-semibold truncate" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                  {subject.name}
-                </p>
-              </div>
-              {bucket.total === 0 ? (
-                <p className="text-xs" style={muted}>No tasks</p>
-              ) : (
-                <>
-                  <p className="text-xs mb-2" style={muted}>
-                    {bucket.pendingCount} pending
+        {cards.map(subject => {
+          const bucket = tasksBySubject[subject.id] || { total: 0, pendingCount: 0, nearestDue: null };
+          const countdown = formatCountdown(bucket.pendingCount > 0 ? bucket.nearestDue : null, now);
+          const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
+          return (
+            <button
+              key={subject.id}
+              onClick={() => onOpen(subject.id)}
+              className="text-left rounded-xl"
+            >
+              <Card className="p-4 h-full hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: dark ? '#1e3a5f' : '#eff6ff' }}>
+                    <BookOpen size={16} style={{ color: '#3b82f6' }} />
+                  </div>
+                  <p className="text-sm font-semibold truncate" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                    {subject.name}
                   </p>
-                  <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>
-                </>
-              )}
-            </Card>
-          </button>
-        );
-      })}
+                </div>
+                {bucket.total === 0 ? (
+                  <p className="text-xs" style={muted}>No tasks</p>
+                ) : (
+                  <>
+                    <p className="text-xs mb-2" style={muted}>
+                      {bucket.pendingCount} pending
+                    </p>
+                    <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>
+                  </>
+                )}
+              </Card>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

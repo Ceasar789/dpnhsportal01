@@ -15,6 +15,7 @@ import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
+import { fetchScheduledSubjectIds, isOtherTask } from '../../../../lib/studentSchedule';
 
 // Colors for the countdown badge, one per formatCountdown tone. Kept in one
 // place so the meaning of a color (late vs. soon vs. plenty of time) stays
@@ -66,13 +67,15 @@ const StudentTasksTab = () => {
   const subjectFilter = searchParams.get('subject');
 
   const [rows, setRows] = useState([]);
-  // Subject ids that appear anywhere in this student's class schedule, from
-  // the sections their tasks were assigned in. Used only to widen the
-  // ?subject=other filter below — Overview's Other card buckets a task there
-  // when its subject_id is null OR not among these ids, and this filter must
-  // match that definition exactly, or a task Overview counted as "Other"
-  // becomes unreachable from every card on that screen.
-  const [scheduledSubjectIds, setScheduledSubjectIds] = useState(new Set());
+  // The student's scheduled subject ids, from the SAME shared derivation
+  // OverviewTab.jsx uses (src/lib/studentSchedule.js) — used only to widen
+  // the ?subject=other filter below to match Overview's Other bucket
+  // exactly. null means "not fetched yet, or the fetch failed" and is
+  // deliberately distinct from an empty Set ("fetched: nothing is
+  // scheduled") — isOtherTask() falls back to the conservative
+  // null-subject_id-only rule when this is null, rather than treating an
+  // unknown schedule as an empty one and widening Other to the whole list.
+  const [scheduledSubjectIds, setScheduledSubjectIds] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [active, setActive] = useState(null);
@@ -218,26 +221,19 @@ const StudentTasksTab = () => {
     // it just falls back to the worksheet's own legacy subject text below.
     if (subjectNameError) setLoadError(false);
 
-    // The student's scheduled subjects, from the sections their tasks were
-    // assigned in — needed only to widen ?subject=other below to match
-    // Overview's definition of Other (null subject_id, or a subject outside
-    // the schedule). A failed read here is non-fatal: the list still renders,
-    // and the filter just falls back to "null subject_id only" until a retry
-    // succeeds, rather than blocking the whole tab over a filter definition.
-    const sectionIds = [...new Set(sorted.map(a => a.section_id).filter(Boolean))];
-    if (sectionIds.length > 0) {
-      const { data: schedRows, error: schedError } = await withRetry(
-        () => supabase.from('schedules').select('subject_id').in('section_id', sectionIds),
-        { label: 'Student schedules fetch' }
-      );
-      if (schedError) {
-        console.warn('Student schedules fetch failed —', schedError.message);
-      } else {
-        setScheduledSubjectIds(new Set((schedRows || []).map(s => s.subject_id).filter(Boolean)));
-      }
-    } else {
-      setScheduledSubjectIds(new Set());
-    }
+    // The student's scheduled subjects — needed only to widen ?subject=other
+    // below to match Overview's definition of Other exactly. This is the
+    // SAME shared derivation OverviewTab.jsx calls (active section_students,
+    // intersected with surviving subjects rows) — never task_assignees'
+    // section_id, which persists the section a task was distributed in even
+    // after the student transfers, and so does not describe their current
+    // schedule. A failed read here is non-fatal to the list itself: it just
+    // leaves scheduledSubjectIds null, which isOtherTask() treats as
+    // "unknown" and falls back to the conservative null-subject_id-only rule
+    // rather than blocking the whole tab over a filter definition.
+    const { scheduledSubjectIds: scheduleIds, error: scheduleError } =
+      await fetchScheduledSubjectIds(userData.uid);
+    setScheduledSubjectIds(scheduleError ? null : scheduleIds);
 
     setLoadError(false);
     setRows(sorted.map(a => {
@@ -264,12 +260,14 @@ const StudentTasksTab = () => {
 
   // ?subject=<id> narrows the list to that subject; ?subject=other shows
   // tasks with no subject_id, OR whose subject_id names a subject outside
-  // this student's own class schedule — the exact same definition Overview's
-  // Other card buckets by. Narrower than that (null-only) would make a task
-  // Overview counted as "Other" unreachable from every card on that screen.
-  const isOther = (r) => !r.sheet.subject_id || !scheduledSubjectIds.has(r.sheet.subject_id);
+  // this student's own class schedule — via the shared isOtherTask(), the
+  // exact same rule Overview's Other card buckets by. Narrower than that
+  // (null-only) would make a task Overview counted as "Other" unreachable
+  // from every card on that screen.
   const visibleRows = subjectFilter
-    ? rows.filter(r => (subjectFilter === 'other' ? isOther(r) : r.sheet.subject_id === subjectFilter))
+    ? rows.filter(r => (subjectFilter === 'other'
+        ? isOtherTask(r.sheet.subject_id, scheduledSubjectIds)
+        : r.sheet.subject_id === subjectFilter))
     : rows;
 
   // Writes one submission's `submission` field into the matching `rows`

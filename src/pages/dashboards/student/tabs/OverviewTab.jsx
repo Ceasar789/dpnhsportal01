@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useTheme, useToast, Card, StatCard } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { fetchScheduledSubjectIds, isOtherTask } from '../../../../lib/studentSchedule';
 import SubjectCards from '../SubjectCards';
 
 const OverviewTab = () => {
@@ -77,9 +78,8 @@ const OverviewTab = () => {
 
     const enrolments = enrolment || [];
     const enrolled = enrolments[0] || null;
-    const sectionIds = enrolments.map(e => e.section_id).filter(Boolean);
 
-    const [idResult, attResult, scoreResult, subResult, schedResult, assigneeResult] = await Promise.all([
+    const [idResult, attResult, scoreResult, subResult, scheduleResult, assigneeResult] = await Promise.all([
       withRetry(() => supabase.from('students').select('student_number, lrn').eq('id', userData.uid).maybeSingle(),
         { label: 'Student number fetch' }),
       withRetry(() => supabase.from('attendance').select('status').eq('student_id', userData.uid),
@@ -98,14 +98,14 @@ const OverviewTab = () => {
         .select('worksheet_id, status')
         .eq('student_id', userData.uid),
         { label: 'Student submission statuses fetch' }),
-      // Subjects scheduled for the student's section(s) — the cards' source,
-      // NOT the tasks. This column is only populated once an admin has
-      // created schedule rows, so a section with none yields [] here, which
-      // must read as "no subjects scheduled" rather than "no tasks".
-      sectionIds.length > 0
-        ? withRetry(() => supabase.from('schedules').select('subject_id').in('section_id', sectionIds),
-            { label: 'Student schedules fetch' })
-        : Promise.resolve({ data: [], error: null }),
+      // Subjects on the student's class schedule — the cards' source, NOT
+      // the tasks. Shared with TasksTab.jsx via fetchScheduledSubjectIds so
+      // the two screens can never derive two different answers for "Other"
+      // again (see src/lib/studentSchedule.js for the history of why that
+      // matters). Schedules are only populated once an admin has created
+      // them, so a student with none yields an empty (not null) set here,
+      // which must read as "no subjects scheduled" rather than "no tasks".
+      fetchScheduledSubjectIds(userData.uid),
       // What was actually assigned to THIS student — task_assignees, the same
       // source TasksTab.jsx uses, and its due_at, not a posting's — so the
       // two screens never disagree about which deadline applies to them.
@@ -115,9 +115,9 @@ const OverviewTab = () => {
     ]);
 
     if (idResult.error || attResult.error || scoreResult.error || subResult.error
-      || schedResult.error || assigneeResult.error) {
+      || scheduleResult.error || assigneeResult.error) {
       const first = idResult.error || attResult.error || scoreResult.error || subResult.error
-        || schedResult.error || assigneeResult.error;
+        || scheduleResult.error || assigneeResult.error;
       console.warn('Student overview load failed —', first.message);
       setLoadError(true); setLoading(false); return;
     }
@@ -157,25 +157,10 @@ const OverviewTab = () => {
       total: attRows.length,
     });
 
-    // Subjects scheduled for the student's section(s) — deduped, and looked
-    // up by name in a separate read (never a PostgREST embed), matching
-    // TasksTab.jsx's own subject-name lookup.
-    const scheduledSubjectIds = [...new Set(
-      (schedResult.data || []).map(s => s.subject_id).filter(Boolean)
-    )];
-    let subjectRows = [];
-    if (scheduledSubjectIds.length > 0) {
-      const { data, error } = await withRetry(
-        () => supabase.from('subjects').select('id, name').in('id', scheduledSubjectIds),
-        { label: 'Student scheduled subjects fetch' }
-      );
-      if (error) {
-        console.warn('Student scheduled subjects fetch failed —', error.message);
-        setLoadError(true); setLoading(false); return;
-      }
-      subjectRows = data || [];
-    }
-    const scheduledSubjectIdSet = new Set(subjectRows.map(s => s.id));
+    // scheduleResult already carries both the subject rows (for the cards'
+    // names) and the id set (for bucketing) — both computed by the one
+    // shared function TasksTab.jsx also calls.
+    const { subjects: subjectRows, scheduledSubjectIds: scheduledSubjectIdSet } = scheduleResult;
 
     // Assigned tasks, joined to their worksheet's subject_id — the same
     // task_assignees source, and the same due_at, that TasksTab.jsx counts
@@ -222,8 +207,9 @@ const OverviewTab = () => {
       const pending = !notPendingIds.has(a.task_id);
       if (pending) totalPending += 1;
       // Null subject, or a subject not in this student's schedule, both land
-      // on Other — nothing assigned may fail to appear somewhere.
-      const key = sheet.subject_id && scheduledSubjectIdSet.has(sheet.subject_id) ? sheet.subject_id : 'other';
+      // on Other — nothing assigned may fail to appear somewhere. The exact
+      // same rule TasksTab.jsx applies to its ?subject=other filter.
+      const key = isOtherTask(sheet.subject_id, scheduledSubjectIdSet) ? 'other' : sheet.subject_id;
       bump(key, a.due_at, pending);
     });
 

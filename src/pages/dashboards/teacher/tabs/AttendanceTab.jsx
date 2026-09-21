@@ -129,11 +129,6 @@ const AttendanceTab = () => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase
-      .channel('teacher-attendance')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, fetchData)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, [fetchData]);
 
   const handleMark = async (studentId, status) => {

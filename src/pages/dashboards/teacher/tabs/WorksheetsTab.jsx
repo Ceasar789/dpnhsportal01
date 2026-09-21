@@ -57,11 +57,6 @@ const WorksheetsTab = () => {
 
   useEffect(() => {
     fetchWorksheets();
-    const channel = supabase
-      .channel('teacher-worksheets')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'worksheets' }, fetchWorksheets)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, [fetchWorksheets]);
 
   const handleAddWorksheet = async (e) => {

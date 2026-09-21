@@ -66,13 +66,6 @@ const AttendanceTab = () => {
 
   useEffect(() => {
     if (userData?.uid) fetchAttendance();
-
-    const channel = supabase
-      .channel('student-attendance')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `student_id=eq.${userData?.uid}` }, fetchAttendance)
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, [userData?.uid, fetchAttendance]);
 
   const attendanceRate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;

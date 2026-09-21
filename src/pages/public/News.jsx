@@ -30,16 +30,6 @@ const News = () => {
 
   useEffect(() => {
     fetchNews();
-
-    // Real-time: auto-refresh when admin adds/edits/deletes news
-    const channel = supabase
-      .channel('public-news')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => {
-        fetchNews();
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, [userData?.role]);
 
   const canViewNews = (item, role) => {

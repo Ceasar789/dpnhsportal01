@@ -174,16 +174,6 @@ const StudentsTab = () => {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    if (!userData?.uid) return undefined;
-    const channel = supabase
-      .channel(`teacher-students-${userData.uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'section_students' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules', filter: `teacher_id=eq.${userData.uid}` }, fetchData)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [userData?.uid, fetchData]);
-
   const matchesSearch = (s) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;

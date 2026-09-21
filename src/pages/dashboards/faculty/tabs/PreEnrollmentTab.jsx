@@ -62,19 +62,6 @@ const PreEnrollmentTab = () => {
 
   useEffect(() => {
     fetchEnrollments();
-
-    // Real-time subscription
-    const channel = supabase
-      .channel('faculty-pre-enrollment')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, (payload) => {
-        if (payload.eventType === 'UPDATE' && selectedEnrollment?.id === payload.new.id) {
-          setSelectedEnrollment(payload.new);
-        }
-        fetchEnrollments();
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, []);
 
   const handleCheckDocument = async (enrollmentId, docKey) => {

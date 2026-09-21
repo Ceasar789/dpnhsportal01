@@ -49,16 +49,6 @@ const PreEnrollmentTab = () => {
 
   useEffect(() => {
     fetchEnrollments();
-    const channel = supabase
-      .channel('registrar-pre-enrollment')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, (payload) => {
-        if (payload.eventType === 'UPDATE' && selected?.id === payload.new.id) {
-          setSelected(payload.new);
-        }
-        fetchEnrollments();
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, []);
 
   const toggleDoc = async (docKey) => {

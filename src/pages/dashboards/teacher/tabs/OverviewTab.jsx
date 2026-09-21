@@ -161,20 +161,6 @@ const OverviewTab = () => {
     fetchOverviewData();
   }, [fetchOverviewData]);
 
-  // One channel, scoped to this teacher, instead of separate unfiltered ones.
-  // (Requires the tables to be added to the supabase_realtime publication
-  // before any event actually fires.)
-  useEffect(() => {
-    if (!userData?.uid) return undefined;
-    const channel = supabase
-      .channel(`teacher-overview-${userData.uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_plans', filter: `teacher_id=eq.${userData.uid}` }, fetchOverviewData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'worksheets', filter: `teacher_id=eq.${userData.uid}` }, fetchOverviewData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules', filter: `teacher_id=eq.${userData.uid}` }, fetchOverviewData)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [userData?.uid, fetchOverviewData]);
-
   const classDot = (status) => (status === 'current' ? '🟢' : status === 'upcoming' ? '🔵' : '⚪');
   const mutedColor = dark ? '#64748b' : '#94a3b8';
   const textColor = dark ? '#f1f5f9' : '#1a2b4a';

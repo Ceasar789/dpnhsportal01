@@ -42,13 +42,6 @@ const AnnouncementsTab = () => {
 
   useEffect(() => {
     fetchAnnouncements();
-
-    const channel = supabase
-      .channel('student-announcements')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, fetchAnnouncements)
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, [fetchAnnouncements]);
 
   const filtered = announcements.filter(a => 

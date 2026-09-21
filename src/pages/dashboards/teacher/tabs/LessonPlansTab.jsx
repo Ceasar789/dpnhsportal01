@@ -93,11 +93,6 @@ const LessonPlansTab = () => {
 
   useEffect(() => {
     fetchPlans();
-    const channel = supabase
-      .channel('teacher-lesson-plans-v2')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_plans' }, fetchPlans)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, [fetchPlans]);
 
   // ── Convert PDF file to base64 ─────────────────────────────

@@ -71,18 +71,6 @@ const DashboardTab = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    const channels = [
-      supabase.channel('registrar-dash-profiles')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchDashboardData)
-        .subscribe(),
-      supabase.channel('registrar-dash-pre')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, fetchDashboardData)
-        .subscribe(),
-      supabase.channel('registrar-dash-docs')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, fetchDashboardData)
-        .subscribe(),
-    ];
-    return () => channels.forEach(ch => supabase.removeChannel(ch));
   }, []);
 
   const kpis = [

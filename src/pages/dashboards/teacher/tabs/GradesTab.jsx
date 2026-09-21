@@ -85,11 +85,6 @@ const GradesTab = () => {
 
   useEffect(() => {
     fetchGrades();
-    const channels = [
-      supabase.channel('teacher-grades').on('postgres_changes', { event: '*', schema: 'public', table: 'grades' }, fetchGrades).subscribe(),
-      supabase.channel('teacher-grade-students').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchGrades).subscribe()
-    ];
-    return () => channels.forEach(ch => supabase.removeChannel(ch));
   }, [fetchGrades]);
 
   const handleSaveGrade = async (studentId, subject, value) => {

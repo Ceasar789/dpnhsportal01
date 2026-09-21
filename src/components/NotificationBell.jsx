@@ -52,13 +52,6 @@ const NotificationBell = () => {
     };
 
     fetchNotifs();
-
-    const channel = supabase
-      .channel(`notif-bell-${uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` }, fetchNotifs)
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, [uid]);
 
   const markRead = async (id) => {

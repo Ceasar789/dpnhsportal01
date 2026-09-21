@@ -43,11 +43,6 @@ const DocumentsTab = () => {
 
   useEffect(() => {
     fetchDocuments();
-    const channel = supabase
-      .channel('registrar-documents')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, fetchDocuments)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, []);
 
   const handleVerify = async (id) => {

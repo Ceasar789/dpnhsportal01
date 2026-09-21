@@ -895,60 +895,6 @@ export const useAdminLogic = (userData) => {
   }, [fetchRoleDist]);
 
   // ═══════════════════════════════════════════
-  //  REAL-TIME SUBSCRIPTIONS — ALL TABLES
-  // ═══════════════════════════════════════════
-  useEffect(() => {
-    const channels = [];
-
-    // Users subscription (debounced to prevent race conditions)
-    channels.push(
-      supabase.channel('admin-users')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-          debouncedFetchUsers(); debouncedFetchStats(); debouncedFetchRoleDist();
-        })
-        .subscribe()
-    );
-
-    // News subscription
-    channels.push(
-      supabase.channel('admin-news')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => {
-          fetchNews(); fetchStats();
-        })
-        .subscribe()
-    );
-
-    // Calendar subscription
-    channels.push(
-      supabase.channel('admin-calendar')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, () => {
-          fetchCalEvents(); fetchStats();
-        })
-        .subscribe()
-    );
-
-    // Memos subscription
-    channels.push(
-      supabase.channel('admin-memos')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'memos' }, () => {
-          fetchMemos(); fetchStats();
-        })
-        .subscribe()
-    );
-
-    // Activity logs subscription
-    channels.push(
-      supabase.channel('admin-logs')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
-          fetchLogs();
-        })
-        .subscribe()
-    );
-
-    return () => channels.forEach(ch => supabase.removeChannel(ch));
-  }, [debouncedFetchUsers, debouncedFetchStats, debouncedFetchRoleDist, fetchNews, fetchStats, fetchCalEvents, fetchMemos, fetchLogs]);
-
-  // ═══════════════════════════════════════════
   //  CLEANUP — Clear debounce timers on unmount
   // ═══════════════════════════════════════════
   useEffect(() => {

@@ -7,11 +7,16 @@
 // dashboards that don't define them (e.g. Faculty).
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
 import { withRetry } from '../lib/supabaseRetry';
+
+// While the tab is visible, poll this often to keep the unread badge live
+// without any user action. Paused entirely while the tab is hidden so 60
+// backgrounded dashboards don't hammer the free-tier connection pool.
+const POLL_INTERVAL_MS = 60000;
 
 const v = (name, fallback) => `var(${name}, ${fallback})`;
 
@@ -31,28 +36,93 @@ const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
 
+  // Guards against overlapping fetches (open + poll + focus firing close
+  // together) and lets the poll/visibility effect call the latest fetcher
+  // without re-subscribing every render.
+  const inFlightRef = useRef(false);
+  const fetchNotifsRef = useRef(() => {});
+
   useEffect(() => {
-    if (!uid) return undefined;
+    if (!uid) {
+      fetchNotifsRef.current = () => {};
+      return undefined;
+    }
 
     // Always a full, freshly sorted re-fetch (never a manual splice/prepend)
-    // so the list can never end up out of order after a realtime event.
+    // so the list can never end up out of order between refreshes.
     const fetchNotifs = async () => {
-      const { data, error } = await withRetry(
-        () => supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', uid)
-          .order('created_at', { ascending: false })
-          .limit(15),
-        { label: 'Notifications fetch' }
-      );
-      if (error) { console.warn('Notifications fetch failed:', error.message); return; }
-      setNotifications(data || []);
-      setUnreadCount((data || []).filter(n => !n.is_read).length);
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      try {
+        const { data, error } = await withRetry(
+          () => supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', uid)
+            .order('created_at', { ascending: false })
+            .limit(15),
+          { label: 'Notifications fetch' }
+        );
+        if (error) {
+          // Fail quietly and keep whatever is already on screen — an empty
+          // bell on a flaky poll is worse than a briefly stale one.
+          console.warn('Notifications fetch failed:', error.message);
+          return;
+        }
+        setNotifications(data || []);
+        setUnreadCount((data || []).filter(n => !n.is_read).length);
+      } finally {
+        inFlightRef.current = false;
+      }
     };
 
+    fetchNotifsRef.current = fetchNotifs;
     fetchNotifs();
+
+    // Refresh when the tab regains visibility. `visibilitychange` alone
+    // covers both "switched tabs and back" and "restored from minimize";
+    // `focus` is skipped because on this same-window tab-switch flow it
+    // would just double the visibilitychange fetch, not add coverage.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchNotifs();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Slow poll while visible, so the badge stays live with no user action.
+    // Paused on hide and resumed on show so hidden tabs cost nothing.
+    let intervalId = null;
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(fetchNotifs, POLL_INTERVAL_MS);
+    };
+    const stopPolling = () => {
+      if (!intervalId) return;
+      clearInterval(intervalId);
+      intervalId = null;
+    };
+    const onVisibilityForPolling = () => {
+      if (document.visibilityState === 'visible') startPolling();
+      else stopPolling();
+    };
+    if (document.visibilityState === 'visible') startPolling();
+    document.addEventListener('visibilitychange', onVisibilityForPolling);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibilityForPolling);
+      stopPolling();
+    };
   }, [uid]);
+
+  // Refetch whenever the dropdown is opened, so what the user sees the
+  // moment they look is fresh. Costs nothing while the bell is idle/closed.
+  const toggleOpen = useCallback(() => {
+    setOpen(o => {
+      const next = !o;
+      if (next) fetchNotifsRef.current();
+      return next;
+    });
+  }, []);
 
   const markRead = async (id) => {
     const { error } = await supabase
@@ -78,7 +148,7 @@ const NotificationBell = () => {
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={toggleOpen}
         className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors relative"
         aria-label="Notifications"
       >

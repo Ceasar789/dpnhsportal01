@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { localNowTimestamp } from '../../../../lib/taskFormatting';
 import { Calendar, Clock, Megaphone, Plus, Search, Trash2, Edit, X, Check, Loader2 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Modal, Badge, Btn } from '../shared/ui';
@@ -28,6 +29,7 @@ const AnnouncementsTab = () => {
         .from('news')
         .select('*')
         .eq('status', 'Published')
+        .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
         .order('created_at', { ascending: false }),
       { label: 'Announcements fetch' }
     );

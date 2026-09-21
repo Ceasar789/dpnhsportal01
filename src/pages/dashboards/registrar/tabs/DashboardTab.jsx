@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { localNowTimestamp } from '../../../../lib/taskFormatting';
 import { Users, ClipboardList, FileText, Activity, Loader2, FileCheck, UserCheck, Shield, BarChart3, History, RefreshCw, Sparkles, UserPlus } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
@@ -58,6 +59,7 @@ const DashboardTab = () => {
           .from('news')
           .select('*')
           .eq('status', 'Published')
+          .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
           .order('created_at', { ascending: false })
           .limit(3),
         { label: 'Announcements fetch' }

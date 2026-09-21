@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { localNowTimestamp } from '../../lib/taskFormatting';
 
 const News = () => {
   const navigate = useNavigate();
@@ -39,15 +40,26 @@ const News = () => {
 
   const fetchNews = async () => {
     setLoading(true);
+    // An expired post must not cross the wire at all — filtered in the
+    // query (PostgREST .or), not in JS after the fact. expires_at IS NULL
+    // (never expires) is always included.
     const { data, error } = await supabase
       .from('news')
       .select('*')
       .eq('status', 'Published')
+      .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
       .order('published_at', { ascending: false });
     if (!error && data) setNewsItems(data.filter(item => canViewNews(item, userData?.role || 'guest')));
     setLoading(false);
   };
 
+  // News History is a deliberate look-back at posts the admin has already
+  // archived — a different axis from expiry. An archived post got there by
+  // explicit admin action, not by the clock, and readers who open History
+  // are asking to see old news on purpose. Expiry exists to auto-hide a
+  // post from the *live* feed; it is not applied here, so archiving a post
+  // never loses it from the historical record even if its expires_at (set
+  // back when it was still live) has since passed.
   const fetchHistory = async () => {
     const { data, error } = await supabase.from('news').select('*').eq('status', 'Archived').order('updated_at', { ascending: false });
     if (!error) setHistoryItems((data || []).filter(item => canViewNews(item, userData?.role || 'guest')));

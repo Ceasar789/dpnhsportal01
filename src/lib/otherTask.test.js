@@ -31,4 +31,12 @@ describe('isOtherTask', () => {
     expect(isOtherTask('math', null)).toBe(false);
     expect(isOtherTask(null, null)).toBe(true);
   });
+
+  it('treats undefined the same as null instead of throwing', () => {
+    // No caller can produce undefined today, but the falsy check should
+    // make it safe rather than reaching scheduledSubjectIds.has() on
+    // undefined and throwing a TypeError.
+    expect(isOtherTask('math', undefined)).toBe(false);
+    expect(isOtherTask(null, undefined)).toBe(true);
+  });
 });

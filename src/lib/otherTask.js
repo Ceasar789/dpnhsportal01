@@ -25,6 +25,6 @@
  */
 export function isOtherTask(subjectId, scheduledSubjectIds) {
   if (!subjectId) return true;
-  if (scheduledSubjectIds === null) return false;
+  if (!scheduledSubjectIds) return false;
   return !scheduledSubjectIds.has(subjectId);
 }

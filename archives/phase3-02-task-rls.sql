@@ -13,6 +13,13 @@
 -- file reverts all four to their Phase 2 bodies with no error — if that ever
 -- happens, re-run this file again afterwards.
 --
+-- WARNING: archives/phase3-04-assignee-read-scope.sql supersedes one object
+-- this file creates — the policy task_assignees_teacher_all. If phase3-04
+-- has already been run against this database, re-running this file reverts
+-- that policy to its Phase 3/02 (FOR ALL) body with no error, and phase3-04
+-- must be re-run afterwards to restore the split SELECT/INSERT/UPDATE/DELETE
+-- policies.
+--
 -- Run in: Supabase Dashboard -> SQL Editor -> New query -> Run (without RLS)
 -- ============================================
 

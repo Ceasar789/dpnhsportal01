@@ -18,7 +18,7 @@ import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import NotificationBell from '../../../components/NotificationBell';
 import OverviewTab from './tabs/OverviewTab';
-import StudentWorksheetsTab from './tabs/WorksheetsTab';
+import StudentTasksTab from './tabs/TasksTab';
 import AssignmentsTab from './tabs/AssignmentsTab';
 import QuizzesTab from './tabs/QuizzesTab';
 import AttendanceTab from './tabs/AttendanceTab';
@@ -47,7 +47,7 @@ const StudentDashboard = () => {
         <PageTransition>
           <Routes>
             <Route path="/" element={<OverviewTab />} />
-            <Route path="/worksheets" element={<StudentWorksheetsTab />} />
+            <Route path="/tasks" element={<StudentTasksTab />} />
             <Route path="/assignments" element={<AssignmentsTab />} />
             <Route path="/quizzes" element={<QuizzesTab />} />
             <Route path="/attendance" element={<AttendanceTab />} />
@@ -80,7 +80,7 @@ const StudentLayout = ({ children }) => {
 
   const navItems = [
     { path: '/student-dashboard', icon: LayoutDashboard, label: 'Overview' },
-    { path: '/student-dashboard/worksheets', icon: ClipboardCheck, label: 'Worksheets' },
+    { path: '/student-dashboard/tasks', icon: ClipboardCheck, label: 'Tasks' },
     { path: '/student-dashboard/assignments', icon: ClipboardList, label: 'Assignments' },
     { path: '/student-dashboard/quizzes', icon: FileText, label: 'Quizzes' },
     { path: '/student-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },

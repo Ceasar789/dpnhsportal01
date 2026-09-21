@@ -1,18 +1,31 @@
 // ============================================
-// FILE: src/pages/dashboards/student/tabs/WorksheetsTab.jsx
-// Worksheets posted to this student's section, and the answering surface.
+// FILE: src/pages/dashboards/student/tabs/TasksTab.jsx
+// Tasks assigned to this student (task_assignees), and the answering surface.
 // Never selects worksheet_item_keys — the answer key is not readable here and
 // must not be requested. Never imports checkItem/scoreSubmission — those run
 // only in the teacher's browser, where the key is actually readable.
 // ============================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
-import { FileText, Loader2, RefreshCw, Clock } from 'lucide-react';
+import { FileText, Loader2, RefreshCw, Clock, CalendarClock } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
+import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
+
+// Colors for the countdown badge, one per formatCountdown tone. Kept in one
+// place so the meaning of a color (late vs. soon vs. plenty of time) stays
+// consistent no matter which row renders it.
+const COUNTDOWN_COLORS = {
+  late: { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  urgent: { color: '#ea580c', bg: 'rgba(234,88,12,0.12)' },
+  soon: { color: '#ca8a04', bg: 'rgba(202,138,4,0.12)' },
+  normal: { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  none: { color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+};
 
 // The exact submission columns this file ever reads or asks back after a
 // write — named explicitly everywhere (never a bare `.select()`) so a
@@ -45,10 +58,12 @@ const toStudentMessage = (error, fallback) => {
   return fallback;
 };
 
-const StudentWorksheetsTab = () => {
+const StudentTasksTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
   const { showToast, Toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const subjectFilter = searchParams.get('subject');
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +73,14 @@ const StudentWorksheetsTab = () => {
   const [answers, setAnswers] = useState({});
   const [submission, setSubmission] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  // Drives the live countdown on every row from ONE interval for the whole
+  // list — a class with thirty tasks would otherwise hold thirty timers.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // itemId -> pending debounce timer id; itemId -> the currently in-flight
   // write promise for that item, removed the instant it settles (this map
@@ -109,25 +132,39 @@ const StudentWorksheetsTab = () => {
 
   const muted = { color: dark ? '#64748b' : '#94a3b8' };
 
-  const fetchWorksheets = useCallback(async () => {
+  const fetchTasks = useCallback(async () => {
     if (!userData?.uid) return;
     setLoading(true);
 
-    const { data: postings, error } = await withRetry(
-      () => supabase.from('worksheet_sections').select('id, worksheet_id, section_id, due_at'),
-      { label: 'Student worksheet postings fetch' }
+    // The list now comes from task_assignees — what was actually assigned to
+    // THIS student — not from every posting to their section. section_id on
+    // each row is kept (even though it is not shown) because it is the exact
+    // value the database's student_assigned_task_in_section check pins
+    // worksheet_submissions.section_id to on insert; carrying it through here
+    // is what keeps Start from failing with a bare RLS error later.
+    const { data: assignees, error } = await withRetry(
+      () => supabase.from('task_assignees')
+        .select('task_id, section_id, due_at, assigned_at')
+        .eq('student_id', userData.uid),
+      { label: 'Student task assignments fetch' }
     );
     if (error) {
-      console.warn('Student worksheet postings fetch failed —', error.message);
+      console.warn('Student task assignments fetch failed —', error.message);
       setLoadError(true); setLoading(false); return;
     }
 
-    const ids = [...new Set((postings || []).map(p => p.worksheet_id))];
+    // Newest assignment first — the order the student learned about the work.
+    const sorted = [...(assignees || [])].sort(
+      (a, b) => new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
+    );
+
+    const ids = [...new Set(sorted.map(a => a.task_id))];
     if (ids.length === 0) { setLoadError(false); setRows([]); setLoading(false); return; }
 
     const [sheetResult, subResult, scoreResult] = await Promise.all([
-      withRetry(() => supabase.from('worksheets').select('id, title, subject').in('id', ids),
-        { label: 'Student worksheets fetch' }),
+      withRetry(() => supabase.from('worksheets')
+        .select('id, title, subject, task_type, subject_id').in('id', ids),
+        { label: 'Student tasks fetch' }),
       // Reads the student's own submission rows so their status/score can be
       // shown. A failed read here must NEVER be treated as "no submission" —
       // that would invite an already-submitted student to answer again and
@@ -144,28 +181,64 @@ const StudentWorksheetsTab = () => {
     ]);
 
     if (sheetResult.error || subResult.error || scoreResult.error) {
-      console.warn('Student worksheets load failed —',
+      console.warn('Student tasks load failed —',
         (sheetResult.error || subResult.error || scoreResult.error).message);
       setLoadError(true); setLoading(false); return;
     }
 
+    // Subject names for the badge/filter — a separate read, not a PostgREST
+    // embed, so a nested select can never accidentally widen into a table
+    // this file has no business touching.
+    const subjectIds = [...new Set(
+      (sheetResult.data || []).map(s => s.subject_id).filter(Boolean)
+    )];
+    let subjectNameError = false;
+    let subjectsById = new Map();
+    if (subjectIds.length > 0) {
+      const { data: subjectRows, error: subjectsError } = await withRetry(
+        () => supabase.from('subjects').select('id, name').in('id', subjectIds),
+        { label: 'Student task subjects fetch' }
+      );
+      if (subjectsError) {
+        console.warn('Student task subjects fetch failed —', subjectsError.message);
+        subjectNameError = true;
+      } else {
+        subjectsById = new Map((subjectRows || []).map(s => [s.id, s.name]));
+      }
+    }
+    // A failed subject-name read still lets the list render — the subject
+    // name is decoration, not something a wrong value here could corrupt —
+    // it just falls back to the worksheet's own legacy subject text below.
+    if (subjectNameError) setLoadError(false);
+
     setLoadError(false);
-    setRows((postings || []).map(p => ({
-      posting: p,
-      sheet: (sheetResult.data || []).find(w => w.id === p.worksheet_id),
-      // The score is merged back in only for released submissions, which is
-      // the only case statusLabel renders a number for anyway.
-      submission: (() => {
-        const state = (subResult.data || []).find(s => s.worksheet_id === p.worksheet_id);
-        if (!state) return null;
-        const score = (scoreResult.data || []).find(s => s.worksheet_id === p.worksheet_id);
-        return score ? { ...state, ...score } : state;
-      })(),
-    })).filter(r => r.sheet));
+    setRows(sorted.map(a => {
+      const sheet = (sheetResult.data || []).find(w => w.id === a.task_id);
+      return {
+        assignee: a,
+        sheet,
+        subjectName: sheet?.subject_id ? subjectsById.get(sheet.subject_id) : null,
+        // The score is merged back in only for released submissions, which is
+        // the only case statusLabel renders a number for anyway.
+        submission: (() => {
+          if (!sheet) return null;
+          const state = (subResult.data || []).find(s => s.worksheet_id === sheet.id);
+          if (!state) return null;
+          const score = (scoreResult.data || []).find(s => s.worksheet_id === sheet.id);
+          return score ? { ...state, ...score } : state;
+        })(),
+      };
+    }).filter(r => r.sheet));
     setLoading(false);
   }, [userData?.uid]);
 
-  useEffect(() => { fetchWorksheets(); }, [fetchWorksheets]);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  // ?subject=<id> narrows the list to that subject; ?subject=other shows
+  // tasks with no subject_id at all. No filter param shows everything.
+  const visibleRows = subjectFilter
+    ? rows.filter(r => (subjectFilter === 'other' ? !r.sheet.subject_id : r.sheet.subject_id === subjectFilter))
+    : rows;
 
   // Writes one submission's `submission` field into the matching `rows`
   // entry in place, without a full refetch. Called the instant a
@@ -175,8 +248,8 @@ const StudentWorksheetsTab = () => {
   // worksheet that already has a row. Without this, the student's only way
   // back in is a second INSERT, which UNIQUE(worksheet_id, student_id)
   // rejects.
-  const rememberSubmission = (postingId, sub) => {
-    setRows(prev => prev.map(r => (r.posting.id === postingId ? { ...r, submission: sub } : r)));
+  const rememberSubmission = (taskId, sub) => {
+    setRows(prev => prev.map(r => (r.assignee.task_id === taskId ? { ...r, submission: sub } : r)));
   };
 
   const open = async (row) => {
@@ -198,7 +271,11 @@ const StudentWorksheetsTab = () => {
       const { data, error: createError } = await supabase.from('worksheet_submissions').insert([{
         worksheet_id: row.sheet.id,
         student_id: userData.uid,
-        section_id: row.posting.section_id,
+        // Must equal task_assignees.section_id for this (task, student) pair
+        // — the database's student_assigned_task_in_section RLS check pins
+        // worksheet_submissions.section_id to exactly that value. row.assignee
+        // IS that task_assignees row, so this is always the right one.
+        section_id: row.assignee.section_id,
         source: 'online',
         status: 'in_progress',
       // State only, for the same reason as the recovery read below. The
@@ -239,7 +316,7 @@ const StudentWorksheetsTab = () => {
       // Recorded immediately — before the saved-answers read below, which
       // can itself fail — so either failure path still leaves `rows`
       // knowing this submission exists.
-      rememberSubmission(row.posting.id, sub);
+      rememberSubmission(row.assignee.task_id, sub);
       row = { ...row, submission: sub };
     }
 
@@ -412,7 +489,7 @@ const StudentWorksheetsTab = () => {
       showToast('Submitted. Your teacher will check it.');
       setSubmission(prev => prev ? { ...prev, status: 'submitted' } : prev);
       setActive(null);
-      fetchWorksheets();
+      fetchTasks();
     } finally {
       // Always released, even if flushPendingSaves or the update throws
       // unexpectedly — otherwise the button is stuck reading "Submitting…"
@@ -438,7 +515,7 @@ const StudentWorksheetsTab = () => {
         <Toast />
         <button onClick={() => { resetSaveState(); setActive(null); }} className="text-sm mb-4" style={muted}>← Back</button>
         <h1 className="text-xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{active.sheet.title}</h1>
-        <p className="text-xs mb-4" style={muted}>{active.sheet.subject}</p>
+        <p className="text-xs mb-4" style={muted}>{active.subjectName || active.sheet.subject}</p>
 
         {items.length === 0 ? (
           <Card className="p-6 text-center">
@@ -529,50 +606,71 @@ const StudentWorksheetsTab = () => {
       <Toast />
       <div className="flex items-center justify-between mb-6 rounded-lg px-4 py-3"
         style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
-        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>My Worksheets</h1>
-        <button onClick={fetchWorksheets} className="p-1.5 rounded-lg" style={muted}><RefreshCw size={16} /></button>
+        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>Tasks</h1>
+        <button onClick={fetchTasks} className="p-1.5 rounded-lg" style={muted}><RefreshCw size={16} /></button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={32} style={muted} /></div>
       ) : loadError ? (
         <Card className="p-8 text-center">
-          <p className="text-sm font-semibold mb-2" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Could not load your worksheets.</p>
+          <p className="text-sm font-semibold mb-2" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Could not load your tasks.</p>
           <p className="text-sm mb-3" style={muted}>Check your connection and try again.</p>
-          <button onClick={fetchWorksheets} className="h-9 px-4 rounded-lg text-sm font-semibold"
+          <button onClick={fetchTasks} className="h-9 px-4 rounded-lg text-sm font-semibold"
             style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
         </Card>
       ) : rows.length === 0 ? (
         <Card className="p-8 text-center">
           <FileText size={40} className="mx-auto mb-3" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
-          <p style={muted}>No worksheets have been posted to your section yet.</p>
+          <p style={muted}>No tasks have been assigned to you yet.</p>
+        </Card>
+      ) : visibleRows.length === 0 ? (
+        <Card className="p-8 text-center">
+          <FileText size={40} className="mx-auto mb-3" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
+          <p style={muted}>No tasks match this subject.</p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {rows.map(row => (
-            <Card key={row.posting.id} className="p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{row.sheet.title}</p>
-                <p className="text-xs" style={muted}>{row.sheet.subject}</p>
-                {row.posting.due_at && (
-                  <p className="text-xs flex items-center gap-1 mt-1" style={muted}>
-                    <Clock size={12} /> Due {new Date(row.posting.due_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                )}
-              </div>
-              <div className="text-right">
-                <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>
-                <button onClick={() => open(row)} disabled={busy}
-                  className="block mt-2 text-xs font-semibold" style={{ color: '#1908DF' }}>
-                  {row.submission ? 'Open' : 'Start'}
-                </button>
-              </div>
-            </Card>
-          ))}
+          {visibleRows.map(row => {
+            const countdown = formatCountdown(row.assignee.due_at, now);
+            const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
+            const typeLabel = TASK_TYPE_LABELS[row.sheet.task_type] || 'Task';
+            return (
+              <Card key={row.assignee.task_id} className="p-4 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{row.sheet.title}</p>
+                    <Badge color="#7c3aed" bg="rgba(124,58,237,0.12)">{typeLabel}</Badge>
+                  </div>
+                  <p className="text-xs" style={muted}>{row.subjectName || row.sheet.subject}</p>
+                  {row.assignee.assigned_at && (
+                    <p className="text-xs flex items-center gap-1 mt-1" style={muted}>
+                      <CalendarClock size={12} /> Assigned {new Date(row.assignee.assigned_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  )}
+                  {row.assignee.due_at && (
+                    <p className="text-xs flex items-center gap-1 mt-1" style={muted}>
+                      <Clock size={12} /> Due {new Date(row.assignee.due_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>
+                    <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>
+                  </div>
+                  <button onClick={() => open(row)} disabled={busy}
+                    className="block mt-2 text-xs font-semibold" style={{ color: '#1908DF' }}>
+                    {row.submission ? 'Open' : 'Start'}
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
 
-export default StudentWorksheetsTab;
+export default StudentTasksTab;

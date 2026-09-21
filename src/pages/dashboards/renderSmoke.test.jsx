@@ -9,9 +9,9 @@
 // a blank dashboard. `npm run build` passed and all existing tests passed,
 // because Vite/Rollup do not resolve free identifiers; the undeclared
 // global went into the bundle untouched and only failed in a browser. This
-// test exists to catch exactly that class of bug (missing imports,
-// default-vs-named import mistakes, hook-order slips) at render time,
-// in CI, without a browser.
+// test exists to catch exactly that class of bug — a broken first render
+// caused by a missing import or a default-vs-named import mistake — at
+// render time, in CI, without a browser.
 //
 // vitest.config.js runs in a node environment, and src/config/supabase.js
 // touches sessionStorage at module scope, so any bare import of a component

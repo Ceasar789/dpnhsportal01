@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import {
-  BookOpen, CalendarCheck, ClipboardList, RefreshCw
+  BookOpen, CalendarCheck, ClipboardList, Loader2, RefreshCw
 } from 'lucide-react';
 import { useTheme, useToast, Card, StatCard } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';

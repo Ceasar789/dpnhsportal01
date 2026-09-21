@@ -63,8 +63,13 @@ const SubjectCards = ({ subjects, tasksBySubject, loading, loadError, onRetry, o
 
   const other = tasksBySubject.other;
   const showOther = other && other.total > 0;
+  // The prerequisite this message exists to communicate — no schedule rows
+  // for this student's section(s) — holds regardless of whether an Other
+  // card is also rendering (e.g. an assignee row exists with no matching
+  // schedule at all). It must not be swallowed by that Other card.
+  const noSubjectsScheduled = subjects.length === 0;
 
-  if (subjects.length === 0 && !showOther) {
+  if (noSubjectsScheduled && !showOther) {
     return (
       <div className="text-center py-8">
         <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
@@ -79,7 +84,13 @@ const SubjectCards = ({ subjects, tasksBySubject, loading, loadError, onRetry, o
   if (showOther) cards.push({ id: 'other', name: 'Other' });
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div>
+      {noSubjectsScheduled && (
+        <p className="text-xs mb-3" style={muted}>
+          No subjects scheduled yet — your section has no class schedule. Showing tasks assigned to you anyway.
+        </p>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {cards.map(subject => {
         const bucket = tasksBySubject[subject.id] || { total: 0, pendingCount: 0, nearestDue: null };
         const countdown = formatCountdown(bucket.pendingCount > 0 ? bucket.nearestDue : null, now);
@@ -114,6 +125,7 @@ const SubjectCards = ({ subjects, tasksBySubject, loading, loadError, onRetry, o
           </button>
         );
       })}
+      </div>
     </div>
   );
 };

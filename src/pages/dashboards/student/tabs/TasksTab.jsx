@@ -66,6 +66,13 @@ const StudentTasksTab = () => {
   const subjectFilter = searchParams.get('subject');
 
   const [rows, setRows] = useState([]);
+  // Subject ids that appear anywhere in this student's class schedule, from
+  // the sections their tasks were assigned in. Used only to widen the
+  // ?subject=other filter below — Overview's Other card buckets a task there
+  // when its subject_id is null OR not among these ids, and this filter must
+  // match that definition exactly, or a task Overview counted as "Other"
+  // becomes unreachable from every card on that screen.
+  const [scheduledSubjectIds, setScheduledSubjectIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [active, setActive] = useState(null);
@@ -211,6 +218,27 @@ const StudentTasksTab = () => {
     // it just falls back to the worksheet's own legacy subject text below.
     if (subjectNameError) setLoadError(false);
 
+    // The student's scheduled subjects, from the sections their tasks were
+    // assigned in — needed only to widen ?subject=other below to match
+    // Overview's definition of Other (null subject_id, or a subject outside
+    // the schedule). A failed read here is non-fatal: the list still renders,
+    // and the filter just falls back to "null subject_id only" until a retry
+    // succeeds, rather than blocking the whole tab over a filter definition.
+    const sectionIds = [...new Set(sorted.map(a => a.section_id).filter(Boolean))];
+    if (sectionIds.length > 0) {
+      const { data: schedRows, error: schedError } = await withRetry(
+        () => supabase.from('schedules').select('subject_id').in('section_id', sectionIds),
+        { label: 'Student schedules fetch' }
+      );
+      if (schedError) {
+        console.warn('Student schedules fetch failed —', schedError.message);
+      } else {
+        setScheduledSubjectIds(new Set((schedRows || []).map(s => s.subject_id).filter(Boolean)));
+      }
+    } else {
+      setScheduledSubjectIds(new Set());
+    }
+
     setLoadError(false);
     setRows(sorted.map(a => {
       const sheet = (sheetResult.data || []).find(w => w.id === a.task_id);
@@ -235,9 +263,13 @@ const StudentTasksTab = () => {
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   // ?subject=<id> narrows the list to that subject; ?subject=other shows
-  // tasks with no subject_id at all. No filter param shows everything.
+  // tasks with no subject_id, OR whose subject_id names a subject outside
+  // this student's own class schedule — the exact same definition Overview's
+  // Other card buckets by. Narrower than that (null-only) would make a task
+  // Overview counted as "Other" unreachable from every card on that screen.
+  const isOther = (r) => !r.sheet.subject_id || !scheduledSubjectIds.has(r.sheet.subject_id);
   const visibleRows = subjectFilter
-    ? rows.filter(r => (subjectFilter === 'other' ? !r.sheet.subject_id : r.sheet.subject_id === subjectFilter))
+    ? rows.filter(r => (subjectFilter === 'other' ? isOther(r) : r.sheet.subject_id === subjectFilter))
     : rows;
 
   // Writes one submission's `submission` field into the matching `rows`

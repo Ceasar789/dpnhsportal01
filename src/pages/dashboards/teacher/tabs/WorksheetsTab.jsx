@@ -31,7 +31,7 @@ const WorksheetsTab = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
-  const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', status: 'Draft', task_type: 'worksheet' });
+  const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', task_type: 'worksheet' });
   const [saving, setSaving] = useState(false);
   const assessment = useWorksheetAssessment(showToast);
   const [distributingTask, setDistributingTask] = useState(null);
@@ -95,7 +95,7 @@ const WorksheetsTab = () => {
     if (error) showToast('Error: ' + error.message, 'error');
     else {
       showToast('Worksheet created');
-      setFormData({ title: '', subject: '', pages: '', items: '', status: 'Draft', task_type: 'worksheet' });
+      setFormData({ title: '', subject: '', pages: '', items: '', task_type: 'worksheet' });
       setShowAddModal(false);
       fetchWorksheets();
     }
@@ -205,7 +205,6 @@ const WorksheetsTab = () => {
         pages: 'N/A',
         items: 0,
         teacher_id: userData?.uid,
-        status: 'Draft',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }]).select();
@@ -521,6 +520,7 @@ const WorksheetsTab = () => {
           loadSubmissions={assessment.loadSubmissions}
           distributeTask={assessment.distributeTask}
           onClose={() => setDistributingTask(null)}
+          showToast={showToast}
         />
       )}
 

@@ -28,6 +28,7 @@ import { combineDateAndTime, DEFAULT_DUE_TIME } from '../../../../lib/taskFormat
 const DistributeModal = ({
   task, sections, sectionsError, onRetrySections,
   loadClassList, loadAssignees, loadSubmissions, distributeTask, onClose,
+  showToast,
 }) => {
   const { dark } = useTheme();
 
@@ -159,6 +160,18 @@ const DistributeModal = ({
       if (!res.added || res.added.length === 0) {
         setResult({ tone: 'warning', text: res.message || 'Nothing new was distributed.' });
         return;
+      }
+      // The task itself was genuinely distributed even when notified is
+      // false — that only means the separate notification write was
+      // refused (the reachable case: a student was withdrawn from the
+      // section between the roster load and this submit, so
+      // teaches_student no longer holds for them). Say both things: the
+      // distribution succeeded, and who could not be told.
+      if (res.notified === false) {
+        showToast?.(
+          'Task distributed, but the students could not be notified. They will still see it in their task list.',
+          'error'
+        );
       }
       onClose();
       return;

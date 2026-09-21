@@ -833,6 +833,8 @@ export const useWorksheetAssessment = (showToast) => {
     if (error) {
       const message = error.code === '23503'
         ? 'One of these students is not on the class list yet. Ask your admin to add them to the section first.'
+        : error.code === '23505'
+        ? 'One of these students already has this task.'
         : `Could not distribute: ${error.message}`;
       return { ok: false, message };
     }

@@ -12,11 +12,13 @@ import { TARGET_ROLES } from '../shared/helpers';
 const NewsTab = () => {
   const {
     closeModal, deleteNewsItem, editNews, filteredNews, handleOverlayClick,
-    modal, nAuthor, nCat, nContent, nCustomTarget, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
+    modal, nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
     newsCatF, newsItems, newsLoading, newsSearch, newsStatF, openEditNews,
-    openNewPost, saveNews, setNAuthor, setNCat, setNContent, setNStatus,
+    openNewPost, saveNews, setNAuthor, setNCat, setNContent, setNExpiresDate, setNStatus,
     setNCustomTarget, setNImageFile, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
   } = useAdminContext();
+
+  const isExpired = (n) => !!n.expires_at && new Date(n.expires_at) < new Date();
 
   return (
     <>
@@ -52,6 +54,7 @@ const NewsTab = () => {
                         <div className="news-card-body">
                           <div className="news-meta">
                             <span className={`badge ${sb}`}>{n.status}</span>
+                            {isExpired(n) && <span className="badge badge-red">Expired</span>}
                             {n.category && <span className="badge badge-purple">{n.category}</span>}
                             <span className="badge badge-blue">{targetLabel}</span>
                           </div>
@@ -139,6 +142,16 @@ const NewsTab = () => {
             <select className="form-input" value={nStatus} onChange={e => setNStatus(e.target.value)} disabled={newsReadOnly}>
               <option>Draft</option><option>Published</option>
             </select>
+          </div>
+          <div className="form-row">
+            <label className="form-label">Expires on (optional)</label>
+            <input
+              className="form-input"
+              type="date"
+              value={nExpiresDate}
+              onChange={e => setNExpiresDate(e.target.value)}
+              disabled={newsReadOnly}
+            />
           </div>
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>

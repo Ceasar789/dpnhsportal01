@@ -28,6 +28,18 @@ export function combineDateAndTime(dateStr, timeStr) {
   return `${date}T${time}:00`;
 }
 
+// "Now", expressed the same way combineDateAndTime expresses a deadline: a
+// plain local wall-clock string with no timezone offset. Needed wherever a
+// naive TIMESTAMP WITHOUT TIME ZONE column (due_at, expires_at) is compared
+// against "now" in a PostgREST filter — new Date().toISOString() would send
+// UTC, which is offset from the school's local time and would make rows
+// expire early or late by that offset.
+export function localNowTimestamp(now = new Date()) {
+  const d = new Date(now);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;

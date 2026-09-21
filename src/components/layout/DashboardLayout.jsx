@@ -47,8 +47,6 @@ const DashboardLayout = ({ role, children }) => {
       ],
       student: [
         { path: '/student-dashboard', icon: LayoutDashboard, label: 'Overview' },
-        { path: '/student-dashboard/assignments', icon: ClipboardList, label: 'Assignments' },
-        { path: '/student-dashboard/quizzes', icon: FileText, label: 'Quizzes' },
         { path: '/student-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
         { path: '/student-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
       ],

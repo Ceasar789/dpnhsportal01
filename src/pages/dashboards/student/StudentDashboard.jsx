@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import {
-  LayoutDashboard, ClipboardList, FileText, CalendarCheck, Megaphone,
+  LayoutDashboard, CalendarCheck, Megaphone,
   Moon, Sun, LogOut, Menu, ChevronRight, Settings, ClipboardCheck
 } from 'lucide-react';
 import { ThemeContext, useTheme } from './hooks';
@@ -19,8 +19,6 @@ import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import NotificationBell from '../../../components/NotificationBell';
 import OverviewTab from './tabs/OverviewTab';
 import StudentTasksTab from './tabs/TasksTab';
-import AssignmentsTab from './tabs/AssignmentsTab';
-import QuizzesTab from './tabs/QuizzesTab';
 import AttendanceTab from './tabs/AttendanceTab';
 import AnnouncementsTab from './tabs/AnnouncementsTab';
 import ProfileTab from '../../profile/ProfileTab';
@@ -48,8 +46,6 @@ const StudentDashboard = () => {
           <Routes>
             <Route path="/" element={<OverviewTab />} />
             <Route path="/tasks" element={<StudentTasksTab />} />
-            <Route path="/assignments" element={<AssignmentsTab />} />
-            <Route path="/quizzes" element={<QuizzesTab />} />
             <Route path="/attendance" element={<AttendanceTab />} />
             <Route path="/announcements" element={<AnnouncementsTab />} />
             <Route path="/profile" element={<ProfileTab />} />
@@ -81,8 +77,6 @@ const StudentLayout = ({ children }) => {
   const navItems = [
     { path: '/student-dashboard', icon: LayoutDashboard, label: 'Overview' },
     { path: '/student-dashboard/tasks', icon: ClipboardCheck, label: 'Tasks' },
-    { path: '/student-dashboard/assignments', icon: ClipboardList, label: 'Assignments' },
-    { path: '/student-dashboard/quizzes', icon: FileText, label: 'Quizzes' },
     { path: '/student-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
     { path: '/student-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
   ];

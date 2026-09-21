@@ -129,10 +129,11 @@ export const AuthProvider = ({ children }) => {
   }, [userData?.uid, sessionTimeoutMs]);
 
   // ─── Fetch profile from profiles table ───────────────────────────────────
-  // Retries once after a short pause if the first attempt times out — the
-  // project's connection pool (free-tier, small compute) is occasionally
-  // saturated for a few seconds, and a lot of the time a retry a moment
-  // later goes through fine, avoiding a manual re-login to recover.
+  // Retries once after a short pause if the first attempt times out (4s
+  // timeout, 800ms pause, one retry — worst case ~8.8s) — the project's
+  // connection pool (free-tier, small compute) is occasionally saturated
+  // for a few seconds, and a lot of the time a retry a moment later goes
+  // through fine, avoiding a manual re-login to recover.
   const fetchProfileOnce = async (userId) => {
     const profilePromise = supabase
       .from('profiles')
@@ -143,7 +144,7 @@ export const AuthProvider = ({ children }) => {
     // Safety net: if the profiles query hangs (e.g. connection pool
     // saturation on the backend), don't block forever.
     const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve({ data: null, error: { code: 'CLIENT_TIMEOUT' } }), 8000)
+      setTimeout(() => resolve({ data: null, error: { code: 'CLIENT_TIMEOUT' } }), 4000)
     );
 
     return Promise.race([profilePromise, timeoutPromise]);
@@ -158,8 +159,8 @@ export const AuthProvider = ({ children }) => {
       let { data, error: profileError } = await fetchProfileOnce(userId);
 
       if (profileError?.code === 'CLIENT_TIMEOUT') {
-        console.warn('⚠️ Profile fetch timed out after 8s — retrying once...');
-        await new Promise((r) => setTimeout(r, 1500));
+        console.warn('⚠️ Profile fetch timed out after 4s — retrying once...');
+        await new Promise((r) => setTimeout(r, 800));
         ({ data, error: profileError } = await fetchProfileOnce(userId));
       }
 

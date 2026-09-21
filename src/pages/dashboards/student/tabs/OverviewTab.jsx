@@ -16,18 +16,21 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import {
-  BookOpen, CalendarCheck, CheckCircle, ClipboardList, Clock, FileText, Loader2, RefreshCw
+  BookOpen, CalendarCheck, ClipboardList, RefreshCw
 } from 'lucide-react';
 import { useTheme, useToast, Card, StatCard } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import SubjectCards from '../SubjectCards';
 
 const OverviewTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
   const { Toast } = useToast();
+  const navigate = useNavigate();
 
   const [info, setInfo] = useState({
     name: userData?.name || 'Student',
@@ -35,7 +38,12 @@ const OverviewTab = () => {
   });
   const [performance, setPerformance] = useState(null);   // { percent, count }
   const [attendance, setAttendance] = useState(null);     // { percent, present, total }
-  const [upcoming, setUpcoming] = useState([]);
+  // Subjects scheduled for the student's section(s) — the source of the
+  // cards, NOT the tasks. A section with no schedule rows yields [].
+  const [subjects, setSubjects] = useState([]);
+  // { [subjectId | 'other']: { total, pendingCount, nearestDue } }
+  const [tasksBySubject, setTasksBySubject] = useState({});
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -71,7 +79,7 @@ const OverviewTab = () => {
     const enrolled = enrolments[0] || null;
     const sectionIds = enrolments.map(e => e.section_id).filter(Boolean);
 
-    const [idResult, attResult, scoreResult, subResult, postResult] = await Promise.all([
+    const [idResult, attResult, scoreResult, subResult, schedResult, assigneeResult] = await Promise.all([
       withRetry(() => supabase.from('students').select('student_number, lrn').eq('id', userData.uid).maybeSingle(),
         { label: 'Student number fetch' }),
       withRetry(() => supabase.from('attendance').select('status').eq('student_id', userData.uid),
@@ -90,15 +98,26 @@ const OverviewTab = () => {
         .select('worksheet_id, status')
         .eq('student_id', userData.uid),
         { label: 'Student submission statuses fetch' }),
+      // Subjects scheduled for the student's section(s) — the cards' source,
+      // NOT the tasks. This column is only populated once an admin has
+      // created schedule rows, so a section with none yields [] here, which
+      // must read as "no subjects scheduled" rather than "no tasks".
       sectionIds.length > 0
-        ? withRetry(() => supabase.from('worksheet_sections')
-            .select('id, worksheet_id, due_at').in('section_id', sectionIds),
-            { label: 'Student worksheet postings fetch' })
+        ? withRetry(() => supabase.from('schedules').select('subject_id').in('section_id', sectionIds),
+            { label: 'Student schedules fetch' })
         : Promise.resolve({ data: [], error: null }),
+      // What was actually assigned to THIS student — task_assignees, the same
+      // source TasksTab.jsx uses, and its due_at, not a posting's — so the
+      // two screens never disagree about which deadline applies to them.
+      withRetry(() => supabase.from('task_assignees')
+        .select('task_id, due_at').eq('student_id', userData.uid),
+        { label: 'Student task assignments fetch' }),
     ]);
 
-    if (idResult.error || attResult.error || scoreResult.error || subResult.error || postResult.error) {
-      const first = idResult.error || attResult.error || scoreResult.error || subResult.error || postResult.error;
+    if (idResult.error || attResult.error || scoreResult.error || subResult.error
+      || schedResult.error || assigneeResult.error) {
+      const first = idResult.error || attResult.error || scoreResult.error || subResult.error
+        || schedResult.error || assigneeResult.error;
       console.warn('Student overview load failed —', first.message);
       setLoadError(true); setLoading(false); return;
     }
@@ -138,55 +157,79 @@ const OverviewTab = () => {
       total: attRows.length,
     });
 
-    // Pending: posted to my section, not yet past due, and I have not
-    // submitted it.
-    const submittedIds = new Set(
-      (subResult.data || []).filter(s => s.status !== 'in_progress').map(s => s.worksheet_id)
-    );
-    // A worksheet is due FOR the whole of its due date. due_at is a TIMESTAMP
-    // and the teacher picks a plain date, so "due Sep 25" is stored as
-    // 2026-09-25 00:00:00 — comparing against that directly dropped the
-    // worksheet from this list at midnight entering the day it was due, while
-    // the Worksheets tab still listed it and still accepted an answer.
-    const endOfDueDay = (value) => {
-      const d = new Date(value);
-      d.setHours(23, 59, 59, 999);
-      return d;
-    };
-    const now = new Date();
-    const open = (postResult.data || [])
-      .filter(p => !submittedIds.has(p.worksheet_id))
-      .filter(p => !p.due_at || endOfDueDay(p.due_at) >= now)
-      // Undated worksheets sort last, not first: mapping null to the epoch
-      // put "No due date" above something due tomorrow.
-      .sort((a, b) => {
-        if (!a.due_at && !b.due_at) return 0;
-        if (!a.due_at) return 1;
-        if (!b.due_at) return -1;
-        return new Date(a.due_at) - new Date(b.due_at);
-      });
-
-    const openIds = open.map(p => p.worksheet_id);
-    let sheets = [];
-    if (openIds.length > 0) {
+    // Subjects scheduled for the student's section(s) — deduped, and looked
+    // up by name in a separate read (never a PostgREST embed), matching
+    // TasksTab.jsx's own subject-name lookup.
+    const scheduledSubjectIds = [...new Set(
+      (schedResult.data || []).map(s => s.subject_id).filter(Boolean)
+    )];
+    let subjectRows = [];
+    if (scheduledSubjectIds.length > 0) {
       const { data, error } = await withRetry(
-        () => supabase.from('worksheets').select('id, title, subject').in('id', openIds),
-        { label: 'Upcoming worksheets fetch' }
+        () => supabase.from('subjects').select('id, name').in('id', scheduledSubjectIds),
+        { label: 'Student scheduled subjects fetch' }
       );
       if (error) {
-        console.warn('Upcoming worksheets fetch failed —', error.message);
+        console.warn('Student scheduled subjects fetch failed —', error.message);
         setLoadError(true); setLoading(false); return;
       }
-      sheets = data || [];
+      subjectRows = data || [];
     }
+    const scheduledSubjectIdSet = new Set(subjectRows.map(s => s.id));
 
-    setUpcoming(open.map(p => ({
-      id: p.id,
-      title: sheets.find(w => w.id === p.worksheet_id)?.title || 'Worksheet',
-      subject: sheets.find(w => w.id === p.worksheet_id)?.subject || '',
-      due: p.due_at ? new Date(p.due_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No due date',
-    })));
+    // Assigned tasks, joined to their worksheet's subject_id — the same
+    // task_assignees source, and the same due_at, that TasksTab.jsx counts
+    // down to, so the two screens never quote different deadlines for the
+    // same task.
+    const assignees = assigneeResult.data || [];
+    const taskIds = [...new Set(assignees.map(a => a.task_id))];
+    let sheetRows = [];
+    if (taskIds.length > 0) {
+      const { data, error } = await withRetry(
+        () => supabase.from('worksheets').select('id, subject_id').in('id', taskIds),
+        { label: 'Student overview tasks fetch' }
+      );
+      if (error) {
+        console.warn('Student overview tasks fetch failed —', error.message);
+        setLoadError(true); setLoading(false); return;
+      }
+      sheetRows = data || [];
+    }
+    const sheetById = new Map(sheetRows.map(s => [s.id, s]));
 
+    // Pending: assigned, and no submission whose status is anything other
+    // than 'in_progress' — a submitted or checked one is no longer pending,
+    // an in-progress one still is, and having none at all is pending too.
+    const notPendingIds = new Set(
+      (subResult.data || []).filter(s => s.status !== 'in_progress').map(s => s.worksheet_id)
+    );
+
+    const buckets = {};
+    const bump = (key, dueAt, pending) => {
+      if (!buckets[key]) buckets[key] = { total: 0, pendingCount: 0, nearestDue: null };
+      buckets[key].total += 1;
+      if (pending) {
+        buckets[key].pendingCount += 1;
+        if (dueAt && (!buckets[key].nearestDue || new Date(dueAt) < new Date(buckets[key].nearestDue))) {
+          buckets[key].nearestDue = dueAt;
+        }
+      }
+    };
+    let totalPending = 0;
+    assignees.forEach(a => {
+      const sheet = sheetById.get(a.task_id);
+      if (!sheet) return; // task deleted out from under the assignment
+      const pending = !notPendingIds.has(a.task_id);
+      if (pending) totalPending += 1;
+      // Null subject, or a subject not in this student's schedule, both land
+      // on Other — nothing assigned may fail to appear somewhere.
+      const key = sheet.subject_id && scheduledSubjectIdSet.has(sheet.subject_id) ? sheet.subject_id : 'other';
+      bump(key, a.due_at, pending);
+    });
+
+    setSubjects(subjectRows.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+    setTasksBySubject(buckets);
+    setPendingCount(totalPending);
     setLoading(false);
   }, [userData?.uid]);
 
@@ -265,10 +308,10 @@ const OverviewTab = () => {
         <StatCard
           label="Pending Tasks"
           value={loading ? <Loader2 className="animate-spin" size={20} />
-            : loadError ? '—' : upcoming.length.toString()}
+            : loadError ? '—' : pendingCount.toString()}
           sub={loadError ? 'Could not load'
-            : upcoming.length === 0 ? 'Nothing due'
-            : `worksheet${upcoming.length === 1 ? '' : 's'} due`}
+            : pendingCount === 0 ? 'Nothing due'
+            : `task${pendingCount === 1 ? '' : 's'} due`}
           icon={ClipboardList}
           subColor="#d97706"
           color="#d97706"
@@ -278,50 +321,20 @@ const OverviewTab = () => {
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            Upcoming Tasks
+            Your Subjects
           </h2>
           <button onClick={fetchOverview} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
             <RefreshCw size={14} />
           </button>
         </div>
-        {/* loading is checked before loadError so pressing Retry visibly does
-            something — the other cards spin, and this one used to sit frozen
-            on its error message until the refetch finished. */}
-        <div className="space-y-3">
-          {loading ? (
-            <div className="flex justify-center py-10"><Loader2 className="animate-spin" style={{ color: dark ? '#64748b' : '#94a3b8' }} /></div>
-          ) : loadError ? (
-            <div className="text-center py-8">
-              <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Could not load your tasks.</p>
-              <p className="mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Check your connection and try again.</p>
-              <button onClick={fetchOverview} className="h-9 px-4 rounded-lg text-sm font-semibold"
-                style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
-            </div>
-          ) : upcoming.length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle size={32} className="mx-auto mb-2" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
-              <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>No upcoming tasks yet.</p>
-              <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>You’re caught up for now. Check Announcements for academic updates, reminders, and upcoming schedules.</p>
-            </div>
-          ) : (
-            upcoming.map(task => (
-              <div key={task.id} className="flex items-center gap-4 p-4 rounded-lg"
-                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: dark ? '#1e3a5f' : '#eff6ff' }}>
-                  <FileText size={20} style={{ color: '#3b82f6' }} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{task.title}</p>
-                  <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{task.subject}</p>
-                </div>
-                <div className="flex items-center gap-1 text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-                  <Clock size={14} /> Due {task.due}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <SubjectCards
+          subjects={subjects}
+          tasksBySubject={tasksBySubject}
+          loading={loading}
+          loadError={loadError}
+          onRetry={fetchOverview}
+          onOpen={(subjectId) => navigate(`/student-dashboard/tasks?subject=${subjectId}`)}
+        />
       </Card>
     </div>
   );

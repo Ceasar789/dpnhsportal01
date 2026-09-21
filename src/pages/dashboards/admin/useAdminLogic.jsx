@@ -552,6 +552,33 @@ export const useAdminLogic = (userData) => {
     } finally { setNSaving(false); }
   };
 
+  // A published post's content is locked (see newsReadOnly in openEditNews)
+  // so an admin can't quietly rewrite a live announcement. But expiry is a
+  // visibility control, not content — "post it, later decide it should stop
+  // showing at the end of the month" is the normal case this feature exists
+  // for, and it must work on an already-published post. This writes only
+  // expires_at (+ updated_at) and nothing else: no status change, so
+  // becomesPublished is never true and notifyAudience is never called —
+  // re-saving a published post's expiry must not re-notify its audience.
+  const saveNewsExpiry = async () => {
+    if (!editNews) return;
+    setNSaving(true);
+    try {
+      const expires_at = nExpiresDate ? combineDateAndTime(nExpiresDate, DEFAULT_DUE_TIME) : null;
+      const { error } = await supabase
+        .from('news')
+        .update({ expires_at, updated_at: new Date().toISOString() })
+        .eq('id', editNews.id);
+      if (error) throw error;
+      await logActivity('Updated news expiry', nExpiresDate ? `${nTitle} → expires ${nExpiresDate}` : `${nTitle} → expiry cleared`);
+      showToast('Expiry date updated!');
+      await fetchNews(); await fetchStats();
+      closeModal();
+    } catch (e) {
+      showToast(e.message || 'Error updating expiry', 'error');
+    } finally { setNSaving(false); }
+  };
+
   const updateNewsStatus = async (id, status) => {
     const newsItem = newsItems.find(n => n.id === id);
     const becomesPublished = status === 'Published' && newsItem?.status !== 'Published';
@@ -963,7 +990,7 @@ export const useAdminLogic = (userData) => {
     nTitle, nImageFile, nImageUrl, newsReadOnly, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
     nextMonth, notifications, openCompose, openCreateEvent, openCreateUser, openEditEvent,
     openEditMemo, openEditNews, openEditUser, openModal, openNewPost, page,
-    prevMonth, roleDist, roleFilter, saveEvent, saveMemo, saveNews,
+    prevMonth, roleDist, roleFilter, saveEvent, saveMemo, saveNews, saveNewsExpiry,
     saveSettings, saveUser, scrollToSection, selMemo, sessionTimeout, setActiveSettingsSub,
     setActivityLogs, setActivityLogsDays, setAutoBackup, setAutoSave, setBackupFrequency, setBackupTime, setCalEvents, setCalFilter,
     setCalMonth, setCalYear, setDarkMode, setDeleteConfirm, setEditEvent, setEditMemo,

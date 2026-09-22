@@ -1,6 +1,13 @@
 -- ============================================
 -- PHASE 4 / 04 — Four dummy TEACHER accounts for load testing
 --
+-- ⚠ SUPERSEDED by phase4-05-seed-test-teachers-by-grade.sql, which creates
+--   48 teachers — one per subject per grade level (8 x 6) — instead of these
+--   four, which carry a subject but no grade level. Kept here only because it
+--   was already run against the live database, so the repo still describes
+--   what exists there. Do not run it again. phase4-05 explains how to remove
+--   these four, and why that delete cascades further than it looks.
+--
 -- Run in: Supabase Dashboard -> SQL Editor -> New query -> Run.
 -- Idempotent: re-running creates nothing twice and repairs anything partial.
 --

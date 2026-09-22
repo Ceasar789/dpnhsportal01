@@ -104,6 +104,9 @@ const ProfileTab = (await import('../profile/ProfileTab')).default;
 const SubjectCards = (await import('./student/SubjectCards')).default;
 const { StudentDataProvider } = await import('./student/StudentDataContext');
 
+const { AdminProvider } = await import('./admin/AdminContext');
+const AdminTeachingLoadTab = (await import('./admin/tabs/TeachingLoadTab')).default;
+
 const TeacherOverviewTab = (await import('./teacher/tabs/OverviewTab')).default;
 const TeacherAnnouncementsTab = (await import('./teacher/tabs/AnnouncementsTab')).default;
 const TeacherAttendanceTab = (await import('./teacher/tabs/AttendanceTab')).default;
@@ -120,6 +123,15 @@ const withRouter = (children) => <MemoryRouter>{children}</MemoryRouter>;
 // never runs effects, so nothing is fetched, but a consumer that drifts
 // from what the provider actually hands back still fails here.
 const withStudentData = (children) => withRouter(<StudentDataProvider>{children}</StudentDataProvider>);
+
+// Admin tabs read everything through useAdminContext(), so they only render
+// inside the real provider — the same way AdminDashboard mounts them.
+// renderToString runs no effects, so no data is fetched; what this catches is
+// a tab consuming something the provider does not actually hand back, which
+// is a rename away at any time and shows up as a blank dashboard.
+const withAdmin = (children) => withRouter(
+  <AdminProvider userData={mockUserData}>{children}</AdminProvider>
+);
 
 describe('dashboard tab render smoke test', () => {
   it('renders OverviewTab without throwing', () => {
@@ -198,5 +210,8 @@ describe('dashboard tab render smoke test', () => {
 
   it('renders the teacher WorksheetsTab without throwing', () => {
     expect(() => renderToString(withRouter(<TeacherWorksheetsTab />))).not.toThrow();
+  });
+  it('renders the admin TeachingLoadTab without throwing', () => {
+    expect(() => renderToString(withAdmin(<AdminTeachingLoadTab />))).not.toThrow();
   });
 });

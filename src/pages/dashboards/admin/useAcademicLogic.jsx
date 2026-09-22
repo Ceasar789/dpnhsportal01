@@ -120,7 +120,11 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
 
   const fetchTeachers = useCallback(async () => {
     const { data, error } = await withRetry(
-      () => supabase.from('profiles').select('id, name, email').eq('role', 'teacher').order('name'),
+      // `department` is read so the picker can show and search on it. With a
+      // department per teacher, "math" narrows 48 teachers to 6 — without it
+      // the only thing to search is a name the admin would have to know
+      // already.
+      () => supabase.from('profiles').select('id, name, email, department').eq('role', 'teacher').order('name'),
       { label: 'Teachers fetch' }
     );
     if (error) {
@@ -148,25 +152,78 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     setTeachingLoadLoading(false);
   }, [schoolYear]);
 
-  const addLoad = async (teacherId, subjectId, gradeLevel) => {
-    if (!teacherId || !subjectId || !gradeLevel) {
-      return showToast('Pick a teacher, a subject and a grade level', 'error');
+  /**
+   * Adds one subject, at one or more grade levels, to one or more teachers —
+   * the cross product, in a single round trip.
+   *
+   * Assigning a whole department one row at a time meant one insert per
+   * teacher per grade; eight subjects across six grade levels is 48 of them.
+   *
+   * Upserted with ignoreDuplicates rather than inserted, so a selection that
+   * overlaps what a teacher already holds adds the rest instead of failing
+   * the whole batch on the first unique violation. That is the same conflict
+   * target copyLoadFromYear uses, and it makes the button safe to press twice.
+   *
+   * .select() after an ignoreDuplicates upsert returns ONLY the rows that
+   * were actually written, which is how the toast can say how many were new
+   * without guessing. If PostgREST returns no body at all, the count is
+   * reported as unknown rather than invented — claiming "added 12" when
+   * twelve already existed would be exactly the kind of quiet lie this
+   * codebase keeps having to hunt down.
+   *
+   * @param {string[]} teacherIds
+   * @param {string} subjectId
+   * @param {string[]} gradeLevels
+   * @returns {Promise<number|null>} rows written, or null if not knowable
+   */
+  const addLoadBulk = async (teacherIds, subjectId, gradeLevels) => {
+    const teacherList = [...new Set((teacherIds || []).filter(Boolean))];
+    const gradeList = [...new Set((gradeLevels || []).filter(Boolean))];
+
+    if (teacherList.length === 0 || !subjectId || gradeList.length === 0) {
+      showToast('Pick at least one teacher, a subject and at least one grade level', 'error');
+      return null;
     }
-    const { error } = await supabase.from('teacher_subjects').insert([{
-      teacher_id: teacherId, subject_id: subjectId,
-      grade_level: gradeLevel, school_year: schoolYear,
-    }]);
-    // 23505 is unique_violation: this teacher already holds that subject and grade.
+
+    const rows = [];
+    for (const teacherId of teacherList) {
+      for (const gradeLevel of gradeList) {
+        rows.push({
+          teacher_id: teacherId, subject_id: subjectId,
+          grade_level: gradeLevel, school_year: schoolYear,
+        });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('teacher_subjects')
+      .upsert(rows, {
+        onConflict: 'teacher_id,subject_id,grade_level,school_year',
+        ignoreDuplicates: true,
+      })
+      .select('id');
+
     if (error) {
-      return showToast(
-        error.code === '23505'
-          ? 'That teacher already holds this subject at this grade level.'
-          : `Could not add: ${error.message}`,
-        'error'
+      showToast(`Could not add: ${error.message}`, 'error');
+      return null;
+    }
+
+    const written = Array.isArray(data) ? data.length : null;
+    const skipped = written === null ? null : rows.length - written;
+
+    if (written === null) {
+      showToast('Teaching load saved');
+    } else if (written === 0) {
+      showToast('Nothing to add — every one of those was already assigned');
+    } else {
+      showToast(
+        `Added ${written} entr${written === 1 ? 'y' : 'ies'}`
+        + (skipped > 0 ? ` · ${skipped} already assigned` : '')
       );
     }
-    showToast('Teaching load added');
+
     fetchTeachingLoad();
+    return written;
   };
 
   const removeLoad = async (id) => {
@@ -505,7 +562,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
     schoolYear, setSchoolYear,
     teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad,
-    teachers, teachersError, fetchTeachers, addLoad, removeLoad, copyLoadFromYear,
+    teachers, teachersError, fetchTeachers, addLoadBulk, removeLoad, copyLoadFromYear,
     sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,

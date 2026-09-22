@@ -351,6 +351,40 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
         .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 
+        /* Teaching Load — bulk assignment form and the grade-grouped list.
+           Everything here is built from the same vars as the rest of the
+           dashboard, so it follows the light/dark theme without branching. */
+        .bulk-grid { display: grid; grid-template-columns: minmax(280px, 1.3fr) minmax(240px, 1fr); gap: 20px; }
+        @media (max-width: 860px) { .bulk-grid { grid-template-columns: 1fr; } }
+        .bulk-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; display: flex; align-items: center; }
+        .bulk-submit { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+        .bulk-hint { font-size: 12px; color: var(--text-muted); flex: 1; min-width: 180px; line-height: 1.45; }
+        .picker-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text-muted); margin-bottom: 8px; }
+        .picker-search:focus-within { border-color: var(--accent); }
+        .picker-search input { border: none; background: transparent; padding: 8px 0; flex: 1; min-width: 0; }
+        .picker-search input:focus { border: none; }
+        /* Capped and scrollable: 48 teachers would otherwise push the Add
+           button and the whole list far below the fold. */
+        .picker-panel { max-height: 230px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); }
+        .picker-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+        .picker-row:last-child { border-bottom: none; }
+        .picker-row:hover { background: rgba(255,255,255,0.03); }
+        .picker-row input[type="checkbox"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+        .picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .picker-dept { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+        .picker-empty { padding: 18px 12px; text-align: center; font-size: 12px; color: var(--text-muted); }
+        .picker-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .picker-actions .btn:disabled { opacity: .45; cursor: default; }
+        .grade-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .grade-toggle { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+        .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
+        .grade-toggle.active { border-color: var(--accent); color: #fff; background: var(--accent); }
+        .group-row td { background: var(--banner-bg); padding: 9px 14px; }
+        tr.group-row:hover td { background: var(--banner-bg); }
+        .group-title { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--banner-text); }
+        .group-count { font-size: 11px; color: var(--text-muted); margin-left: 10px; }
+        .row-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 184px; }
         .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform .15s, border-color .15s, box-shadow .15s; }

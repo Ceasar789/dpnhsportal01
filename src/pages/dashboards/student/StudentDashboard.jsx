@@ -23,6 +23,7 @@ import AttendanceTab from './tabs/AttendanceTab';
 import AnnouncementsTab from './tabs/AnnouncementsTab';
 import ProfileTab from '../../profile/ProfileTab';
 import FlippingLogo from '../../../components/FlippingLogo';
+import { StudentDataProvider } from './StudentDataContext';
 
 // ============================================
 // MAIN STUDENT DASHBOARD
@@ -41,17 +42,22 @@ const StudentDashboard = () => {
   return (
     <ThemeContext.Provider value={{ dark: darkMode, toggleDark: toggleDarkMode }}>
       <DashboardThemeStyles />
-      <StudentLayout>
-        <PageTransition>
-          <Routes>
-            <Route path="/" element={<OverviewTab />} />
-            <Route path="/tasks" element={<StudentTasksTab />} />
-            <Route path="/attendance" element={<AttendanceTab />} />
-            <Route path="/announcements" element={<AnnouncementsTab />} />
-            <Route path="/profile" element={<ProfileTab />} />
-          </Routes>
-        </PageTransition>
-      </StudentLayout>
+      {/* Outside <Routes> on purpose: the provider must survive the student
+          moving between Overview and Tasks, which is exactly the navigation
+          that used to re-issue nine queries. */}
+      <StudentDataProvider>
+        <StudentLayout>
+          <PageTransition>
+            <Routes>
+              <Route path="/" element={<OverviewTab />} />
+              <Route path="/tasks" element={<StudentTasksTab />} />
+              <Route path="/attendance" element={<AttendanceTab />} />
+              <Route path="/announcements" element={<AnnouncementsTab />} />
+              <Route path="/profile" element={<ProfileTab />} />
+            </Routes>
+          </PageTransition>
+        </StudentLayout>
+      </StudentDataProvider>
     </ThemeContext.Provider>
   );
 };

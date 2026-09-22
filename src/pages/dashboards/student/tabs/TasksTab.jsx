@@ -15,7 +15,9 @@ import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
-import { fetchScheduledSubjectIds, isOtherTask } from '../../../../lib/studentSchedule';
+import { isOtherTask } from '../../../../lib/otherTask';
+import { useStudentData } from '../StudentDataContext';
+import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 
 // Colors for the countdown badge, one per formatCountdown tone. Kept in one
 // place so the meaning of a color (late vs. soon vs. plenty of time) stays
@@ -27,18 +29,6 @@ const COUNTDOWN_COLORS = {
   normal: { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
   none: { color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
 };
-
-// The exact submission columns this file ever reads or asks back after a
-// write — named explicitly everywhere (never a bare `.select()`) so a
-// change to the table never silently starts handing this file scoring
-// columns it should not have.
-// The list view needs a row for EVERY submission — released or not — to label
-// each card and to reopen an in-progress one. It does not need the scores of
-// the unreleased ones, and RLS hands back whole rows, so asking for them would
-// put a number the student is not meant to see into their browser. The scores
-// are fetched separately, filtered to released in the query itself.
-const SUBMISSION_STATE_FIELDS = 'id, worksheet_id, status, released';
-const SUBMISSION_SCORE_FIELDS = 'worksheet_id, score, total_points';
 
 // Debounce window for autosaving free-typed answers (identification,
 // enumeration, essay) as the student types, in addition to the existing
@@ -66,18 +56,26 @@ const StudentTasksTab = () => {
   const [searchParams] = useSearchParams();
   const subjectFilter = searchParams.get('subject');
 
+  // Every read this tab needs comes from the one shared graph held by
+  // StudentDataProvider — the same rows OverviewTab reads. `fetchTasks`
+  // refreshes that graph, so both screens move together.
+  const { graph, loading, refresh: fetchTasks } = useStudentData();
+
+  // A schedule failure is NOT fatal here, unlike on Overview: the schedule
+  // only widens the ?subject=other filter, and isOtherTask() falls back to
+  // the conservative null-subject_id-only rule when it is unknown. Blocking
+  // the whole task list over a filter definition would be the worse answer.
+  const loadError = !!graph && !!graph.fatalError;
+
+  // null = unknown (not loaded, or the schedule read failed), deliberately
+  // distinct from an empty Set (= loaded: nothing is scheduled). Treating
+  // unknown as empty would widen Other to the entire list.
+  const scheduledSubjectIds = graph ? graph.scheduledSubjectIds : null;
+
+  // Held as state rather than derived, because Start and Submit patch a
+  // single row's submission in place (see patchSubmission) without paying
+  // for a refetch. The effect below rebuilds it whenever the graph changes.
   const [rows, setRows] = useState([]);
-  // The student's scheduled subject ids, from the SAME shared derivation
-  // OverviewTab.jsx uses (src/lib/studentSchedule.js) — used only to widen
-  // the ?subject=other filter below to match Overview's Other bucket
-  // exactly. null means "not fetched yet, or the fetch failed" and is
-  // deliberately distinct from an empty Set ("fetched: nothing is
-  // scheduled") — isOtherTask() falls back to the conservative
-  // null-subject_id-only rule when this is null, rather than treating an
-  // unknown schedule as an empty one and widening Other to the whole list.
-  const [scheduledSubjectIds, setScheduledSubjectIds] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
   const [active, setActive] = useState(null);
   const [items, setItems] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -142,121 +140,36 @@ const StudentTasksTab = () => {
 
   const muted = { color: dark ? '#64748b' : '#94a3b8' };
 
-  const fetchTasks = useCallback(async () => {
-    if (!userData?.uid) return;
-    setLoading(true);
-
-    // The list now comes from task_assignees — what was actually assigned to
-    // THIS student — not from every posting to their section. section_id on
-    // each row is kept (even though it is not shown) because it is the exact
-    // value the database's student_assigned_task_in_section check pins
-    // worksheet_submissions.section_id to on insert; carrying it through here
-    // is what keeps Start from failing with a bare RLS error later.
-    const { data: assignees, error } = await withRetry(
-      () => supabase.from('task_assignees')
-        .select('task_id, section_id, due_at, assigned_at')
-        .eq('student_id', userData.uid),
-      { label: 'Student task assignments fetch' }
-    );
-    if (error) {
-      console.warn('Student task assignments fetch failed —', error.message);
-      setLoadError(true); setLoading(false); return;
-    }
-
-    // Newest assignment first — the order the student learned about the work.
-    const sorted = [...(assignees || [])].sort(
-      (a, b) => new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
-    );
-
-    const ids = [...new Set(sorted.map(a => a.task_id))];
-    if (ids.length === 0) { setLoadError(false); setRows([]); setLoading(false); return; }
-
-    const [sheetResult, subResult, scoreResult] = await Promise.all([
-      withRetry(() => supabase.from('worksheets')
-        .select('id, title, subject, task_type, subject_id').in('id', ids),
-        { label: 'Student tasks fetch' }),
-      // Reads the student's own submission rows so their status/score can be
-      // shown. A failed read here must NEVER be treated as "no submission" —
-      // that would invite an already-submitted student to answer again and
-      // then fail on the UNIQUE(worksheet_id, student_id) constraint. Both
-      // branches below fall into the shared loadError state instead.
-      withRetry(() => supabase.from('worksheet_submissions')
-        .select(SUBMISSION_STATE_FIELDS)
-        .eq('student_id', userData.uid),
-        { label: 'Student submissions fetch' }),
-      withRetry(() => supabase.from('worksheet_submissions')
-        .select(SUBMISSION_SCORE_FIELDS)
-        .eq('student_id', userData.uid).eq('released', true),
-        { label: 'Student released scores fetch' }),
-    ]);
-
-    if (sheetResult.error || subResult.error || scoreResult.error) {
-      console.warn('Student tasks load failed —',
-        (sheetResult.error || subResult.error || scoreResult.error).message);
-      setLoadError(true); setLoading(false); return;
-    }
-
-    // Subject names for the badge/filter — a separate read, not a PostgREST
-    // embed, so a nested select can never accidentally widen into a table
-    // this file has no business touching.
-    const subjectIds = [...new Set(
-      (sheetResult.data || []).map(s => s.subject_id).filter(Boolean)
-    )];
-    let subjectNameError = false;
-    let subjectsById = new Map();
-    if (subjectIds.length > 0) {
-      const { data: subjectRows, error: subjectsError } = await withRetry(
-        () => supabase.from('subjects').select('id, name').in('id', subjectIds),
-        { label: 'Student task subjects fetch' }
-      );
-      if (subjectsError) {
-        console.warn('Student task subjects fetch failed —', subjectsError.message);
-        subjectNameError = true;
-      } else {
-        subjectsById = new Map((subjectRows || []).map(s => [s.id, s.name]));
-      }
-    }
-    // A failed subject-name read still lets the list render — the subject
-    // name is decoration, not something a wrong value here could corrupt —
-    // it just falls back to the worksheet's own legacy subject text below.
-    if (subjectNameError) setLoadError(false);
-
-    // The student's scheduled subjects — needed only to widen ?subject=other
-    // below to match Overview's definition of Other exactly. This is the
-    // SAME shared derivation OverviewTab.jsx calls (active section_students,
-    // intersected with surviving subjects rows) — never task_assignees'
-    // section_id, which persists the section a task was distributed in even
-    // after the student transfers, and so does not describe their current
-    // schedule. A failed read here is non-fatal to the list itself: it just
-    // leaves scheduledSubjectIds null, which isOtherTask() treats as
-    // "unknown" and falls back to the conservative null-subject_id-only rule
-    // rather than blocking the whole tab over a filter definition.
-    const { scheduledSubjectIds: scheduleIds, error: scheduleError } =
-      await fetchScheduledSubjectIds(userData.uid);
-    setScheduledSubjectIds(scheduleError ? null : scheduleIds);
-
-    setLoadError(false);
-    setRows(sorted.map(a => {
-      const sheet = (sheetResult.data || []).find(w => w.id === a.task_id);
+  // Rebuilds the list whenever the shared graph changes. The graph already
+  // holds the assignments newest-first (the order the student learned about
+  // the work), their worksheets, every submission's state, and the released
+  // scores — all fetched once for the whole dashboard.
+  //
+  // The score is merged in only for released submissions, which is the only
+  // case statusLabel renders a number for anyway. A failed submissions read
+  // never reaches here: the graph reports it as fatalError, so an
+  // already-submitted student is never shown an unanswered task they would
+  // then fail to insert against the UNIQUE(worksheet_id, student_id)
+  // constraint.
+  useEffect(() => {
+    if (!graph || graph.fatalError) { setRows([]); return; }
+    setRows(graph.assignees.map(a => {
+      const sheet = graph.sheetById.get(a.task_id);
+      if (!sheet) return null; // task deleted out from under the assignment
+      const state = graph.submissionStates.find(s => s.worksheet_id === sheet.id) || null;
+      const score = state ? graph.releasedScores.find(s => s.worksheet_id === sheet.id) : null;
       return {
         assignee: a,
         sheet,
-        subjectName: sheet?.subject_id ? subjectsById.get(sheet.subject_id) : null,
-        // The score is merged back in only for released submissions, which is
-        // the only case statusLabel renders a number for anyway.
-        submission: (() => {
-          if (!sheet) return null;
-          const state = (subResult.data || []).find(s => s.worksheet_id === sheet.id);
-          if (!state) return null;
-          const score = (scoreResult.data || []).find(s => s.worksheet_id === sheet.id);
-          return score ? { ...state, ...score } : state;
-        })(),
+        // A missing subject name is decoration, not something a wrong value
+        // could corrupt — it falls back to the worksheet's own legacy
+        // subject text at render time.
+        subjectName: sheet.subject_id ? (graph.subjectsById.get(sheet.subject_id) || null) : null,
+        submission: state ? (score ? { ...state, ...score } : state) : null,
       };
-    }).filter(r => r.sheet));
-    setLoading(false);
-  }, [userData?.uid]);
+    }).filter(Boolean));
+  }, [graph]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   // ?subject=<id> narrows the list to that subject; ?subject=other shows
   // tasks with no subject_id, OR whose subject_id names a subject outside

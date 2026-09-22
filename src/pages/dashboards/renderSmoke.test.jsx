@@ -102,6 +102,7 @@ const AttendanceTab = (await import('./student/tabs/AttendanceTab')).default;
 const AnnouncementsTab = (await import('./student/tabs/AnnouncementsTab')).default;
 const ProfileTab = (await import('../profile/ProfileTab')).default;
 const SubjectCards = (await import('./student/SubjectCards')).default;
+const { StudentDataProvider } = await import('./student/StudentDataContext');
 
 const TeacherOverviewTab = (await import('./teacher/tabs/OverviewTab')).default;
 const TeacherAnnouncementsTab = (await import('./teacher/tabs/AnnouncementsTab')).default;
@@ -113,13 +114,20 @@ const TeacherWorksheetsTab = (await import('./teacher/tabs/WorksheetsTab')).defa
 
 const withRouter = (children) => <MemoryRouter>{children}</MemoryRouter>;
 
+// The student's Overview and Tasks tabs read every row from the shared
+// graph, so they only render inside the provider — exactly as the dashboard
+// shell mounts them. The real provider is used, not a stub: renderToString
+// never runs effects, so nothing is fetched, but a consumer that drifts
+// from what the provider actually hands back still fails here.
+const withStudentData = (children) => withRouter(<StudentDataProvider>{children}</StudentDataProvider>);
+
 describe('dashboard tab render smoke test', () => {
   it('renders OverviewTab without throwing', () => {
-    expect(() => renderToString(withRouter(<OverviewTab />))).not.toThrow();
+    expect(() => renderToString(withStudentData(<OverviewTab />))).not.toThrow();
   });
 
   it('renders the student TasksTab without throwing', () => {
-    expect(() => renderToString(withRouter(<StudentTasksTab />))).not.toThrow();
+    expect(() => renderToString(withStudentData(<StudentTasksTab />))).not.toThrow();
   });
 
   it('renders AttendanceTab without throwing', () => {

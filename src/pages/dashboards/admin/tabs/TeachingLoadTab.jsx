@@ -46,6 +46,12 @@ const TeachingLoadTab = () => {
   const [rowSubject, setRowSubject] = useState('');
   const [pickedGrades, setPickedGrades] = useState([]);       // 'Grade 7' …
   const [saving, setSaving] = useState(false);
+  // Someone already holding a load for this year drops out of the picker, so
+  // the list shrinks to the work that is left. NOT permanent, and that is
+  // deliberate: a teacher can legitimately hold a second subject, or the same
+  // subject at another grade, and hiding them for good would make that
+  // impossible to enter at all.
+  const [hideAssigned, setHideAssigned] = useState(true);
 
   // The list below has its own filter, independent of the picker's — one is
   // for choosing who to assign, the other for finding what was assigned.
@@ -56,8 +62,21 @@ const TeachingLoadTab = () => {
     () => new Map(teachers.map(t => [t.id, t])), [teachers]
   );
 
+  // Everyone holding at least one entry for the school year on screen.
+  // teachingLoad is already scoped to that year by fetchTeachingLoad, so this
+  // never hides a teacher on the strength of last year's load.
+  const assignedIds = useMemo(
+    () => new Set(teachingLoad.map(r => r.teacher_id)), [teachingLoad]
+  );
+
   const filteredTeachers = useMemo(
-    () => teachers.filter(t => matchesQuery(t, pickQuery)), [teachers, pickQuery]
+    () => teachers.filter(t => matchesQuery(t, pickQuery))
+      .filter(t => !hideAssigned || !assignedIds.has(t.id)),
+    [teachers, pickQuery, hideAssigned, assignedIds]
+  );
+
+  const assignedCount = useMemo(
+    () => teachers.filter(t => assignedIds.has(t.id)).length, [teachers, assignedIds]
   );
 
   const toggle = (list, setList, value) => setList(
@@ -74,15 +93,33 @@ const TeachingLoadTab = () => {
   const plannedRows = pickedTeachers.length * pickedGrades.length;
   const canAdd = pickedTeachers.length > 0 && !!rowSubject && pickedGrades.length > 0 && !saving;
 
+  // A ticked teacher the search or the hide-assigned toggle has since scrolled
+  // out of view is STILL going to be written. Counted so it can be said out
+  // loud — a selection that acts on people the admin can no longer see, with
+  // only a total to go by, is the kind of quiet mismatch this project keeps
+  // paying for.
+  const hiddenPickedCount = useMemo(() => {
+    const visible = new Set(filteredTeachers.map(t => t.id));
+    return pickedTeachers.filter(id => !visible.has(id)).length;
+  }, [filteredTeachers, pickedTeachers]);
+
   const submit = async () => {
     setSaving(true);
-    await addLoadBulk(pickedTeachers, rowSubject, pickedGrades);
+    const written = await addLoadBulk(pickedTeachers, rowSubject, pickedGrades);
     setSaving(false);
-    // The teacher selection is deliberately kept: assigning the same people
-    // a second subject is the common next action, and re-ticking six
-    // checkboxes to do it is the tedium this screen exists to remove.
     setRowSubject('');
     setPickedGrades([]);
+
+    // With hiding on, everyone just assigned is about to leave the list, so
+    // holding them selected would leave an invisible selection behind. With
+    // hiding off they stay visible, and keeping them ticked is the point:
+    // giving the same people a second subject is the usual next action, and
+    // re-ticking six boxes to do it is the tedium this screen removes.
+    //
+    // Cleared only on a write that actually happened. A failed add returns
+    // null, and dropping the selection then would make the admin rebuild it
+    // before they could retry.
+    if (hideAssigned && written !== null) setPickedTeachers([]);
   };
 
   // Only a well-formed "YYYY-YYYY" year can be shifted back a year — anything
@@ -179,27 +216,58 @@ const TeachingLoadTab = () => {
               ) : teachers.length === 0 ? (
                 <div className="picker-empty">No teachers yet. Create them in User Management first.</div>
               ) : filteredTeachers.length === 0 ? (
-                <div className="picker-empty">No teacher matches “{pickQuery}”.</div>
-              ) : filteredTeachers.map(t => (
-                <label key={t.id} className="picker-row">
-                  <input type="checkbox" checked={pickedTeachers.includes(t.id)}
-                    onChange={() => toggle(pickedTeachers, setPickedTeachers, t.id)} />
-                  <span className="picker-name">{t.name || t.email}</span>
-                  {t.department && <span className="picker-dept">{t.department}</span>}
-                </label>
-              ))}
+                <div className="picker-empty">
+                  {/* Three genuinely different situations. Collapsing them into
+                      one "no teachers" would leave the admin staring at an
+                      empty box with no idea which lever to pull. */}
+                  {pickQuery && hideAssigned && assignedCount > 0
+                    ? <>No unassigned teacher matches “{pickQuery}”. Untick “Hide already assigned” to see the rest.</>
+                    : pickQuery
+                      ? <>No teacher matches “{pickQuery}”.</>
+                      : <>Every teacher already holds a load for {schoolYear}. Untick “Hide already assigned” to add a second subject.</>}
+                </div>
+              ) : filteredTeachers.map(t => {
+                const already = assignedIds.has(t.id);
+                return (
+                  <label key={t.id} className="picker-row">
+                    <input type="checkbox" checked={pickedTeachers.includes(t.id)}
+                      onChange={() => toggle(pickedTeachers, setPickedTeachers, t.id)} />
+                    <span className="picker-name">{t.name || t.email}</span>
+                    {/* Only reachable with hiding off. Marked so a second
+                        subject is an informed choice rather than a duplicate
+                        entered by mistake. */}
+                    {already && <span className="picker-tag">assigned</span>}
+                    {t.department && <span className="picker-dept">{t.department}</span>}
+                  </label>
+                );
+              })}
             </div>
 
             <div className="picker-actions">
               <button className="btn btn-ghost btn-sm" onClick={selectAllFiltered}
                 disabled={filteredTeachers.length === 0}>
-                Select all {pickQuery ? 'shown' : ''} ({filteredTeachers.length})
+                Select all {pickQuery || hideAssigned ? 'shown' : ''} ({filteredTeachers.length})
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => setPickedTeachers([])}
                 disabled={pickedTeachers.length === 0}>
                 Clear
               </button>
             </div>
+
+            <label className="picker-toggle">
+              <input type="checkbox" checked={hideAssigned}
+                onChange={() => setHideAssigned(!hideAssigned)} />
+              Hide teachers already assigned for {schoolYear}
+              {assignedCount > 0 && <span className="picker-dept"> ({assignedCount})</span>}
+            </label>
+
+            {hiddenPickedCount > 0 && (
+              <div className="picker-warning">
+                {hiddenPickedCount} of your {pickedTeachers.length} selected
+                {hiddenPickedCount === 1 ? ' teacher is' : ' teachers are'} not shown right now,
+                and will still be assigned. Press Clear to drop them.
+              </div>
+            )}
           </div>
 
           {/* Subject + grades */}

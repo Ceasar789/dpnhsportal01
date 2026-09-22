@@ -375,6 +375,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-empty { padding: 18px 12px; text-align: center; font-size: 12px; color: var(--text-muted); }
         .picker-actions { display: flex; gap: 8px; margin-top: 8px; }
         .picker-actions .btn:disabled { opacity: .45; cursor: default; }
+        .picker-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
+        .picker-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+        .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
+        .picker-warning { margin-top: 8px; font-size: 12px; line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: 7px; padding: 7px 10px; }
         .grade-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
         .grade-toggle { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
         .grade-toggle:hover { border-color: var(--accent); color: var(--text); }

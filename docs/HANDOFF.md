@@ -25,6 +25,17 @@ phase3-01 … phase3-04      task_assignees, task RLS, notifications RLS, assign
 phase4-01                  news expiry column
 ```
 
+**Not yet run, waiting on the user:** `phase4-02-submit-notification.sql` — the
+AFTER UPDATE trigger that notifies a teacher when a student submits. A client
+write could not do this: `notifications_staff_insert_for_student` only lets
+staff write to a student, and no policy lets a student write to their teacher.
+Reviewed and sound, with one accepted caveat — plpgsql's `WHEN OTHERS` does not
+catch `QUERY_CANCELED`, so a `statement_timeout` landing inside the trigger
+body would fail the student's submit. Not mitigated, because shortening the
+timeout inside the block still raises an uncatchable cancel; the trigger does
+three small indexed operations, and a database congested enough to time out
+there was already failing the UPDATE itself.
+
 **Do not re-run `phase2-02` or `phase3-02` on their own.** Each supersedes objects
 the other creates; both file headers carry the warning. If one is re-run, re-run
 the later file after it.
@@ -53,23 +64,14 @@ Task has a subject but the section's schedule has no row for it → working as
 designed; the admin needs to add the schedule. Subject cards come from
 `schedules.subject_id`, never from the tasks.
 
-**2. Notify the teacher when a student submits.** Requested, not built. The
-producer belongs beside `notifyStudents` in
-`src/pages/dashboards/teacher/worksheets/useWorksheetAssessment.jsx`, but the
-submit happens on the *student* side (`student/tabs/TasksTab.jsx`), and
-`notifications_staff_insert_for_student` only lets staff write to a student —
-a student writing to their teacher is not currently permitted by RLS. **This
-needs a policy change, not just a client change.** Check
-`archives/phase3-03-notifications-rls.sql` before designing it.
+**2. Performance part 2 — DONE.** The student dashboard now fetches one
+graph once (`src/lib/studentTaskGraph.js`, held by
+`student/StudentDataContext.jsx`). 18 round trips across Overview + Tasks
+became 9, and moving between the two costs none. Because nothing here
+auto-updates, the graph reloads on window focus, throttled to 30s — the
+refetch-on-tab-switch that used to surface a new task is gone.
 
-**3. Performance part 2 — the only thing that raises the ceiling.** A student
-dashboard load costs ~14 Supabase round trips; Overview and Tasks re-fetch
-almost the same data seconds apart, and `section_students` is read twice on one
-screen. Consolidating them is ~14 → ~7. 45 of the 60 test users are students,
-so this is 78% of the load. Part 1 (below) is already done and does **not**
-raise the ceiling — it only stops the retry storm and halves the blank screen.
-
-**4. The Gemini API key ships to the browser.**
+**3. The Gemini API key ships to the browser.**
 `src/pages/dashboards/teacher/tabs/LessonPlansTab.jsx:109` reads
 `VITE_GEMINI_API_KEY`, and Vite inlines every `VITE_*` value into the bundle at
 build time. `.env` being gitignored protects the repo, not the shipped
@@ -77,16 +79,15 @@ JavaScript. Anyone who opens the teacher dashboard can read the key. **This is
 the one thing in the system that genuinely needs a server** — an API key cannot
 be protected in a browser. Discussed with the user, not yet decided.
 
-**5. Merge.** Not done, deliberately. The user has not browser-tested the full
+**4. Merge.** Not done, deliberately. The user has not browser-tested the full
 flow end to end. Ask before merging.
 
 ## Known gaps the user already knows about
 
-- **Nothing auto-updates except the notification bell.** No table is in the
+- **Nothing auto-updates except the notification bell and the student graph on window focus.** No table is in the
   `supabase_realtime` publication and never has been, so the 27 dead
-  `postgres_changes` subscriptions were removed. A student needs to reload (or
-  switch tabs away and back) to see a newly distributed task or a released
-  score; a teacher needs to reopen Check Submissions to see a new one. The bell
+  `postgres_changes` subscriptions were removed. A student sees a newly distributed task or a released score when the
+  window regains focus (or on Refresh); a teacher needs to reopen Check Submissions to see a new one. The bell
   refreshes on open, on tab focus, and on a 60s poll that pauses when hidden.
 - The teacher's Grades tab has the same unresolvable PostgREST embed that
   broke attendance (`students(profiles(...))` — there is no FK between those

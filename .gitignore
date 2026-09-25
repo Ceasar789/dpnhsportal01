@@ -35,3 +35,9 @@ supabase/.env
 *.njsproj
 *.sln
 *.sw?
+# Playwright
+/test-results
+/e2e-report
+/playwright-report
+/blob-report
+/playwright/.cache

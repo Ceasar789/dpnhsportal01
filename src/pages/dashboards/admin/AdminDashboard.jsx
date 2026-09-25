@@ -373,6 +373,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .picker-dept { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
         .picker-empty { padding: 18px 12px; text-align: center; font-size: 12px; color: var(--text-muted); }
+        .picker-row.selected { background: rgba(99,102,241,.14); }
+        .picker-row input[type="radio"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
         .picker-actions { display: flex; gap: 8px; margin-top: 8px; }
         .picker-actions .btn:disabled { opacity: .45; cursor: default; }
         .picker-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
@@ -383,6 +385,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .grade-toggle { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
         .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
         .grade-toggle.active { border-color: var(--accent); color: #fff; background: var(--accent); }
+        /* The draft: entries staged but not yet written. Dashed border and
+           an accent tint so it never reads as saved data at a glance. */
+        .draft-card { padding: 16px; margin-bottom: 20px; border-style: dashed; border-color: var(--accent); background: rgba(99,102,241,.05); }
+        .draft-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .draft-title { font-size: 14px; font-weight: 700; color: var(--text); }
+        .draft-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .draft-group + .draft-group { margin-top: 14px; }
+        .draft-grade { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+        .draft-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); }
+        .draft-line:last-child { border-bottom: none; }
+        .draft-teacher { font-weight: 600; white-space: nowrap; }
+        .draft-dots { flex: 1; min-width: 20px; border-bottom: 1px dotted var(--border); }
+        .draft-subject { color: var(--text-muted); white-space: nowrap; }
+
         .group-row td { background: var(--banner-bg); padding: 9px 14px; }
         tr.group-row:hover td { background: var(--banner-bg); }
         .group-title { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--banner-text); }

@@ -153,14 +153,15 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   }, [schoolYear]);
 
   /**
-   * Adds one subject, at one or more grade levels, to one or more teachers —
-   * the cross product, in a single round trip.
+   * Writes a list of (teacher, subject, grade level) entries for the school
+   * year on screen, in a single round trip.
    *
-   * Assigning a whole department one row at a time meant one insert per
-   * teacher per grade; eight subjects across six grade levels is 48 of them.
+   * The admin builds that list on the Teaching Load screen one line at a
+   * time and presses Assign once, rather than paying a round trip per line —
+   * eight subjects across six grade levels is 48 of them.
    *
-   * Upserted with ignoreDuplicates rather than inserted, so a selection that
-   * overlaps what a teacher already holds adds the rest instead of failing
+   * Upserted with ignoreDuplicates rather than inserted, so a list that
+   * overlaps what a teacher already holds writes the rest instead of failing
    * the whole batch on the first unique violation. That is the same conflict
    * target copyLoadFromYear uses, and it makes the button safe to press twice.
    *
@@ -171,28 +172,32 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
    * twelve already existed would be exactly the kind of quiet lie this
    * codebase keeps having to hunt down.
    *
-   * @param {string[]} teacherIds
-   * @param {string} subjectId
-   * @param {string[]} gradeLevels
+   * @param {{teacher_id: string, subject_id: string, grade_level: string}[]} entries
    * @returns {Promise<number|null>} rows written, or null if not knowable
    */
-  const addLoadBulk = async (teacherIds, subjectId, gradeLevels) => {
-    const teacherList = [...new Set((teacherIds || []).filter(Boolean))];
-    const gradeList = [...new Set((gradeLevels || []).filter(Boolean))];
-
-    if (teacherList.length === 0 || !subjectId || gradeList.length === 0) {
-      showToast('Pick at least one teacher, a subject and at least one grade level', 'error');
+  const addLoadEntries = async (entries) => {
+    const clean = (entries || []).filter(
+      e => e && e.teacher_id && e.subject_id && e.grade_level
+    );
+    if (clean.length === 0) {
+      showToast('Nothing to assign — add at least one entry to the list first', 'error');
       return null;
     }
 
+    // Deduplicated here as well as in the UI. The same triple twice in one
+    // payload is not a unique violation Postgres can resolve — ON CONFLICT
+    // cannot act on a row the same statement is still inserting, and the
+    // whole batch fails with "cannot affect row a second time".
+    const seen = new Set();
     const rows = [];
-    for (const teacherId of teacherList) {
-      for (const gradeLevel of gradeList) {
-        rows.push({
-          teacher_id: teacherId, subject_id: subjectId,
-          grade_level: gradeLevel, school_year: schoolYear,
-        });
-      }
+    for (const e of clean) {
+      const key = `${e.teacher_id}|${e.subject_id}|${e.grade_level}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({
+        teacher_id: e.teacher_id, subject_id: e.subject_id,
+        grade_level: e.grade_level, school_year: schoolYear,
+      });
     }
 
     const { data, error } = await supabase
@@ -562,7 +567,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
     schoolYear, setSchoolYear,
     teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad,
-    teachers, teachersError, fetchTeachers, addLoadBulk, removeLoad, copyLoadFromYear,
+    teachers, teachersError, fetchTeachers, addLoadEntries, removeLoad, copyLoadFromYear,
     sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,

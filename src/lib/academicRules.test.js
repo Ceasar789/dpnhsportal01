@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   GRADE_LEVELS,
+  currentSchoolYear,
   normalizeGradeLevel,
   teacherLoadFor,
   subjectsTeacherHolds,
@@ -111,5 +112,18 @@ describe('canTeachSection', () => {
   it('matches grade levels that differ only in formatting', () => {
     const result = canTeachSection(load, MATH, { grade_level: '7', school_year: '2025-2026' });
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('currentSchoolYear', () => {
+  // June opens the school year, so the month boundary is the whole rule.
+  it('uses the calendar year it started in, from June onward', () => {
+    expect(currentSchoolYear(new Date(2026, 5, 1))).toBe('2026-2027');   // June
+    expect(currentSchoolYear(new Date(2026, 11, 31))).toBe('2026-2027'); // December
+  });
+
+  it('is still the previous year before June', () => {
+    expect(currentSchoolYear(new Date(2026, 0, 1))).toBe('2025-2026');  // January
+    expect(currentSchoolYear(new Date(2026, 4, 31))).toBe('2025-2026'); // May
   });
 });

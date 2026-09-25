@@ -55,11 +55,6 @@ const StudentsTab = () => {
 
   useEffect(() => {
     fetchStudents();
-    const channel = supabase
-      .channel('registrar-students')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchStudents)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, []);
 
   const handleAddStudent = async () => {

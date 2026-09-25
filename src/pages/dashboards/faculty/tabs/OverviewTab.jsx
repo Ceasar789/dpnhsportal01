@@ -68,16 +68,6 @@ const OverviewTab = () => {
 
   useEffect(() => {
     fetchStats();
-
-    // Real-time updates
-    const channel = supabase
-      .channel('faculty-stats')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pre_enrollment' }, () => {
-        fetchStats();
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, []);
 
   return (

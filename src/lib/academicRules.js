@@ -8,6 +8,27 @@ export const GRADE_LEVELS = [
   'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12',
 ];
 
+/**
+ * The school year we are currently inside, as "YYYY-YYYY".
+ *
+ * The DepEd school year opens in June, so before June we are still in the
+ * year that began last calendar year.
+ *
+ * Shared rather than local because every academic record is scoped by year
+ * and two screens disagreeing about which year it is would be invisible:
+ * the teacher side had no notion of a school year at all, so it read EVERY
+ * year's teaching load at once. A teacher who held Mathematics one year and
+ * English the next counted as two subjects, tripped the one-subject-per-
+ * teacher check, and was locked out of creating any task — pointed at an
+ * admin whose data was correct.
+ *
+ * @param {Date} [now] injectable for tests
+ */
+export function currentSchoolYear(now = new Date()) {
+  const startYear = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
 // sections.grade_level is an unconstrained VARCHAR, so values arriving from the
 // database may not match the canonical spelling. Everything compares through here.
 export function normalizeGradeLevel(value) {

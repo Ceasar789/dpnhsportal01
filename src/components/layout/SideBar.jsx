@@ -33,8 +33,6 @@ const Sidebar = ({ role }) => {
     const items = {
       student: [
         { icon: LayoutDashboard, label: 'Overview', path: '/student-dashboard' },
-        { icon: ClipboardList, label: 'Assignments', path: '/student-dashboard/assignments' },
-        { icon: FileText, label: 'Quizzes', path: '/student-dashboard/quizzes' },
         { icon: CalendarCheck, label: 'Attendance', path: '/student-dashboard/attendance' },
         { icon: Megaphone, label: 'Announcements', path: '/student-dashboard/announcements' },
       ],

@@ -12,6 +12,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useDashboardTheme } from '../../../styles/dashboardTheme';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { validatePassword } from '../../../lib/passwordPolicy';
+import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
 
 export const useAdminLogic = (userData) => {
   const { onlineUserIds } = useAuth();
@@ -129,7 +130,11 @@ export const useAdminLogic = (userData) => {
     try {
       const results = await Promise.all([
         withRetry(() => supabase.from('profiles').select('*', { count: 'exact', head: true }), { label: 'Stats: users count fetch' }),
-        withRetry(() => supabase.from('news').select('*', { count: 'exact', head: true }).eq('status', 'Published'), { label: 'Stats: news count fetch' }),
+        // A Published post whose expires_at has passed is no longer visible
+        // to anyone reading the public/dashboard news feeds, so it must not
+        // count here either — otherwise this tile would disagree with what
+        // any reader can actually see.
+        withRetry(() => supabase.from('news').select('*', { count: 'exact', head: true }).eq('status', 'Published').or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`), { label: 'Stats: news count fetch' }),
         withRetry(() => supabase.from('calendar_events').select('*', { count: 'exact', head: true }), { label: 'Stats: events count fetch' }),
         withRetry(() => supabase.from('memos').select('*', { count: 'exact', head: true }), { label: 'Stats: memos count fetch' }),
       ]);
@@ -417,6 +422,9 @@ export const useAdminLogic = (userData) => {
   const [nCustomTarget, setNCustomTarget] = useState('');
   const [nImageFile, setNImageFile] = useState(null);
   const [nImageUrl, setNImageUrl] = useState('');
+  // Optional expiry date, entered as a plain 'YYYY-MM-DD' from a date input.
+  // '' means "no expiry" and must be sent to Supabase as null, not as ''.
+  const [nExpiresDate, setNExpiresDate] = useState('');
   const [newsReadOnly, setNewsReadOnly] = useState(false);
   const [nSaving,  setNSaving]      = useState(false);
 
@@ -432,7 +440,7 @@ export const useAdminLogic = (userData) => {
   }, []);
 
   const openNewPost = () => {
-    setEditNews(null); setNewsReadOnly(false); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget(''); setNImageFile(null); setNImageUrl('');
+    setEditNews(null); setNewsReadOnly(false); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget(''); setNImageFile(null); setNImageUrl(''); setNExpiresDate('');
     openModal('news');
   };
   const openEditNews = (n) => {
@@ -441,6 +449,9 @@ export const useAdminLogic = (userData) => {
     setNAuthor(n.author || ''); setNContent(n.content || ''); setNStatus(n.status || 'Draft'); setNImageFile(null); setNImageUrl(n.featured_image_url || '');
     setNTarget(n.target_roles?.startsWith('custom:') ? 'custom' : (n.target_roles || 'all'));
     setNCustomTarget(n.target_roles?.startsWith('custom:') ? n.target_roles.slice(7) : '');
+    // expires_at is stored as an end-of-day timestamp; the date input only
+    // needs the date part back out of it.
+    setNExpiresDate(n.expires_at ? String(n.expires_at).slice(0, 10) : '');
     openModal('news');
   };
 
@@ -506,6 +517,12 @@ export const useAdminLogic = (userData) => {
         target_roles: nTarget === 'custom' ? `custom:${nCustomTarget.trim()}` : nTarget,
         published_at: nStatus === 'Published' ? new Date().toISOString() : null,
         featured_image_url: featuredImageUrl,
+        // "Expires on Sep 30" means visible through all of Sep 30 and gone
+        // Oct 1, so this stores end-of-day, not midnight. news.expires_at is
+        // a TIMESTAMP WITHOUT TIME ZONE holding local wall-clock — never
+        // route this through toISOString(), which would shift it by the
+        // browser's UTC offset. Clearing the field must send null, not ''.
+        expires_at: nExpiresDate ? combineDateAndTime(nExpiresDate, DEFAULT_DUE_TIME) : null,
         updated_at: new Date().toISOString(),
       };
       // Only notify when a post newly enters the Published state, so editing
@@ -532,6 +549,33 @@ export const useAdminLogic = (userData) => {
       closeModal();
     } catch (e) {
       showToast(e.message || 'Error', 'error');
+    } finally { setNSaving(false); }
+  };
+
+  // A published post's content is locked (see newsReadOnly in openEditNews)
+  // so an admin can't quietly rewrite a live announcement. But expiry is a
+  // visibility control, not content — "post it, later decide it should stop
+  // showing at the end of the month" is the normal case this feature exists
+  // for, and it must work on an already-published post. This writes only
+  // expires_at (+ updated_at) and nothing else: no status change, so
+  // becomesPublished is never true and notifyAudience is never called —
+  // re-saving a published post's expiry must not re-notify its audience.
+  const saveNewsExpiry = async () => {
+    if (!editNews) return;
+    setNSaving(true);
+    try {
+      const expires_at = nExpiresDate ? combineDateAndTime(nExpiresDate, DEFAULT_DUE_TIME) : null;
+      const { error } = await supabase
+        .from('news')
+        .update({ expires_at, updated_at: new Date().toISOString() })
+        .eq('id', editNews.id);
+      if (error) throw error;
+      await logActivity('Updated news expiry', nExpiresDate ? `${nTitle} → expires ${nExpiresDate}` : `${nTitle} → expiry cleared`);
+      showToast('Expiry date updated!');
+      await fetchNews(); await fetchStats();
+      closeModal();
+    } catch (e) {
+      showToast(e.message || 'Error updating expiry', 'error');
     } finally { setNSaving(false); }
   };
 
@@ -895,60 +939,6 @@ export const useAdminLogic = (userData) => {
   }, [fetchRoleDist]);
 
   // ═══════════════════════════════════════════
-  //  REAL-TIME SUBSCRIPTIONS — ALL TABLES
-  // ═══════════════════════════════════════════
-  useEffect(() => {
-    const channels = [];
-
-    // Users subscription (debounced to prevent race conditions)
-    channels.push(
-      supabase.channel('admin-users')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-          debouncedFetchUsers(); debouncedFetchStats(); debouncedFetchRoleDist();
-        })
-        .subscribe()
-    );
-
-    // News subscription
-    channels.push(
-      supabase.channel('admin-news')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => {
-          fetchNews(); fetchStats();
-        })
-        .subscribe()
-    );
-
-    // Calendar subscription
-    channels.push(
-      supabase.channel('admin-calendar')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, () => {
-          fetchCalEvents(); fetchStats();
-        })
-        .subscribe()
-    );
-
-    // Memos subscription
-    channels.push(
-      supabase.channel('admin-memos')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'memos' }, () => {
-          fetchMemos(); fetchStats();
-        })
-        .subscribe()
-    );
-
-    // Activity logs subscription
-    channels.push(
-      supabase.channel('admin-logs')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
-          fetchLogs();
-        })
-        .subscribe()
-    );
-
-    return () => channels.forEach(ch => supabase.removeChannel(ch));
-  }, [debouncedFetchUsers, debouncedFetchStats, debouncedFetchRoleDist, fetchNews, fetchStats, fetchCalEvents, fetchMemos, fetchLogs]);
-
-  // ═══════════════════════════════════════════
   //  CLEANUP — Clear debounce timers on unmount
   // ═══════════════════════════════════════════
   useEffect(() => {
@@ -996,11 +986,11 @@ export const useAdminLogic = (userData) => {
     filteredNews, filteredUsers, handleOverlayClick, language, logActivity,
     loginAttemptLimit, mBody, mFrom, mSaving, mSubj,
     mTo, memoFilter, memoSearch, memos, memosLoading, modal,
-    nAuthor, nCat, nContent, nCustomTarget, nSaving, nStatus, nTarget,
+    nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nSaving, nStatus, nTarget,
     nTitle, nImageFile, nImageUrl, newsReadOnly, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
     nextMonth, notifications, openCompose, openCreateEvent, openCreateUser, openEditEvent,
     openEditMemo, openEditNews, openEditUser, openModal, openNewPost, page,
-    prevMonth, roleDist, roleFilter, saveEvent, saveMemo, saveNews,
+    prevMonth, roleDist, roleFilter, saveEvent, saveMemo, saveNews, saveNewsExpiry,
     saveSettings, saveUser, scrollToSection, selMemo, sessionTimeout, setActiveSettingsSub,
     setActivityLogs, setActivityLogsDays, setAutoBackup, setAutoSave, setBackupFrequency, setBackupTime, setCalEvents, setCalFilter,
     setCalMonth, setCalYear, setDarkMode, setDeleteConfirm, setEditEvent, setEditMemo,
@@ -1008,7 +998,7 @@ export const useAdminLogic = (userData) => {
     setEvCustomType, setEvSaving, setEvTitle, setEvType, setLanguage, setLoginAttemptLimit,
     setMBody, setMFrom, setML, setMSaving, setMSubj,
     setMTo, setMemoFilter, setMemoSearch, setMemos, setModal, setNAuthor,
-    setNCat, setNContent, setNCustomTarget, setNL, setNImageFile, setNImageUrl, setNSaving, setNStatus, setNTarget,
+    setNCat, setNContent, setNCustomTarget, setNExpiresDate, setNL, setNImageFile, setNImageUrl, setNSaving, setNStatus, setNTarget,
     setNTitle, setNewsCatF, setNewsItems, setNewsSearch, setNewsStatF, setNotifications,
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
     setSettings, setStats, setTheme, setToast, setTwoFactorAuth,

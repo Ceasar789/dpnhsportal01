@@ -8,8 +8,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import {
-  LayoutDashboard, ClipboardList, FileText, CalendarCheck, Megaphone,
-  Moon, Sun, LogOut, Menu, ChevronRight, Settings
+  LayoutDashboard, CalendarCheck, Megaphone,
+  Moon, Sun, LogOut, Menu, ChevronRight, Settings, ClipboardCheck
 } from 'lucide-react';
 import { ThemeContext, useTheme } from './hooks';
 import { useDashboardTheme, DashboardThemeStyles } from '../../../styles/dashboardTheme';
@@ -18,12 +18,12 @@ import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import NotificationBell from '../../../components/NotificationBell';
 import OverviewTab from './tabs/OverviewTab';
-import AssignmentsTab from './tabs/AssignmentsTab';
-import QuizzesTab from './tabs/QuizzesTab';
+import StudentTasksTab from './tabs/TasksTab';
 import AttendanceTab from './tabs/AttendanceTab';
 import AnnouncementsTab from './tabs/AnnouncementsTab';
 import ProfileTab from '../../profile/ProfileTab';
 import FlippingLogo from '../../../components/FlippingLogo';
+import { StudentDataProvider } from './StudentDataContext';
 
 // ============================================
 // MAIN STUDENT DASHBOARD
@@ -42,18 +42,22 @@ const StudentDashboard = () => {
   return (
     <ThemeContext.Provider value={{ dark: darkMode, toggleDark: toggleDarkMode }}>
       <DashboardThemeStyles />
-      <StudentLayout>
-        <PageTransition>
-          <Routes>
-            <Route path="/" element={<OverviewTab />} />
-            <Route path="/assignments" element={<AssignmentsTab />} />
-            <Route path="/quizzes" element={<QuizzesTab />} />
-            <Route path="/attendance" element={<AttendanceTab />} />
-            <Route path="/announcements" element={<AnnouncementsTab />} />
-            <Route path="/profile" element={<ProfileTab />} />
-          </Routes>
-        </PageTransition>
-      </StudentLayout>
+      {/* Outside <Routes> on purpose: the provider must survive the student
+          moving between Overview and Tasks, which is exactly the navigation
+          that used to re-issue nine queries. */}
+      <StudentDataProvider>
+        <StudentLayout>
+          <PageTransition>
+            <Routes>
+              <Route path="/" element={<OverviewTab />} />
+              <Route path="/tasks" element={<StudentTasksTab />} />
+              <Route path="/attendance" element={<AttendanceTab />} />
+              <Route path="/announcements" element={<AnnouncementsTab />} />
+              <Route path="/profile" element={<ProfileTab />} />
+            </Routes>
+          </PageTransition>
+        </StudentLayout>
+      </StudentDataProvider>
     </ThemeContext.Provider>
   );
 };
@@ -78,8 +82,7 @@ const StudentLayout = ({ children }) => {
 
   const navItems = [
     { path: '/student-dashboard', icon: LayoutDashboard, label: 'Overview' },
-    { path: '/student-dashboard/assignments', icon: ClipboardList, label: 'Assignments' },
-    { path: '/student-dashboard/quizzes', icon: FileText, label: 'Quizzes' },
+    { path: '/student-dashboard/tasks', icon: ClipboardCheck, label: 'Tasks' },
     { path: '/student-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
     { path: '/student-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
   ];

@@ -129,10 +129,11 @@ export const AuthProvider = ({ children }) => {
   }, [userData?.uid, sessionTimeoutMs]);
 
   // ─── Fetch profile from profiles table ───────────────────────────────────
-  // Retries once after a short pause if the first attempt times out — the
-  // project's connection pool (free-tier, small compute) is occasionally
-  // saturated for a few seconds, and a lot of the time a retry a moment
-  // later goes through fine, avoiding a manual re-login to recover.
+  // Retries once after a short pause if the first attempt times out (4s
+  // timeout, 800ms pause, one retry — worst case ~8.8s) — the project's
+  // connection pool (free-tier, small compute) is occasionally saturated
+  // for a few seconds, and a lot of the time a retry a moment later goes
+  // through fine, avoiding a manual re-login to recover.
   const fetchProfileOnce = async (userId) => {
     const profilePromise = supabase
       .from('profiles')
@@ -143,7 +144,7 @@ export const AuthProvider = ({ children }) => {
     // Safety net: if the profiles query hangs (e.g. connection pool
     // saturation on the backend), don't block forever.
     const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve({ data: null, error: { code: 'CLIENT_TIMEOUT' } }), 8000)
+      setTimeout(() => resolve({ data: null, error: { code: 'CLIENT_TIMEOUT' } }), 4000)
     );
 
     return Promise.race([profilePromise, timeoutPromise]);
@@ -158,8 +159,8 @@ export const AuthProvider = ({ children }) => {
       let { data, error: profileError } = await fetchProfileOnce(userId);
 
       if (profileError?.code === 'CLIENT_TIMEOUT') {
-        console.warn('⚠️ Profile fetch timed out after 8s — retrying once...');
-        await new Promise((r) => setTimeout(r, 1500));
+        console.warn('⚠️ Profile fetch timed out after 4s — retrying once...');
+        await new Promise((r) => setTimeout(r, 800));
         ({ data, error: profileError } = await fetchProfileOnce(userId));
       }
 
@@ -250,52 +251,74 @@ export const AuthProvider = ({ children }) => {
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mountedRef.current) return;
 
         console.log('🔄 Auth state change:', event);
-        const opSeq = ++profileOpSeqRef.current;
 
-        if (session?.user) {
-          const { profile, fetchFailed } = await fetchProfile(session.user.id);
-          if (isArchivedProfile(profile)) {
-            await supabase.auth.signOut({ scope: 'local' });
-            return;
+        // supabase-js holds an internal lock for the duration of this
+        // callback. Issuing a supabase.from(...) query from inside it — even
+        // behind an `await`, which merely suspends this function without
+        // returning control to supabase-js — blocks on that same lock, which
+        // cannot release until the callback returns. The query hangs until
+        // our own client-side fetch timeout fires (see fetchProfileOnce),
+        // deadlocking every login. Deferring the body with setTimeout(...,0)
+        // lets this callback return synchronously right away, releasing the
+        // lock before the deferred function ever calls supabase.from(...).
+        setTimeout(async () => {
+          // The component may have unmounted between scheduling and running.
+          if (!mountedRef.current) return;
+
+          const opSeq = ++profileOpSeqRef.current;
+
+          if (session?.user) {
+            const { profile, fetchFailed } = await fetchProfile(session.user.id);
+            if (!mountedRef.current) return;
+
+            if (isArchivedProfile(profile)) {
+              await supabase.auth.signOut({ scope: 'local' });
+              return;
+            }
+            // Role comes ONLY from the profiles row — see the note in initSession.
+            const cachedRole = userDataRef.current?.uid === session.user.id
+              ? userDataRef.current.role
+              : null;
+
+            if (fetchFailed && !cachedRole) return;
+
+            // Same reasoning as initSession: a transient failure with a cached
+            // role must leave userData untouched rather than rebuild it with a
+            // null profile. This is the path a browser tab-visibility refresh
+            // takes, so without this a photo/name flicker on tab-switch is a
+            // dropped read away, not a real account change.
+            if (fetchFailed) {
+              if (mountedRef.current) setLoading(false);
+              return;
+            }
+
+            const role = normalizeRole(profile?.role || cachedRole);
+            const built = buildUserData(session.user, profile, role);
+
+            // Guards against this deferred callback applying stale data if a
+            // newer auth event (or updateProfile) has already bumped the
+            // sequence while this fetch was in flight — unchanged by the
+            // deferral, since opSeq is still read/compared around the same
+            // await boundary, just shifted a macrotask later.
+            if (profileOpSeqRef.current === opSeq) {
+              setUser(session.user);
+              setUserData(built);
+              userDataRef.current = built;
+              setIsAuthenticated(true);
+            }
+          } else if (!loginInProgressRef.current) {
+            setUser(null);
+            setUserData(null);
+            userDataRef.current = null;
+            setIsAuthenticated(false);
           }
-          // Role comes ONLY from the profiles row — see the note in initSession.
-          const cachedRole = userDataRef.current?.uid === session.user.id
-            ? userDataRef.current.role
-            : null;
 
-          if (fetchFailed && !cachedRole) return;
-
-          // Same reasoning as initSession: a transient failure with a cached
-          // role must leave userData untouched rather than rebuild it with a
-          // null profile. This is the path a browser tab-visibility refresh
-          // takes, so without this a photo/name flicker on tab-switch is a
-          // dropped read away, not a real account change.
-          if (fetchFailed) {
-            if (mountedRef.current) setLoading(false);
-            return;
-          }
-
-          const role = normalizeRole(profile?.role || cachedRole);
-          const built = buildUserData(session.user, profile, role);
-
-          if (profileOpSeqRef.current === opSeq) {
-            setUser(session.user);
-            setUserData(built);
-            userDataRef.current = built;
-            setIsAuthenticated(true);
-          }
-        } else if (!loginInProgressRef.current) {
-          setUser(null);
-          setUserData(null);
-          userDataRef.current = null;
-          setIsAuthenticated(false);
-        }
-
-        if (mountedRef.current) setLoading(false);
+          if (mountedRef.current) setLoading(false);
+        }, 0);
       }
     );
 

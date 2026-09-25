@@ -12,11 +12,13 @@ import { TARGET_ROLES } from '../shared/helpers';
 const NewsTab = () => {
   const {
     closeModal, deleteNewsItem, editNews, filteredNews, handleOverlayClick,
-    modal, nAuthor, nCat, nContent, nCustomTarget, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
+    modal, nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
     newsCatF, newsItems, newsLoading, newsSearch, newsStatF, openEditNews,
-    openNewPost, saveNews, setNAuthor, setNCat, setNContent, setNStatus,
+    openNewPost, saveNews, saveNewsExpiry, setNAuthor, setNCat, setNContent, setNExpiresDate, setNStatus,
     setNCustomTarget, setNImageFile, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
   } = useAdminContext();
+
+  const isExpired = (n) => !!n.expires_at && new Date(n.expires_at) < new Date();
 
   return (
     <>
@@ -52,6 +54,7 @@ const NewsTab = () => {
                         <div className="news-card-body">
                           <div className="news-meta">
                             <span className={`badge ${sb}`}>{n.status}</span>
+                            {isExpired(n) && <span className="badge badge-red">Expired</span>}
                             {n.category && <span className="badge badge-purple">{n.category}</span>}
                             <span className="badge badge-blue">{targetLabel}</span>
                           </div>
@@ -77,6 +80,7 @@ const NewsTab = () => {
                                                             <button className="news-action green archive-news-action" onClick={() => updateNewsStatus(n.id,'Published')}><ArchiveRestore size={14} /> Restore</button>
                             </>
                           )}
+                          <button className="news-action red" style={{ marginLeft: n.status === 'Draft' ? 0 : 'auto' }} onClick={() => deleteNewsItem(n.id)}>Delete</button>
                         </div>
                       </div>
                     );
@@ -93,6 +97,11 @@ const NewsTab = () => {
       <div className={`modal-overlay ${modal === 'news' ? 'open' : ''}`} onClick={handleOverlayClick}>
         <div className="modal">
           <div className="modal-title">{newsReadOnly ? 'View Published Post' : editNews ? 'Edit Post' : 'New Post'}</div>
+          {newsReadOnly && (
+            <div className="form-row" style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+              A published post's content is locked so it can't be quietly rewritten. You can still change or clear its expiry date below.
+            </div>
+          )}
           <div className="form-row">
             <label className="form-label">Title</label>
             <input className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" disabled={newsReadOnly} />
@@ -140,11 +149,22 @@ const NewsTab = () => {
               <option>Draft</option><option>Published</option>
             </select>
           </div>
+          <div className="form-row">
+            <label className="form-label">Expires on (optional)</label>
+            {/* Expiry is a visibility control, not content — it stays
+                editable even on a locked, already-published post. */}
+            <input
+              className="form-input"
+              type="date"
+              value={nExpiresDate}
+              onChange={e => setNExpiresDate(e.target.value)}
+            />
+          </div>
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn btn-primary" onClick={newsReadOnly ? closeModal : saveNews} disabled={nSaving}>
+            <button className="btn btn-primary" onClick={newsReadOnly ? saveNewsExpiry : saveNews} disabled={nSaving}>
               {nSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
-              {newsReadOnly ? 'Close' : editNews ? 'Update' : 'Publish'}
+              {newsReadOnly ? 'Save Expiry' : editNews ? 'Update' : 'Publish'}
             </button>
           </div>
         </div>

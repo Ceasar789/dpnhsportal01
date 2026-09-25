@@ -1,0 +1,327 @@
+-- ============================================
+-- PHASE 2 / 02 — Row-level security for worksheet assessment
+--
+-- Shared predicates live in SECURITY DEFINER functions, as in Phase 1: a
+-- policy that sub-selects the table it protects recurses, and one that joins
+-- through another RLS-protected table silently narrows when that table's own
+-- policy changes.
+--
+-- The scoring columns on worksheet_submissions are guarded by a trigger
+-- rather than a policy, because RLS grants or denies a whole row — it cannot
+-- say "this student may set status but not score".
+--
+-- WARNING: archives/phase3-02-task-rls.sql supersedes four objects this file
+-- creates — the policies ws_items_read, ws_worksheets_student_read and
+-- ws_sections_read, and the body of guard_worksheet_submission_write. If
+-- phase3-02 has already been run against this database, re-running this file
+-- reverts all four to their Phase 2 bodies with no error, and phase3-02 must
+-- be re-run afterwards to restore them.
+--
+-- Run in: Supabase Dashboard -> SQL Editor -> New query -> Run (without RLS)
+-- ============================================
+
+CREATE OR REPLACE FUNCTION teacher_owns_worksheet(p_worksheet_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM worksheets WHERE id = p_worksheet_id AND teacher_id = auth.uid()
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION teacher_owns_item(p_item_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM worksheet_items wi
+    JOIN worksheets w ON w.id = wi.worksheet_id
+    WHERE wi.id = p_item_id AND w.teacher_id = auth.uid()
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION student_can_see_worksheet(p_worksheet_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM worksheet_sections ws
+    JOIN section_students ss ON ss.section_id = ws.section_id
+    WHERE ws.worksheet_id = p_worksheet_id
+      AND ss.student_id = auth.uid()
+      AND ss.status = 'active'
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION own_submission(p_submission_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM worksheet_submissions WHERE id = p_submission_id AND student_id = auth.uid()
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION submission_open(p_submission_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM worksheet_submissions WHERE id = p_submission_id AND status = 'in_progress'
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
+-- Ties an answer's item to the worksheet its submission actually belongs to,
+-- so a student cannot attach an answer for an item from an unrelated worksheet.
+CREATE OR REPLACE FUNCTION item_belongs_to_submission(p_submission_id UUID, p_item_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM worksheet_submissions sub
+    JOIN worksheet_items wi ON wi.worksheet_id = sub.worksheet_id
+    WHERE sub.id = p_submission_id AND wi.id = p_item_id
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
+
+ALTER TABLE worksheet_sections     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE worksheet_items        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE worksheet_item_keys    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE worksheet_submissions  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE worksheet_answers      ENABLE ROW LEVEL SECURITY;
+
+-- worksheet_sections — the teacher who owns the worksheet, and the students
+-- of the section it was posted to.
+DROP POLICY IF EXISTS ws_sections_read  ON worksheet_sections;
+DROP POLICY IF EXISTS ws_sections_write ON worksheet_sections;
+CREATE POLICY ws_sections_read ON worksheet_sections FOR SELECT TO authenticated
+  USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_in_section(section_id));
+CREATE POLICY ws_sections_write ON worksheet_sections FOR ALL TO authenticated
+  USING (is_admin() OR (teacher_owns_worksheet(worksheet_id)
+                         AND (teacher_handles_section(section_id) OR teacher_advises_section(section_id))))
+  WITH CHECK (is_admin() OR (teacher_owns_worksheet(worksheet_id)
+                              AND (teacher_handles_section(section_id) OR teacher_advises_section(section_id))));
+
+-- worksheet_items — questions are readable by the students they were posted to.
+DROP POLICY IF EXISTS ws_items_read  ON worksheet_items;
+DROP POLICY IF EXISTS ws_items_write ON worksheet_items;
+CREATE POLICY ws_items_read ON worksheet_items FOR SELECT TO authenticated
+  USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_can_see_worksheet(worksheet_id));
+CREATE POLICY ws_items_write ON worksheet_items FOR ALL TO authenticated
+  USING (is_admin() OR teacher_owns_worksheet(worksheet_id))
+  WITH CHECK (is_admin() OR teacher_owns_worksheet(worksheet_id));
+
+-- worksheets — students otherwise have no path to this table at all: they can
+-- read worksheet_items/worksheet_sections but not the worksheet row those
+-- point at, so title/description/checking_mode come back null on every
+-- embed. This adds the narrow student path only; the existing teacher-owner
+-- and admin policies on worksheets are untouched (permissive policies OR
+-- together).
+DROP POLICY IF EXISTS ws_worksheets_student_read ON worksheets;
+CREATE POLICY ws_worksheets_student_read ON worksheets FOR SELECT TO authenticated
+  USING (student_can_see_worksheet(id));
+
+-- worksheet_item_keys — no student branch at all, by design.
+DROP POLICY IF EXISTS ws_keys_all ON worksheet_item_keys;
+CREATE POLICY ws_keys_all ON worksheet_item_keys FOR ALL TO authenticated
+  USING (is_admin() OR teacher_owns_item(item_id))
+  WITH CHECK (is_admin() OR teacher_owns_item(item_id));
+
+-- worksheet_submissions — a student reads and writes only their own row.
+-- Which COLUMNS they may change is enforced by the trigger below.
+DROP POLICY IF EXISTS ws_subs_read         ON worksheet_submissions;
+DROP POLICY IF EXISTS ws_subs_teacher_write ON worksheet_submissions;
+DROP POLICY IF EXISTS ws_subs_student_write ON worksheet_submissions;
+DROP POLICY IF EXISTS ws_subs_student_insert ON worksheet_submissions;
+DROP POLICY IF EXISTS ws_subs_student_update ON worksheet_submissions;
+CREATE POLICY ws_subs_read ON worksheet_submissions FOR SELECT TO authenticated
+  USING (is_admin() OR teacher_owns_worksheet(worksheet_id) OR student_id = auth.uid());
+CREATE POLICY ws_subs_teacher_write ON worksheet_submissions FOR ALL TO authenticated
+  USING (is_admin() OR teacher_owns_worksheet(worksheet_id))
+  WITH CHECK (is_admin() OR teacher_owns_worksheet(worksheet_id));
+-- The scoring columns are pinned NULL here as well as in the trigger below,
+-- so that the policy denies a pre-scored row outright rather than relying on
+-- the trigger alone — without this a student could INSERT their own submission
+-- with a score already filled in.
+--
+-- Students get INSERT and UPDATE only, never DELETE: FOR ALL would let a
+-- student DELETE their own row (no BEFORE UPDATE/INSERT trigger fires on
+-- DELETE, and there is no WITH CHECK on DELETE to stop it) and re-INSERT a
+-- fresh in_progress one — un-submission by another route, and one that also
+-- destroys a submission the teacher already scored and released. Clearing a
+-- submission for a retry is a teacher action, already covered by
+-- ws_subs_teacher_write.
+CREATE POLICY ws_subs_student_insert ON worksheet_submissions FOR INSERT TO authenticated
+  WITH CHECK (student_id = auth.uid()
+              AND student_can_see_worksheet(worksheet_id)
+              AND student_in_section(section_id)
+              AND status IN ('in_progress','submitted')
+              AND released = FALSE
+              AND score IS NULL AND total_points IS NULL
+              AND checked_by IS NULL AND checked_at IS NULL);
+CREATE POLICY ws_subs_student_update ON worksheet_submissions FOR UPDATE TO authenticated
+  USING (student_id = auth.uid() AND status <> 'checked')
+  WITH CHECK (student_id = auth.uid()
+              AND student_can_see_worksheet(worksheet_id)
+              AND student_in_section(section_id)
+              AND status IN ('in_progress','submitted')
+              AND released = FALSE
+              AND score IS NULL AND total_points IS NULL
+              AND checked_by IS NULL AND checked_at IS NULL);
+
+-- worksheet_answers — a student writes only `answer`, and only while their
+-- submission is still open. is_correct and points_earned stay the teacher's.
+DROP POLICY IF EXISTS ws_answers_read          ON worksheet_answers;
+DROP POLICY IF EXISTS ws_answers_teacher_write ON worksheet_answers;
+DROP POLICY IF EXISTS ws_answers_student_write ON worksheet_answers;
+CREATE POLICY ws_answers_read ON worksheet_answers FOR SELECT TO authenticated
+  USING (is_admin() OR teacher_owns_item(item_id) OR own_submission(submission_id));
+CREATE POLICY ws_answers_teacher_write ON worksheet_answers FOR ALL TO authenticated
+  USING (is_admin() OR teacher_owns_item(item_id))
+  WITH CHECK (is_admin() OR teacher_owns_item(item_id));
+CREATE POLICY ws_answers_student_write ON worksheet_answers FOR ALL TO authenticated
+  USING (own_submission(submission_id) AND submission_open(submission_id))
+  WITH CHECK (own_submission(submission_id) AND submission_open(submission_id)
+              AND item_belongs_to_submission(submission_id, item_id)
+              AND is_correct IS NULL AND points_earned IS NULL);
+
+-- A student may move their submission in_progress -> submitted, and nothing
+-- else. RLS cannot express a column restriction, so this does.
+CREATE OR REPLACE FUNCTION guard_worksheet_submission_write()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- auth.uid() IS NULL means this write did not come through a user session
+  -- at all (Supabase SQL Editor, service role, seed/migration scripts) — it
+  -- is not a student bypass, so let it through unguarded.
+  IF auth.uid() IS NULL THEN RETURN NEW; END IF;
+  IF is_admin() OR teacher_owns_worksheet(NEW.worksheet_id) THEN RETURN NEW; END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.remarks IS NOT NULL OR NEW.status <> 'in_progress' OR NEW.source <> 'online' THEN
+      RAISE EXCEPTION 'A student may only create an online submission with status in_progress and no remarks';
+    END IF;
+    NEW.submitted_at := NULL;
+    RETURN NEW;
+  END IF;
+
+  -- From here on TG_OP = 'UPDATE'.
+  IF NEW.score        IS DISTINCT FROM OLD.score
+     OR NEW.total_points IS DISTINCT FROM OLD.total_points
+     OR NEW.released     IS DISTINCT FROM OLD.released
+     OR NEW.checked_by   IS DISTINCT FROM OLD.checked_by
+     OR NEW.checked_at   IS DISTINCT FROM OLD.checked_at THEN
+    RAISE EXCEPTION 'Only the worksheet owner may set scoring fields';
+  END IF;
+
+  IF NEW.remarks      IS DISTINCT FROM OLD.remarks
+     OR NEW.source       IS DISTINCT FROM OLD.source
+     OR NEW.worksheet_id IS DISTINCT FROM OLD.worksheet_id
+     OR NEW.section_id   IS DISTINCT FROM OLD.section_id THEN
+    RAISE EXCEPTION 'Only the worksheet owner may change remarks, source, worksheet_id or section_id';
+  END IF;
+
+  -- Status may only move in_progress -> in_progress (no-op), in_progress ->
+  -- submitted (server sets submitted_at), or submitted -> submitted (no-op).
+  -- Anything else, including submitted -> in_progress, is rejected.
+  IF OLD.status = 'in_progress' AND NEW.status = 'in_progress' THEN
+    IF NEW.submitted_at IS DISTINCT FROM OLD.submitted_at THEN
+      RAISE EXCEPTION 'Students may not set submitted_at';
+    END IF;
+  ELSIF OLD.status = 'in_progress' AND NEW.status = 'submitted' THEN
+    NEW.submitted_at := NOW();
+  ELSIF OLD.status = 'submitted' AND NEW.status = 'submitted' THEN
+    IF NEW.submitted_at IS DISTINCT FROM OLD.submitted_at THEN
+      RAISE EXCEPTION 'Students may not change submitted_at';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Students may not change submission status from % to %', OLD.status, NEW.status;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS guard_worksheet_submission ON worksheet_submissions;
+CREATE TRIGGER guard_worksheet_submission
+  BEFORE INSERT OR UPDATE ON worksheet_submissions
+  FOR EACH ROW EXECUTE FUNCTION guard_worksheet_submission_write();
+
+-- The teacher's question-builder UI checks worksheet_submissions before it
+-- deletes worksheet_items to re-save (worksheet_answers.item_id cascades on
+-- that delete). That check and the delete are two separate round trips from
+-- the client, which leaves a TOCTOU window: a student can submit an answer
+-- in between them, and the client has no way to close that from its side.
+-- This trigger closes it at the database, which is the only place both
+-- writes are guaranteed to be serialized against each other.
+CREATE OR REPLACE FUNCTION guard_worksheet_item_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Same early-out as guard_worksheet_submission_write above: a write with
+  -- no user session (SQL Editor, service role, migration/cleanup scripts)
+  -- did not come from a student or teacher browser, so let it through.
+  IF auth.uid() IS NULL THEN RETURN OLD; END IF;
+
+  -- worksheet_items.worksheet_id is ON DELETE CASCADE from worksheets, so
+  -- deleting the WHOLE worksheet (teacher/admin cleanup, e.g. handleDelete
+  -- in WorksheetsTab.jsx) fires this row trigger too, once per cascaded
+  -- item, inside the same transaction that already removed the parent row.
+  -- That is not a re-save trying to wipe answers out from under students —
+  -- it is the worksheet itself going away, submissions and all — so once
+  -- the parent is gone this must get out of the way rather than raising a
+  -- confusing "cannot delete items" error on a "delete this worksheet"
+  -- action. A plain re-save (saveItems' own delete) always leaves the
+  -- parent worksheets row in place, so this early-out cannot be used to
+  -- dodge the guard below by any route that keeps the worksheet itself.
+  IF NOT EXISTS (SELECT 1 FROM worksheets WHERE id = OLD.worksheet_id) THEN
+    RETURN OLD;
+  END IF;
+
+  -- The harm this guards against is destroying WORK, so it keys off work
+  -- existing — an answer written, or a submission the student has finished —
+  -- not merely a submission ROW existing. The student surface inserts that row
+  -- the moment a student taps Start, before they have answered anything and
+  -- even for a worksheet with no questions at all. Keying off the row meant
+  -- one student opening a worksheet out of curiosity permanently froze its
+  -- questions, with no way back except deleting the whole worksheet.
+  IF EXISTS (
+    SELECT 1
+    FROM worksheet_answers wa
+    JOIN worksheet_items wi ON wi.id = wa.item_id
+    WHERE wi.worksheet_id = OLD.worksheet_id
+  ) OR EXISTS (
+    SELECT 1 FROM worksheet_submissions
+    WHERE worksheet_id = OLD.worksheet_id AND status <> 'in_progress'
+  ) THEN
+    RAISE EXCEPTION 'Cannot change the questions: students have already answered this worksheet';
+  END IF;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+-- This trigger exempts nobody once the worksheet itself still exists — not
+-- even is_admin() or the owning teacher, unlike guard_worksheet_submission_write
+-- above. That asymmetry is deliberate: a teacher may legitimately correct
+-- their own submissions' scoring fields, but nobody should be able to
+-- destroy already-submitted student answers by re-saving a worksheet's
+-- questions out from under them. Do not "fix" this by adding an admin/owner
+-- bypass here; deleting the whole worksheet (which the NOT EXISTS check
+-- above already allows) is the correct way to remove submitted answers.
+--
+-- The saveItems cleanup delete (after a failed worksheet_item_keys insert)
+-- is NOT exempted by the auth.uid() IS NULL branch above — it runs from the
+-- teacher's own browser session with a real auth.uid(). It passes this
+-- trigger for a different reason: it always runs immediately after
+-- saveItems' own application-level guard has confirmed that no answer has
+-- been written for this worksheet and that no submission has left
+-- in_progress — the same two conditions the EXISTS check above tests — so
+-- both disjuncts are false and the delete proceeds.
+
+DROP TRIGGER IF EXISTS guard_worksheet_item_delete ON worksheet_items;
+CREATE TRIGGER guard_worksheet_item_delete
+  BEFORE DELETE ON worksheet_items
+  FOR EACH ROW EXECUTE FUNCTION guard_worksheet_item_delete();
+
+-- ============================================
+-- VERIFY — every table below must show rls_on = true and at least one policy.
+-- Any policy name you do not recognise should be investigated.
+-- ============================================
+SELECT c.relname AS table_name, c.relrowsecurity AS rls_on, p.policyname, p.cmd
+FROM pg_class c
+LEFT JOIN pg_policies p ON p.tablename = c.relname AND p.schemaname = 'public'
+WHERE c.relname IN ('worksheet_sections','worksheet_items','worksheet_item_keys',
+                    'worksheet_submissions','worksheet_answers')
+ORDER BY c.relname, p.cmd;
+
+SELECT tgname FROM pg_trigger
+WHERE tgrelid = 'worksheet_submissions'::regclass AND NOT tgisinternal;
+
+SELECT tgname FROM pg_trigger
+WHERE tgrelid = 'worksheet_items'::regclass AND NOT tgisinternal;

@@ -4,7 +4,7 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
@@ -14,6 +14,12 @@ import {
 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
+import { TASK_TYPES, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
+import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
+import DistributeModal from '../worksheets/DistributeModal';
+import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
+import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
+import EncodeScoresModal from '../worksheets/EncodeScoresModal';
 
 const WorksheetsTab = () => {
   const { dark } = useTheme();
@@ -25,10 +31,13 @@ const WorksheetsTab = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
-  const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', status: 'Draft' });
+  const [formData, setFormData] = useState({ title: '', subject: '', pages: '', items: '', task_type: 'worksheet' });
   const [saving, setSaving] = useState(false);
-
-  const filters = ['All', 'English', 'Math', 'Science', 'Filipino', 'Araling Panlipunan'];
+  const assessment = useWorksheetAssessment(showToast);
+  const [distributingTask, setDistributingTask] = useState(null);
+  const [buildingWorksheet, setBuildingWorksheet] = useState(null);
+  const [checkingWorksheet, setCheckingWorksheet] = useState(null);
+  const [encodingWorksheet, setEncodingWorksheet] = useState(null);
 
   const fetchWorksheets = useCallback(async () => {
     setLoading(true);
@@ -48,39 +57,44 @@ const WorksheetsTab = () => {
 
   useEffect(() => {
     fetchWorksheets();
-    const channel = supabase
-      .channel('teacher-worksheets')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'worksheets' }, fetchWorksheets)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, [fetchWorksheets]);
 
   const handleAddWorksheet = async (e) => {
     e.preventDefault();
+    if (assessment.subjectError) {
+      showToast('Could not load your teaching load. Check your connection and try again.', 'error');
+      return;
+    }
+    if (assessment.subjectConflict) {
+      showToast('You are assigned more than one subject. Ask your admin to correct your teaching load — a task has to belong to exactly one subject.', 'error');
+      return;
+    }
+    if (assessment.subjectLoading) {
+      showToast('Still loading your teaching load — try again in a moment.', 'error');
+      return;
+    }
+    if (!assessment.mySubject) {
+      showToast('No subject is assigned to you yet. Ask your admin to set your teaching load before creating tasks.', 'error');
+      return;
+    }
     setSaving(true);
     const { error } = await supabase.from('worksheets').insert([{
       ...formData,
+      subject: assessment.mySubject.name,
+      subject_id: assessment.mySubject.id,
+      task_type: formData.task_type,
       teacher_id: userData?.uid,
       created_at: new Date().toISOString()
     }]);
-    
+
     if (error) showToast('Error: ' + error.message, 'error');
     else {
       showToast('Worksheet created');
-      setFormData({ title: '', subject: '', pages: '', items: '', status: 'Draft' });
+      setFormData({ title: '', subject: '', pages: '', items: '', task_type: 'worksheet' });
       setShowAddModal(false);
       fetchWorksheets();
     }
     setSaving(false);
-  };
-
-  const handleDistribute = async (id) => {
-    const { error } = await supabase.from('worksheets').update({ status: 'Distributed', updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) showToast('Error: ' + error.message, 'error');
-    else {
-      showToast('Worksheet distributed to students');
-      fetchWorksheets();
-    }
   };
 
   const handleDelete = async (id) => {
@@ -109,6 +123,22 @@ const WorksheetsTab = () => {
 
   const handleUploadWorksheet = async (e) => {
     if (!e.target.files?.[0]) return;
+    if (assessment.subjectError) {
+      showToast('Could not load your teaching load. Check your connection and try again.', 'error');
+      return;
+    }
+    if (assessment.subjectConflict) {
+      showToast('You are assigned more than one subject. Ask your admin to correct your teaching load — a task has to belong to exactly one subject.', 'error');
+      return;
+    }
+    if (assessment.subjectLoading) {
+      showToast('Still loading your teaching load — try again in a moment.', 'error');
+      return;
+    }
+    if (!assessment.mySubject) {
+      showToast('No subject is assigned to you yet. Ask your admin to set your teaching load before creating tasks.', 'error');
+      return;
+    }
     const file = e.target.files[0];
     setSaving(true);
     
@@ -161,14 +191,15 @@ const WorksheetsTab = () => {
       // Insert into database
       const { data: insertData, error: dbError } = await supabase.from('worksheets').insert([{
         title: titleFromFile || 'Worksheet',
-        subject: 'Uploaded Document',
+        subject: assessment.mySubject.name,
+        subject_id: assessment.mySubject.id,
+        task_type: 'worksheet',
         file_url: publicUrl,
         file_name: file.name,
         file_path: filePath,
         pages: 'N/A',
         items: 0,
         teacher_id: userData?.uid,
-        status: 'Draft',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }]).select();
@@ -192,11 +223,25 @@ const WorksheetsTab = () => {
     setSaving(false);
   };
 
+  // Derived from the worksheets actually on this teacher's list, not a
+  // hardcoded registry — a literal list drifts from the canonical subject
+  // names (e.g. 'Math' vs the registered 'Mathematics') and leaves newer
+  // subjects unreachable. A teacher with one subject just sees two chips.
+  const filters = useMemo(() => {
+    const subjects = [...new Set(worksheets.map(w => w.subject).filter(Boolean))].sort();
+    return ['All', ...subjects];
+  }, [worksheets]);
+
   const filtered = activeFilter === 'All' ? worksheets : worksheets.filter(w => w.subject === activeFilter);
+  // `worksheets.status` is a dead column — distribution lives in
+  // task_assignees now, via assessment.assigneeCounts. A worksheet counts as
+  // distributed here only when it genuinely has at least one assignee. A
+  // failed count read must not read as "0 distributed" (that is the same
+  // lie in a new place), so both tiles fall back to an explicit unknown
+  // state rather than a number when assessment.assigneeCountsError is set.
   const stats = {
     total: worksheets.length,
-    distributed: worksheets.filter(w => w.status === 'Distributed').length,
-    drafts: worksheets.filter(w => w.status === 'Draft').length
+    distributed: worksheets.filter(w => (assessment.assigneeCounts[w.id] || 0) > 0).length,
   };
 
   return (
@@ -219,12 +264,32 @@ const WorksheetsTab = () => {
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Total Worksheets', value: stats.total },
-          { label: 'Distributed', value: stats.distributed, color: '#16a34a' },
-          { label: 'Drafts', value: stats.drafts, color: '#d97706' },
+          {
+            label: 'Distributed',
+            // Loading and error are both "not a real number yet" states —
+            // neither may render as 0 or as the eventual value, or the tile
+            // makes the exact same false claim finding 4 existed to remove,
+            // just from a different window (first paint, or a slow retry).
+            value: assessment.assigneeCountsLoading ? '…' : assessment.assigneeCountsError ? '—' : stats.distributed,
+            color: assessment.assigneeCountsLoading ? (dark ? '#64748b' : '#94a3b8')
+              : assessment.assigneeCountsError ? '#dc2626' : '#16a34a',
+          },
+          {
+            label: 'Not distributed',
+            value: assessment.assigneeCountsLoading ? '…' : assessment.assigneeCountsError ? '—' : (stats.total - stats.distributed),
+            color: assessment.assigneeCountsLoading ? (dark ? '#64748b' : '#94a3b8')
+              : assessment.assigneeCountsError ? '#dc2626' : '#d97706',
+          },
         ].map((stat, idx) => (
           <Card key={idx} className="p-4">
             <p className="text-xs mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{stat.label}</p>
             <p className="text-2xl font-bold" style={{ color: stat.color || (dark ? '#f1f5f9' : '#1a2b4a') }}>{stat.value}</p>
+            {assessment.assigneeCountsError && !assessment.assigneeCountsLoading && idx > 0 && (
+              <button onClick={() => assessment.fetchAssigneeCounts()}
+                className="text-[11px] underline font-semibold mt-1" style={{ color: '#dc2626' }}>
+                Retry
+              </button>
+            )}
           </Card>
         ))}
       </div>
@@ -246,25 +311,43 @@ const WorksheetsTab = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {loading ? (
           <div className="col-span-3 flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
-        ) : filtered.map((ws, idx) => (
+        ) : filtered.map((ws, idx) => {
+          const distributedCount = assessment.assigneeCounts[ws.id] || 0;
+          return (
           <Card key={ws.id} className="p-4">
             <div className="flex justify-between items-start mb-3">
               <div className="w-10 h-14 rounded flex items-center justify-center"
                 style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
                 <FileText size={20} style={{ color: '#3b82f6' }} />
               </div>
-              <Badge color={ws.status === 'Distributed' ? '#16a34a' : '#d97706'} 
-                bg={ws.status === 'Distributed' ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
-                {ws.status}
-              </Badge>
+              {/* `ws.status` is a dead column — nothing writes it anymore.
+                  The badge is derived from real assignee rows instead. Both
+                  a failed read AND the window before the first read settles
+                  must render as their own neutral state — neither may fall
+                  through to "Not distributed", which is a positive claim of
+                  0 that is not yet (or no longer) known to be true. */}
+              {assessment.assigneeCountsLoading ? (
+                <Badge color={dark ? '#94a3b8' : '#64748b'} bg={dark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.12)'}>
+                  Checking…
+                </Badge>
+              ) : assessment.assigneeCountsError ? (
+                <span className="flex items-center gap-2">
+                  <Badge color="#dc2626" bg="rgba(220,38,38,0.12)">Status unknown</Badge>
+                  <button onClick={() => assessment.fetchAssigneeCounts()}
+                    className="text-[11px] underline font-semibold" style={{ color: '#dc2626' }}>
+                    Retry
+                  </button>
+                </span>
+              ) : (
+                <Badge color={distributedCount > 0 ? '#16a34a' : '#d97706'}
+                  bg={distributedCount > 0 ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
+                  {distributedCount > 0 ? `Distributed · ${distributedCount}` : 'Not distributed'}
+                </Badge>
+              )}
             </div>
             <h3 className="text-sm font-semibold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{ws.title}</h3>
             <p className="text-xs mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{ws.subject} · {ws.pages || '—'} pages · {ws.items || '—'} items</p>
             <div className="flex gap-2">
-              {ws.status === 'Draft' && (
-                <button onClick={() => handleDistribute(ws.id)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
-                  style={{ backgroundColor: '#1e3a5f', color: '#ffffff' }}>Distribute</button>
-              )}
               <button onClick={() => handlePreview(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
                 style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 {ws.file_url ? 'View' : 'Preview'}
@@ -275,13 +358,43 @@ const WorksheetsTab = () => {
                   <Download size={12} /> Download
                 </button>
               )}
+              <button onClick={() => setDistributingTask(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                Distribute
+              </button>
+              <button onClick={() => setBuildingWorksheet(ws)} className="flex-1 h-8 rounded-lg text-xs font-semibold transition-colors"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', color: dark ? '#cbd5e1' : '#374151', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
+                Questions
+              </button>
+              <button onClick={() => setCheckingWorksheet(ws)} className="h-8 px-2.5 rounded-lg text-xs font-semibold"
+                style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#94a3b8' : '#64748b' }}>
+                Check
+              </button>
+              <button onClick={() => setEncodingWorksheet(ws)} className="h-8 px-2.5 rounded-lg text-xs font-semibold"
+                title="For a class that answered on paper — type each student's total"
+                style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#94a3b8' : '#64748b' }}>
+                Encode scores
+              </button>
               <button onClick={() => handleDelete(ws.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
                 <Trash2 size={14} />
               </button>
             </div>
+            {assessment.postingsError ? (
+              <p className="text-[11px] mt-2 flex items-center gap-2" style={{ color: '#dc2626' }}>
+                Posting status could not be loaded.
+                <button onClick={() => assessment.fetchPostings()} className="underline font-semibold" style={{ color: '#dc2626' }}>
+                  Retry
+                </button>
+              </p>
+            ) : assessment.postings.filter(p => p.worksheet_id === ws.id).length > 0 && (
+              <p className="text-[11px] mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                Posted to {assessment.postings.filter(p => p.worksheet_id === ws.id).length} section(s)
+              </p>
+            )}
           </Card>
-        ))}
+          );
+        })}
         {!loading && filtered.length === 0 && (
           <div className="col-span-3 text-center py-10" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No worksheets found</div>
         )}
@@ -291,12 +404,28 @@ const WorksheetsTab = () => {
         <Modal title="Create Worksheet" onClose={() => setShowAddModal(false)}>
           <form onSubmit={handleAddWorksheet} className="flex flex-col gap-4">
             <Input placeholder="Title" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-            <select value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})}
-              className="w-full h-10 px-3 rounded-lg text-sm outline-none"
-              style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-              <option value="">Select Subject</option>
-              {filters.slice(1).map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <div>
+              <label className="text-xs font-semibold" style={{ color: dark ? '#94a3b8' : '#64748b' }}>Type</label>
+              <select value={formData.task_type}
+                onChange={e => setFormData({ ...formData, task_type: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1"
+                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',
+                         border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
+                         color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                {TASK_TYPES.map(t => <option key={t} value={t}>{TASK_TYPE_LABELS[t]}</option>)}
+              </select>
+            </div>
+            <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+              {assessment.subjectLoading ? (
+                <>Loading your teaching load…</>
+              ) : (
+                <>
+                  Subject: <strong style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                    {assessment.mySubject?.name || '—'}
+                  </strong> (from your teaching load)
+                </>
+              )}
+            </p>
             <Input placeholder="Pages" value={formData.pages} onChange={e => setFormData({...formData, pages: e.target.value})} />
             <Input placeholder="Items" value={formData.items} onChange={e => setFormData({...formData, items: e.target.value})} />
             <button type="submit" disabled={saving} className="w-full h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"
@@ -323,10 +452,21 @@ const WorksheetsTab = () => {
                 </div>
                 <div>
                   <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Status</p>
-                  <Badge color={previewingWorksheet.status === 'Distributed' ? '#16a34a' : '#d97706'} 
-                    bg={previewingWorksheet.status === 'Distributed' ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
-                    {previewingWorksheet.status}
-                  </Badge>
+                  {assessment.assigneeCountsLoading ? (
+                    <Badge color={dark ? '#94a3b8' : '#64748b'} bg={dark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.12)'}>
+                      Checking…
+                    </Badge>
+                  ) : assessment.assigneeCountsError ? (
+                    <Badge color="#dc2626" bg="rgba(220,38,38,0.12)">Status unknown</Badge>
+                  ) : (() => {
+                    const count = assessment.assigneeCounts[previewingWorksheet.id] || 0;
+                    return (
+                      <Badge color={count > 0 ? '#16a34a' : '#d97706'}
+                        bg={count > 0 ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
+                        {count > 0 ? `Distributed · ${count}` : 'Not distributed'}
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <div>
                   <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Created</p>
@@ -362,6 +502,54 @@ const WorksheetsTab = () => {
             </div>
           </div>
         </Modal>
+      )}
+
+      {distributingTask && (
+        <DistributeModal
+          task={distributingTask}
+          sections={assessment.mySections}
+          sectionsError={assessment.sectionsError}
+          onRetrySections={assessment.fetchMySections}
+          loadClassList={assessment.loadClassList}
+          loadAssignees={assessment.loadAssignees}
+          loadSubmissions={assessment.loadSubmissions}
+          distributeTask={assessment.distributeTask}
+          onClose={() => setDistributingTask(null)}
+          showToast={showToast}
+        />
+      )}
+
+      {buildingWorksheet && (
+        <QuestionBuilderModal
+          worksheet={buildingWorksheet}
+          loadItems={assessment.loadItems}
+          saveItems={assessment.saveItems}
+          setCheckingMode={assessment.setCheckingMode}
+          onClose={() => { setBuildingWorksheet(null); fetchWorksheets(); }}
+        />
+      )}
+
+      {checkingWorksheet && (
+        <CheckSubmissionsModal
+          worksheet={checkingWorksheet}
+          loadItems={assessment.loadItems}
+          loadSubmissions={assessment.loadSubmissions}
+          loadAnswers={assessment.loadAnswers}
+          releaseScore={assessment.releaseScore}
+          onClose={() => setCheckingWorksheet(null)}
+        />
+      )}
+
+      {encodingWorksheet && (
+        <EncodeScoresModal
+          worksheet={encodingWorksheet}
+          postings={assessment.postings}
+          sections={assessment.mySections}
+          loadClassList={assessment.loadClassList}
+          loadSubmissions={assessment.loadSubmissions}
+          encodeManualScore={assessment.encodeManualScore}
+          onClose={() => setEncodingWorksheet(null)}
+        />
       )}
     </div>
   );

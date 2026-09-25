@@ -67,10 +67,6 @@ const SchedulingTab = () => {
 
   useEffect(() => {
     fetchSchedules();
-    const channels = [
-      supabase.channel('registrar-schedules').on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, fetchSchedules).subscribe()
-    ];
-    return () => channels.forEach(ch => supabase.removeChannel(ch));
   }, [fetchSchedules]);
 
   const depts = ['All', ...new Set(schedules.map(s => s.dept).filter(Boolean))];

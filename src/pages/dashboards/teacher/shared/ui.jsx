@@ -69,17 +69,23 @@ export const TD = ({ children, className = '' }) => {
   );
 };
 
-export const Modal = ({ title, onClose, children }) => {
+// `size` is a Tailwind max-w-* class. Defaults to the original max-w-md so
+// every existing caller (short-content dialogs) keeps its current width.
+// The panel itself caps at 85vh and scrolls its body — a wrapper this is
+// `fixed inset-0 ... items-center` cannot otherwise scroll the page under
+// it, so content taller than the viewport used to clip on both ends with no
+// way to reach a footer button.
+export const Modal = ({ title, onClose, children, size = 'max-w-md' }) => {
   const { dark } = useTheme();
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="rounded-xl w-full max-w-md shadow-2xl"
+      <div className={`rounded-xl w-full ${size} shadow-2xl flex flex-col max-h-[85vh]`}
         style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
+        <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
           <h2 className="text-lg font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import {
-  Users, BookOpen, FileText, GraduationCap,
+  Users, BookOpen, GraduationCap,
   CalendarCheck, Megaphone, Moon, Sun, LogOut, Menu,
   LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Settings
 } from 'lucide-react';
@@ -22,7 +22,6 @@ import OverviewTab from './tabs/OverviewTab';
 import StudentsTab from './tabs/StudentsTab';
 import LessonPlansTab from './tabs/LessonPlansTab';
 import WorksheetsTab from './tabs/WorksheetsTab';
-import AssessmentsTab from './tabs/AssessmentsTab';
 import GradesTab from './tabs/GradesTab';
 import AttendanceTab from './tabs/AttendanceTab';
 import AnnouncementsTab from './tabs/AnnouncementsTab';
@@ -52,7 +51,6 @@ const TeacherLayout = ({ children }) => {
     { path: '/teacher-dashboard/students', icon: Users, label: 'Students' },
     { path: '/teacher-dashboard/lesson-plans', icon: BookOpen, label: 'Lesson Plans' },
     { path: '/teacher-dashboard/worksheets', icon: ClipboardList, label: 'Worksheets' },
-    { path: '/teacher-dashboard/assignments', icon: FileText, label: 'Assessments' },
     { path: '/teacher-dashboard/grades', icon: GraduationCap, label: 'Grades' },
     { path: '/teacher-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
     { path: '/teacher-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
@@ -230,7 +228,6 @@ const TeacherDashboard = () => {
             <Route path="/students" element={<StudentsTab />} />
             <Route path="/lesson-plans" element={<LessonPlansTab />} />
             <Route path="/worksheets" element={<WorksheetsTab />} />
-            <Route path="/assignments" element={<AssessmentsTab />} />
             <Route path="/grades" element={<GradesTab />} />
             <Route path="/attendance" element={<AttendanceTab />} />
             <Route path="/announcements" element={<AnnouncementsTab />} />

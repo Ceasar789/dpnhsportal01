@@ -1,154 +1,128 @@
 // ============================================
 // FILE: src/pages/dashboards/student/tabs/OverviewTab.jsx
-// STUDENT OVERVIEW TAB — Supabase + Real-time
+// STUDENT OVERVIEW TAB — Supabase
 // Split from the original monolithic StudentDashboard.jsx (1,123 lines)
+//
+// Grade level, section and student ID come from the enrolment record and
+// the students table — profiles has never had year/section/avg_grade/
+// attendance_rate/student_no columns, which is why this tab used to show
+// dashes and zeros forever.
+//
+// "Worksheet Performance" (never "Average Grade" or a subject grade): the
+// mean of score/total_points across this student's RELEASED worksheet
+// submissions, each worksheet weighted equally. The capstone's approved
+// scope excludes a gradebook, so this is deliberately not an aggregate of
+// anything else and nothing aggregates it further.
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
-import { supabase } from '../../../../config/supabase';
 import {
-  BookOpen, CalendarCheck, CheckCircle, ClipboardList, Clock, FileText, Loader2, RefreshCw
+  BookOpen, CalendarCheck, ClipboardList, Loader2, RefreshCw
 } from 'lucide-react';
-import { useTheme, useToast, Card, Badge, StatCard } from '../hooks';
-import { withRetry } from '../../../../lib/supabaseRetry';
+import { useTheme, useToast, Card, StatCard } from '../hooks';
+import { useStudentData } from '../StudentDataContext';
+import SubjectCards from '../SubjectCards';
 
 const OverviewTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
-  const { showToast, Toast } = useToast();
+  const { Toast } = useToast();
+  const navigate = useNavigate();
 
-  const [studentInfo, setStudentInfo] = useState({
-    name: userData?.name || 'Loading...',
-    studentId: userData?.student_no || '—',
-    grade: '—',
-    section: '—',
-    avgGrade: 0,
-    attendanceRate: 0
-  });
-  const [upcoming, setUpcoming] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Every read this tab needs now comes from the one shared graph fetched by
+  // StudentDataProvider — the same rows TasksTab reads, so the two screens
+  // cannot disagree about a deadline, a submission or what counts as Other,
+  // and moving between them costs no queries at all.
+  const { graph, loading, refresh } = useStudentData();
+  const fetchOverview = refresh;
 
-  const fetchOverview = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Get student profile with error handling
-      try {
-        const { data: profile, error: profileError } = await withRetry(
-          () => supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userData?.uid)
-            .single(),
-          { label: 'Student profile fetch' }
-        );
+  // A schedule failure is fatal HERE and not in TasksTab, and both are
+  // right: this tab's subject cards ARE the schedule, while TasksTab only
+  // needs it to widen its ?subject=other filter and has a safe fallback.
+  const loadError = !!graph && !!(graph.fatalError || graph.scheduleError);
 
-        if (profile && !profileError) {
-          setStudentInfo({
-            name: profile.name || userData?.name || 'Student',
-            studentId: profile.student_no || '—',
-            grade: profile.year || '—',
-            section: profile.section || '—',
-            avgGrade: profile.avg_grade || 0,
-            attendanceRate: profile.attendance_rate || 0
-          });
+  const {
+    info, performance, attendance, subjects, tasksBySubject, pendingCount,
+  } = useMemo(() => {
+    const blank = {
+      info: { name: userData?.name || 'Student', studentId: null, gradeLevel: null, section: null },
+      performance: null, attendance: null, subjects: [], tasksBySubject: {}, pendingCount: 0,
+    };
+    if (!graph || graph.fatalError || graph.scheduleError) return blank;
+
+    const enrolled = graph.enrolments[0] || null;
+    const info = {
+      name: userData?.name || 'Student',
+      studentId: graph.studentRecord?.student_number || graph.studentRecord?.lrn || null,
+      gradeLevel: enrolled?.sections?.grade_level || null,
+      section: enrolled?.sections?.name || null,
+    };
+
+    // Already released-only by the query; the remaining filter just skips a
+    // worksheet worth zero points, which would divide by zero. A released
+    // row with a NULL score would read as 0% and drag the mean down — a
+    // teacher who released before entering a score should not cost the
+    // student a number they never earned.
+    const released = graph.releasedScores
+      .filter(s => s.score !== null && s.score !== undefined && Number(s.total_points) > 0);
+    const performance = released.length === 0 ? null : {
+      percent: Math.round(
+        released.reduce((sum, s) => sum + (Number(s.score) / Number(s.total_points)) * 100, 0) / released.length
+      ),
+      count: released.length,
+    };
+
+    // attendance.status is stored capitalised ('Present', 'Absent', 'Late',
+    // 'Excused') — that is what the teacher's tab writes and what the CHECK
+    // constraint allows. Compared case-insensitively anyway, and identically
+    // to the student's own Attendance tab: if the two ever disagreed about a
+    // row, the same dashboard would show two different percentages.
+    const attRows = graph.attendance;
+    const presentCount = attRows.filter(r => String(r.status || '').toLowerCase() === 'present').length;
+    const attendance = attRows.length === 0 ? null : {
+      percent: Math.round((presentCount / attRows.length) * 100),
+      present: presentCount,
+      total: attRows.length,
+    };
+
+    // Pending: assigned, and no submission whose status is anything other
+    // than 'in_progress' — a submitted or checked one is no longer pending,
+    // an in-progress one still is, and having none at all is pending too.
+    const notPendingIds = new Set(
+      graph.submissionStates.filter(s => s.status !== 'in_progress').map(s => s.worksheet_id)
+    );
+
+    const buckets = {};
+    const bump = (key, dueAt, pending) => {
+      if (!buckets[key]) buckets[key] = { total: 0, pendingCount: 0, nearestDue: null };
+      buckets[key].total += 1;
+      if (pending) {
+        buckets[key].pendingCount += 1;
+        if (dueAt && (!buckets[key].nearestDue || new Date(dueAt) < new Date(buckets[key].nearestDue))) {
+          buckets[key].nearestDue = dueAt;
         }
-      } catch (e) {
-        console.warn('Profile fetch error:', e);
       }
+    };
+    let pendingCount = 0;
+    graph.assignees.forEach(a => {
+      const sheet = graph.sheetById.get(a.task_id);
+      if (!sheet) return; // task deleted out from under the assignment
+      const pending = !notPendingIds.has(a.task_id);
+      if (pending) pendingCount += 1;
+      // Every card is a subject, so a task with no subject has no card. It is
+      // still counted in the pending total above, and still listed in full on
+      // the Tasks tab — the cards are a way in, not the only way. The app can
+      // no longer create one (both worksheet insert paths set subject_id and
+      // refuse without it), so this only skips legacy rows.
+      if (!sheet.subject_id) return;
+      bump(sheet.subject_id, a.due_at, pending);
+    });
 
-      // Get upcoming assignments & quizzes with separate error handling
-      try {
-        const [assignments, quizzes] = await Promise.all([
-          (async () => {
-            try {
-              const { data, error } = await withRetry(
-                () => supabase
-                  .from('assignments')
-                  .select('*')
-                  .eq('student_id', userData?.uid)
-                  .eq('status', 'pending')
-                  .order('due_date', { ascending: true })
-                  .limit(3),
-                { label: 'Overview upcoming assignments fetch' }
-              );
-              return error ? [] : (data || []);
-            } catch (e) {
-              console.warn('Assignments fetch error:', e);
-              return [];
-            }
-          })(),
-          (async () => {
-            try {
-              const { data, error } = await withRetry(
-                () => supabase
-                  .from('quizzes')
-                  .select('*')
-                  .eq('student_id', userData?.uid)
-                  .eq('status', 'upcoming')
-                  .order('date', { ascending: true })
-                  .limit(2),
-                { label: 'Overview upcoming quizzes fetch' }
-              );
-              return error ? [] : (data || []);
-            } catch (e) {
-              console.warn('Quizzes fetch error:', e);
-              return [];
-            }
-          })()
-        ]);
+    return { info, performance, attendance, subjects: graph.subjects, tasksBySubject: buckets, pendingCount };
+  }, [graph, userData?.name]);
 
-        const combined = [
-          ...(assignments || []).map(a => ({ type: 'assignment', title: a.title, subject: a.subject, due: new Date(a.due_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }), status: a.status, id: a.id })),
-          ...(quizzes || []).map(q => ({ type: 'quiz', title: q.title, subject: q.subject, due: new Date(q.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }), status: q.status, id: q.id }))
-        ].slice(0, 5);
-
-        setUpcoming(combined);
-      } catch (err) {
-        console.warn('Upcoming items fetch error:', err);
-      }
-    } catch (err) {
-      console.error('Overview fetch error:', err);
-    }
-    setLoading(false);
-  }, [userData?.uid]);
-
-  useEffect(() => {
-    if (userData?.uid) fetchOverview();
-
-    const channels = [];
-    
-    // Only subscribe to tables if user ID is available
-    if (userData?.uid) {
-      try {
-        const assignmentChannel = supabase.channel('student-overview-assignments')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments', filter: `student_id=eq.${userData?.uid}` }, fetchOverview)
-          .subscribe((status) => {
-            if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-              console.warn('Assignments subscription failed - table may not exist');
-            }
-          });
-        channels.push(assignmentChannel);
-      } catch (e) {
-        console.warn('Could not subscribe to assignments:', e);
-      }
-
-      try {
-        const quizChannel = supabase.channel('student-overview-quizzes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'quizzes', filter: `student_id=eq.${userData?.uid}` }, fetchOverview)
-          .subscribe((status) => {
-            if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-              console.warn('Quizzes subscription failed - table may not exist');
-            }
-          });
-        channels.push(quizChannel);
-      } catch (e) {
-        console.warn('Could not subscribe to quizzes:', e);
-      }
-    }
-
-    return () => channels.forEach(ch => supabase.removeChannel(ch));
-  }, [userData?.uid, fetchOverview]);
 
   return (
     <div className="p-6">
@@ -166,10 +140,27 @@ const OverviewTab = () => {
         />
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>
-            Welcome back, <span style={{ color: 'var(--banner-accent)' }}>{studentInfo.name}</span>!
+            Welcome back, <span style={{ color: 'var(--banner-accent)' }}>{info.name}</span>!
           </h2>
+          {/* Three distinct states, never collapsed into one: the read
+              failed, the student is genuinely not enrolled, and the student
+              is enrolled. Falling back to "Not yet enrolled" on a failed read
+              would tell them something false about their own enrolment, and
+              silently dropping the ID would look identical to not having
+              one. */}
           <p className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--banner-subtext)' }}>
-            Grade {studentInfo.grade}-{studentInfo.section} · ID: {studentInfo.studentId}
+            {loading
+              ? 'Loading your enrolment…'
+              : loadError
+                ? 'Could not load your enrolment'
+                : (
+                  <>
+                    {info.gradeLevel && info.section
+                      ? `${info.gradeLevel} · ${info.section}`
+                      : 'Not yet enrolled in a section'}
+                    {info.studentId ? ` · ID: ${info.studentId}` : ''}
+                  </>
+                )}
           </p>
         </div>
         <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
@@ -181,23 +172,37 @@ const OverviewTab = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard 
-          label="Average Grade" 
-          value={loading ? <Loader2 className="animate-spin" size={20} /> : `${studentInfo.avgGrade}%`} 
-          icon={BookOpen} 
+        <StatCard
+          label="Worksheet Performance"
+          value={loading ? <Loader2 className="animate-spin" size={20} />
+            : loadError ? '—'
+            : performance ? `${performance.percent}%` : '—'}
+          sub={loadError ? 'Could not load'
+            : performance ? `${performance.count} worksheet${performance.count === 1 ? '' : 's'}`
+            : 'No scores yet'}
+          icon={BookOpen}
           color="#2563eb"
         />
-        <StatCard 
-          label="Attendance" 
-          value={loading ? <Loader2 className="animate-spin" size={20} /> : `${studentInfo.attendanceRate}%`} 
-          icon={CalendarCheck} 
+        <StatCard
+          label="Attendance"
+          value={loading ? <Loader2 className="animate-spin" size={20} />
+            : loadError ? '—'
+            : attendance ? `${attendance.percent}%` : '—'}
+          sub={loadError ? 'Could not load'
+            : attendance ? `${attendance.present} of ${attendance.total} days`
+            : 'Not yet recorded'}
+          icon={CalendarCheck}
           color="#16a34a"
         />
-        <StatCard 
-          label="Pending Tasks" 
-          value={loading ? <Loader2 className="animate-spin" size={20} /> : upcoming.length.toString()} 
-          icon={ClipboardList} 
-          subColor="#d97706" 
+        <StatCard
+          label="Pending Tasks"
+          value={loading ? <Loader2 className="animate-spin" size={20} />
+            : loadError ? '—' : pendingCount.toString()}
+          sub={loadError ? 'Could not load'
+            : pendingCount === 0 ? 'Nothing due'
+            : `task${pendingCount === 1 ? '' : 's'} due`}
+          icon={ClipboardList}
+          subColor="#d97706"
           color="#d97706"
         />
       </div>
@@ -205,61 +210,23 @@ const OverviewTab = () => {
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            Upcoming Tasks
+            Your Subjects
           </h2>
           <button onClick={fetchOverview} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
             <RefreshCw size={14} />
           </button>
         </div>
-        <div className="space-y-3">
-          {loading ? (
-            <div className="flex justify-center py-10"><Loader2 className="animate-spin" style={{ color: dark ? '#64748b' : '#94a3b8' }} /></div>
-          ) : upcoming.length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle size={32} className="mx-auto mb-2" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
-              <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>No upcoming tasks yet.</p>
-              <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>You’re caught up for now. Check Announcements for academic updates, reminders, and upcoming schedules.</p>
-            </div>
-          ) : (
-            upcoming.map((task, index) => (
-              <div key={task.id || index} className="flex items-center gap-4 p-4 rounded-lg transition-colors"
-                style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: task.type === 'assignment' ? (dark ? '#1e3a5f' : '#eff6ff') : (dark ? '#312e81' : '#f5f3ff') }}>
-                  {task.type === 'assignment' ? (
-                    <ClipboardList size={20} style={{ color: '#3b82f6' }} />
-                  ) : (
-                    <FileText size={20} style={{ color: '#7c3aed' }} />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{task.title}</p>
-                  <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{task.subject}</p>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-1 text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-                    <Clock size={14} />
-                    Due {task.due}
-                  </div>
-                  <Badge 
-                    color={task.status === 'pending' ? '#d97706' : '#2563eb'}
-                    bg={task.status === 'pending' ? 'rgba(217,119,6,0.12)' : 'rgba(37,99,235,0.12)'}
-                  >
-                    {task.status}
-                  </Badge>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <SubjectCards
+          subjects={subjects}
+          tasksBySubject={tasksBySubject}
+          loading={loading}
+          loadError={loadError}
+          onRetry={fetchOverview}
+          onOpen={(subjectId) => navigate(`/student-dashboard/tasks?subject=${subjectId}`)}
+        />
       </Card>
     </div>
   );
 };
-
-// ============================================
-// ASSIGNMENTS TAB — Supabase CRUD + Real-time
-// ORIGINAL DESIGN PRESERVED
-// ============================================
 
 export default OverviewTab;

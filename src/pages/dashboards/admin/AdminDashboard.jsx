@@ -351,6 +351,87 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
         .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 
+        /* Teaching Load — bulk assignment form and the grade-grouped list.
+           Everything here is built from the same vars as the rest of the
+           dashboard, so it follows the light/dark theme without branching. */
+        .bulk-grid { display: grid; grid-template-columns: minmax(280px, 1.3fr) minmax(240px, 1fr); gap: 20px; }
+        @media (max-width: 860px) { .bulk-grid { grid-template-columns: 1fr; } }
+        .bulk-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; display: flex; align-items: center; }
+        .bulk-submit { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+        .bulk-hint { font-size: 12px; color: var(--text-muted); flex: 1; min-width: 180px; line-height: 1.45; }
+        .picker-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text-muted); margin-bottom: 8px; }
+        .picker-search:focus-within { border-color: var(--accent); }
+        .picker-search input { border: none; background: transparent; padding: 8px 0; flex: 1; min-width: 0; }
+        .picker-search input:focus { border: none; }
+        /* Capped and scrollable: 48 teachers would otherwise push the Add
+           button and the whole list far below the fold. */
+        .picker-panel { max-height: 230px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); }
+        .picker-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+        .picker-row:last-child { border-bottom: none; }
+        .picker-row:hover { background: rgba(255,255,255,0.03); }
+        .picker-row input[type="checkbox"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+        .picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .picker-dept { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+        .picker-empty { padding: 18px 12px; text-align: center; font-size: 12px; color: var(--text-muted); }
+        .grade-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+        .grade-tab { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
+        .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+        .grade-tab.active { color: var(--accent); background: var(--card-bg); border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
+        .grade-tab-count { font-size: 11px; font-weight: 700; min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 20px; color: #60a5fa; background: rgba(59,130,246,0.12); }
+        .grade-tab-count.empty { color: var(--text-muted); background: rgba(148,163,184,0.12); }
+
+        /* Shown only after someone presses the button. A form that is red
+           before it has been touched reads as broken rather than incomplete.
+           The button stays ENABLED while incomplete on purpose — a disabled
+           button cannot tell you what is missing, which is the whole
+           complaint this answers. */
+        .is-invalid, .form-input.is-invalid, .picker-panel.is-invalid { border-color: var(--red); }
+        .field-error { font-size: 12px; color: var(--red); margin-top: 6px; line-height: 1.4; }
+
+        .section-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--card-bg); cursor: pointer; transition: all .15s; }
+        .section-chip:hover { border-color: var(--accent); }
+        .section-chip.active { border-color: var(--accent); background: rgba(99,102,241,.12); }
+        .section-chip-name { font-size: 13px; font-weight: 600; color: var(--text); }
+        .section-chip-count { font-size: 11px; color: var(--text-muted); }
+        .sched-line { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 13px; }
+        .sched-teacher { font-weight: 600; color: var(--text); white-space: nowrap; }
+        .sched-when { color: var(--text-muted); font-size: 12px; flex: 1; }
+
+        .picker-row.selected { background: rgba(99,102,241,.14); }
+        .picker-row.disabled { cursor: default; opacity: .5; }
+        .picker-row.disabled:hover { background: transparent; }
+        .picker-row input[type="radio"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+        .picker-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .picker-actions .btn:disabled { opacity: .45; cursor: default; }
+        .picker-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
+        .picker-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+        .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
+        .picker-warning { margin-top: 8px; font-size: 12px; line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: 7px; padding: 7px 10px; }
+        .grade-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .grade-toggle { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+        .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
+        .grade-toggle.active { border-color: var(--accent); color: #fff; background: var(--accent); }
+        /* The draft: entries staged but not yet written. Dashed border and
+           an accent tint so it never reads as saved data at a glance. */
+        .draft-card { padding: 16px; margin-bottom: 20px; border-style: dashed; border-color: var(--accent); background: rgba(99,102,241,.05); }
+        .draft-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .draft-title { font-size: 14px; font-weight: 700; color: var(--text); }
+        .draft-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .draft-group + .draft-group { margin-top: 14px; }
+        .draft-grade { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+        .draft-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); }
+        .draft-line:last-child { border-bottom: none; }
+        .draft-teacher { font-weight: 600; white-space: nowrap; }
+        .draft-dots { flex: 1; min-width: 20px; border-bottom: 1px dotted var(--border); }
+        .draft-subject { color: var(--text-muted); white-space: nowrap; }
+
+        .group-row td { background: var(--banner-bg); padding: 9px 14px; }
+        tr.group-row:hover td { background: var(--banner-bg); }
+        .group-title { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--banner-text); }
+        .group-count { font-size: 11px; color: var(--text-muted); margin-left: 10px; }
+        .row-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 184px; }
         .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform .15s, border-color .15s, box-shadow .15s; }

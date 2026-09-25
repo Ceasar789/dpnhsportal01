@@ -21,9 +21,16 @@ const AttendanceTab = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
+  // Without this, every failure lands in the catch below, shows one passing
+  // toast, and leaves the roster empty — "No students found", which is what an
+  // advisory section with no enrolments looks like. Worse on a refetch: the
+  // previous roster stays while the attendance map is cleared, so a failed
+  // read reads as "nobody is marked today."
+  const [loadError, setLoadError] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       // Get sections where this teacher is the adviser
       const { data: sectionsData, error: sectionsError } = await withRetry(
@@ -38,24 +45,61 @@ const AttendanceTab = () => {
 
       const sectionIds = sectionsData?.map(s => s.id) || [];
 
+      // A teacher who advises no section has nothing to mark. Returning here
+      // rather than issuing `.in('section_id', [])`, which some PostgREST
+      // versions reject outright — that would greet a brand-new teacher with
+      // a red error on a page that is simply not theirs to use yet.
+      if (sectionIds.length === 0) {
+        setStudents([]);
+        setAttendance({});
+        setLoading(false);
+        return;
+      }
+
       // Get students from these sections
-      const { data: studentsData, error: studentsError } = await withRetry(
+      // Three plain reads rather than one nested select. `students.id`
+      // references auth.users, and there is no foreign key from `students` to
+      // `profiles` — so PostgREST cannot resolve a `students(profiles(...))`
+      // embed and fails the whole request with PGRST200. That aborted this
+      // fetch, left the class list empty, and meant no teacher could mark
+      // anybody: the reason attendance has never been recorded in this system.
+      const { data: links, error: studentsError } = await withRetry(
         () => supabase
           .from('section_students')
-          .select('student_id, students(id, lrn, profiles(id, name))')
+          .select('student_id, section_id')
           .in('section_id', sectionIds)
           .eq('status', 'active'),
         { label: 'Section students fetch' }
       );
 
       if (studentsError) throw studentsError;
-      
-      const mappedStudents = (studentsData || []).map(item => ({
-        id: item.students?.id,
-        lrn: item.students?.lrn,
-        name: item.students?.profiles?.name
+
+      const studentIds = [...new Set((links || []).map(l => l.student_id))];
+      let studentRows = [];
+      let profileRows = [];
+      if (studentIds.length > 0) {
+        const [studentResult, profileResult] = await Promise.all([
+          withRetry(() => supabase.from('students').select('id, lrn').in('id', studentIds),
+            { label: 'Student records fetch' }),
+          withRetry(() => supabase.from('profiles').select('id, name').in('id', studentIds),
+            { label: 'Student names fetch' }),
+        ]);
+        if (studentResult.error) throw studentResult.error;
+        if (profileResult.error) throw profileResult.error;
+        studentRows = studentResult.data || [];
+        profileRows = profileResult.data || [];
+      }
+
+      // section_id is carried through so marking attendance writes the section
+      // the student is actually enrolled in for this roster, rather than
+      // looking it up again and guessing when they have more than one.
+      const mappedStudents = studentIds.map(id => ({
+        id,
+        lrn: studentRows.find(s => s.id === id)?.lrn || null,
+        name: profileRows.find(p => p.id === id)?.name || 'Unnamed student',
+        sectionId: (links || []).find(l => l.student_id === id)?.section_id || null,
       }));
-      
+
       setStudents(mappedStudents);
       
       // Get attendance records for selected date from any section
@@ -76,38 +120,33 @@ const AttendanceTab = () => {
       });
       setAttendance(attMap);
     } catch (error) {
-      showToast('Error loading attendance: ' + error.message, 'error');
+      console.warn('Teacher attendance load failed —', error?.message);
+      setLoadError(true);
+      showToast('Could not load your class list. Check your connection.', 'error');
     }
     setLoading(false);
   }, [userData, selectedDate, showToast]);
 
   useEffect(() => {
     fetchData();
-    const channel = supabase
-      .channel('teacher-attendance')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, fetchData)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   }, [fetchData]);
 
   const handleMark = async (studentId, status) => {
     setSaving(true);
     try {
-      // Get the section for this student from the selected date
-      const { data: studentSectionData, error: sectionError } = await supabase
-        .from('section_students')
-        .select('section_id')
-        .eq('student_id', studentId)
-        .single();
-      
-      if (sectionError) {
-        showToast('Could not find student section', 'error');
+      // The section comes from the roster row this student was listed under,
+      // not from a fresh lookup. The old `.single()` errored outright for a
+      // student enrolled in two sections, and could otherwise return a section
+      // this teacher neither advises nor handles — which attendance_staff_write
+      // then rejects, with the teacher seeing only a raw policy error.
+      const sectionId = students.find(s => s.id === studentId)?.sectionId || null;
+
+      if (!sectionId) {
+        showToast('Could not tell which section this student belongs to. Refresh and try again.', 'error');
         setSaving(false);
         return;
       }
-      
-      const sectionId = studentSectionData?.section_id;
-      
+
       // Map status code to full status name
       const statusMap = { 'P': 'Present', 'A': 'Absent', 'L': 'Late', 'E': 'Excused' };
       const fullStatus = statusMap[status];
@@ -192,7 +231,9 @@ const AttendanceTab = () => {
           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
         ) : (
           <Table headers={['#', 'Student', 'Status', 'Actions']}>
-            {students.map((s, i) => (
+            {/* A stale roster under a failed refetch would read as "nobody is
+                marked today", so the rows go with the error state. */}
+            {!loadError && students.map((s, i) => (
               <TR key={s.id}>
                 <TD>{i + 1}</TD>
                 <TD><span className="font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{s.name}</span></TD>
@@ -231,8 +272,18 @@ const AttendanceTab = () => {
                 </TD>
               </TR>
             ))}
-            {students.length === 0 && (
-              <tr><td colSpan={4} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>No students found</td></tr>
+            {loadError ? (
+              <tr><td colSpan={4} className="text-center py-8 text-sm" style={{ color: '#dc2626' }}>
+                Could not load your class list — this is a loading problem, not an empty section.
+                <div style={{ marginTop: 10 }}>
+                  <button onClick={fetchData} className="h-9 px-4 rounded-lg text-sm font-semibold"
+                    style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
+                </div>
+              </td></tr>
+            ) : students.length === 0 && (
+              <tr><td colSpan={4} className="text-center py-8 text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                No students are enrolled in the section you advise yet.
+              </td></tr>
             )}
           </Table>
         )}

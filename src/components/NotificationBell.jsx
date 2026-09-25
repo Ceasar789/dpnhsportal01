@@ -7,11 +7,16 @@
 // dashboards that don't define them (e.g. Faculty).
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
 import { withRetry } from '../lib/supabaseRetry';
+
+// While the tab is visible, poll this often to keep the unread badge live
+// without any user action. Paused entirely while the tab is hidden so 60
+// backgrounded dashboards don't hammer the free-tier connection pool.
+const POLL_INTERVAL_MS = 60000;
 
 const v = (name, fallback) => `var(${name}, ${fallback})`;
 
@@ -31,35 +36,85 @@ const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
 
+  // Guards against overlapping fetches (open + poll + focus firing close
+  // together) and lets the poll/visibility effect call the latest fetcher
+  // without re-subscribing every render.
+  const inFlightRef = useRef(false);
+  const fetchNotifsRef = useRef(() => {});
+
   useEffect(() => {
-    if (!uid) return undefined;
+    if (!uid) {
+      fetchNotifsRef.current = () => {};
+      return undefined;
+    }
 
     // Always a full, freshly sorted re-fetch (never a manual splice/prepend)
-    // so the list can never end up out of order after a realtime event.
+    // so the list can never end up out of order between refreshes.
     const fetchNotifs = async () => {
-      const { data, error } = await withRetry(
-        () => supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', uid)
-          .order('created_at', { ascending: false })
-          .limit(15),
-        { label: 'Notifications fetch' }
-      );
-      if (error) { console.warn('Notifications fetch failed:', error.message); return; }
-      setNotifications(data || []);
-      setUnreadCount((data || []).filter(n => !n.is_read).length);
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      try {
+        const { data, error } = await withRetry(
+          () => supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', uid)
+            .order('created_at', { ascending: false })
+            .limit(15),
+          { label: 'Notifications fetch' }
+        );
+        if (error) {
+          // Fail quietly and keep whatever is already on screen — an empty
+          // bell on a flaky poll is worse than a briefly stale one.
+          console.warn('Notifications fetch failed:', error.message);
+          return;
+        }
+        setNotifications(data || []);
+        setUnreadCount((data || []).filter(n => !n.is_read).length);
+      } finally {
+        inFlightRef.current = false;
+      }
     };
 
+    fetchNotifsRef.current = fetchNotifs;
     fetchNotifs();
 
-    const channel = supabase
-      .channel(`notif-bell-${uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` }, fetchNotifs)
-      .subscribe();
+    // Refresh when the tab regains visibility. `visibilitychange` alone
+    // covers both "switched tabs and back" and "restored from minimize";
+    // `focus` is skipped because on this same-window tab-switch flow it
+    // would just double the visibilitychange fetch, not add coverage.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchNotifs();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
-    return () => supabase.removeChannel(channel);
+    // Slow poll while visible, so the badge stays live with no user action.
+    // Paused on hide and resumed on show so hidden tabs cost nothing.
+    let intervalId = null;
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(fetchNotifs, POLL_INTERVAL_MS);
+    };
+    const stopPolling = () => {
+      if (!intervalId) return;
+      clearInterval(intervalId);
+      intervalId = null;
+    };
+    const onVisibilityForPolling = () => {
+      if (document.visibilityState === 'visible') startPolling();
+      else stopPolling();
+    };
+    if (document.visibilityState === 'visible') startPolling();
+    document.addEventListener('visibilitychange', onVisibilityForPolling);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibilityForPolling);
+      stopPolling();
+    };
   }, [uid]);
+
+  const toggleOpen = useCallback(() => setOpen(o => !o), []);
 
   const markRead = async (id) => {
     const { error } = await supabase
@@ -71,21 +126,55 @@ const NotificationBell = () => {
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
-  const markAllRead = async () => {
+  // `quiet` is the open-the-bell path: the write and the badge happen, the
+  // rows keep their highlight. The button passes nothing and greys the list
+  // immediately, which is what pressing "Mark all read" is asking for.
+  const markAllRead = useCallback(async ({ quiet = false } = {}) => {
+    if (!uid) return;
     const { error } = await supabase
       .from('notifications')
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', uid)
       .eq('is_read', false);
+    // The badge is NOT cleared on failure. Showing zero unread over a write
+    // that never landed is the lie this whole change is meant to remove —
+    // it would come back on the next login exactly as before, except now
+    // without the user having any idea why.
     if (error) { console.warn('Mark all as read failed:', error.message); return; }
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    if (!quiet) setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
-  };
+  }, [uid]);
+
+  // Opening the bell refetches, then marks everything read.
+  //
+  // Before this, the only things that marked anything read were clicking an
+  // individual row and pressing "Mark all read" — so a user who opened the
+  // bell, read the list and closed it came back after logging in to the same
+  // unread badge, having done nothing wrong. Looking at a notification is
+  // reading it.
+  //
+  // Strictly ordered, not fired together: both are async, and a fetch that
+  // resolved after the mark would set the badge back from rows it read
+  // before the write landed. The bug would be intermittent and look exactly
+  // like the one being fixed.
+  //
+  // `quiet` leaves the rows' own highlight alone. The blue tint is how you
+  // tell what is new, and clearing it the instant the panel opens would
+  // erase that answer before it could be read.
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    (async () => {
+      await fetchNotifsRef.current();
+      if (!cancelled) await markAllRead({ quiet: true });
+    })();
+    return () => { cancelled = true; };
+  }, [open, markAllRead]);
 
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={toggleOpen}
         className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors relative"
         aria-label="Notifications"
       >
@@ -110,7 +199,7 @@ const NotificationBell = () => {
             <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: v('--border', '#e2e8f0') }}>
               <h3 className="text-base font-bold" style={{ color: v('--text', '#1a2b4a') }}>Notifications</h3>
               {unreadCount > 0 && (
-                <button onClick={markAllRead} className="text-sm font-semibold hover:underline" style={{ color: '#3b82f6' }}>
+                <button onClick={() => markAllRead()} className="text-sm font-semibold hover:underline" style={{ color: '#3b82f6' }}>
                   Mark all read
                 </button>
               )}

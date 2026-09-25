@@ -10,6 +10,7 @@ import { supabase } from '../../../../config/supabase';
 import { Loader2, Megaphone, Search } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { localNowTimestamp } from '../../../../lib/taskFormatting';
 
 const AnnouncementsTab = () => {
   const { dark } = useTheme();
@@ -28,6 +29,7 @@ const AnnouncementsTab = () => {
           .from('news')
           .select('*')
           .eq('status', 'Published')
+          .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
           .order('created_at', { ascending: false }),
         { label: 'Announcements fetch' }
       );
@@ -42,13 +44,6 @@ const AnnouncementsTab = () => {
 
   useEffect(() => {
     fetchAnnouncements();
-
-    const channel = supabase
-      .channel('student-announcements')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, fetchAnnouncements)
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, [fetchAnnouncements]);
 
   const filtered = announcements.filter(a => 

@@ -15,7 +15,6 @@ import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
-import { isOtherTask } from '../../../../lib/otherTask';
 import { useStudentData } from '../StudentDataContext';
 import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 
@@ -61,16 +60,11 @@ const StudentTasksTab = () => {
   // refreshes that graph, so both screens move together.
   const { graph, loading, refresh: fetchTasks } = useStudentData();
 
-  // A schedule failure is NOT fatal here, unlike on Overview: the schedule
-  // only widens the ?subject=other filter, and isOtherTask() falls back to
-  // the conservative null-subject_id-only rule when it is unknown. Blocking
-  // the whole task list over a filter definition would be the worse answer.
+  // A schedule failure is NOT fatal here, unlike on Overview, which cannot
+  // draw its subject cards without it. This tab lists every assigned task
+  // whatever the schedule says, so a failed schedule read costs it nothing.
   const loadError = !!graph && !!graph.fatalError;
 
-  // null = unknown (not loaded, or the schedule read failed), deliberately
-  // distinct from an empty Set (= loaded: nothing is scheduled). Treating
-  // unknown as empty would widen Other to the entire list.
-  const cardSubjectIds = graph ? graph.cardSubjectIds : null;
 
   // Held as state rather than derived, because Start and Submit patch a
   // single row's submission in place (see patchSubmission) without paying
@@ -171,16 +165,10 @@ const StudentTasksTab = () => {
   }, [graph]);
 
 
-  // ?subject=<id> narrows the list to that subject; ?subject=other shows
-  // tasks with no subject_id, OR whose subject_id names a subject outside
-  // this student's own class schedule — via the shared isOtherTask(), the
-  // exact same rule Overview's Other card buckets by. Narrower than that
-  // (null-only) would make a task Overview counted as "Other" unreachable
-  // from every card on that screen.
+  // ?subject=<id> narrows the list to that subject. Every card is a subject,
+  // so there is no bucket filter any more.
   const visibleRows = subjectFilter
-    ? rows.filter(r => (subjectFilter === 'other'
-        ? isOtherTask(r.sheet.subject_id, cardSubjectIds)
-        : r.sheet.subject_id === subjectFilter))
+    ? rows.filter(r => r.sheet.subject_id === subjectFilter)
     : rows;
 
   // Writes one submission's `submission` field into the matching `rows`

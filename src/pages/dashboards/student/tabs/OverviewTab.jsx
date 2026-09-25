@@ -22,7 +22,6 @@ import {
   BookOpen, CalendarCheck, ClipboardList, Loader2, RefreshCw
 } from 'lucide-react';
 import { useTheme, useToast, Card, StatCard } from '../hooks';
-import { isOtherTask } from '../../../../lib/otherTask';
 import { useStudentData } from '../StudentDataContext';
 import SubjectCards from '../SubjectCards';
 
@@ -112,11 +111,13 @@ const OverviewTab = () => {
       if (!sheet) return; // task deleted out from under the assignment
       const pending = !notPendingIds.has(a.task_id);
       if (pending) pendingCount += 1;
-      // Null subject, or a subject not in this student's schedule, both land
-      // on Other — nothing assigned may fail to appear somewhere. The exact
-      // same rule TasksTab.jsx applies to its ?subject=other filter.
-      const key = isOtherTask(sheet.subject_id, graph.cardSubjectIds) ? 'other' : sheet.subject_id;
-      bump(key, a.due_at, pending);
+      // Every card is a subject, so a task with no subject has no card. It is
+      // still counted in the pending total above, and still listed in full on
+      // the Tasks tab — the cards are a way in, not the only way. The app can
+      // no longer create one (both worksheet insert paths set subject_id and
+      // refuse without it), so this only skips legacy rows.
+      if (!sheet.subject_id) return;
+      bump(sheet.subject_id, a.due_at, pending);
     });
 
     return { info, performance, attendance, subjects: graph.subjects, tasksBySubject: buckets, pendingCount };

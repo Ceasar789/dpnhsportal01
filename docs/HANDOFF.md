@@ -23,21 +23,14 @@ In this order. All idempotent; all run in the Supabase SQL Editor **without RLS*
 ```
 phase2-01 … phase2-05      Phase 2 tables, RLS, worksheet owner policies
 phase3-01 … phase3-04      task_assignees, task RLS, notifications RLS, assignee read scope
-phase4-04                  4 dummy teachers — SUPERSEDED by phase4-05, see below
+phase4-01                  news.expires_at column
+phase4-02                  trigger: notify the teacher when a student submits
+phase4-03                  seed — 60 dummy students
+phase4-04                  seed — 4 dummy teachers, SUPERSEDED by phase4-05
+phase4-05                  seed — 48 dummy teachers, one per subject per grade
 ```
 
-**Confirmed run** only where the user said so or showed the result. Everything
-below is outstanding or unverified, and **a feature whose SQL has not run does
-not work no matter how finished the code is** — check this list before
-debugging anything that looks broken.
-
-| File | State |
-| --- | --- |
-| `phase4-01-news-expiry.sql` | **Unverified.** Adds `news.expires_at`. Without it the admin news form writes a column that does not exist. |
-| `phase4-02-submit-notification.sql` | **Not run.** AFTER UPDATE trigger notifying a teacher when a student submits. |
-| `phase4-03-seed-test-students.sql` | **Unverified.** 60 dummy students. |
-| `phase4-04-seed-test-teachers.sql` | Run — 4 dummy teachers, superseded. Its header says how to remove them and why that delete cascades further than it looks. |
-| `phase4-05-seed-test-teachers-by-grade.sql` | **Unverified.** 48 dummy teachers, one per subject per grade. |
+All of phase 4 was run on 2026-09-25 and the user confirmed it.
 
 On `phase4-02`: a client write could not do this. `notifications_staff_insert_for_student`
 only lets staff write to a student, and no policy lets a student write to their

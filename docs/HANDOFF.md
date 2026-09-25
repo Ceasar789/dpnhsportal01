@@ -1,7 +1,8 @@
-# Handoff — 2026-09-25
+# Handoff — 2026-09-25 (updated)
 
 Written at the end of a long session so the next one can pick up cold. Branch
-`task-distribution`, 101 commits ahead of master, 97 tests, clean tree.
+`task-distribution`, 112 commits ahead of master, 94 tests, clean tree, and
+PUSHED to origin — the first time any of this work has left the machine.
 
 ## Where the work lives
 
@@ -53,27 +54,22 @@ the later file after it.
 
 ## Open items, most useful first
 
-**1. Math tasks landing in the "Other" card.** The user distributed a task as a
-Math teacher and it appeared under `Other` on the student's Overview. Not yet
-diagnosed. Two possible causes and they need different fixes, so **do not start
-changing code until this query has been run**:
+**1. Math tasks in "Other" — CLOSED.** Never diagnosed by the query that was
+pending here for three days, because the design changed out from under it.
+The subject cards used to come from `schedules` alone, so a task whose subject had no schedule row for that
+section fell into an "Other" bucket that discarded the one useful thing about
+it — its subject name.
 
-```sql
-SELECT w.title, w.subject AS text_subject, w.subject_id, s.name AS linked_subject
-FROM worksheets w LEFT JOIN subjects s ON s.id = w.subject_id
-ORDER BY w.created_at DESC LIMIT 5;
+The card set is now the schedule PLUS every subject the student has work in
+(`src/lib/studentTaskGraph.js`), so a task always lands on a card named after
+its own subject. Other emptied itself and was then deleted outright: the
+card, the `?subject=other` filter and `src/lib/otherTask.js` with its six
+tests are gone.
 
-SELECT sec.name AS section, sub.id AS subject_id, sub.name AS subject
-FROM schedules sch
-JOIN sections sec ON sec.id = sch.section_id
-LEFT JOIN subjects sub ON sub.id = sch.subject_id
-ORDER BY sec.name;
-```
-
-`subject_id` null on the task → the write path is at fault, fix in code.
-Task has a subject but the section's schedule has no row for it → working as
-designed; the admin needs to add the schedule. Subject cards come from
-`schedules.subject_id`, never from the tasks.
+A task with no subject at all has no card. Deliberate and safe: it is still
+counted in the pending total and still listed in full on the Tasks tab, and
+the app cannot create one anyway — both worksheet insert paths set
+`subject_id` and refuse without it.
 
 **2. Performance part 2 — DONE.** The student dashboard now fetches one
 graph once (`src/lib/studentTaskGraph.js`, held by
@@ -82,15 +78,20 @@ became 9, and moving between the two costs none. Because nothing here
 auto-updates, the graph reloads on window focus, throttled to 30s — the
 refetch-on-tab-switch that used to surface a new task is gone.
 
-**3. Nothing built since 2026-09-22 has been used by a human.** The student
-data-layer consolidation, the teacher-notification trigger, all five seed
-files and the whole Teaching Load rebuild passed `npm run build` and 97 tests,
-and not one of them has been clicked. `npm run build` passing is what let the
-`Loader2` bug reach every student's screen — Vite does not resolve free
-identifiers, so an undeclared global ships untouched and only fails in a
-browser. The render smoke test in `src/pages/dashboards/renderSmoke.test.jsx`
-now covers the student tabs and the admin Teaching Load tab, which closes that
-exact hole and nothing wider. Browser-test before merging.
+**3. Almost nothing built since 2026-09-22 has been clicked by a human.**
+The student data-layer consolidation, the teacher-notification trigger, the
+five seed files, the Teaching Load rebuild, the grade-level split of Teaching
+Load and Schedules, the inline form validation, the bell's mark-on-open and
+the removal of Other all passed `npm run build` and 94 tests. Almost none of
+it has been opened in a browser.
+
+That is the exact state the `Loader2` bug shipped in: Vite does not resolve
+free identifiers, so an undeclared global goes into the bundle untouched and
+fails only in a browser. `renderSmoke.test.jsx` now covers the student tabs
+and both rebuilt admin tabs, which closes that hole and nothing wider — and
+not even all of it: with no sections in the stub, SchedulesTab renders only
+its empty state, so the section-open path is untested. Verified by removing
+an import used only there and watching the suite still pass.
 
 **4. The Gemini API key ships to the browser.**
 `src/pages/dashboards/teacher/tabs/LessonPlansTab.jsx:109` reads
@@ -100,8 +101,9 @@ JavaScript. Anyone who opens the teacher dashboard can read the key. **This is
 the one thing in the system that genuinely needs a server** — an API key cannot
 be protected in a browser. Discussed with the user, not yet decided.
 
-**5. Merge.** Not done, deliberately. The user has not browser-tested the full
-flow end to end. Ask before merging.
+**5. Merge.** Not done. The branch is pushed to origin, so the work is safe,
+but nothing is merged into `master` and the full flow has never been
+browser-tested end to end. Ask before merging.
 
 ## Known gaps the user already knows about
 

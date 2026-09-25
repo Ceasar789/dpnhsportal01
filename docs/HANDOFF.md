@@ -1,7 +1,7 @@
-# Handoff — 2026-09-22
+# Handoff — 2026-09-25
 
 Written at the end of a long session so the next one can pick up cold. Branch
-`task-distribution`, 89 commits ahead of master, 96 tests, clean tree.
+`task-distribution`, 101 commits ahead of master, 97 tests, clean tree.
 
 ## Where the work lives
 
@@ -10,7 +10,8 @@ Nothing is merged. Two stacked branches:
 ```
 master
   └── worksheet-assessment   (Phase 2 — worksheet assessment)
-        └── task-distribution  (Phase 3 + performance + news expiry)  ← HEAD
+        └── task-distribution  (Phase 3, performance, news expiry,
+                                seed data, teaching load)  ← HEAD
 ```
 
 `task-distribution` contains everything. Merging it brings Phase 2 with it.
@@ -22,19 +23,36 @@ In this order. All idempotent; all run in the Supabase SQL Editor **without RLS*
 ```
 phase2-01 … phase2-05      Phase 2 tables, RLS, worksheet owner policies
 phase3-01 … phase3-04      task_assignees, task RLS, notifications RLS, assignee read scope
-phase4-01                  news expiry column
+phase4-04                  4 dummy teachers — SUPERSEDED by phase4-05, see below
 ```
 
-**Not yet run, waiting on the user:** `phase4-02-submit-notification.sql` — the
-AFTER UPDATE trigger that notifies a teacher when a student submits. A client
-write could not do this: `notifications_staff_insert_for_student` only lets
-staff write to a student, and no policy lets a student write to their teacher.
-Reviewed and sound, with one accepted caveat — plpgsql's `WHEN OTHERS` does not
-catch `QUERY_CANCELED`, so a `statement_timeout` landing inside the trigger
-body would fail the student's submit. Not mitigated, because shortening the
-timeout inside the block still raises an uncatchable cancel; the trigger does
-three small indexed operations, and a database congested enough to time out
-there was already failing the UPDATE itself.
+**Confirmed run** only where the user said so or showed the result. Everything
+below is outstanding or unverified, and **a feature whose SQL has not run does
+not work no matter how finished the code is** — check this list before
+debugging anything that looks broken.
+
+| File | State |
+| --- | --- |
+| `phase4-01-news-expiry.sql` | **Unverified.** Adds `news.expires_at`. Without it the admin news form writes a column that does not exist. |
+| `phase4-02-submit-notification.sql` | **Not run.** AFTER UPDATE trigger notifying a teacher when a student submits. |
+| `phase4-03-seed-test-students.sql` | **Unverified.** 60 dummy students. |
+| `phase4-04-seed-test-teachers.sql` | Run — 4 dummy teachers, superseded. Its header says how to remove them and why that delete cascades further than it looks. |
+| `phase4-05-seed-test-teachers-by-grade.sql` | **Unverified.** 48 dummy teachers, one per subject per grade. |
+
+On `phase4-02`: a client write could not do this. `notifications_staff_insert_for_student`
+only lets staff write to a student, and no policy lets a student write to their
+teacher. Reviewed and sound, with one accepted caveat — plpgsql's `WHEN OTHERS`
+does not catch `QUERY_CANCELED`, so a `statement_timeout` landing inside the
+trigger body would fail the student's submit. Not mitigated, because shortening
+the timeout inside the block still raises an uncatchable cancel; the trigger
+does three small indexed operations, and a database congested enough to time
+out there was already failing the UPDATE itself.
+
+The seed files write to `auth.users` and `auth.identities` directly, which
+Supabase does not support — those tables belong to GoTrue and their columns
+change between releases. A GoTrue upgrade breaks those FILES, not the
+application. Acceptable for throwaway test accounts; never for real users,
+who go through the admin's Create User screen.
 
 **Do not re-run `phase2-02` or `phase3-02` on their own.** Each supersedes objects
 the other creates; both file headers carry the warning. If one is re-run, re-run
@@ -71,7 +89,17 @@ became 9, and moving between the two costs none. Because nothing here
 auto-updates, the graph reloads on window focus, throttled to 30s — the
 refetch-on-tab-switch that used to surface a new task is gone.
 
-**3. The Gemini API key ships to the browser.**
+**3. Nothing built since 2026-09-22 has been used by a human.** The student
+data-layer consolidation, the teacher-notification trigger, all five seed
+files and the whole Teaching Load rebuild passed `npm run build` and 97 tests,
+and not one of them has been clicked. `npm run build` passing is what let the
+`Loader2` bug reach every student's screen — Vite does not resolve free
+identifiers, so an undeclared global ships untouched and only fails in a
+browser. The render smoke test in `src/pages/dashboards/renderSmoke.test.jsx`
+now covers the student tabs and the admin Teaching Load tab, which closes that
+exact hole and nothing wider. Browser-test before merging.
+
+**4. The Gemini API key ships to the browser.**
 `src/pages/dashboards/teacher/tabs/LessonPlansTab.jsx:109` reads
 `VITE_GEMINI_API_KEY`, and Vite inlines every `VITE_*` value into the bundle at
 build time. `.env` being gitignored protects the repo, not the shipped
@@ -79,7 +107,7 @@ JavaScript. Anyone who opens the teacher dashboard can read the key. **This is
 the one thing in the system that genuinely needs a server** — an API key cannot
 be protected in a browser. Discussed with the user, not yet decided.
 
-**4. Merge.** Not done, deliberately. The user has not browser-tested the full
+**5. Merge.** Not done, deliberately. The user has not browser-tested the full
 flow end to end. Ask before merging.
 
 ## Known gaps the user already knows about

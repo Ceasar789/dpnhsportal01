@@ -373,7 +373,26 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .picker-dept { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
         .picker-empty { padding: 18px 12px; text-align: center; font-size: 12px; color: var(--text-muted); }
+        .grade-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+        .grade-tab { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
+        .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+        .grade-tab.active { color: var(--accent); background: var(--card-bg); border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
+        .grade-tab-count { font-size: 11px; font-weight: 700; min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 20px; color: #60a5fa; background: rgba(59,130,246,0.12); }
+        .grade-tab-count.empty { color: var(--text-muted); background: rgba(148,163,184,0.12); }
+
+        .section-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--card-bg); cursor: pointer; transition: all .15s; }
+        .section-chip:hover { border-color: var(--accent); }
+        .section-chip.active { border-color: var(--accent); background: rgba(99,102,241,.12); }
+        .section-chip-name { font-size: 13px; font-weight: 600; color: var(--text); }
+        .section-chip-count { font-size: 11px; color: var(--text-muted); }
+        .sched-line { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 13px; }
+        .sched-teacher { font-weight: 600; color: var(--text); white-space: nowrap; }
+        .sched-when { color: var(--text-muted); font-size: 12px; flex: 1; }
+
         .picker-row.selected { background: rgba(99,102,241,.14); }
+        .picker-row.disabled { cursor: default; opacity: .5; }
+        .picker-row.disabled:hover { background: transparent; }
         .picker-row input[type="radio"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
         .picker-actions { display: flex; gap: 8px; margin-top: 8px; }
         .picker-actions .btn:disabled { opacity: .45; cursor: default; }

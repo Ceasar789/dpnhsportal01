@@ -6,48 +6,46 @@
 //
 // ── The shape of this screen, and why ────────────────────────────────────
 //
-// Eight subjects across six grade levels is 48 entries before a single
-// section exists. Writing one per click from three dropdowns was the whole
-// problem, so the admin builds a LIST first and presses Assign once:
+// One grade level at a time. The grade tab IS the grade selector — it
+// replaced a dropdown rather than being added next to one — so everything
+// below it, the picker and the saved list both, is about that grade and
+// nothing else.
 //
-//   [ teacher ] [ grade ] [ subject ] → Add to list
+// Within a grade the admin builds a LIST first and presses Assign once:
 //
-//        Grade 7
-//          Juan Dela Cruz ···· Mathematics   ×
-//          Ana Cruz       ···· English       ×
+//   Grade 7 │ Grade 8 │ …            ← the grade, chosen once
+//   [ teacher ] [ subject ] → Add to list
+//
+//        Ana Cruz        ···· English     ×
+//        Ramon Delgado   ···· Mathematics ×
 //
 //   → Assign 2 entries      (one write, one round trip)
 //
-// Nothing reaches the database until that last button. Everything above it
-// is a draft the admin can see whole and correct before committing, which is
-// the point — a mistake caught in the list costs a click, and the same
-// mistake committed costs a delete.
+// Nothing reaches the database until that last button. Eight subjects across
+// six grade levels is 48 entries, and writing one per click was the whole
+// problem.
 //
 // ── Two rules this screen enforces that the database does not ────────────
 //
-// 1. One teacher per subject per grade. If Juan Dela Cruz holds Mathematics
-//    for Grade 7, he holds it for every Grade 7 section, so a second Grade 7
-//    Mathematics teacher is not a thing. The UNIQUE constraint on
-//    teacher_subjects is (teacher_id, subject_id, grade_level, school_year) —
-//    it would happily accept a second teacher on the same subject and grade.
-//    Only this screen stops it.
+// 1. One teacher per subject per grade. If Ramon Delgado holds Mathematics
+//    for Grade 7, he holds it for every Grade 7 section. The UNIQUE
+//    constraint on teacher_subjects is (teacher_id, subject_id, grade_level,
+//    school_year) — it would accept a second teacher on the same subject and
+//    grade happily. Only this screen stops it.
 //
-// 2. A teacher who has been picked leaves the list. Both while staged and
-//    once actually assigned, so the roster shrinks toward the work that is
-//    left instead of making the admin re-read names that are done. NOT
-//    permanent: a teacher can legitimately hold a second subject, or the same
-//    subject at another grade, so a toggle brings the assigned ones back.
-//
-// The saved list below is grouped BY GRADE LEVEL, because that is the
-// question being answered while filling this in — "who has Grade 7 covered,
-// and what is still missing". Teachers holding nothing keep their own group
-// at the bottom rather than vanishing: they are the work that remains.
+// 2. A teacher already holding something at this grade cannot be picked
+//    again. Shown, labelled and disabled rather than hidden, so the admin can
+//    see who is done without switching anything. Chosen deliberately by the
+//    user, and it does mean a teacher cannot hold two subjects at the same
+//    grade through this screen — Mathematics and Science for Grade 7 would
+//    have to be entered at different grades or by hand.
 // ============================================
 
 import React, { useMemo, useState } from 'react';
 import { Plus, X, Copy, Search, ArrowRight } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
+import GradeTabs from '../GradeTabs';
 
 // Case-insensitive match across every field an admin might type: the name,
 // the email (which for the seeded accounts encodes subject and grade) and
@@ -60,8 +58,6 @@ const matchesQuery = (teacher, query) => {
     .some(field => String(field || '').toLowerCase().includes(q));
 };
 
-const slotKey = (gradeLevel, subjectId) => `${gradeLevel}|${subjectId}`;
-
 const TeachingLoadTab = () => {
   const {
     schoolYear, setSchoolYear, teachers, teachersError, subjects,
@@ -69,23 +65,13 @@ const TeachingLoadTab = () => {
     addLoadEntries, removeLoad, copyLoadFromYear, showToast,
   } = useAdminContext();
 
-  // ── Builder row ─────────────────────────────────────────────────────────
+  const [grade, setGrade] = useState(GRADE_LEVELS[0]);
   const [pickQuery, setPickQuery] = useState('');
-  const [pickedTeacher, setPickedTeacher] = useState('');   // one teacher id
-  const [rowGrade, setRowGrade] = useState('');
+  const [pickedTeacher, setPickedTeacher] = useState('');
   const [rowSubject, setRowSubject] = useState('');
-  // Someone already holding a load for this year drops out of the picker.
-  // Not permanent — see the header.
-  const [hideAssigned, setHideAssigned] = useState(true);
-
-  // ── The draft ───────────────────────────────────────────────────────────
   // [{ teacher_id, grade_level, subject_id }]. Nothing here has been written.
   const [staged, setStaged] = useState([]);
   const [saving, setSaving] = useState(false);
-
-  // The saved list below has its own filter, independent of the picker's —
-  // one chooses who to assign, the other finds what was assigned.
-  const [listQuery, setListQuery] = useState('');
 
   const teacherById = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
   const subjectById = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
@@ -96,82 +82,68 @@ const TeachingLoadTab = () => {
     return t ? (t.name || t.email) : 'Unknown teacher';
   };
 
-  // Everyone holding at least one entry for the school year on screen.
-  // teachingLoad is already scoped to that year by fetchTeachingLoad, so this
-  // never hides a teacher on the strength of last year's load.
-  const assignedIds = useMemo(
-    () => new Set(teachingLoad.map(r => r.teacher_id)), [teachingLoad]
+  // Everything scoped to the grade on screen. teachingLoad is already scoped
+  // to the school year by fetchTeachingLoad, so nothing here can be confused
+  // by last year's load.
+  const gradeLoad = useMemo(
+    () => teachingLoad.filter(r => r.grade_level === grade), [teachingLoad, grade]
   );
-  const stagedTeacherIds = useMemo(
-    () => new Set(staged.map(e => e.teacher_id)), [staged]
-  );
-
-  // Who is still choosable. A staged teacher always leaves the list — they
-  // are spoken for in the draft, and letting them be picked twice is how a
-  // duplicate gets built.
-  const availableTeachers = useMemo(
-    () => teachers
-      .filter(t => !stagedTeacherIds.has(t.id))
-      .filter(t => !hideAssigned || !assignedIds.has(t.id))
-      .filter(t => matchesQuery(t, pickQuery)),
-    [teachers, stagedTeacherIds, hideAssigned, assignedIds, pickQuery]
+  const gradeStaged = useMemo(
+    () => staged.filter(e => e.grade_level === grade), [staged, grade]
   );
 
-  const assignedCount = useMemo(
-    () => teachers.filter(t => assignedIds.has(t.id)).length, [teachers, assignedIds]
-  );
+  // Taken at THIS grade, saved or staged. Drives both the disabled teachers
+  // and the disabled subjects.
+  const takenTeachers = useMemo(() => {
+    const m = new Map();
+    for (const r of gradeLoad) m.set(r.teacher_id, { subjectId: r.subject_id, saved: true });
+    for (const e of gradeStaged) m.set(e.teacher_id, { subjectId: e.subject_id, saved: false });
+    return m;
+  }, [gradeLoad, gradeStaged]);
 
-  // Which (grade, subject) slots already have a holder — saved or staged.
-  // This is rule 1 from the header, and it lives only here.
-  const slotHolder = useMemo(() => {
-    const map = new Map();
-    for (const row of teachingLoad) {
-      map.set(slotKey(row.grade_level, row.subject_id), {
-        teacherId: row.teacher_id, saved: true,
-      });
+  const takenSubjects = useMemo(() => {
+    const m = new Map();
+    for (const r of gradeLoad) m.set(r.subject_id, { teacherId: r.teacher_id, saved: true });
+    for (const e of gradeStaged) m.set(e.subject_id, { teacherId: e.teacher_id, saved: false });
+    return m;
+  }, [gradeLoad, gradeStaged]);
+
+  // One badge per tab, so the whole year stays readable while only one grade
+  // is on screen. Counts saved entries only — a draft is not progress yet.
+  const countsByGrade = useMemo(() => {
+    const counts = Object.fromEntries(GRADE_LEVELS.map(g => [g, 0]));
+    for (const r of teachingLoad) {
+      if (counts[r.grade_level] !== undefined) counts[r.grade_level] += 1;
     }
-    for (const e of staged) {
-      map.set(slotKey(e.grade_level, e.subject_id), {
-        teacherId: e.teacher_id, saved: false,
-      });
-    }
-    return map;
-  }, [teachingLoad, staged]);
+    return counts;
+  }, [teachingLoad]);
 
-  // A picked teacher who is no longer in the list — the search moved on, or
-  // the hide toggle caught them — would otherwise be added invisibly. Cleared
-  // rather than warned about, because this picker holds exactly one person
-  // and there is no ambiguity about who is lost.
-  const pickedTeacherVisible = pickedTeacher
-    && availableTeachers.some(t => t.id === pickedTeacher);
+  const shownTeachers = useMemo(
+    () => teachers.filter(t => matchesQuery(t, pickQuery)), [teachers, pickQuery]
+  );
 
   const activeSubjects = useMemo(
     () => subjects.filter(s => s.is_active !== false), [subjects]
   );
 
   const addToList = () => {
-    if (!pickedTeacher || !rowGrade || !rowSubject) {
-      return showToast('Pick a teacher, a grade level and a subject', 'error');
+    if (!pickedTeacher || !rowSubject) {
+      return showToast('Pick a teacher and a subject', 'error');
     }
-    const held = slotHolder.get(slotKey(rowGrade, rowSubject));
-    if (held) {
+    const heldSubject = takenSubjects.get(rowSubject);
+    if (heldSubject) {
       return showToast(
-        `${subjectLabel(rowSubject)} for ${rowGrade} is already `
-        + `${held.saved ? 'assigned to' : 'in the list under'} ${teacherLabel(held.teacherId)}.`,
+        `${subjectLabel(rowSubject)} for ${grade} is already `
+        + `${heldSubject.saved ? 'assigned to' : 'in the list under'} ${teacherLabel(heldSubject.teacherId)}.`,
         'error'
       );
     }
     setStaged(prev => [...prev, {
-      teacher_id: pickedTeacher, grade_level: rowGrade, subject_id: rowSubject,
+      teacher_id: pickedTeacher, grade_level: grade, subject_id: rowSubject,
     }]);
-    // The grade stays: filling one grade's eight subjects in a row is the
-    // whole reason this screen exists. The teacher and subject clear, since
-    // both are used up by the entry just made.
     setPickedTeacher('');
     setRowSubject('');
   };
-
-  const removeStaged = (index) => setStaged(prev => prev.filter((_, i) => i !== index));
 
   const assignAll = async () => {
     setSaving(true);
@@ -183,61 +155,33 @@ const TeachingLoadTab = () => {
     if (written !== null) setStaged([]);
   };
 
-  // Staged entries, grouped by grade level in GRADE_LEVELS order — never
-  // alphabetical, where 'Grade 10' sorts before 'Grade 7'.
-  const stagedByGrade = useMemo(() => GRADE_LEVELS
-    .map(grade => ({
-      grade,
-      entries: staged
-        .map((e, index) => ({ ...e, index }))
-        .filter(e => e.grade_level === grade),
-    }))
-    .filter(g => g.entries.length > 0), [staged]);
-
   // Only a well-formed "YYYY-YYYY" year can be shifted back a year — anything
   // else (an in-progress edit, garbage input) would otherwise produce
   // "NaN-NaN" and a copy button that silently does nothing useful.
-  const isValidSchoolYear = /^\d{4}-\d{4}$/.test(schoolYear);
-  const prevYear = isValidSchoolYear
+  const prevYear = /^\d{4}-\d{4}$/.test(schoolYear)
     ? (() => {
       const start = parseInt(schoolYear.split('-')[0], 10) - 1;
       return `${start}-${start + 1}`;
     })()
     : null;
 
-  // ── The saved list ──────────────────────────────────────────────────────
-  const groups = useMemo(() => {
-    const visible = (teacher) => matchesQuery(teacher, listQuery);
-
-    const byGrade = GRADE_LEVELS.map(grade => {
-      const entriesByTeacher = new Map();
-      for (const row of teachingLoad) {
-        if (row.grade_level !== grade) continue;
-        const teacher = teacherById.get(row.teacher_id);
-        // A load row whose teacher is missing from the roster — the account
-        // was deleted, or the teachers read failed — is skipped rather than
-        // rendered with a blank name, which would look like corrupt data.
-        if (!teacher || !visible(teacher)) continue;
-        if (!entriesByTeacher.has(teacher.id)) entriesByTeacher.set(teacher.id, { teacher, rows: [] });
-        entriesByTeacher.get(teacher.id).rows.push(row);
-      }
-      const list = [...entriesByTeacher.values()]
-        .sort((a, b) => (a.teacher.name || a.teacher.email || '')
-          .localeCompare(b.teacher.name || b.teacher.email || ''));
-      return { grade, list };
-    }).filter(g => g.list.length > 0);
-
-    const unassigned = teachers
-      .filter(t => !assignedIds.has(t.id) && visible(t))
-      .map(t => ({ teacher: t }));
-
-    return { byGrade, unassigned };
-  }, [teachingLoad, teachers, teacherById, assignedIds, listQuery]);
+  // The saved list for this grade, one row per teacher.
+  const savedRows = useMemo(() => {
+    const byTeacher = new Map();
+    for (const row of gradeLoad) {
+      const teacher = teacherById.get(row.teacher_id);
+      // A load row whose teacher is missing from the roster — the account was
+      // deleted, or the teachers read failed — is skipped rather than rendered
+      // with a blank name, which would look like corrupt data.
+      if (!teacher) continue;
+      if (!byTeacher.has(teacher.id)) byTeacher.set(teacher.id, { teacher, rows: [] });
+      byTeacher.get(teacher.id).rows.push(row);
+    }
+    return [...byTeacher.values()].sort((a, b) =>
+      (a.teacher.name || a.teacher.email || '').localeCompare(b.teacher.name || b.teacher.email || ''));
+  }, [gradeLoad, teacherById]);
 
   const loadFailed = teachersError || teachingLoadError;
-  const nothingMatchesFilter = !loadFailed && !teachingLoadLoading
-    && teachers.length > 0
-    && groups.byGrade.length === 0 && groups.unassigned.length === 0;
 
   return (
     <div>
@@ -258,15 +202,16 @@ const TeachingLoadTab = () => {
         )}
       </div>
 
+      <GradeTabs value={grade} onChange={setGrade} counts={countsByGrade} />
+
       {/* ── Builder ───────────────────────────────────────────────────── */}
       <div className="card" style={{ padding: 16, marginBottom: 20 }}>
         <div className="bulk-grid">
-          {/* Teacher */}
           <div>
             <div className="bulk-label">
-              Available teachers
+              Teachers
               <span className="picker-dept" style={{ marginLeft: 8 }}>
-                {availableTeachers.length} to choose from
+                {takenTeachers.size} of {teachers.length} already hold {grade}
               </span>
             </div>
 
@@ -281,59 +226,38 @@ const TeachingLoadTab = () => {
                 <div className="picker-empty">Could not load teachers.</div>
               ) : teachers.length === 0 ? (
                 <div className="picker-empty">No teachers yet. Create them in User Management first.</div>
-              ) : availableTeachers.length === 0 ? (
-                <div className="picker-empty">
-                  {/* Four genuinely different situations. Collapsing them into
-                      one "no teachers" would leave the admin staring at an
-                      empty box with no idea which lever to pull. */}
-                  {pickQuery
-                    ? <>No available teacher matches “{pickQuery}”.</>
-                    : staged.length > 0 && assignedCount > 0
-                      ? <>Everyone is either in the list below or already assigned for {schoolYear}.</>
-                      : staged.length > 0
-                        ? <>Every teacher is already in the list below.</>
-                        : <>Every teacher already holds a load for {schoolYear}. Untick “Hide already assigned” to add a second subject.</>}
-                </div>
-              ) : availableTeachers.map(t => (
-                <label key={t.id} className={`picker-row${pickedTeacher === t.id ? ' selected' : ''}`}>
-                  <input type="radio" name="teaching-load-teacher"
-                    checked={pickedTeacher === t.id}
-                    onChange={() => setPickedTeacher(t.id)} />
-                  <span className="picker-name">{t.name || t.email}</span>
-                  {/* Only reachable with hiding off. Marked so a second
-                      subject is an informed choice rather than a duplicate
-                      entered by mistake. */}
-                  {assignedIds.has(t.id) && <span className="picker-tag">assigned</span>}
-                  {t.department && <span className="picker-dept">{t.department}</span>}
-                </label>
-              ))}
+              ) : shownTeachers.length === 0 ? (
+                <div className="picker-empty">No teacher matches “{pickQuery}”.</div>
+              ) : shownTeachers.map(t => {
+                const taken = takenTeachers.get(t.id);
+                return (
+                  <label key={t.id}
+                    className={`picker-row${pickedTeacher === t.id ? ' selected' : ''}${taken ? ' disabled' : ''}`}>
+                    <input type="radio" name="teaching-load-teacher"
+                      checked={pickedTeacher === t.id}
+                      disabled={!!taken}
+                      onChange={() => setPickedTeacher(t.id)} />
+                    <span className="picker-name">{t.name || t.email}</span>
+                    {/* Named, not just greyed. "Why can't I click this?" is a
+                        worse question than seeing what they already hold. */}
+                    {taken && (
+                      <span className="picker-tag">
+                        {subjectCode(taken.subjectId)}{taken.saved ? '' : ' · in list'}
+                      </span>
+                    )}
+                    {!taken && t.department && <span className="picker-dept">{t.department}</span>}
+                  </label>
+                );
+              })}
             </div>
-
-            <label className="picker-toggle">
-              <input type="checkbox" checked={hideAssigned}
-                onChange={() => setHideAssigned(!hideAssigned)} />
-              Hide teachers already assigned for {schoolYear}
-              {assignedCount > 0 && <span className="picker-dept"> ({assignedCount})</span>}
-            </label>
           </div>
 
-          {/* Grade + subject + Add to list */}
           <div>
-            <div className="bulk-label">Grade level</div>
-            <select className="form-input" value={rowGrade} onChange={e => setRowGrade(e.target.value)}>
-              <option value="">Select grade level…</option>
-              {GRADE_LEVELS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-
-            <div className="bulk-label" style={{ marginTop: 16 }}>Subject</div>
-            <select className="form-input" value={rowSubject} onChange={e => setRowSubject(e.target.value)}
-              disabled={!rowGrade}>
-              <option value="">{rowGrade ? 'Select subject…' : 'Pick a grade level first…'}</option>
-              {rowGrade && activeSubjects.map(s => {
-                // A subject whose slot at this grade is taken is shown, named
-                // and disabled rather than quietly dropped — "where did
-                // Mathematics go?" is a worse question than seeing who holds it.
-                const held = slotHolder.get(slotKey(rowGrade, s.id));
+            <div className="bulk-label">Subject for {grade}</div>
+            <select className="form-input" value={rowSubject} onChange={e => setRowSubject(e.target.value)}>
+              <option value="">Select subject…</option>
+              {activeSubjects.map(s => {
+                const held = takenSubjects.get(s.id);
                 return (
                   <option key={s.id} value={s.id} disabled={!!held}>
                     {s.name}{held ? ` — ${teacherLabel(held.teacherId)}${held.saved ? '' : ' (in list)'}` : ''}
@@ -344,16 +268,14 @@ const TeachingLoadTab = () => {
 
             <div className="bulk-submit">
               <button className="btn btn-primary" onClick={addToList}
-                disabled={!pickedTeacher || !rowGrade || !rowSubject}>
+                disabled={!pickedTeacher || !rowSubject}>
                 <Plus size={15} />
                 Add to list
               </button>
               <span className="bulk-hint">
-                {pickedTeacher && !pickedTeacherVisible
-                  ? 'The teacher you picked is no longer shown — pick someone from the list.'
-                  : pickedTeacher && rowGrade && rowSubject
-                    ? <>{teacherLabel(pickedTeacher)} → {subjectLabel(rowSubject)}, {rowGrade}</>
-                    : 'Nothing is saved until you press Assign below.'}
+                {pickedTeacher && rowSubject
+                  ? <>{teacherLabel(pickedTeacher)} → {subjectLabel(rowSubject)}, {grade}</>
+                  : 'Nothing is saved until you press Assign below.'}
               </span>
             </div>
           </div>
@@ -368,6 +290,11 @@ const TeachingLoadTab = () => {
               <div className="draft-title">To be assigned</div>
               <div className="draft-sub">
                 {staged.length} entr{staged.length === 1 ? 'y' : 'ies'} · not saved yet
+                {/* The draft deliberately survives a grade switch, so it can
+                    hold more than the grade on screen. Said out loud rather
+                    than letting Assign write rows the admin forgot about. */}
+                {gradeStaged.length !== staged.length
+                  && ` · ${gradeStaged.length} for ${grade}, the rest for other grades`}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -381,36 +308,34 @@ const TeachingLoadTab = () => {
             </div>
           </div>
 
-          {stagedByGrade.map(({ grade, entries }) => (
-            <div key={grade} className="draft-group">
-              <div className="draft-grade">{grade}</div>
-              {entries.map(e => (
-                <div key={`${e.grade_level}-${e.subject_id}`} className="draft-line">
-                  <span className="draft-teacher">{teacherLabel(e.teacher_id)}</span>
-                  <span className="draft-dots" />
-                  <span className="draft-subject">{subjectLabel(e.subject_id)}</span>
-                  <button className="chip-x" title="Remove from list"
-                    onClick={() => removeStaged(e.index)}>
-                    <X size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ))}
+          {GRADE_LEVELS.map(g => {
+            const entries = staged
+              .map((e, index) => ({ ...e, index }))
+              .filter(e => e.grade_level === g);
+            if (entries.length === 0) return null;
+            return (
+              <div key={g} className="draft-group">
+                <div className="draft-grade">{g}</div>
+                {entries.map(e => (
+                  <div key={`${e.grade_level}-${e.subject_id}`} className="draft-line">
+                    <span className="draft-teacher">{teacherLabel(e.teacher_id)}</span>
+                    <span className="draft-dots" />
+                    <span className="draft-subject">{subjectLabel(e.subject_id)}</span>
+                    <button className="chip-x" title="Remove from list"
+                      onClick={() => setStaged(prev => prev.filter((_, i) => i !== e.index))}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ── The saved list, grouped by grade level ────────────────────── */}
-      <div className="toolbar">
-        <div className="picker-search" style={{ maxWidth: 320 }}>
-          <Search size={14} />
-          <input value={listQuery} onChange={e => setListQuery(e.target.value)}
-            placeholder="Find a teacher in the list…" />
-        </div>
-      </div>
-
+      {/* ── The saved list for this grade ─────────────────────────────── */}
       <div className="table-card"><table>
-        <thead><tr><th style={{ width: '32%' }}>Teacher</th><th>Holds</th></tr></thead>
+        <thead><tr><th style={{ width: '40%' }}>Teacher</th><th>Holds for {grade}</th></tr></thead>
         <tbody>
           {teachingLoadLoading ? (
             <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>Loading teaching load…</td></tr>
@@ -424,73 +349,31 @@ const TeachingLoadTab = () => {
                 }}>Retry</button>
               </div>
             </td></tr>
-          ) : teachers.length === 0 ? (
+          ) : savedRows.length === 0 ? (
             <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>
-              No teachers yet. Create teacher accounts in User Management first.
+              Nothing assigned for {grade} yet.
             </td></tr>
-          ) : nothingMatchesFilter ? (
-            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>
-              No teacher matches “{listQuery}”.
-            </td></tr>
-          ) : (
-            <>
-              {groups.byGrade.map(({ grade, list }) => (
-                <React.Fragment key={grade}>
-                  <tr className="group-row">
-                    <td colSpan={2}>
-                      <span className="group-title">{grade}</span>
-                      <span className="group-count">
-                        {list.length} teacher{list.length === 1 ? '' : 's'}
-                      </span>
-                    </td>
-                  </tr>
-                  {list.map(({ teacher, rows }) => (
-                    <tr key={`${grade}-${teacher.id}`}>
-                      <td>
-                        <div>{teacher.name || teacher.email}</div>
-                        {teacher.department && <div className="row-sub">{teacher.department}</div>}
-                      </td>
-                      <td>
-                        {rows
-                          .slice()
-                          .sort((a, b) => subjectCode(a.subject_id).localeCompare(subjectCode(b.subject_id)))
-                          .map(l => (
-                            <span key={l.id} className="chip">
-                              {subjectCode(l.subject_id)}
-                              <button className="chip-x" title="Remove" onClick={() => removeLoad(l.id)}>
-                                <X size={12} />
-                              </button>
-                            </span>
-                          ))}
-                      </td>
-                    </tr>
+          ) : savedRows.map(({ teacher, rows }) => (
+            <tr key={teacher.id}>
+              <td>
+                <div>{teacher.name || teacher.email}</div>
+                {teacher.department && <div className="row-sub">{teacher.department}</div>}
+              </td>
+              <td>
+                {rows
+                  .slice()
+                  .sort((a, b) => subjectCode(a.subject_id).localeCompare(subjectCode(b.subject_id)))
+                  .map(l => (
+                    <span key={l.id} className="chip">
+                      {subjectCode(l.subject_id)}
+                      <button className="chip-x" title="Remove" onClick={() => removeLoad(l.id)}>
+                        <X size={12} />
+                      </button>
+                    </span>
                   ))}
-                </React.Fragment>
-              ))}
-
-              {groups.unassigned.length > 0 && (
-                <>
-                  <tr className="group-row">
-                    <td colSpan={2}>
-                      <span className="group-title">Not yet assigned</span>
-                      <span className="group-count">
-                        {groups.unassigned.length} teacher{groups.unassigned.length === 1 ? '' : 's'}
-                      </span>
-                    </td>
-                  </tr>
-                  {groups.unassigned.map(({ teacher }) => (
-                    <tr key={`none-${teacher.id}`}>
-                      <td>
-                        <div>{teacher.name || teacher.email}</div>
-                        {teacher.department && <div className="row-sub">{teacher.department}</div>}
-                      </td>
-                      <td><span style={{ color: 'var(--text-muted)' }}>— nothing for {schoolYear} —</span></td>
-                    </tr>
-                  ))}
-                </>
-              )}
-            </>
-          )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table></div>
     </div>

@@ -495,8 +495,12 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     setSchedulesLoading(false);
   }, [schoolYear]);
 
-  const openCreateSchedule = () => {
-    setSchedTeacher(''); setSchedSubject(''); setSchedSection('');
+  // The Schedules screen opens this from inside one section's subject row, so
+  // the section and subject are already decided and are passed in — leaving
+  // the admin only the teacher, day and time to fill. Called bare it still
+  // opens an empty form.
+  const openCreateSchedule = ({ sectionId = '', subjectId = '' } = {}) => {
+    setSchedTeacher(''); setSchedSubject(subjectId); setSchedSection(sectionId);
     setSchedDay('Monday'); setSchedStart('08:00'); setSchedEnd('09:00'); setSchedRoom('');
     setScheduleModal('create');
   };

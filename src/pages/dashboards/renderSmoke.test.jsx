@@ -106,6 +106,7 @@ const { StudentDataProvider } = await import('./student/StudentDataContext');
 
 const { AdminProvider } = await import('./admin/AdminContext');
 const AdminTeachingLoadTab = (await import('./admin/tabs/TeachingLoadTab')).default;
+const AdminSchedulesTab = (await import('./admin/tabs/SchedulesTab')).default;
 
 const TeacherOverviewTab = (await import('./teacher/tabs/OverviewTab')).default;
 const TeacherAnnouncementsTab = (await import('./teacher/tabs/AnnouncementsTab')).default;
@@ -213,5 +214,8 @@ describe('dashboard tab render smoke test', () => {
   });
   it('renders the admin TeachingLoadTab without throwing', () => {
     expect(() => renderToString(withAdmin(<AdminTeachingLoadTab />))).not.toThrow();
+  });
+  it('renders the admin SchedulesTab without throwing', () => {
+    expect(() => renderToString(withAdmin(<AdminSchedulesTab />))).not.toThrow();
   });
 });

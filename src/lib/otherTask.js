@@ -10,21 +10,33 @@
 
 /**
  * Whether a task belongs on the "Other" card/filter, given its worksheet's
- * subject_id and the student's scheduled subject ids.
+ * subject_id and the ids of the subject cards actually on screen.
  *
- * `scheduledSubjectIds` is `null` when that set could not be determined (the
- * schedules read failed) — deliberately NOT treated the same as an empty
- * Set. An empty Set means "we asked, and this student has nothing
- * scheduled," which correctly sends every subject-bearing task to Other.
- * `null` means "we don't know," and the safe, conservative answer is to
- * fall back to the original null-subject_id-only rule rather than widen
- * Other to swallow the student's entire task list because a read hiccuped.
+ * `cardSubjectIds` is the student's schedule PLUS every subject they have
+ * been given work in (see studentTaskGraph.js). That second half is what
+ * emptied this bucket: a task whose subject has no schedule row used to fall
+ * through to "Other", where its own subject name — the one useful thing
+ * about it — was thrown away. Now that subject gets a card and the task
+ * lands on it.
+ *
+ * What is left is the only case no card can hold: a task with no subject at
+ * all. That cannot be created through the app any more (both worksheet
+ * insert paths set subject_id and refuse without one), so an "Other" card
+ * appearing means a legacy row, and it is worth seeing rather than hiding —
+ * the alternative is a task the student can never open.
+ *
+ * `cardSubjectIds` is `null` when the set could not be determined (the
+ * schedules or subjects read failed) — deliberately NOT the same as an empty
+ * Set. An empty Set means "we asked, and there are no cards." `null` means
+ * "we don't know," and the safe answer is the null-subject_id-only rule
+ * rather than sweeping the student's entire task list into Other because a
+ * read hiccuped.
  *
  * @param {string|null|undefined} subjectId
- * @param {Set<string>|null} scheduledSubjectIds
+ * @param {Set<string>|null} cardSubjectIds
  */
-export function isOtherTask(subjectId, scheduledSubjectIds) {
+export function isOtherTask(subjectId, cardSubjectIds) {
   if (!subjectId) return true;
-  if (!scheduledSubjectIds) return false;
-  return !scheduledSubjectIds.has(subjectId);
+  if (!cardSubjectIds) return false;
+  return !cardSubjectIds.has(subjectId);
 }

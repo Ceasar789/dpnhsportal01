@@ -114,15 +114,7 @@ const NotificationBell = () => {
     };
   }, [uid]);
 
-  // Refetch whenever the dropdown is opened, so what the user sees the
-  // moment they look is fresh. Costs nothing while the bell is idle/closed.
-  const toggleOpen = useCallback(() => {
-    setOpen(o => {
-      const next = !o;
-      if (next) fetchNotifsRef.current();
-      return next;
-    });
-  }, []);
+  const toggleOpen = useCallback(() => setOpen(o => !o), []);
 
   const markRead = async (id) => {
     const { error } = await supabase
@@ -134,16 +126,50 @@ const NotificationBell = () => {
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
-  const markAllRead = async () => {
+  // `quiet` is the open-the-bell path: the write and the badge happen, the
+  // rows keep their highlight. The button passes nothing and greys the list
+  // immediately, which is what pressing "Mark all read" is asking for.
+  const markAllRead = useCallback(async ({ quiet = false } = {}) => {
+    if (!uid) return;
     const { error } = await supabase
       .from('notifications')
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', uid)
       .eq('is_read', false);
+    // The badge is NOT cleared on failure. Showing zero unread over a write
+    // that never landed is the lie this whole change is meant to remove —
+    // it would come back on the next login exactly as before, except now
+    // without the user having any idea why.
     if (error) { console.warn('Mark all as read failed:', error.message); return; }
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    if (!quiet) setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
-  };
+  }, [uid]);
+
+  // Opening the bell refetches, then marks everything read.
+  //
+  // Before this, the only things that marked anything read were clicking an
+  // individual row and pressing "Mark all read" — so a user who opened the
+  // bell, read the list and closed it came back after logging in to the same
+  // unread badge, having done nothing wrong. Looking at a notification is
+  // reading it.
+  //
+  // Strictly ordered, not fired together: both are async, and a fetch that
+  // resolved after the mark would set the badge back from rows it read
+  // before the write landed. The bug would be intermittent and look exactly
+  // like the one being fixed.
+  //
+  // `quiet` leaves the rows' own highlight alone. The blue tint is how you
+  // tell what is new, and clearing it the instant the panel opens would
+  // erase that answer before it could be read.
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    (async () => {
+      await fetchNotifsRef.current();
+      if (!cancelled) await markAllRead({ quiet: true });
+    })();
+    return () => { cancelled = true; };
+  }, [open, markAllRead]);
 
   return (
     <div className="relative">
@@ -173,7 +199,7 @@ const NotificationBell = () => {
             <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: v('--border', '#e2e8f0') }}>
               <h3 className="text-base font-bold" style={{ color: v('--text', '#1a2b4a') }}>Notifications</h3>
               {unreadCount > 0 && (
-                <button onClick={markAllRead} className="text-sm font-semibold hover:underline" style={{ color: '#3b82f6' }}>
+                <button onClick={() => markAllRead()} className="text-sm font-semibold hover:underline" style={{ color: '#3b82f6' }}>
                   Mark all read
                 </button>
               )}

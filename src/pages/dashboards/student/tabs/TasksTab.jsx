@@ -70,7 +70,7 @@ const StudentTasksTab = () => {
   // null = unknown (not loaded, or the schedule read failed), deliberately
   // distinct from an empty Set (= loaded: nothing is scheduled). Treating
   // unknown as empty would widen Other to the entire list.
-  const scheduledSubjectIds = graph ? graph.scheduledSubjectIds : null;
+  const cardSubjectIds = graph ? graph.cardSubjectIds : null;
 
   // Held as state rather than derived, because Start and Submit patch a
   // single row's submission in place (see patchSubmission) without paying
@@ -179,7 +179,7 @@ const StudentTasksTab = () => {
   // from every card on that screen.
   const visibleRows = subjectFilter
     ? rows.filter(r => (subjectFilter === 'other'
-        ? isOtherTask(r.sheet.subject_id, scheduledSubjectIds)
+        ? isOtherTask(r.sheet.subject_id, cardSubjectIds)
         : r.sheet.subject_id === subjectFilter))
     : rows;
 

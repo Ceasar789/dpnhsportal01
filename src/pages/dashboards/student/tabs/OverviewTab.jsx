@@ -115,7 +115,7 @@ const OverviewTab = () => {
       // Null subject, or a subject not in this student's schedule, both land
       // on Other — nothing assigned may fail to appear somewhere. The exact
       // same rule TasksTab.jsx applies to its ?subject=other filter.
-      const key = isOtherTask(sheet.subject_id, graph.scheduledSubjectIds) ? 'other' : sheet.subject_id;
+      const key = isOtherTask(sheet.subject_id, graph.cardSubjectIds) ? 'other' : sheet.subject_id;
       bump(key, a.due_at, pending);
     });
 

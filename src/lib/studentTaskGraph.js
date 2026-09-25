@@ -30,7 +30,7 @@
 //                   Overview treats this as fatal (it cannot draw subject
 //                   cards without it); Tasks does not (it only needs it to
 //                   widen ?subject=other, and falls back to the
-//                   conservative null-subject rule). scheduledSubjectIds is
+//                   conservative null-subject rule). cardSubjectIds is
 //                   then null, which isOtherTask() reads as "unknown" —
 //                   never as "nothing scheduled".
 // ============================================
@@ -56,7 +56,7 @@ const empty = () => ({
   releasedScores: [],
   subjects: [],
   subjectsById: new Map(),
-  scheduledSubjectIds: new Set(),
+  cardSubjectIds: new Set(),
 });
 
 /**
@@ -145,9 +145,9 @@ export async function fetchStudentTaskGraph(studentId) {
   graph.studentRecord = studentResult.data || null;
   graph.attendance = attResult.data || [];
 
-  // Wave 3. One subjects read covering BOTH uses — the scheduled subjects
-  // that become the Overview cards, and the subject names that label the
-  // Tasks rows. These were two separate reads of the same table.
+  // Wave 3. One subjects read covering BOTH uses — the subjects that become
+  // the Overview cards, and the subject names that label the Tasks rows.
+  // These were two separate reads of the same table.
   const scheduledIds = schedResult.error
     ? []
     : [...new Set((schedResult.data || []).map(s => s.subject_id).filter(Boolean))];
@@ -170,20 +170,28 @@ export async function fetchStudentTaskGraph(studentId) {
   if (schedResult.error || subjectsError) {
     // Unknown, not empty. Callers must not read this as "nothing scheduled".
     graph.scheduleError = schedResult.error || subjectsError;
-    graph.scheduledSubjectIds = null;
+    graph.cardSubjectIds = null;
     console.warn('Student schedule fetch failed —', graph.scheduleError.message);
   }
 
   graph.subjectsById = new Map(subjectRows.map(s => [s.id, s.name]));
 
   if (!graph.scheduleError) {
-    // Intersected with subjects rows that still exist — a schedule row can
-    // outlive the subject it named.
-    const scheduledSet = new Set(scheduledIds);
+    // The cards are the student's SCHEDULE plus any subject they have actually
+    // been given work in. The schedule alone was not enough: a task whose
+    // subject has no schedule row for this section fell through to an "Other"
+    // card, which told the student nothing about what the work was. Giving
+    // that subject its own card puts the task where its name says it belongs,
+    // and leaves "Other" for the one case nothing else can hold — a task with
+    // no subject at all.
+    //
+    // Both halves are intersected with subjects rows that still exist: a
+    // schedule row, or a worksheet, can outlive the subject it named.
+    const wanted = new Set([...scheduledIds, ...taskSubjectIds]);
     graph.subjects = subjectRows
-      .filter(s => scheduledSet.has(s.id))
+      .filter(s => wanted.has(s.id))
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    graph.scheduledSubjectIds = new Set(graph.subjects.map(s => s.id));
+    graph.cardSubjectIds = new Set(graph.subjects.map(s => s.id));
   }
 
   return graph;

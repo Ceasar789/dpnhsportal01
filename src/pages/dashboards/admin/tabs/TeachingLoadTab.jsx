@@ -72,6 +72,9 @@ const TeachingLoadTab = () => {
   // [{ teacher_id, grade_level, subject_id }]. Nothing here has been written.
   const [staged, setStaged] = useState([]);
   const [saving, setSaving] = useState(false);
+  // Set by pressing Add to list. Nothing is marked red until then — a form
+  // that is red before it has been touched reads as broken, not incomplete.
+  const [tried, setTried] = useState(false);
 
   const teacherById = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
   const subjectById = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
@@ -126,10 +129,14 @@ const TeachingLoadTab = () => {
     () => subjects.filter(s => s.is_active !== false), [subjects]
   );
 
+  const missingTeacher = tried && !pickedTeacher;
+  const missingSubject = tried && !rowSubject;
+
   const addToList = () => {
-    if (!pickedTeacher || !rowSubject) {
-      return showToast('Pick a teacher and a subject', 'error');
-    }
+    setTried(true);
+    // Returns silently: the red boxes and the lines under them say which
+    // field is missing, which a toast cannot do while pointing at nothing.
+    if (!pickedTeacher || !rowSubject) return;
     const heldSubject = takenSubjects.get(rowSubject);
     if (heldSubject) {
       return showToast(
@@ -143,6 +150,7 @@ const TeachingLoadTab = () => {
     }]);
     setPickedTeacher('');
     setRowSubject('');
+    setTried(false);
   };
 
   const assignAll = async () => {
@@ -221,7 +229,7 @@ const TeachingLoadTab = () => {
                 placeholder="Search by name, email or department…" />
             </div>
 
-            <div className="picker-panel">
+            <div className={`picker-panel${missingTeacher ? ' is-invalid' : ''}`}>
               {teachersError ? (
                 <div className="picker-empty">Could not load teachers.</div>
               ) : teachers.length === 0 ? (
@@ -250,11 +258,15 @@ const TeachingLoadTab = () => {
                 );
               })}
             </div>
+            {missingTeacher && (
+              <div className="field-error">Pick a teacher from the list above.</div>
+            )}
           </div>
 
           <div>
             <div className="bulk-label">Subject for {grade}</div>
-            <select className="form-input" value={rowSubject} onChange={e => setRowSubject(e.target.value)}>
+            <select className={`form-input${missingSubject ? ' is-invalid' : ''}`}
+              value={rowSubject} onChange={e => setRowSubject(e.target.value)}>
               <option value="">Select subject…</option>
               {activeSubjects.map(s => {
                 const held = takenSubjects.get(s.id);
@@ -266,9 +278,12 @@ const TeachingLoadTab = () => {
               })}
             </select>
 
+            {missingSubject && (
+              <div className="field-error">Choose a subject for {grade}.</div>
+            )}
+
             <div className="bulk-submit">
-              <button className="btn btn-primary" onClick={addToList}
-                disabled={!pickedTeacher || !rowSubject}>
+              <button className="btn btn-primary" onClick={addToList}>
                 <Plus size={15} />
                 Add to list
               </button>

@@ -57,9 +57,28 @@ const SchedulesTab = () => {
 
   const [grade, setGrade] = useState(GRADE_LEVELS[0]);
   const [openSectionId, setOpenSectionId] = useState(null);
+  // Set by pressing Create. Nothing is marked red until then — a form that is
+  // red before it has been touched reads as broken, not incomplete.
+  const [tried, setTried] = useState(false);
 
   const nameOf = (list, id, field = 'name') => list.find(x => x.id === id)?.[field] || '—';
-  const closeScheduleOverlay = (e) => { if (e.target === e.currentTarget) closeScheduleModal(); };
+  const dismiss = () => { setTried(false); closeScheduleModal(); };
+  const closeScheduleOverlay = (e) => { if (e.target === e.currentTarget) dismiss(); };
+
+  const badTime = schedEnd <= schedStart;
+  const missingTeacher = tried && !schedTeacher;
+  const missingTime = tried && badTime;
+
+  // The Create button stays enabled while the form is incomplete, on purpose.
+  // A disabled button cannot say what is missing, which was the whole
+  // complaint. saveSchedule re-checks both of these — this is the message,
+  // not the guard.
+  const create = () => {
+    setTried(true);
+    if (!schedTeacher || badTime) return;
+    saveSchedule();
+    setTried(false);
+  };
 
   // sections.grade_level is an unconstrained VARCHAR, so 'Grade 7', 'grade 7'
   // and '7' can all be in there. Compared through normalizeGradeLevel, the
@@ -202,7 +221,7 @@ const SchedulesTab = () => {
                         </td>
                         <td>
                           <button className="btn btn-ghost btn-sm"
-                            onClick={() => openCreateSchedule({ sectionId: openSection.id, subjectId: subject.id })}>
+                            onClick={() => { setTried(false); openCreateSchedule({ sectionId: openSection.id, subjectId: subject.id }); }}>
                             <Plus size={14} /> Add
                           </button>
                         </td>
@@ -225,7 +244,8 @@ const SchedulesTab = () => {
 
             <div className="form-row">
               <label className="form-label">Teacher</label>
-              <select className="form-input" value={schedTeacher} onChange={e => setSchedTeacher(e.target.value)}>
+              <select className={`form-input${missingTeacher ? ' is-invalid' : ''}`}
+                value={schedTeacher} onChange={e => setSchedTeacher(e.target.value)}>
                 <option value="">
                   {eligibleTeachers.length === 0
                     ? 'No teacher holds this subject at this grade'
@@ -233,6 +253,9 @@ const SchedulesTab = () => {
                 </option>
                 {eligibleTeachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
               </select>
+              {missingTeacher && eligibleTeachers.length > 0 && (
+                <div className="field-error">Select a teacher.</div>
+              )}
               {eligibleTeachers.length === 0 && (
                 <div className="row-sub" style={{ marginTop: 6 }}>
                   Assign someone this subject for {grade} in Teaching Load first.
@@ -250,13 +273,20 @@ const SchedulesTab = () => {
             <div className="form-row" style={{ display: 'flex', gap: 8 }}>
               <div style={{ flex: 1 }}>
                 <label className="form-label">Start</label>
-                <input className="form-input" type="time" value={schedStart} onChange={e => setSchedStart(e.target.value)} />
+                <input className={`form-input${missingTime ? ' is-invalid' : ''}`}
+                  type="time" value={schedStart} onChange={e => setSchedStart(e.target.value)} />
               </div>
               <div style={{ flex: 1 }}>
                 <label className="form-label">End</label>
-                <input className="form-input" type="time" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} />
+                <input className={`form-input${missingTime ? ' is-invalid' : ''}`}
+                  type="time" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} />
               </div>
             </div>
+            {missingTime && (
+              <div className="field-error" style={{ marginTop: -8, marginBottom: 12 }}>
+                End time must be after the start time.
+              </div>
+            )}
 
             <div className="form-row">
               <label className="form-label">Room</label>
@@ -264,9 +294,8 @@ const SchedulesTab = () => {
             </div>
 
             <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={closeScheduleModal}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveSchedule}
-                disabled={schedSaving || !schedTeacher}>Create</button>
+              <button className="btn btn-ghost" onClick={dismiss}>Cancel</button>
+              <button className="btn btn-primary" onClick={create} disabled={schedSaving}>Create</button>
             </div>
           </div>
         </div>

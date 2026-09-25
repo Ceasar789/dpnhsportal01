@@ -380,6 +380,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .grade-tab-count { font-size: 11px; font-weight: 700; min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 20px; color: #60a5fa; background: rgba(59,130,246,0.12); }
         .grade-tab-count.empty { color: var(--text-muted); background: rgba(148,163,184,0.12); }
 
+        /* Shown only after someone presses the button. A form that is red
+           before it has been touched reads as broken rather than incomplete.
+           The button stays ENABLED while incomplete on purpose — a disabled
+           button cannot tell you what is missing, which is the whole
+           complaint this answers. */
+        .is-invalid, .form-input.is-invalid, .picker-panel.is-invalid { border-color: var(--red); }
+        .field-error { font-size: 12px; color: var(--red); margin-top: 6px; line-height: 1.4; }
+
         .section-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
         .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--card-bg); cursor: pointer; transition: all .15s; }
         .section-chip:hover { border-color: var(--accent); }

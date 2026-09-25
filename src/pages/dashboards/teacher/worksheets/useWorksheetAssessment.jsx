@@ -10,6 +10,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { normalizePoints, round2 } from '../../../../lib/worksheetChecking';
 import { TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
+import { currentSchoolYear } from '../../../../lib/academicRules';
 
 export const useWorksheetAssessment = (showToast) => {
   const { userData } = useAuth();
@@ -741,9 +742,15 @@ export const useWorksheetAssessment = (showToast) => {
   const fetchMySubject = useCallback(async () => {
     if (!userData?.uid) return;
     const { data, error } = await withRetry(
+      // Scoped to THIS school year. Without it every year's load came back at
+      // once, so a teacher who held Mathematics last year and English this
+      // year counted as two subjects, tripped subjectConflict, and could not
+      // create a task at all — told to ask their admin about a load that was
+      // perfectly correct.
       () => supabase.from('teacher_subjects')
         .select('subject_id, subjects(id, name)')
-        .eq('teacher_id', userData.uid),
+        .eq('teacher_id', userData.uid)
+        .eq('school_year', currentSchoolYear()),
       { label: 'Teaching load fetch' }
     );
     if (error) {

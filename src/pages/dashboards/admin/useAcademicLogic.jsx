@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
-import { canTeachSection } from '../../../lib/academicRules';
+import { canTeachSection, currentSchoolYear } from '../../../lib/academicRules';
 
 export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   // ── Subjects ──────────────────────────────────────────────────────────────
@@ -102,13 +102,6 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   // ── School year ───────────────────────────────────────────────────────────
   // Every academic record is scoped by year, so one selector drives the
   // Teaching Load, Sections and Schedules screens.
-  const currentSchoolYear = () => {
-    const now = new Date();
-    // The DepEd school year opens in June; before then we are still in the
-    // year that began last calendar year.
-    const startYear = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
-    return `${startYear}-${startYear + 1}`;
-  };
   const [schoolYear, setSchoolYear] = useState(currentSchoolYear());
 
   // ── Teaching load ─────────────────────────────────────────────────────────

@@ -52,6 +52,31 @@ who go through the admin's Create User screen.
 the other creates; both file headers carry the warning. If one is re-run, re-run
 the later file after it.
 
+## Deployed
+
+Live at **https://eduscribe-dnhs-portal.vercel.app** since 2026-09-26.
+
+One Vercel project: the React bundle as static files, the Express app as a
+serverless function at `/api` via `api/index.js`. Same origin, so no CORS.
+AI lesson plan generation confirmed working end to end in production.
+
+Four things that each cost time and would cost it again:
+
+- Renaming a Vercel project does NOT move its domain. The old one stays
+  assigned until the new one is added by hand under Settings -> Domains.
+- Supabase Auth's Site URL and Redirect URLs are pinned to whatever domain
+  is actually live. An unlisted redirect is not refused — it is silently
+  replaced by the Site URL, so a password reset lands somewhere unexpected
+  and nothing anywhere reports a failure.
+- Environment variables added under the **Shared** tab do nothing until they
+  are linked to the project. They belong under Projects.
+- Vercel caps a serverless request body at 4.5MB, before any application
+  code runs, which is why the PDF ceiling is 3MB. That rejection arrives as
+  a 413 with no body, so the frontend explains it on its own terms.
+
+Code pushed to `master` deploys automatically. A change to an environment
+variable or a project setting does not — that needs a manual Redeploy.
+
 ## Open items, most useful first
 
 **1. Math tasks in "Other" — CLOSED.** Never diagnosed by the query that was

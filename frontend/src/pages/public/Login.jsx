@@ -266,15 +266,15 @@ const Login = () => {
           </h5>
           <div className="flex items-center gap-2 mb-3">
             <MapPin size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>R. Dela Paz St., Pasig City</span>
+            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>Brgy. Dela Paz, Binan City</span>
           </div>
           <div className="flex items-center gap-2 mb-3">
             <Phone size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8641-XXXX</span>
+            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8642-1234</span>
           </div>
           <div className="flex items-center gap-2">
             <Mail size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>info@delapaz.edu.ph</span>
+            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>admissions@delapaznhs.edu.ph</span>
           </div>
         </div>
       </div>

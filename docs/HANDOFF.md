@@ -77,6 +77,45 @@ Four things that each cost time and would cost it again:
 Code pushed to `master` deploys automatically. A change to an environment
 variable or a project setting does not — that needs a manual Redeploy.
 
+## Row Level Security — audited and closed
+
+`backend/database/tests/phase5-01-rls-tests.sql`, run 2026-09-26 against the
+live database: **24 PASS, 2 SKIP, 0 FAIL, 0 REVIEW.**
+
+The first run found two things no unit test could have, because the
+application code is correct in both cases and the database was the one
+saying no.
+
+**Three features that had never worked.** `pre_enrollment`, `documents` and
+`grades` each had RLS switched on and not one policy — which is default deny
+on every command, not weak security. All three were empty, and the reason
+was that the database refused every insert. The registrar's enrolment queue,
+their document records and the teacher's grade sheet were all reachable in
+the UI and all silently doing nothing. `phase5-03` gives them policies.
+
+**Two policies that gave away too much.** `profiles` was fully readable by
+every authenticated account, and it holds phone, date_of_birth and address —
+any of the sixty seeded students could read every classmate's and every
+teacher's home address. `memos` was readable by everyone despite being
+addressed mail. Both narrowed.
+
+Known and accepted, excluded from the suite BY NAME so a new one still
+fails: six dead tables left on default deny (nothing imports the only file
+referencing them), and three unconditional SELECTs that are correct — the
+public calendar, the school's own contact details, and the subjects lookup.
+
+**What `profiles` still exposes.** RLS is row-level and cannot hide `phone`
+while showing `name`. Column privileges would, but five places call
+`select('*')` on profiles and would fail outright rather than omit a column.
+So a student now sees only themselves, staff, and their own classmates —
+and a classmate's phone number is still visible to them. Closing that needs
+a view with a named column list and a change at every `select('*')`.
+
+**The two SKIPs are not passes.** They need one student submission to exist
+before they test anything, and they are the pair that matters most: whether
+a student can read or overwrite another student's answers. Distribute a
+task, answer it as `student01@example.com`, submit, and re-run the suite.
+
 ## Open items, most useful first
 
 **1. Math tasks in "Other" — CLOSED.** Never diagnosed by the query that was

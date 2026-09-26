@@ -25,10 +25,31 @@ import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
 // Note what is NOT here any more: VITE_GEMINI_API_KEY. This is only a URL —
 // public by nature, and worthless to whoever finds it, which is the entire
 // difference between a base URL and an API key.
+// Kept in step with MAX_PDF_BYTES in backend/src/routes/ai.js by hand. The
+// ceiling exists because Vercel caps a serverless request body at 4.5MB and
+// base64 inflates a file by about a third.
+const MAX_PDF_MB = 3;
+
+// Where the API lives, resolved in three steps.
+//
+//   VITE_API_BASE_URL   set it to point anywhere; nothing else applies.
+//   production          empty, so requests go to /api on the SAME ORIGIN.
+//                       The whole system deploys as one Vercel project, and
+//                       same-origin means there is no CORS to get wrong —
+//                       which is what broke the first live upload.
+//   development         the host this page was served from, port 3001. Vite
+//                       serves on every interface, so the page is opened at
+//                       localhost, at 192.168.x.x, and from other devices
+//                       during testing — and on another device "localhost"
+//                       is THAT device, which runs no API.
+//
+// Note what is NOT here any more: VITE_GEMINI_API_KEY. This is only a URL —
+// public by nature, and worthless to whoever finds it, which is the entire
+// difference between a base URL and an API key.
 const API_BASE = import.meta.env.VITE_API_BASE_URL
-  || (typeof window !== 'undefined'
+  || (import.meta.env.DEV && typeof window !== 'undefined'
     ? `${window.location.protocol}//${window.location.hostname}:3001`
-    : 'http://localhost:3001');
+    : '');
 
 const LessonPlansTab = () => {
   const { dark } = useTheme();
@@ -170,7 +191,7 @@ const LessonPlansTab = () => {
       if (err instanceof TypeError) {
         console.error('[lesson-plan] request to', `${API_BASE}/api/ai/lesson-plan`, 'failed:', err);
         throw new Error(
-          `Could not reach ${API_BASE} — ${err.message}. `
+          `Could not reach ${API_BASE || 'the API'} — ${err.message}. `
           + 'The API may be down, blocked, or refusing this origin. See the console.'
         );
       }

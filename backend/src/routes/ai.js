@@ -14,12 +14,19 @@ import { ILAW_PROMPT } from '../lib/ilawPrompt.js';
 
 const router = Router();
 
-// The same 20MB ceiling the upload form enforces. Checked again here because
-// the form is not the only thing that can call this endpoint, and every
-// megabyte past the limit is billed whether or not the browser meant to send
-// it. Base64 inflates by about a third, hence the multiplier.
-const MAX_PDF_BYTES = 20 * 1024 * 1024;
+// 3MB, because Vercel caps a serverless request body at 4.5MB before this
+// code ever runs, and base64 inflates a file by about a third: 4.5 ÷ 1.37 is
+// roughly 3.2. Set to 3 rather than 3.2 so the failure is ours, with a
+// message that says what to do, instead of the platform's
+// FUNCTION_PAYLOAD_TOO_LARGE, which says nothing a teacher can act on.
+//
+// A long-running host has no such cap. If this ever moves off serverless,
+// this is the one number to raise — and the frontend reads it from the
+// server rather than keeping its own copy, so raising it here is enough.
+export const MAX_PDF_BYTES = 3 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_PDF_BYTES * 1.37);
+
+const mb = (bytes) => (bytes / 1024 / 1024).toFixed(1);
 
 // Generation is slow and metered. Without a cap, one stuck loop in a browser
 // can spend the school's whole quota before anyone notices — and the bill
@@ -43,7 +50,15 @@ router.post('/lesson-plan', requireAuth(['teacher', 'admin', 'main_admin']), lim
     return res.status(400).json({ error: 'pdfBase64 is required.' });
   }
   if (pdfBase64.length > MAX_BASE64_CHARS) {
-    return res.status(413).json({ error: 'That PDF is too large. The limit is 20MB.' });
+    // Names the actual size, the limit, and the usual cause. "Too large" on
+    // its own leaves a teacher with no idea whether to try again, ask for
+    // help, or give up — and the usual cause has a fix they can apply.
+    const actual = Math.round(pdfBase64.length / 1.37);
+    return res.status(413).json({
+      error: `This PDF is ${mb(actual)}MB and the limit is ${mb(MAX_PDF_BYTES)}MB. `
+        + 'Scanned documents are large because every page is an image — '
+        + 'export the file as text from Word or Google Docs, or compress it, and try again.',
+    });
   }
   // A data-URL prefix here means the caller sent the whole FileReader result
   // rather than just the payload. Rejected with a message that says which,

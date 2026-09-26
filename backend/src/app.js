@@ -69,9 +69,11 @@ export function createApp() {
   app.use(cors({ origin: corsOrigin(), credentials: false }));
 
   // A base64 PDF is bulky; express defaults to 100kb and would reject every
-  // real upload. Sized to the same 20MB ceiling the route enforces, plus
-  // base64 overhead and room for the rest of the envelope.
-  app.use(express.json({ limit: '30mb' }));
+  // real upload. 5mb leaves room above the route's own 3MB PDF ceiling
+  // (base64 plus the envelope) while staying under the 4.5MB body cap Vercel
+  // applies to serverless requests — a larger number here would just move
+  // the rejection to the platform, whose error says nothing useful.
+  app.use(express.json({ limit: '5mb' }));
 
   app.disable('x-powered-by');
 
@@ -87,6 +89,21 @@ export function createApp() {
   // HTML error page — including a stack trace — to the browser.
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
+    // A body over the json limit is not an unexpected failure, it is the
+    // caller sending too much — and it arrives here because express.json
+    // throws before any route runs. Left to the generic branch it became
+    // "Something went wrong on the server", a dead end for a teacher whose
+    // only real problem was a scanned PDF.
+    if (err.type === 'entity.too.large') {
+      return res.status(413).json({
+        error: 'That file is too large to send. Scanned documents are large '
+          + 'because every page is an image — export the PDF as text, or compress it.',
+      });
+    }
+    // Malformed JSON, same reasoning: the caller's fault, not a server fault.
+    if (err.type === 'entity.parse.failed') {
+      return res.status(400).json({ error: 'The request body was not valid JSON.' });
+    }
     console.error('[unhandled]', err);
     res.status(500).json({ error: 'Something went wrong on the server.' });
   });

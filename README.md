@@ -90,5 +90,9 @@ cover, is in [docs/SmartEdu-Portal-Test-Cases.pdf](docs/SmartEdu-Portal-Test-Cas
 
 ## Deployment
 
-Vercel builds from the repository root: `npm run build`, output
-`frontend/dist`. Configured in `vercel.json`.
+One Vercel project: the React bundle as static files, the Node API as a
+serverless function at `/api`. Same origin, so there is no CORS.
+
+See [docs/DEPLOYING.md](docs/DEPLOYING.md) for the environment variables and
+the limits that shape it — in particular the 3MB PDF ceiling, which comes
+from Vercel capping a serverless request body at 4.5MB.

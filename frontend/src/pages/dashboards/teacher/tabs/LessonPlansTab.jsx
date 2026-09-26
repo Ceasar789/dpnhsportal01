@@ -14,13 +14,21 @@ import {
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
 
-// Where the EduScribe API lives. The default is the local dev server; the
-// deployed frontend sets VITE_API_BASE_URL to the deployed one.
+// Where the EduScribe API lives. Deployment sets VITE_API_BASE_URL.
+//
+// The fallback follows whatever host the page was opened from, rather than
+// hardcoding localhost. Vite serves on every interface, so this page is
+// reached at localhost, at 192.168.x.x, and from other devices during the
+// sixty-user test — and on another device "localhost:3001" means THAT
+// device, which is running no API at all.
 //
 // Note what is NOT here any more: VITE_GEMINI_API_KEY. This is only a URL —
-// public by nature, and worthless to anyone who finds it, which is the whole
+// public by nature, and worthless to whoever finds it, which is the entire
 // difference between a base URL and an API key.
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  || (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:3001`
+    : 'http://localhost:3001');
 
 const LessonPlansTab = () => {
   const { dark } = useTheme();

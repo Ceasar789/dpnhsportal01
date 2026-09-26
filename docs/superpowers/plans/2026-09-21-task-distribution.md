@@ -28,9 +28,9 @@
 ## File Structure
 
 **Create**
-- `archives/phase3-01-task-distribution-tables.sql` — `task_assignees`, `worksheets.task_type`, `worksheet_submissions.is_late`
-- `archives/phase3-02-task-rls.sql` — `task_assignees` policies, tightened student read path, `is_late` in the existing submission trigger
-- `archives/phase3-03-notifications-rls.sql` — notification policies, written for an unknown starting state
+- `backend/database/migrations/phase3-01-task-distribution-tables.sql` — `task_assignees`, `worksheets.task_type`, `worksheet_submissions.is_late`
+- `backend/database/migrations/phase3-02-task-rls.sql` — `task_assignees` policies, tightened student read path, `is_late` in the existing submission trigger
+- `backend/database/migrations/phase3-03-notifications-rls.sql` — notification policies, written for an unknown starting state
 - `src/lib/taskFormatting.js` + `.test.js` — pure countdown, lateness and label logic
 - `src/pages/dashboards/teacher/worksheets/DistributeModal.jsx` — replaces `PostToSectionModal.jsx`
 - `src/pages/dashboards/student/tabs/TasksTab.jsx` — the student's task list, from the existing `student/tabs/WorksheetsTab.jsx`
@@ -239,7 +239,7 @@ git commit -m "Add task type labels and deadline countdown formatting"
 ### Task 2: Distribution tables
 
 **Files:**
-- Create: `archives/phase3-01-task-distribution-tables.sql`
+- Create: `backend/database/migrations/phase3-01-task-distribution-tables.sql`
 
 **Interfaces:**
 - Consumes: existing `worksheets`, `sections`, `students`, `profiles`, `worksheet_submissions`.
@@ -318,12 +318,12 @@ WHERE conrelid = 'worksheets'::regclass AND conname = 'worksheets_task_type_chec
 
 - [ ] **Step 2: Re-read the file against the existing schema**
 
-Open `archives/phase2-01-worksheet-assessment-tables.sql`. Confirm every table this file references (`worksheets`, `sections`, `students`, `profiles`, `worksheet_submissions`) exists with the column names used, and that `students(id)` is the right foreign-key target for `student_id` — **not** `profiles`. State the result in your report.
+Open `backend/database/migrations/phase2-01-worksheet-assessment-tables.sql`. Confirm every table this file references (`worksheets`, `sections`, `students`, `profiles`, `worksheet_submissions`) exists with the column names used, and that `students(id)` is the right foreign-key target for `student_id` — **not** `profiles`. State the result in your report.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase3-01-task-distribution-tables.sql
+git add backend/database/migrations/phase3-01-task-distribution-tables.sql
 git commit -m "Add per-student task distribution tables"
 ```
 
@@ -332,13 +332,13 @@ git commit -m "Add per-student task distribution tables"
 ### Task 3: Distribution RLS, and lateness in the trigger
 
 **Files:**
-- Create: `archives/phase3-02-task-rls.sql`
+- Create: `backend/database/migrations/phase3-02-task-rls.sql`
 
 **Interfaces:**
 - Consumes: `task_assignees` from Task 2; the Phase 1 helpers `is_admin()`, `teacher_handles_section()`, `teacher_advises_section()`; the Phase 2 helper `teacher_owns_worksheet()` and trigger function `guard_worksheet_submission_write()`.
 - Produces: `student_assigned_task(uuid)`; tightened read policies. Task 9's student reads depend on these.
 
-**This task rewrites two things that already exist.** Read `archives/phase2-02-worksheet-rls.sql` in full before writing a line. You are replacing `ws_items_read`, `ws_worksheets_student_read` and the body of `guard_worksheet_submission_write`. Everything else in that file stays exactly as it is.
+**This task rewrites two things that already exist.** Read `backend/database/migrations/phase2-02-worksheet-rls.sql` in full before writing a line. You are replacing `ws_items_read`, `ws_worksheets_student_read` and the body of `guard_worksheet_submission_write`. Everything else in that file stays exactly as it is.
 
 - [ ] **Step 1: Write the file**
 
@@ -469,12 +469,12 @@ ORDER BY tablename;
 
 - [ ] **Step 2: Diff the trigger against the Phase 2 version**
 
-Put `archives/phase2-02-worksheet-rls.sql`'s `guard_worksheet_submission_write` beside the one above, line by line. Every guard in the old one must still be present. Name in your report anything you changed beyond the two `is_late` lines and the `v_due` declaration.
+Put `backend/database/migrations/phase2-02-worksheet-rls.sql`'s `guard_worksheet_submission_write` beside the one above, line by line. Every guard in the old one must still be present. Name in your report anything you changed beyond the two `is_late` lines and the `v_due` declaration.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase3-02-task-rls.sql
+git add backend/database/migrations/phase3-02-task-rls.sql
 git commit -m "Gate task reads on assignment, and stamp lateness at submit"
 ```
 
@@ -483,7 +483,7 @@ git commit -m "Gate task reads on assignment, and stamp lateness at submit"
 ### Task 4: Notification policies
 
 **Files:**
-- Create: `archives/phase3-03-notifications-rls.sql`
+- Create: `backend/database/migrations/phase3-03-notifications-rls.sql`
 
 **Interfaces:**
 - Produces: policies on `notifications`. Task 8's writes depend on them.
@@ -562,7 +562,7 @@ Grep `src/` for `from('notifications')`. Every existing producer — `admin/useA
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase3-03-notifications-rls.sql
+git add backend/database/migrations/phase3-03-notifications-rls.sql
 git commit -m "Give notifications the policies it never had"
 ```
 

@@ -3,7 +3,7 @@
 // Login, and the seeded accounts every spec shares.
 //
 // The credentials here are the throwaway test population from
-// archives/phase4-03 and phase4-05 — example.com addresses that cannot
+// backend/database/seeds — example.com addresses that cannot
 // receive mail, all sharing one password, all meant to be deleted after
 // testing. Nothing real is committed here.
 // ============================================

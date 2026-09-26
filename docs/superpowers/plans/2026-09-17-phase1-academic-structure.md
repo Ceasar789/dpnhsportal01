@@ -287,7 +287,7 @@ testable, and adds vitest to run it."
 ### Task 2: Create the subjects and teaching load tables
 
 **Files:**
-- Create: `archives/phase1-01-academic-tables.sql`
+- Create: `backend/database/migrations/phase1-01-academic-tables.sql`
 
 **Interfaces:**
 - Consumes: existing `profiles` table
@@ -295,7 +295,7 @@ testable, and adds vitest to run it."
 
 - [ ] **Step 1: Write the migration**
 
-Create `archives/phase1-01-academic-tables.sql`:
+Create `backend/database/migrations/phase1-01-academic-tables.sql`:
 
 ```sql
 -- ============================================
@@ -363,7 +363,7 @@ Do not continue until the user confirms 8 rows.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase1-01-academic-tables.sql
+git add backend/database/migrations/phase1-01-academic-tables.sql
 git commit -m "Add subjects registry and teaching load tables
 
 Replaces free-text subject names with a real registry so 'same subject'
@@ -376,7 +376,7 @@ school year."
 ### Task 3: Point schedules, lesson plans and worksheets at the registry
 
 **Files:**
-- Create: `archives/phase1-02-subject-id-columns.sql`
+- Create: `backend/database/migrations/phase1-02-subject-id-columns.sql`
 
 **Interfaces:**
 - Consumes: `subjects` from Task 2
@@ -384,7 +384,7 @@ school year."
 
 - [ ] **Step 1: Write the migration**
 
-Create `archives/phase1-02-subject-id-columns.sql`:
+Create `backend/database/migrations/phase1-02-subject-id-columns.sql`:
 
 ```sql
 -- ============================================
@@ -442,7 +442,7 @@ Expected: the verification query returns zero rows. If it returns rows, those re
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase1-02-subject-id-columns.sql
+git add backend/database/migrations/phase1-02-subject-id-columns.sql
 git commit -m "Link schedules, lesson plans and worksheets to the subjects registry
 
 Backfills subject_id from the legacy text column before relaxing the NOT
@@ -456,7 +456,7 @@ NULL constraint, so no row is left satisfying neither rule."
 This is the task that makes the teacher's existing Students tab come alive.
 
 **Files:**
-- Create: `archives/phase1-03-rls-academic.sql`
+- Create: `backend/database/migrations/phase1-03-rls-academic.sql`
 
 **Interfaces:**
 - Consumes: `subjects`, `teacher_subjects` from Task 2
@@ -464,7 +464,7 @@ This is the task that makes the teacher's existing Students tab come alive.
 
 - [ ] **Step 1: Write the migration**
 
-Create `archives/phase1-03-rls-academic.sql`:
+Create `backend/database/migrations/phase1-03-rls-academic.sql`:
 
 ```sql
 -- ============================================
@@ -580,7 +580,7 @@ Expected: twelve rows — a SELECT policy and an ALL policy for each of the six 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase1-03-rls-academic.sql
+git add backend/database/migrations/phase1-03-rls-academic.sql
 git commit -m "Add RLS policies for the academic structure tables
 
 These five tables had RLS enabled with no policies, so Postgres denied

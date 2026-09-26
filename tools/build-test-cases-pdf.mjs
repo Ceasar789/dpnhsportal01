@@ -354,8 +354,8 @@ const docDefinition = {
           [cell('Backend', { bold: true }), cell('Supabase — PostgreSQL, Auth, Storage, auto-generated REST API, Row Level Security. No application server exists.')],
           [cell('Unit / component', { bold: true }), cell('Vitest, jsdom, @testing-library/react — `npm test`')],
           [cell('End-to-end', { bold: true }), cell('Playwright (Chromium) — `npm run test:e2e`')],
-          [cell('RLS', { bold: true }), cell('Supabase SQL Editor — archives/phase5-01-rls-tests.sql')],
-          [cell('Test data', { bold: true }), cell('60 seeded students and 48 seeded teachers (archives/phase4-03, phase4-05), all on example.com addresses, deleted after testing.')],
+          [cell('RLS', { bold: true }), cell('Supabase SQL Editor — backend/database/tests/phase5-01-rls-tests.sql')],
+          [cell('Test data', { bold: true }), cell('60 seeded students and 48 seeded teachers (backend/database/seeds), all on example.com addresses, deleted after testing.')],
         ],
       },
       layout: 'lightHorizontalLines',
@@ -367,7 +367,7 @@ const docDefinition = {
 
     // ── 3 ──
     h1('3. Security test cases — Row Level Security'),
-    p('Source: archives/phase5-01-rls-tests.sql. Each case runs as a real logged-in user. A result of SKIP means the fixture the case needs does not exist yet; it is not a pass, and a suite reporting only SKIP has tested nothing.'),
+    p('Source: backend/database/tests/phase5-01-rls-tests.sql. Each case runs as a real logged-in user. A result of SKIP means the fixture the case needs does not exist yet; it is not a pass, and a suite reporting only SKIP has tested nothing.'),
     autoTable(rls),
 
     h1('4. Functional test cases — automated'),

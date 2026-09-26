@@ -12,7 +12,7 @@ The dump does not replace Supabase-managed Auth/PITR backups. Test a restore bef
 
 ## One-time setup
 
-1. Run `archives/add-settings-backup-history.sql` in the Supabase SQL Editor. This creates the `backup_history` table used by the Admin Dashboard.
+1. Run `backend/database/legacy/add-settings-backup-history.sql` in the Supabase SQL Editor. This creates the `backup_history` table used by the Admin Dashboard.
 2. Push this repository to a private GitHub repository.
 3. Open **Settings > Secrets and variables > Actions**.
 4. Add these repository secrets:

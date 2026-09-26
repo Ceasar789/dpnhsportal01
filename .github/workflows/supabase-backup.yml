@@ -35,7 +35,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BACKUP_STATUS: running
           BACKUP_STORAGE_PATH: github-actions/${{ github.run_id }}
-        run: node scripts/backup-history.mjs
+        run: node backend/scripts/backup-history.mjs
 
       - name: Dump database
         env:
@@ -56,7 +56,7 @@ jobs:
         run: |
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_SERVICE_ROLE_KEY"
-          node scripts/backup-storage.mjs
+          node backend/scripts/backup-storage.mjs
 
       - name: Compress storage backup
         run: tar -czf backup/storage.tar.gz -C backup/storage .
@@ -80,4 +80,4 @@ jobs:
           BACKUP_STATUS: ${{ job.status == 'success' && 'completed' || 'failed' }}
           BACKUP_STORAGE_PATH: github-actions/${{ github.run_id }}
           BACKUP_ERROR_MESSAGE: ${{ job.status == 'success' && '' || 'One or more backup steps failed. Check the GitHub Actions log.' }}
-        run: node scripts/backup-history.mjs
+        run: node backend/scripts/backup-history.mjs

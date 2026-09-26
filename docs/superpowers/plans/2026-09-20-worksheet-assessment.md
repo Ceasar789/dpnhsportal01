@@ -328,7 +328,7 @@ above the item's points."
 ### Task 2: Assessment tables
 
 **Files:**
-- Create: `archives/phase2-01-worksheet-assessment-tables.sql`
+- Create: `backend/database/migrations/phase2-01-worksheet-assessment-tables.sql`
 
 **Interfaces:**
 - Consumes: existing `worksheets`, `sections`, `students`, `profiles`
@@ -336,7 +336,7 @@ above the item's points."
 
 - [ ] **Step 1: Write the migration**
 
-Create `archives/phase2-01-worksheet-assessment-tables.sql`:
+Create `backend/database/migrations/phase2-01-worksheet-assessment-tables.sql`:
 
 ```sql
 -- ============================================
@@ -457,7 +457,7 @@ Do not continue until the user confirms.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase2-01-worksheet-assessment-tables.sql
+git add backend/database/migrations/phase2-01-worksheet-assessment-tables.sql
 git commit -m "Add worksheet assessment tables
 
 Answer keys live in their own table so RLS can serve a student the
@@ -469,7 +469,7 @@ question while denying them the key."
 ### Task 3: RLS for the assessment tables
 
 **Files:**
-- Create: `archives/phase2-02-worksheet-rls.sql`
+- Create: `backend/database/migrations/phase2-02-worksheet-rls.sql`
 
 **Interfaces:**
 - Consumes: the Phase 1 helpers `is_admin()`, `student_in_section(uuid)`; tables from Task 2
@@ -477,7 +477,7 @@ question while denying them the key."
 
 - [ ] **Step 1: Write the migration**
 
-Create `archives/phase2-02-worksheet-rls.sql`:
+Create `backend/database/migrations/phase2-02-worksheet-rls.sql`:
 
 ```sql
 -- ============================================
@@ -650,7 +650,7 @@ Expected: every table shows `rls_on = true` with policies listed, and one trigge
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase2-02-worksheet-rls.sql
+git add backend/database/migrations/phase2-02-worksheet-rls.sql
 git commit -m "Add RLS for worksheet assessment tables
 
 Students can read a question but never its key, and a trigger stops them
@@ -665,7 +665,7 @@ rows and cannot express that restriction."
 Attendance has RLS enabled with a single adviser-SELECT policy and no write policy at all, so no teacher has ever been able to record attendance and no student has ever been able to read their own.
 
 **Files:**
-- Create: `archives/phase2-03-attendance-rls.sql`
+- Create: `backend/database/migrations/phase2-03-attendance-rls.sql`
 
 **Interfaces:**
 - Consumes: Phase 1 helpers `is_admin()`, `teacher_handles_section(uuid)`, `teacher_advises_section(uuid)`
@@ -673,7 +673,7 @@ Attendance has RLS enabled with a single adviser-SELECT policy and no write poli
 
 - [ ] **Step 1: Write the migration**
 
-Create `archives/phase2-03-attendance-rls.sql`:
+Create `backend/database/migrations/phase2-03-attendance-rls.sql`:
 
 ```sql
 -- ============================================
@@ -715,7 +715,7 @@ Expected: three policies — the pre-existing `Section teachers view attendance`
 - [ ] **Step 3: Commit**
 
 ```bash
-git add archives/phase2-03-attendance-rls.sql
+git add backend/database/migrations/phase2-03-attendance-rls.sql
 git commit -m "Let teachers record attendance and students read their own
 
 attendance had RLS enabled with only an adviser SELECT policy, so every

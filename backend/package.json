@@ -1,0 +1,15 @@
+{
+  "name": "@eduscribe/backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Database schema, Row Level Security policies, migrations and operational scripts. The Node service that holds the credentials the browser must never see lives here too.",
+  "scripts": {
+    "backup:history": "node scripts/backup-history.mjs",
+    "backup:storage": "node scripts/backup-storage.mjs",
+    "db:setup": "node scripts/setup-database.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}

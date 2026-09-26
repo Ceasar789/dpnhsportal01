@@ -10,7 +10,7 @@
 -- rather than a policy, because RLS grants or denies a whole row — it cannot
 -- say "this student may set status but not score".
 --
--- WARNING: archives/phase3-02-task-rls.sql supersedes four objects this file
+-- WARNING: backend/database/migrations/phase3-02-task-rls.sql supersedes four objects this file
 -- creates — the policies ws_items_read, ws_worksheets_student_read and
 -- ws_sections_read, and the body of guard_worksheet_submission_write. If
 -- phase3-02 has already been run against this database, re-running this file

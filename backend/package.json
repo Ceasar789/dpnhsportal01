@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Database schema, Row Level Security policies, migrations and operational scripts. The Node service that holds the credentials the browser must never see lives here too.",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server.js",
     "backup:history": "node scripts/backup-history.mjs",
     "backup:storage": "node scripts/backup-storage.mjs",
     "db:setup": "node scripts/setup-database.js"
@@ -17,5 +17,8 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0"
   },
-  "main": "src/server.js"
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20.18"
+  }
 }

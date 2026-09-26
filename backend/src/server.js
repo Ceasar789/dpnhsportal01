@@ -17,6 +17,19 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-createApp().listen(PORT, () => {
+const server = createApp().listen(PORT, () => {
   console.log(`EduScribe API listening on http://localhost:${PORT}`);
+});
+
+// Without a handler, a port already in use throws an unhandled 'error' event
+// and prints eleven lines of stack trace for a one-line problem — which
+// during development is nearly always a server from the last run still
+// holding the port.
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Another copy of this server `
+      + 'is probably still running — stop it, or set PORT to something else.');
+    process.exit(1);
+  }
+  throw err;
 });

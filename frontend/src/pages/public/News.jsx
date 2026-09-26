@@ -24,6 +24,7 @@ const News = () => {
   const [heroExpanded, setHeroExpanded] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [historyError, setHistoryError] = useState(null);
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1100);
@@ -180,26 +181,15 @@ const News = () => {
   // HERO SECTION
   // ============================================
   const HeroSection = () => (
-    <div
-      className="w-full pt-10 pb-10"
-      style={{ paddingLeft: isMobile ? '20px' : '100px', paddingRight: isMobile ? '20px' : '100px' }}
-    >
-      {isMobile ? (
-        <div className="flex flex-col">
+    <div className="w-full pt-10 pb-10 px-5 lg:px-[100px]">
+      <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
+        <div className="lg:flex-[3]">
           <HeroText />
-          <div className="h-8" />
+        </div>
+        <div className="lg:flex-[2]">
           <HeroImage />
         </div>
-      ) : (
-        <div className="flex gap-10">
-          <div className="flex-[3]">
-            <HeroText />
-          </div>
-          <div className="flex-[2]">
-            <HeroImage />
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 
@@ -224,11 +214,10 @@ const News = () => {
 
       {/* Headline */}
       <h2
-        className="font-work font-extrabold leading-tight mb-5"
+        className="font-work font-extrabold leading-tight mb-5 text-[32px] lg:text-[48px]"
         style={{
           color: '#1E3A8A',
-          fontSize: isMobile ? '32px' : '48px',
-          letterSpacing: '-1.5px'
+          letterSpacing: '-0.02em'
         }}
       >
         {hero.title}
@@ -262,8 +251,7 @@ const News = () => {
     <img
       src={hero.featured_image_url || '/capstoneimage1.jpg'}
       alt={hero.title}
-      className="w-full object-cover rounded-lg"
-      style={{ height: isMobile ? '250px' : '400px' }}
+      className="w-full object-cover rounded-lg h-[250px] lg:h-[400px]"
       onError={e => { e.target.src = '/capstoneimage1.jpg'; }}
     />
   );
@@ -272,15 +260,7 @@ const News = () => {
   // LATEST NEWS SECTION
   // ============================================
   const LatestNewsSection = () => (
-    <div
-      className="w-full py-15"
-      style={{
-        paddingLeft: isMobile ? '20px' : '100px',
-        paddingRight: isMobile ? '20px' : '100px',
-        paddingTop: '60px',
-        paddingBottom: '60px'
-      }}
-    >
+    <div className="w-full py-[60px] px-5 lg:px-[100px]">
       {/* Header */}
       <div className="flex justify-between items-end mb-10">
         <div>
@@ -321,92 +301,83 @@ const News = () => {
       )}
 
       {/* News Grid */}
-      {isMobile ? (
-        <div className="flex flex-col gap-6">
-          {rest.map(item => (
-            <NewsCard
-              key={item.id}
-              image={item.featured_image_url || '/capstoneimage1.jpg'}
-              category={item.category?.toUpperCase() || 'GENERAL'}
-              date={item.published_at ? new Date(item.published_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}
-              title={item.title}
-              description={item.content?.slice(0, 160) + (item.content?.length > 160 ? '...' : '')}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex gap-6">
-          {rest.slice(0, 3).map(item => (
-            <div key={item.id} className="flex-1">
-              <NewsCard
-                image={item.featured_image_url || '/capstoneimage1.jpg'}
-                category={item.category?.toUpperCase() || 'GENERAL'}
-                date={item.published_at ? new Date(item.published_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}
-                title={item.title}
-                description={item.content?.slice(0, 160) + (item.content?.length > 160 ? '...' : '')}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        {rest.map(item => (
+          <NewsCard key={item.id} item={item} />
+        ))}
+      </div>
     </div>
   );
 
-  // Exact original NewsCard design — props now come from Supabase
-  const NewsCard = ({ image, category, date, title, description }) => (
-    <div className="flex flex-col">
-      <img
-        src={image}
-        alt={title}
-        className="w-full object-cover rounded-lg mb-4"
-        style={{ height: '200px' }}
-        onError={e => { e.target.src = '/capstoneimage1.jpg'; }}
-      />
-      <div className="flex items-center gap-3 mb-3">
-        <span className="font-work font-bold text-xs tracking-widest" style={{ color: '#FEB300' }}>
-          {category}
-        </span>
-        <span className="font-public text-xs" style={{ color: '#94A3B8' }}>
-          {date}
-        </span>
-      </div>
-      <h4 className="font-work font-bold text-lg leading-snug mb-2" style={{ color: '#1E3A8A' }}>
-        {title}
-      </h4>
-      <p className="font-public text-sm leading-relaxed" style={{ color: '#64748B' }}>
-        {description}
-      </p>
-    </div>
-  );
+  const NewsCard = ({ item }) => {
+    const expanded = expandedIds.has(item.id);
+    const body = item.content || '';
+    const isLong = body.length > 160;
+
+    const toggle = () => setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+      return next;
+    });
+
+    return (
+      <article className="flex flex-col">
+        <img
+          src={item.featured_image_url || '/capstoneimage1.jpg'}
+          alt=""
+          className="w-full object-cover rounded-lg mb-4 aspect-[3/2]"
+          onError={e => { e.target.src = '/capstoneimage1.jpg'; }}
+        />
+        <div className="flex items-center gap-3 mb-3">
+          {/* #FEB300 is 1.80:1 on white. The same gold darkened to #7E5700
+              is 5.72:1 and still reads as the brand colour. */}
+          <span className="font-work font-bold text-xs tracking-widest" style={{ color: '#7E5700' }}>
+            {item.category?.toUpperCase() || 'GENERAL'}
+          </span>
+          <span className="font-public text-xs" style={{ color: '#64748B' }}>
+            {item.published_at
+              ? new Date(item.published_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })
+              : ''}
+          </span>
+        </div>
+        <h4 className="font-work font-bold text-lg leading-snug mb-2" style={{ color: '#1E3A8A' }}>
+          {item.title}
+        </h4>
+        <p className="font-public text-sm leading-relaxed" style={{ color: '#64748B' }}>
+          {expanded || !isLong ? body : `${body.slice(0, 160)}...`}
+        </p>
+        {isLong && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={expanded}
+            className="mt-3 self-start inline-flex items-center gap-1.5 font-work font-bold text-sm rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] focus-visible:ring-offset-2"
+            style={{ color: '#003b7a' }}
+          >
+            {expanded ? 'Show less' : 'Read more'}
+            <ArrowRight size={14} aria-hidden="true" />
+          </button>
+        )}
+      </article>
+    );
+  };
 
   // ============================================
   // STAY CONNECTED SECTION
   // ============================================
   const StayConnectedSection = () => (
     <div
-      className="mx-auto mb-16 rounded-lg p-12"
-      style={{
-        marginLeft: isMobile ? '20px' : '100px',
-        marginRight: isMobile ? '20px' : '100px',
-        backgroundColor: '#001D4E'
-      }}
+      className="mb-16 rounded-lg p-8 sm:p-12 mx-5 lg:mx-[100px]"
+      style={{ backgroundColor: '#001D4E' }}
     >
-      {isMobile ? (
-        <div className="flex flex-col">
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="lg:flex-[2]">
           <StayConnectedText />
-          <div className="h-8" />
+        </div>
+        <div className="lg:flex-[3]">
           <NewsletterForm />
         </div>
-      ) : (
-        <div className="flex justify-between items-center">
-          <div className="flex-[2]">
-            <StayConnectedText />
-          </div>
-          <div className="flex-[3]">
-            <NewsletterForm />
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 

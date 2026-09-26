@@ -64,6 +64,11 @@ const LessonPlansTab = () => {
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  // Shown inside the upload card and left there until the next attempt.
+  // A toast for this was the wrong shape: it appears in a corner away from
+  // where the teacher is looking, and disappears on its own — so the one
+  // message explaining why nothing happened was gone before it was read.
+  const [uploadError, setUploadError] = useState('');
 
   // --- ILAW output state ---
   const [ilawOutput, setIlawOutput] = useState('');
@@ -221,22 +226,22 @@ const LessonPlansTab = () => {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      showToast('Please upload a valid PDF file', 'error');
+      setUploadError('That is not a PDF. Choose a file ending in .pdf.');
       return;
     }
     // Mirrors MAX_PDF_BYTES in backend/src/routes/ai.js. Checked here so a
     // large file is rejected instantly rather than after a slow upload; the
     // server checks again, because this one can be bypassed.
     if (file.size > MAX_PDF_MB * 1024 * 1024) {
-      showToast(
+      setUploadError(
         `This PDF is ${(file.size / 1024 / 1024).toFixed(1)}MB and the limit is ${MAX_PDF_MB}MB. `
         + 'Scanned documents are large because every page is an image — '
-        + 'export it as text from Word, or compress it further.',
-        'error'
+        + 'export it as text from Word, or compress it further.'
       );
       return;
     }
 
+    setUploadError('');
     setUploading(true);
     setGenerating(false);
     setIlawOutput('');
@@ -286,7 +291,7 @@ const LessonPlansTab = () => {
       );
     } catch (err) {
       console.error('PDF Upload Error:', err);
-      showToast('Error: ' + err.message, 'error');
+      setUploadError(err.message);
     }
 
     setUploading(false);
@@ -614,6 +619,31 @@ th{background:#f3f4f6;}
                   <p className="text-xs mt-3" style={{ color: dark ? '#475569' : '#cbd5e1' }}>
                     Max {MAX_PDF_MB}MB · PDF only
                   </p>
+
+                  {/* Inside the card, where the teacher is already looking,
+                      and it stays until the next attempt. The toast this
+                      replaces appeared in a far corner and faded on its own,
+                      so the one sentence explaining why nothing happened was
+                      usually gone before it was read. */}
+                  {uploadError && (
+                    <div
+                      className="mt-5 text-left rounded-lg px-4 py-3 flex gap-3 items-start"
+                      style={{
+                        backgroundColor: dark ? 'rgba(220,38,38,0.12)' : '#fef2f2',
+                        border: `1px solid ${dark ? '#b91c1c' : '#fecaca'}`,
+                      }}
+                    >
+                      <AlertTriangle size={17} className="flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
+                      <div>
+                        <p className="text-sm font-semibold mb-0.5" style={{ color: '#ef4444' }}>
+                          Could not generate the lesson plan
+                        </p>
+                        <p className="text-sm leading-relaxed" style={{ color: dark ? '#fca5a5' : '#991b1b' }}>
+                          {uploadError}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </Card>

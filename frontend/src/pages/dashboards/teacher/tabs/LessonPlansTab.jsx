@@ -172,7 +172,21 @@ const LessonPlansTab = () => {
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        throw new Error(body?.error || `Lesson plan generation failed (${response.status}).`);
+        if (body?.error) throw new Error(body.error);
+
+        // A 413 with no body is the HOST rejecting the request before any of
+        // our code runs — Vercel caps a serverless request body at 4.5MB,
+        // and says so in a way nothing here can read. Left to the generic
+        // branch it surfaced as a bare "(413)", which tells a teacher
+        // nothing and does not even hint that the file is the problem.
+        if (response.status === 413) {
+          throw new Error(
+            `That PDF is too large to send. The limit is ${MAX_PDF_MB}MB — `
+            + 'scanned documents are large because every page is an image, '
+            + 'so export it as text from Word, or compress it further.'
+          );
+        }
+        throw new Error(`Lesson plan generation failed (${response.status}).`);
       }
 
       const { html, truncated } = await response.json();
@@ -210,8 +224,16 @@ const LessonPlansTab = () => {
       showToast('Please upload a valid PDF file', 'error');
       return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-      showToast('File too large. Max 20MB.', 'error');
+    // Mirrors MAX_PDF_BYTES in backend/src/routes/ai.js. Checked here so a
+    // large file is rejected instantly rather than after a slow upload; the
+    // server checks again, because this one can be bypassed.
+    if (file.size > MAX_PDF_MB * 1024 * 1024) {
+      showToast(
+        `This PDF is ${(file.size / 1024 / 1024).toFixed(1)}MB and the limit is ${MAX_PDF_MB}MB. `
+        + 'Scanned documents are large because every page is an image — '
+        + 'export it as text from Word, or compress it further.',
+        'error'
+      );
       return;
     }
 
@@ -589,7 +611,9 @@ th{background:#f3f4f6;}
                   <Btn variant="primary" onClick={() => document.getElementById('pdfUpload')?.click()}>
                     <FileUp size={16} /> Choose PDF to Upload
                   </Btn>
-                  <p className="text-xs mt-3" style={{ color: dark ? '#475569' : '#cbd5e1' }}>Max 20MB · PDF only</p>
+                  <p className="text-xs mt-3" style={{ color: dark ? '#475569' : '#cbd5e1' }}>
+                    Max {MAX_PDF_MB}MB · PDF only
+                  </p>
                 </>
               )}
             </Card>

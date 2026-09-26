@@ -32,7 +32,7 @@ test.describe('authentication', () => {
     await page.goto(STUDENT_LOGIN);
     await page.locator('input[type="email"]').fill(STUDENT.email);
     await page.locator('input[type="password"]').fill('definitely-not-the-password');
-    await page.getByRole('button', { name: /sign in|log ?in/i }).click();
+    await page.locator('button[type="submit"]').click();
 
     // Still on the login page after a moment, rather than halfway in.
     await page.waitForTimeout(3000);
@@ -44,9 +44,17 @@ test.describe('authentication', () => {
   // is a privilege bug, not a routing quirk.
   test('a student cannot get in through the staff login', async ({ page }) => {
     await page.goto(STAFF_LOGIN);
+
+    // The role MUST be chosen here. Without it the form refuses to submit
+    // at all, and this test passed for that reason rather than for the one
+    // it claims — a student was never rejected, they were never let as far
+    // as trying. Picking Teacher makes it a real attempt.
+    await page.getByRole('button', { name: /select your role/i }).click();
+    await page.getByRole('button', { name: 'Teacher', exact: true }).click();
+
     await page.locator('input[type="email"]').fill(STUDENT.email);
     await page.locator('input[type="password"]').fill(PASSWORD);
-    await page.getByRole('button', { name: /sign in|log ?in/i }).click();
+    await page.locator('button[type="submit"]').click();
 
     await page.waitForTimeout(4000);
     await expect(page).not.toHaveURL(/\/(teacher|admin|registrar|faculty)-dashboard/);

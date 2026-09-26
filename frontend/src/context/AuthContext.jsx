@@ -62,9 +62,9 @@ export const AuthProvider = ({ children }) => {
   const mountedRef = useRef(true);
   const loginInProgressRef = useRef(false);
   const userDataRef = useRef(null);
-  // Guards against a slow/stale profile fetch (initSession, a background
-  // TOKEN_REFRESHED auth event, etc.) overwriting fresher data — e.g. one
-  // just written by updateProfile() — if it resolves later out of order.
+  // Guards against a slow/stale profile fetch (a background TOKEN_REFRESHED
+  // auth event, a tab regaining visibility) overwriting fresher data — e.g.
+  // one just written by updateProfile() — if it resolves later out of order.
   const profileOpSeqRef = useRef(0);
 
   // Announce the authenticated user to the shared Realtime presence channel.
@@ -186,68 +186,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     mountedRef.current = true;
 
-    const initSession = async () => {
-      const opSeq = ++profileOpSeqRef.current;
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // There is deliberately no separate initSession() here any more.
+    //
+    // supabase-js always emits INITIAL_SESSION once at startup, carrying the
+    // restored session or null, so the subscription below already does this
+    // job. Running a second initialiser alongside it was a race, and it had
+    // a real symptom: on reload both started, the later one bumped
+    // profileOpSeqRef, initSession correctly declined to apply its own
+    // now-stale result — and then cleared `loading` anyway. ProtectedRoute
+    // saw loading=false with isAuthenticated=false and redirected. Every F5
+    // on a dashboard logged the user out, while a perfectly valid session
+    // sat in sessionStorage.
+    //
+    // Two initialisers writing the same state is the defect; one is the fix.
 
-        if (sessionError) {
-          console.warn('⚠️ getSession error:', sessionError.message);
-        }
-
-        if (session?.user && mountedRef.current) {
-          const { profile, fetchFailed } = await fetchProfile(session.user.id);
-          if (isArchivedProfile(profile)) {
-            await supabase.auth.signOut({ scope: 'local' });
-            return;
-          }
-          // Role comes ONLY from the profiles row. `user_metadata` is writable
-          // by the account holder (supabase.auth.updateUser({data:{...}})), so
-          // trusting it here would let any user grant themselves any role.
-          // The cached fallback is a previous successful read of this same
-          // profile, so it is server-derived too — it only covers the case
-          // where the profile fetch times out on a flaky connection.
-          const cachedRole = userDataRef.current?.uid === session.user.id
-            ? userDataRef.current.role
-            : null;
-
-          // Unreadable profile and no previously-verified role: staying
-          // unauthenticated sends them to login, which beats guessing a role
-          // and dropping them on the wrong dashboard.
-          if (fetchFailed && !cachedRole) return;
-
-          // A transient failure with a cached role must not touch userData at
-          // all. Rebuilding it here would call buildUserData with profile =
-          // null, which wipes photo_url/name/department even though the role
-          // itself is fine — on screen that reads as "the admin's photo and
-          // name disappeared", triggered by nothing more than a dropped tab
-          // refresh. Leaving the existing state alone is strictly safer than
-          // guessing with a blank profile.
-          if (fetchFailed) {
-            if (mountedRef.current) setLoading(false);
-            return;
-          }
-
-          const role = normalizeRole(profile?.role || cachedRole);
-          const built = buildUserData(session.user, profile, role);
-
-          // Skip applying this result if a newer profile operation (e.g.
-          // updateProfile, or a later auth event) has already started.
-          if (profileOpSeqRef.current === opSeq) {
-            setUser(session.user);
-            setUserData(built);
-            userDataRef.current = built;
-            setIsAuthenticated(true);
-          }
-        }
-      } catch (err) {
-        console.error('❌ initSession error:', err.message);
-      } finally {
-        if (mountedRef.current) setLoading(false);
-      }
-    };
-
-    initSession();
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -271,6 +223,11 @@ export const AuthProvider = ({ children }) => {
 
           const opSeq = ++profileOpSeqRef.current;
 
+          // try/finally because two paths below return early — an archived
+          // profile, and an unreadable one with no cached role. With
+          // initSession gone, nothing else clears `loading`, and a bare
+          // return would leave the app on its spinner for ever.
+          try {
           if (session?.user) {
             const { profile, fetchFailed } = await fetchProfile(session.user.id);
             if (!mountedRef.current) return;
@@ -279,16 +236,20 @@ export const AuthProvider = ({ children }) => {
               await supabase.auth.signOut({ scope: 'local' });
               return;
             }
-            // Role comes ONLY from the profiles row — see the note in initSession.
+            // Role comes ONLY from the profiles row. user_metadata is writable
+            // by the account holder via supabase.auth.updateUser({data:{...}}),
+            // so trusting it here would let anyone grant themselves any role.
+            // The cached fallback is a previous successful read of this same
+            // profile, so it is server-derived too — it covers only the case
+            // where the fetch times out on a flaky connection.
             const cachedRole = userDataRef.current?.uid === session.user.id
               ? userDataRef.current.role
               : null;
 
             if (fetchFailed && !cachedRole) return;
 
-            // Same reasoning as initSession: a transient failure with a cached
-            // role must leave userData untouched rather than rebuild it with a
-            // null profile. This is the path a browser tab-visibility refresh
+            // A transient failure with a cached role must leave userData
+            // untouched rather than rebuild it with a null profile. This is the path a browser tab-visibility refresh
             // takes, so without this a photo/name flicker on tab-switch is a
             // dropped read away, not a real account change.
             if (fetchFailed) {
@@ -317,7 +278,9 @@ export const AuthProvider = ({ children }) => {
             setIsAuthenticated(false);
           }
 
-          if (mountedRef.current) setLoading(false);
+          } finally {
+            if (mountedRef.current) setLoading(false);
+          }
         }, 0);
       }
     );

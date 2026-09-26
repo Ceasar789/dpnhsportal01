@@ -40,8 +40,21 @@ export default defineConfig({
     video: 'off',
   },
 
+  // `channel: 'chrome'` drives the Google Chrome already installed on the
+  // machine instead of the browser Playwright bundles. Not a preference —
+  // the bundled download times out against cdn.playwright.dev from this
+  // network, repeatedly and at any timeout, so `npx playwright install`
+  // never completes and every spec fails at launch with 3ms on the clock.
+  //
+  // The trade: this tests against whatever Chrome version is installed
+  // rather than a pinned one, so a rendering difference between machines is
+  // possible. For a capstone that is the right way round — the app is
+  // demonstrated in this Chrome, so this Chrome is what should be tested.
+  //
+  // If the download ever works, delete the channel line and these tests run
+  // against the pinned build with no other change.
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } },
   ],
 
   // Reuses a dev server you already have running, so `npm run dev` in one

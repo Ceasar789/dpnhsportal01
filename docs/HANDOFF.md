@@ -120,18 +120,32 @@ browser-tested end to end. Ask before merging.
 
 ## Architecture, stated plainly
 
-There is **no Node backend**, and there never was — the user believed there was.
-`package.json` has no server dependency and no start script; Node only runs Vite
-during development and the build. The browser talks straight to Supabase.
+**Frontend** React 18 + Vite. **Backend** a Node/Express service plus the
+PostgreSQL schema and its policies. **Database** Supabase.
 
-**The backend is Supabase**: Postgres, Auth, Storage, the auto-generated REST
-API, and RLS. This is a legitimate architecture (Backend-as-a-Service), and it
-is worth the user being able to say so accurately — "Node.js" invites the
-question "where is the server code?", which has no answer.
+An npm workspaces monorepo: `frontend/`, `backend/`, and `api/index.js` which
+exports the same Express app as a Vercel serverless function. One Vercel
+project, so the API is same-origin and there is no CORS.
 
-Consequences that shape every decision in this repo: migrations are run by hand;
-**RLS is the only authorization boundary**; there are no scheduled jobs, which
-is why news expiry filters on read rather than deleting at midnight.
+The backend is deliberately thin, and the rule is one sentence: **it owns the
+credentials the browser must never see.** Today that is the Gemini API key.
+Next it will be the Supabase service role, for creating user accounts
+properly.
+
+Everything else talks to Supabase directly, and that is a choice rather than
+an omission. **Authorization is 41 Row Level Security policies inside the
+database**, enforced per query, whoever is asking — not `if` statements in a
+route that hold only for requests which went through that route. Re-expressing
+them in JavaScript would be more code and fewer guarantees.
+
+For a long time this repo genuinely had no Node backend, and earlier notes
+said so. That is no longer true: `npm start -w backend` runs a real service,
+and the AI generation path was confirmed working end to end on 2026-09-26.
+
+Consequences that still shape every decision here: migrations are run by hand
+in the SQL Editor; RLS is the authorization boundary; there are no scheduled
+jobs, which is why news expiry filters on read rather than deleting at
+midnight.
 
 ## The one debugging lesson worth carrying forward
 

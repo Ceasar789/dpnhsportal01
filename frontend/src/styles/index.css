@@ -77,9 +77,42 @@ body {
   100%           { transform: rotateY(360deg); }
 }
 
-/* Respect users who ask the OS to reduce motion — show the front only. */
+/* ===== Visible keyboard focus, everywhere =====
+   Nine files removed the focus outline and put nothing in its place, four of
+   them the teacher worksheet modals — where a keyboard user is most likely to
+   be stuck. This restores one indicator for the whole app.
+
+   :focus-visible, not :focus, so a mouse click leaves no ring behind. That is
+   why the outlines were being deleted in the first place, and it is the part
+   that makes a global rule acceptable rather than annoying.
+
+   Specificity is 0,1,0, so any Tailwind focus-visible:ring-* utility (0,2,0)
+   still wins where a component wants its own treatment — the landing pages
+   use gold rings against the navy header, and those are untouched. */
+:focus-visible {
+  outline: 3px solid var(--accent, #1908DF);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ===== Respect a reduced-motion preference, everywhere =====
+   This used to cover the flip logo alone: one animation out of sixty-four.
+   Someone who asks their OS to reduce motion has already told us; every
+   spinner, pulse and page transition in the app was ignoring it.
+
+   Motion is not removed outright — durations collapse to near zero, so state
+   still changes and nothing depends on an animation that never finishes. */
 @media (prefers-reduced-motion: reduce) {
-  .eduscribe-flip-inner { animation: none; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .eduscribe-flip-inner { animation: none !important; }
 }
 
 /* Custom scrollbar */

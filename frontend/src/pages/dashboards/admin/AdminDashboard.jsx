@@ -334,7 +334,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .badge-teal    { color: #5eead4; border-color: #0f766e; background: rgba(45,212,191,0.1); }
         .badge-yellow  { color: #fbbf24; border-color: #b45309; background: rgba(245,158,11,0.1); }
         .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; color: #60a5fa; border: 1px solid #1d4ed8; background: rgba(59,130,246,0.1); }
-        .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: 0; opacity: .7; }
+        .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: 6px; margin: -6px; opacity: .7; }
         .chip-x:hover { opacity: 1; }
         .badge-red     { color: #f87171; border-color: #b91c1c; background: rgba(239,68,68,0.1); }
         .badge-purple  { color: #c4b5fd; border-color: #6d28d9; background: rgba(167,139,250,0.1); }

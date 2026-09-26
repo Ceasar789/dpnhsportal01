@@ -152,10 +152,19 @@ const LessonPlansTab = () => {
       if (err.name === 'AbortError') {
         throw new Error('The request timed out. Try a smaller PDF.');
       }
-      // A backend that is not running fails here as a bare network error,
-      // which says nothing useful to a teacher.
+      // fetch reports every network-level failure as a bare TypeError:
+      // server down, CORS refused, connection blocked, body rejected. The
+      // first version of this said "check that the API is running", which
+      // was wrong the first time it fired — the API was running, and that
+      // message sent the search in the wrong direction for an hour. It now
+      // says what it actually knows: the URL it tried and what the browser
+      // said, with the real cause in the console.
       if (err instanceof TypeError) {
-        throw new Error('Could not reach the lesson plan service. Check that the API is running.');
+        console.error('[lesson-plan] request to', `${API_BASE}/api/ai/lesson-plan`, 'failed:', err);
+        throw new Error(
+          `Could not reach ${API_BASE} — ${err.message}. `
+          + 'The API may be down, blocked, or refusing this origin. See the console.'
+        );
       }
       throw err;
     } finally {

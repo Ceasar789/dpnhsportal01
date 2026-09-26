@@ -62,9 +62,33 @@ BEGIN
   DELETE FROM rls_results;
 
   -- ── Fixtures ───────────────────────────────────────────────────────────
-  -- Two students who share nothing, and two teachers who own different work.
-  SELECT id INTO v_student_a FROM profiles WHERE email = 'student01@example.com';
-  SELECT id INTO v_student_b FROM profiles WHERE email = 'student41@example.com';
+  -- Student A has to be someone who ACTUALLY HAS a submission, or the two
+  -- checks that matter most — can another student read, or overwrite,
+  -- their answers — test nothing and report SKIP.
+  --
+  -- Found from the data rather than hardcoded. The first version named
+  -- student01@example.com, the answer was submitted from a different
+  -- account, and the suite went on reporting SKIP while a real submission
+  -- sat in the table untested.
+  SELECT ws.student_id, ws.id
+    INTO v_student_a, v_sub_a
+  FROM worksheet_submissions ws
+  ORDER BY ws.created_at DESC NULLS LAST
+  LIMIT 1;
+
+  -- No submissions anywhere yet: fall back to a seeded student so the
+  -- other eleven checks still run.
+  IF v_student_a IS NULL THEN
+    SELECT id INTO v_student_a FROM profiles WHERE email = 'student01@example.com';
+  END IF;
+
+  -- Student B is anybody else with a student role — the one doing the
+  -- peeking.
+  SELECT id INTO v_student_b
+  FROM profiles
+  WHERE role = 'student' AND id IS DISTINCT FROM v_student_a
+  ORDER BY email
+  LIMIT 1;
 
   -- A worksheet that has actually been distributed, and the teacher who owns
   -- it — picked from real data rather than assumed, so the checks describe
@@ -82,10 +106,6 @@ BEGIN
   ORDER BY email
   LIMIT 1;
 
-  SELECT id INTO v_sub_a
-  FROM worksheet_submissions
-  WHERE student_id = v_student_a
-  LIMIT 1;
 
   -- ══ 1. A student must not read another student's submissions ═══════════
   IF v_student_a IS NULL OR v_student_b IS NULL THEN

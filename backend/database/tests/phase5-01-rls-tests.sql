@@ -360,7 +360,7 @@ BEGIN
   -- a subtransaction: raising at the end and catching it would roll back
   -- every row written to rls_results along with the probes, and the suite
   -- would report nothing at all. Each write probe undoes itself instead.
-END $;
+END $$;
 
 -- ============================================
 -- THE RESULT — read every row.

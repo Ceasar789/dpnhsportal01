@@ -44,19 +44,22 @@ npm run dev                 # http://localhost:5173
 ```
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key>
-VITE_GEMINI_API_KEY=<gemini key>
+VITE_API_BASE_URL=http://localhost:3001
 ```
 
-The first two are public by design — the anon key is meant to be seen, and
-Row Level Security is what protects the data behind it. **The third is not.**
-Vite inlines every `VITE_*` variable into the shipped bundle, so the Gemini
-key is currently readable by anyone who opens the teacher dashboard. Moving
-it behind the Node service is the open task; see `backend/README.md`.
+All three are public by design. The anon key is meant to reach the browser —
+Row Level Security is what protects the data behind it — and the API base is
+a URL.
+
+The secrets live in `backend/.env` (`cp backend/.env.example backend/.env`):
+the Gemini key and the Supabase service role. Neither can be protected in a
+browser, which is why the Node service exists.
 
 ## Scripts
 
 ```bash
 npm run dev              # frontend dev server
+npm start -w backend     # API on :3001 — needed for AI lesson plans
 npm run build            # production build → frontend/dist
 npm test                 # 117 unit, render and component tests
 npm run test:e2e         # Playwright (needs `npx playwright install chromium`)

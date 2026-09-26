@@ -43,3 +43,6 @@ supabase/.env
 /playwright-report
 /blob-report
 /playwright/.cache
+
+# Backend secrets
+backend/.env

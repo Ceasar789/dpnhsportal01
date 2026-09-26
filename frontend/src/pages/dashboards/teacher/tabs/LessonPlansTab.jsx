@@ -14,6 +14,14 @@ import {
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Table, TR, TD, Modal, Badge, Btn } from '../shared/ui';
 
+// Where the EduScribe API lives. The default is the local dev server; the
+// deployed frontend sets VITE_API_BASE_URL to the deployed one.
+//
+// Note what is NOT here any more: VITE_GEMINI_API_KEY. This is only a URL —
+// public by nature, and worthless to anyone who finds it, which is the whole
+// difference between a base URL and an API key.
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
 const LessonPlansTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
@@ -104,252 +112,54 @@ const LessonPlansTab = () => {
       reader.readAsDataURL(file);
     });
 
-  // ── Call Gemini API with PDF ───────────────────────────────
+  // ── Generate the lesson plan through the backend ───────────
+  // The Gemini key used to be read here, from import.meta.env. Vite inlines
+  // every VITE_* variable into the shipped bundle, so it was readable by
+  // anyone who opened this page — and it is billable. The key, the ILAW
+  // prompt and the retry now live in backend/src, and this sends the PDF to
+  // an endpoint that requires a teacher's own session.
   const callGeminiWithPDF = async (base64PDF, fileName) => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) throw new Error('VITE_GEMINI_API_KEY not set in .env');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Your session has expired. Sign in again and retry.');
+    }
 
-    const prompt = `You are an expert Filipino teacher assistant. Analyze the uploaded PDF document and generate a complete ILAW Lesson Plan following DepEd Order No. 3, s. 2026.
+    // 100s: the server gives Gemini 90 and may retry once, so a client
+    // timeout tight against that would abandon a request still on its way
+    // back and charge for a plan nobody receives.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 100000);
 
-The ILAW framework stands for:
-I - Intentions (Learning Competency, Learning Objectives per day, Learner Context per day)
-L - Learning Experience (Pre-Lesson, Flow, Learning Resources, Integration Opportunities — each per day)
-A - Assessment (Formative Assessment per day)
-W - Ways Forward (Extended Learning opportunities and Reflections per day)
-
-Most fields are organized as a 5-day week (Monday to Friday). If the PDF content only reasonably covers fewer days, you may still fill all 5 columns with a sensible session breakdown so the lesson spans the week.
-
-Based on the PDF content, generate the lesson plan in this EXACT HTML format (keep all class names exactly as shown, do not add or rename any class):
-
-<div class="ilaw-lesson-plan">
-
-<div class="ilaw-letterhead">
-<p>Republic of the Philippines</p>
-<p>Department of Education</p>
-<p>Region IVA-CALABARZON</p>
-<p>City Schools Division of Biñan City</p>
-<p class="ilaw-school-name">Dela Paz National High School</p>
-<p class="ilaw-school-address">P. Paterno St., Dela Paz, Biñan City, Laguna</p>
-</div>
-
-<h2 class="ilaw-title">ILAW Lesson Plan in [Subject from PDF, e.g. TLE 9]</h2>
-
-<table class="ilaw-info-table">
-<tr><th>Name of Lesson</th><td>[Extract or infer from PDF]</td><th>Teaching Date</th><td>[Infer a plausible date range, or write "To be specified"]</td></tr>
-<tr><th>Learning Area/s</th><td>[Subject area from PDF]</td><th>Term No. and Week No.</th><td>[Infer, or write "To be specified"]</td></tr>
-<tr><th>Designed by Teacher/s</th><td colspan="3">[Leave as "____________________"]</td></tr>
-<tr><th>Designed for which Grade Level and Section</th><td colspan="3">[Grade level if mentioned in PDF, else "To be specified"]</td></tr>
-<tr><th>No. of Sessions</th><td colspan="3">5 Sessions (1 Week)</td></tr>
-<tr><th>References (books, websites, toolkits, etc.)</th><td colspan="3">[List references from PDF, or "Based on uploaded material"]</td></tr>
-<tr><th>Declaration of AI use</th><td colspan="3">AI (Gemini) was used to analyze the uploaded reference material and generate a structured first draft of this lesson plan, which the teacher reviewed and edited.</td></tr>
-</table>
-
-<div class="ilaw-section ilaw-I">
-<div class="ilaw-section-header">I — INTENTIONS</div>
-<div class="ilaw-section-intro">Start by deciding what you want learners to master by the end of the lesson — keep it clear and simple.</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Learning Competency</span>
-<span class="ilaw-label-hint">Competency/ies from the curriculum being targeted, and the content or performance standards applicable.</span>
-<p>[Extract main competency from PDF content]</p>
-</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Learning Objectives</span>
-<span class="ilaw-label-hint">Smaller knowledge, skills, or tasks from the competency that learners will work on and show by end of session.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Objective for Mon]</td><td>[Objective for Tue]</td><td>[Objective for Wed]</td><td>[Objective for Thu]</td><td>[Objective for Fri]</td></tr>
-</table>
-</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Learner Context</span>
-<span class="ilaw-label-hint">Observations of learners and how they've been performing recently — strengths, interests, possible barriers.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Context note]</td><td>[Context note]</td><td>[Context note]</td><td>[Context note]</td><td>[Context note]</td></tr>
-</table>
-</div>
-</div>
-
-<div class="ilaw-section ilaw-L">
-<div class="ilaw-section-header">L — LEARNING EXPERIENCE</div>
-<div class="ilaw-section-intro">Identify activities and interactions to help learners gain knowledge, skills, or understanding in a purposeful way.</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Pre-Lesson</span>
-<span class="ilaw-label-hint">How you will help learners get ready for the lesson.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Activity]</td><td>[Activity]</td><td>[Activity]</td><td>[Activity]</td><td>[Activity]</td></tr>
-</table>
-</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Flow</span>
-<span class="ilaw-label-hint">Activities to implement across sessions to meet the learning objectives.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Flow of activities]</td><td>[Flow of activities]</td><td>[Flow of activities]</td><td>[Flow of activities]</td><td>[Flow of activities]</td></tr>
-</table>
-</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Learning Resources</span>
-<span class="ilaw-label-hint">Resources that will help reach the objectives — must be available and inclusive.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Resources]</td><td>[Resources]</td><td>[Resources]</td><td>[Resources]</td><td>[Resources]</td></tr>
-</table>
-</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Opportunities for Integration</span>
-<span class="ilaw-label-hint">Possibilities to meaningfully anchor other learning areas, special topics, or technology. Write N/A if none.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Integration or N/A]</td><td>[Integration or N/A]</td><td>[Integration or N/A]</td><td>[Integration or N/A]</td><td>[Integration or N/A]</td></tr>
-</table>
-</div>
-</div>
-
-<div class="ilaw-section ilaw-A">
-<div class="ilaw-section-header">A — ASSESSMENT</div>
-<div class="ilaw-section-intro">Assessments reveal what learners have gained and what they still need help with.</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Formative Assessment</span>
-<span class="ilaw-label-hint">Task, activity, or questions to evaluate learning and provide feedback, with appropriate accommodations.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Assessment]</td><td>[Assessment]</td><td>[Assessment]</td><td>[Assessment]</td><td>[Assessment]</td></tr>
-</table>
-</div>
-</div>
-
-<div class="ilaw-section ilaw-W">
-<div class="ilaw-section-header">W — WAYS FORWARD</div>
-<div class="ilaw-section-intro">Meaningful learning can also happen beyond the classroom — pause and reflect on what happened today.</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Extended Learning Opportunities</span>
-<span class="ilaw-label-hint">Other learning experiences outside class hours to reinforce, spark curiosity, or support areas of difficulty.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Extension]</td><td>[Extension]</td><td>[Extension]</td><td>[Extension]</td><td>[Extension]</td></tr>
-</table>
-</div>
-<div class="ilaw-field">
-<span class="ilaw-label">Reflections</span>
-<span class="ilaw-label-hint">What to change for next session, and what to share with co-teachers, parents, or school leaders.</span>
-<table class="ilaw-week-table">
-<tr><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
-<tr><td>[Reflection prompt]</td><td>[Reflection prompt]</td><td>[Reflection prompt]</td><td>[Reflection prompt]</td><td>[Reflection prompt]</td></tr>
-</table>
-</div>
-</div>
-
-<div class="ilaw-signatures">
-<span class="ilaw-sig-tag">Prepared by:</span>
-<div class="ilaw-sig-row">
-<div class="ilaw-sig-col">
-<p class="ilaw-sig-name">WILSON R. DALISAY</p>
-<p class="ilaw-sig-position">Teacher II</p>
-</div>
-<div class="ilaw-sig-col">
-<p class="ilaw-sig-name">REXES MARLON A. TEODORO</p>
-<p class="ilaw-sig-position">TLE Coordinator</p>
-<span class="ilaw-sig-tag" style="margin-bottom:0;">Checked by</span>
-</div>
-</div>
-<div class="ilaw-sig-noted">
-<span class="ilaw-sig-tag">Noted:</span>
-<p class="ilaw-sig-name">MARIA BEATRIZ T. MANAIG</p>
-<p class="ilaw-sig-position">School Principal II</p>
-</div>
-</div>
-
-</div>
-
-IMPORTANT:
-- Fill in ALL bracketed placeholders based on actual PDF content — never leave literal placeholder text like "[Extract...]" in the output.
-- Keep the weekly tables to exactly 5 columns (Monday–Friday) in every case.
-- Do NOT include markdown code blocks or backticks in your response.
-- Do NOT change, translate, or omit the letterhead, the signature names, or any class name.
-- Return ONLY the HTML, nothing else.
-- Make the lesson plan detailed and specific to the PDF content, written in clear professional English appropriate for a DepEd lesson plan.`;
-
-    const callOnce = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout — large PDFs / long output need room
-
-      try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
-                    { text: prompt },
-                  ],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 65536,
-                // This is a large-but-deterministic structured-HTML fill-in task, not a
-                // reasoning task — turning off "thinking" gives the full token budget to
-                // the actual output instead of internal reasoning, which is what was
-                // causing intermittent MAX_TOKENS cutoffs on longer PDFs/plans.
-                thinkingConfig: { thinkingBudget: 0 },
-              },
-            }),
-          }
-        );
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => null);
-          throw new Error(errData?.error?.message || `Gemini API error (${response.status})`);
-        }
-
-        const data = await response.json();
-        const candidate = data?.candidates?.[0];
-        if (!candidate) throw new Error('No candidates in Gemini response.');
-
-        const text = candidate?.content?.parts?.[0]?.text || '';
-        const finishReason = candidate?.finishReason;
-
-        if (!text) {
-          if (finishReason === 'MAX_TOKENS') {
-            throw new Error('Gemini ran out of output space before writing anything usable. Try again, or use a shorter/simpler PDF.');
-          }
-          throw new Error('Empty response text from Gemini.');
-        }
-
-        const cleaned = text.replace(/```html/gi, '').replace(/```/g, '').trim();
-
-        // MAX_TOKENS with actual text means the plan was cut off partway —
-        // still usable (teacher can edit/finish it) rather than being discarded outright.
-        if (finishReason === 'MAX_TOKENS') {
-          return { html: cleaned, truncated: true };
-        }
-        return { html: cleaned, truncated: false };
-      } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-          throw new Error('Gemini API timed out after 90 seconds. Try a smaller PDF.');
-        }
-        throw err;
-      }
-    };
-
-    // Transient failures (rate limits, network blips) are common on the free
-    // tier — one retry after a short pause recovers most of them instead of
-    // failing the whole upload outright.
     try {
-      return await callOnce();
+      const response = await fetch(`${API_BASE}/api/ai/lesson-plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({ pdfBase64: base64PDF, fileName }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || `Lesson plan generation failed (${response.status}).`);
+      }
+
+      const { html, truncated } = await response.json();
+      return { html, truncated };
     } catch (err) {
-      console.warn('Gemini generation failed, retrying once:', err.message);
-      await new Promise(r => setTimeout(r, 2000));
-      return await callOnce();
+      if (err.name === 'AbortError') {
+        throw new Error('The request timed out. Try a smaller PDF.');
+      }
+      // A backend that is not running fails here as a bare network error,
+      // which says nothing useful to a teacher.
+      if (err instanceof TypeError) {
+        throw new Error('Could not reach the lesson plan service. Check that the API is running.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 

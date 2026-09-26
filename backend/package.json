@@ -5,11 +5,17 @@
   "type": "module",
   "description": "Database schema, Row Level Security policies, migrations and operational scripts. The Node service that holds the credentials the browser must never see lives here too.",
   "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "backup:history": "node scripts/backup-history.mjs",
     "backup:storage": "node scripts/backup-storage.mjs",
     "db:setup": "node scripts/setup-database.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
-  }
+    "@supabase/supabase-js": "^2.39.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0"
+  },
+  "main": "src/server.js"
 }

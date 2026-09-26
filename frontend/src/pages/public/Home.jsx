@@ -143,7 +143,10 @@ const Home = () => {
   // HERO SECTION - FIXED CAROUSEL
   // ============================================
   const HeroSection = () => (
-    <div className="relative w-full overflow-hidden" style={{ height: '870px' }}>
+    <div
+      className="relative w-full overflow-hidden"
+      style={{ height: 'min(870px, calc(100vh - 90px))', minHeight: '600px' }}
+    >
       {/* Carousel Images - FIXED: minWidth instead of w-full, removed overflow-hidden from track */}
       <div 
         className="absolute inset-0 flex transition-transform duration-700 ease-in-out"
@@ -181,10 +184,10 @@ const Home = () => {
       >
         {/* Headline - UPDATED */}
         <h2 
-          className="font-work font-bold text-white leading-none tracking-tight"
-          style={{ fontSize: isMobile ? '48px' : '72px', letterSpacing: '-3.6px' }}
+          className="font-work font-bold text-white leading-none tracking-tight text-[48px] lg:text-[72px]"
+          style={{ letterSpacing: '-0.03em' }}
         >
-          Welcome to<br />Edu Scribe Portal
+          Welcome to<br />EduScribe Portal
         </h2>
 
         {/* Spacer */}
@@ -203,7 +206,7 @@ const Home = () => {
               boxShadow: '0 20px 25px rgba(126,87,0,0.2)'
             }}
           >
-            Apply for Admission
+            Student Portal
           </button>
 
           <button

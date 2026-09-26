@@ -6,13 +6,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, School, Facebook, BookOpen, Globe, Users, MapPin, Mail, Phone, Pause, Play } from 'lucide-react';
+import { School, Facebook, BookOpen, Globe, Users, MapPin, Mail, Phone, Pause, Play } from 'lucide-react';
 
 const Home = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Two rows on a phone (brand over links), one row on a desktop.
+  const navHeight = isMobile ? 124 : 90;
   const [paused, setPaused] = useState(false);
   const autoSlideRef = useRef(null);
 
@@ -53,64 +54,62 @@ const Home = () => {
   // ============================================
   // TOP NAVIGATION BAR - UPDATED: EduScribe Theme
   // ============================================
-  const TopNavBar = () => (
-    <nav 
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 lg:px-8" 
-      style={{ 
-        height: '90px', 
-        backgroundColor: '#003b7a',
-        paddingLeft: isMobile ? '16px' : '32px', 
-        paddingRight: isMobile ? '16px' : '32px' 
-      }}
+  const Brand = ({ logo, title, subtitle }) => (
+    <button
+      type="button"
+      onClick={() => navigate('/')}
+      aria-label="EduScribe home"
+      className="flex items-center rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
-      {/* Logo + EduScribe Branding */}
-      <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-        <img 
-          src="/capstonelogo.png" 
-          alt="DPNHS Logo" 
-          style={{ height: isMobile ? '50px' : '60px', borderRadius: '50%' }} 
-        />
-        {!isMobile && (
-          <div className="ml-4 flex flex-col justify-center">
-            <h1 className="font-work font-bold text-2xl tracking-tight leading-none">
-              <span style={{ color: '#FEB300' }}>Edu</span>
-              <span style={{ color: '#00D4FF' }}>Scribe</span>
-            </h1>
-            <span className="font-work text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              Dela Paz National High School
-            </span>
-          </div>
-        )}
-      </div>
+      <img src="/capstonelogo.png" alt="" style={{ height: logo, borderRadius: '50%' }} />
+      <span className="ml-3 flex flex-col justify-center">
+        <span className={`font-work font-bold tracking-tight leading-none ${title}`}>
+          <span style={{ color: '#FEB300' }}>Edu</span>
+          <span style={{ color: '#00D4FF' }}>Scribe</span>
+        </span>
+        <span className={`font-work mt-0.5 ${subtitle}`} style={{ color: 'rgba(255,255,255,0.85)' }}>
+          Dela Paz National High School
+        </span>
+      </span>
+    </button>
+  );
 
-      {/* Desktop Nav */}
-      {!isMobile ? (
-        <div className="flex items-center gap-8">
-          <NavLink title="Home" isActive={true} route="/" />
-          <NavLink title="News" isActive={false} route="/news" />
-          <NavLink title="Calendar" isActive={false} route="/calendar" />
-          
-          <button
-            onClick={() => navigate('/login')}
-            className="font-work font-semibold text-white px-8 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: '#22c55e' }}
-          >
-            Login
-          </button>
+  const LoginButton = ({ className }) => (
+    <button
+      onClick={() => navigate('/login')}
+      className={`font-work font-semibold text-white rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a] ${className}`}
+      style={{ backgroundColor: '#22c55e' }}
+    >
+      Login
+    </button>
+  );
+
+  const TopNavBar = () => (
+    <nav
+      className="fixed top-0 left-0 right-0 z-50"
+      style={{ height: navHeight, backgroundColor: '#003b7a' }}
+    >
+      {isMobile ? (
+        // Two rows rather than a hamburger: the three destinations stay on
+        // screen instead of hiding behind an icon the visitor has to guess at.
+        <div className="flex h-full flex-col justify-center gap-2 px-5">
+          <Brand logo="40px" title="text-xl" subtitle="text-[11px]" />
+          <div className="flex items-center gap-1">
+            <NavLink title="Home" isActive={true} route="/" />
+            <NavLink title="News" isActive={false} route="/news" />
+            <NavLink title="Calendar" isActive={false} route="/calendar" />
+            <LoginButton className="ml-auto px-5 py-1.5 text-sm" />
+          </div>
         </div>
       ) : (
-        <div className="relative">
-          <button onClick={() => setMenuOpen(open => !open)} className="p-2" aria-label="Toggle navigation menu" aria-expanded={menuOpen}>
-            <Menu size={28} color="#FFFFFF" />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-14 w-52 rounded-xl bg-white p-2 shadow-xl">
-              {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([title, route]) => (
-                <button key={route} onClick={() => { setMenuOpen(false); navigate(route); }} className="block w-full rounded-lg px-4 py-3 text-left font-work text-sm text-slate-700 hover:bg-slate-100">{title}</button>
-              ))}
-              <button onClick={() => { setMenuOpen(false); navigate('/login'); }} className="mt-1 w-full rounded-lg bg-green-500 px-4 py-3 text-left font-work text-sm font-semibold text-white">Login</button>
-            </div>
-          )}
+        <div className="flex h-full items-center justify-between px-8">
+          <Brand logo="60px" title="text-2xl" subtitle="text-xs" />
+          <div className="flex items-center gap-8">
+            <NavLink title="Home" isActive={true} route="/" />
+            <NavLink title="News" isActive={false} route="/news" />
+            <NavLink title="Calendar" isActive={false} route="/calendar" />
+            <LoginButton className="px-8 py-2.5" />
+          </div>
         </div>
       )}
     </nav>
@@ -145,7 +144,7 @@ const Home = () => {
   const HeroSection = () => (
     <div
       className="relative w-full overflow-hidden"
-      style={{ height: 'min(870px, calc(100vh - 90px))', minHeight: '600px' }}
+      style={{ height: `min(870px, calc(100vh - ${navHeight}px))`, minHeight: '560px' }}
     >
       {/* Carousel Images - FIXED: minWidth instead of w-full, removed overflow-hidden from track */}
       <div 
@@ -182,11 +181,11 @@ const Home = () => {
       {/* Hero Content */}
       <div 
         className="relative z-10 flex flex-col justify-center h-full"
-        style={{ paddingLeft: isMobile ? '20px' : '60px', paddingRight: isMobile ? '20px' : '60px' }}
+        style={{ paddingLeft: isMobile ? '24px' : '60px', paddingRight: isMobile ? '24px' : '60px' }}
       >
         {/* Headline - UPDATED */}
         <h2 
-          className="font-work font-bold text-white leading-none tracking-tight text-[48px] lg:text-[72px]"
+          className="font-work font-bold text-white leading-tight tracking-tight text-[34px] sm:text-[44px] lg:text-[72px]"
           style={{ letterSpacing: '-0.03em' }}
         >
           Welcome to<br />
@@ -196,17 +195,17 @@ const Home = () => {
         </h2>
 
         {/* Spacer */}
-        <div style={{ height: '76px' }} />
+        <div style={{ height: isMobile ? '32px' : '76px' }} />
 
         {/* CTA Buttons */}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4">
           <button
             onClick={() => navigate('/student-login')}
             className="font-work font-bold text-sm tracking-widest px-8 py-4 rounded hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             style={{ 
               backgroundColor: '#FEB300', 
               color: '#6A4800',
-              width: '250px',
+              width: isMobile ? '100%' : '250px',
               height: '58px',
               boxShadow: '0 20px 25px rgba(126,87,0,0.2)'
             }}
@@ -218,8 +217,8 @@ const Home = () => {
             onClick={() => document.getElementById('vision')?.scrollIntoView({
               behavior: reduceMotion ? 'auto' : 'smooth'
             })}
-            className="flex items-center gap-2 px-5 py-4 rounded border-2 border-white text-white font-work font-bold tracking-widest hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-            style={{ height: '58px' }}
+            className="flex items-center justify-center gap-2 px-5 py-4 rounded border-2 border-white text-white font-work font-bold tracking-widest hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            style={{ height: '58px', width: isMobile ? '100%' : undefined }}
           >
             About us
             <span aria-hidden="true">→</span>
@@ -402,7 +401,7 @@ const Home = () => {
     <div className="min-h-screen" style={{ backgroundColor: '#FAF8FF' }}>
       <TopNavBar />
 
-      <main className="pt-[90px]">
+      <main style={{ paddingTop: navHeight }}>
         <HeroSection />
         {isMobile && <VisionCard />}
         <Footer />

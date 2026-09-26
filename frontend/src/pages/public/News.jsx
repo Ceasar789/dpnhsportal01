@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone, AlertTriangle } from 'lucide-react';
+import { Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { localNowTimestamp } from '../../lib/taskFormatting';
@@ -181,14 +181,16 @@ const News = () => {
   // HERO SECTION
   // ============================================
   const HeroSection = () => (
-    <div className="w-full pt-10 pb-10 px-5 lg:px-[100px]">
+    <div className="w-full pt-10 pb-10 px-5 lg:px-[100px] max-w-[1280px] mx-auto">
       <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
-        <div className="lg:flex-[3]">
+        <div className={hero?.featured_image_url ? 'lg:flex-[3]' : 'w-full'}>
           <HeroText />
         </div>
-        <div className="lg:flex-[2]">
-          <HeroImage />
-        </div>
+        {hero?.featured_image_url && (
+          <div className="lg:flex-[2]">
+            <HeroImage />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -196,14 +198,9 @@ const News = () => {
   const HeroText = () => (
     <div>
       {/* Category Badge */}
-      <div
-        className="inline-block px-3 py-1 rounded-sm mb-4"
-        style={{ backgroundColor: 'rgba(254,179,0,0.15)' }}
-      >
-        <span className="font-work font-bold text-xs tracking-widest" style={{ color: '#7E5700' }}>
-          {hero.category?.toUpperCase() || 'CAMPUS LIFE'}
-        </span>
-      </div>
+      <p className="font-work font-bold text-xs tracking-widest mb-3" style={{ color: '#7E5700' }}>
+        {hero.category?.toUpperCase() || 'GENERAL'}
+      </p>
 
       {/* Date */}
       <p className="font-public text-sm mb-4" style={{ color: '#64748B' }}>
@@ -249,8 +246,8 @@ const News = () => {
 
   const HeroImage = () => (
     <img
-      src={hero.featured_image_url || '/capstoneimage1.jpg'}
-      alt={hero.title}
+      src={hero.featured_image_url}
+      alt=""
       className="w-full object-cover rounded-lg h-[250px] lg:h-[400px]"
       onError={e => { e.target.src = '/capstoneimage1.jpg'; }}
     />
@@ -260,7 +257,7 @@ const News = () => {
   // LATEST NEWS SECTION
   // ============================================
   const LatestNewsSection = () => (
-    <div className="w-full py-[60px] px-5 lg:px-[100px]">
+    <div className="w-full py-[60px] px-5 lg:px-[100px] max-w-[1280px] mx-auto">
       {/* Header */}
       <div className="flex justify-between items-end mb-10">
         <div>
@@ -322,12 +319,14 @@ const News = () => {
 
     return (
       <article className="flex flex-col">
-        <img
-          src={item.featured_image_url || '/capstoneimage1.jpg'}
-          alt=""
-          className="w-full object-cover rounded-lg mb-4 aspect-[3/2]"
-          onError={e => { e.target.src = '/capstoneimage1.jpg'; }}
-        />
+        {item.featured_image_url && (
+          <img
+            src={item.featured_image_url}
+            alt=""
+            className="w-full object-cover rounded-lg mb-4 aspect-[3/2]"
+            onError={e => { e.currentTarget.style.display = 'none'; }}
+          />
+        )}
         <div className="flex items-center gap-3 mb-3">
           {/* #FEB300 is 1.80:1 on white. The same gold darkened to #7E5700
               is 5.72:1 and still reads as the brand colour. */}
@@ -361,66 +360,6 @@ const News = () => {
       </article>
     );
   };
-
-  // ============================================
-  // STAY CONNECTED SECTION
-  // ============================================
-  const StayConnectedSection = () => (
-    <div
-      className="mb-16 rounded-lg p-8 sm:p-12 mx-5 lg:mx-[100px]"
-      style={{ backgroundColor: '#001D4E' }}
-    >
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-        <div className="lg:flex-[2]">
-          <StayConnectedText />
-        </div>
-        <div className="lg:flex-[3]">
-          <NewsletterForm />
-        </div>
-      </div>
-    </div>
-  );
-
-  const StayConnectedText = () => (
-    <div>
-      <h3 className="font-work font-extrabold text-2xl tracking-tight text-white mb-4">
-        STAY CONNECTED.
-      </h3>
-      <p className="font-public text-sm leading-relaxed" style={{ color: '#94A3B8', maxWidth: '350px' }}>
-        Subscribe to our weekly editorial digest to receive the latest academic journals, campus events, and administrative updates directly in your inbox.
-      </p>
-    </div>
-  );
-
-  const NewsletterForm = () => (
-    <form className="flex gap-3" onSubmit={e => e.preventDefault()}>
-      <label htmlFor="newsletter-email" className="sr-only">
-        Your academic email address
-      </label>
-      <div
-        className="flex-1 h-12 px-4 rounded flex items-center focus-within:ring-2 focus-within:ring-[#FEB300]"
-        style={{
-          backgroundColor: '#0F2D5E',
-          border: '1px solid #1E3A8A'
-        }}
-      >
-        <input
-          id="newsletter-email"
-          name="newsletter-email"
-          type="email"
-          placeholder="Enter your academic email"
-          className="w-full bg-transparent text-white text-sm outline-none placeholder:text-slate-400"
-        />
-      </div>
-      <button
-        type="submit"
-        className="px-6 py-3.5 rounded font-work font-bold text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
-        style={{ backgroundColor: '#FEB300', color: '#6A4800' }}
-      >
-        Join Circular
-      </button>
-    </form>
-  );
 
   // ============================================
   // FOOTER — EduScribe Dark Blue Theme
@@ -553,7 +492,6 @@ const News = () => {
             {rest.length > 0 && <LatestNewsSection />}
           </>
         )}
-        <StayConnectedSection />
         <Footer />
       </main>
     </div>

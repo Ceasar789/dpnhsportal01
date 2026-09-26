@@ -39,9 +39,29 @@ test.describe('public news', () => {
       .toHaveAttribute('aria-expanded', 'true');
   });
 
-  test('the newsletter field has a real label', async ({ page }) => {
+  test('no control on the page is a dead end', async ({ page }) => {
     await page.goto('/news');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByLabel('Your academic email address')).toBeVisible();
+
+    // The newsletter signup was removed: it had no submit handler and no
+    // backend, so "Join Circular" did nothing at all.
+    await expect(page.getByRole('button', { name: 'Join Circular' })).toHaveCount(0);
+    await expect(page.getByText('STAY CONNECTED.')).toHaveCount(0);
+
+    // Every remaining button must do something, so none may be bare.
+    const labels = await page.getByRole('button').evaluateAll(
+      els => els.map(e => (e.getAttribute('aria-label') || e.textContent || '').trim()));
+    expect(labels.filter(l => l === ''), 'every button needs a name').toEqual([]);
+  });
+
+  test('prose is capped rather than stretching with the monitor', async ({ page }) => {
+    await page.setViewportSize({ width: 2560, height: 1200 });
+    await page.goto('/news');
+    await page.waitForLoadState('networkidle');
+
+    const widest = await page.locator('article p').evaluateAll(
+      els => Math.max(0, ...els.map(e => e.getBoundingClientRect().width)));
+    console.log(`  widest card paragraph at 2560px: ${Math.round(widest)}px`);
+    expect(widest, 'card prose should not run the width of a wide monitor').toBeLessThan(600);
   });
 });

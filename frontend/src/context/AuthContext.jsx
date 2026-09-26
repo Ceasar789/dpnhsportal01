@@ -461,9 +461,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const sendPasswordReset = async (email) => {
-    const appUrl = 'https://dpnhsportal01.vercel.app';
+    // Follows whatever origin the app is served from, rather than a
+    // hardcoded domain. The previous value was a Vercel URL that died the
+    // moment the project was renamed, and that failure is invisible from
+    // here: the email still sends, and the link inside it 404s on someone
+    // else's screen days later. It also meant a reset requested from
+    // localhost sent the developer to production.
+    //
+    // Supabase only honours a redirect it already trusts, so the deployed
+    // origin must be listed under Authentication -> URL Configuration ->
+    // Redirect URLs. Unlisted, it silently falls back to the Site URL.
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${appUrl}/reset-password`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
 
     if (resetError) throw resetError;

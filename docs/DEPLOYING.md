@@ -98,10 +98,31 @@ runaway loop inside a warm instance, which is what it was written for, but
 it is not the hard ceiling it is on a long-running process. Making it one
 needs shared storage.
 
+## Supabase must be told the URL
+
+Renaming the Vercel project changes the domain, and two things in Supabase
+are pinned to it. Neither fails loudly — a password reset email still sends,
+and its link 404s on someone else's screen days later.
+
+Authentication → URL Configuration:
+
+| | |
+| --- | --- |
+| Site URL | `https://eduscribe-dnhs-portal.vercel.app` |
+| Redirect URLs | the same, plus `https://eduscribe-dnhs-portal.vercel.app/reset-password` and `http://localhost:5173/reset-password` |
+
+The app asks for `window.location.origin + '/reset-password'`, so it follows
+whatever domain it is served from — but Supabase only honours a redirect
+already on that list. Unlisted, it silently falls back to the Site URL and
+the user lands somewhere they did not expect.
+
+Add the localhost entry too, or a reset requested while developing sends you
+to production.
+
 ## Verifying a deployment
 
 ```
-https://<your-app>.vercel.app/api/health
+https://eduscribe-dnhs-portal.vercel.app/api/health
 ```
 
 Expect `{"ok":true,"service":"eduscribe-api"}`. If that fails, the function

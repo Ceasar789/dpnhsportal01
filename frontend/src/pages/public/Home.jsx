@@ -173,7 +173,9 @@ const Home = () => {
       <div 
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to right, rgba(0,29,78,0.9) 0%, rgba(0,29,78,0.4) 50%, transparent 100%)'
+          background: isMobile
+            ? 'linear-gradient(to bottom, rgba(0,29,78,0.30) 0%, rgba(0,29,78,0.72) 45%, rgba(0,29,78,0.88) 100%)'
+            : 'linear-gradient(to right, rgba(0,29,78,0.9) 0%, rgba(0,29,78,0.4) 50%, transparent 100%)'
         }}
       />
 

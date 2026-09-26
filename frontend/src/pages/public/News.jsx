@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users } from 'lucide-react';
+import { Search, Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { localNowTimestamp } from '../../lib/taskFormatting';
@@ -21,6 +21,7 @@ const News = () => {
   const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
+  const [heroExpanded, setHeroExpanded] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1100);
@@ -144,7 +145,7 @@ const News = () => {
   const NavLink = ({ title, route, isActive }) => (
     <button
       onClick={() => navigate(route)}
-      className="px-1 py-2 flex flex-col items-center"
+      className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
       <span
         className="font-work text-sm"
@@ -224,17 +225,22 @@ const News = () => {
         className="font-public text-base leading-relaxed mb-8"
         style={{ color: '#64748B', maxWidth: '500px' }}
       >
-        {hero.content?.slice(0, 220)}{hero.content?.length > 220 ? '...' : ''}
+        {heroExpanded ? hero.content : `${hero.content?.slice(0, 220) || ''}${hero.content?.length > 220 ? '...' : ''}`}
       </p>
 
       {/* Read More Button */}
-      <button
-        className="inline-flex items-center gap-2 px-6 py-3.5 rounded font-work font-bold text-sm"
-        style={{ backgroundColor: '#FEB300', color: '#6A4800' }}
-      >
-        Read the full Story
-        <ArrowRight size={16} />
-      </button>
+      {hero.content?.length > 220 && (
+        <button
+          type="button"
+          onClick={() => setHeroExpanded(v => !v)}
+          aria-expanded={heroExpanded}
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded font-work font-bold text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] focus-visible:ring-offset-2"
+          style={{ backgroundColor: '#FEB300', color: '#6A4800' }}
+        >
+          {heroExpanded ? 'Show less' : 'Read the full Story'}
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 
@@ -269,9 +275,15 @@ const News = () => {
             Latest News
           </h3>
         </div>
-        <button onClick={toggleHistory} className="flex items-center gap-1.5 font-work font-bold text-xs tracking-widest" style={{ color: '#64748B' }}>
+        <button
+          type="button"
+          onClick={toggleHistory}
+          aria-expanded={showHistory}
+          className="flex items-center gap-1.5 rounded px-1 py-1 font-work font-bold text-xs tracking-widest focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] focus-visible:ring-offset-2"
+          style={{ color: '#475569' }}
+        >
           {showHistory ? 'HIDE NEWS HISTORY' : 'NEWS HISTORY'}
-          <ExternalLink size={14} />
+          <ExternalLink size={14} aria-hidden="true" />
         </button>
       </div>
       {showHistory && (
@@ -388,27 +400,33 @@ const News = () => {
   );
 
   const NewsletterForm = () => (
-    <div className="flex gap-3">
+    <form className="flex gap-3" onSubmit={e => e.preventDefault()}>
+      <label htmlFor="newsletter-email" className="sr-only">
+        Your academic email address
+      </label>
       <div
-        className="flex-1 h-12 px-4 rounded flex items-center"
+        className="flex-1 h-12 px-4 rounded flex items-center focus-within:ring-2 focus-within:ring-[#FEB300]"
         style={{
           backgroundColor: '#0F2D5E',
           border: '1px solid #1E3A8A'
         }}
       >
         <input
+          id="newsletter-email"
+          name="newsletter-email"
           type="email"
           placeholder="Enter your academic email"
-          className="w-full bg-transparent text-white text-sm outline-none placeholder-gray-500"
+          className="w-full bg-transparent text-white text-sm outline-none placeholder:text-slate-400"
         />
       </div>
       <button
-        className="px-6 py-3.5 rounded font-work font-bold text-sm"
+        type="submit"
+        className="px-6 py-3.5 rounded font-work font-bold text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
         style={{ backgroundColor: '#FEB300', color: '#6A4800' }}
       >
         Join Circular
       </button>
-    </div>
+    </form>
   );
 
   // ============================================
@@ -419,7 +437,7 @@ const News = () => {
       <div className="flex flex-wrap justify-center gap-24 mb-15">
         {/* Brand */}
         <div style={{ width: '260px' }}>
-          <School size={40} color="#94a3b8" />
+          <School size={40} color="#b6c2d1" aria-hidden="true" />
           <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
             DELA PAZ NHS
           </h4>
@@ -433,10 +451,16 @@ const News = () => {
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             NAVIGATION
           </h5>
-          {['Home', 'News', 'Calendar'].map(link => (
-            <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
+          {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([link, route]) => (
+            <button
+              key={link}
+              type="button"
+              onClick={() => navigate(route)}
+              className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+              style={{ color: '#cbd5e1' }}
+            >
               {link}
-            </p>
+            </button>
           ))}
         </div>
 
@@ -445,7 +469,15 @@ const News = () => {
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             RESOURCES
           </h5>
-          {['Faculty Portal', 'Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
+          <button
+            type="button"
+            onClick={() => navigate('/faculty-login')}
+            className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+            style={{ color: '#cbd5e1' }}
+          >
+            Faculty Portal
+          </button>
+          {['Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
             <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
               {link}
             </p>
@@ -458,15 +490,15 @@ const News = () => {
             CONTACT US
           </h5>
           <div className="flex items-center gap-2 mb-3">
-            <span style={{ color: '#94a3b8' }}>📍</span>
+            <MapPin size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>Brgy. Dela Paz, Binan City</span>
           </div>
           <div className="flex items-center gap-2 mb-3">
-            <span style={{ color: '#94a3b8' }}>✉</span>
+            <Mail size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>admissions@delapaznhs.edu.ph</span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: '#94a3b8' }}>📞</span>
+            <Phone size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8642-1234</span>
           </div>
         </div>
@@ -477,14 +509,14 @@ const News = () => {
 
       {/* Bottom */}
       <div className="flex justify-between items-center">
-        <p className="font-public text-xs" style={{ color: '#94a3b8' }}>
+        <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
           © 2024 Dela Paz National High School. All rights reserved.
         </p>
-        <div className="flex gap-4">
-          <Facebook size={18} color="#94a3b8" />
-          <BookOpen size={18} color="#94a3b8" />
-          <Globe size={18} color="#94a3b8" />
-          <Users size={18} color="#94a3b8" />
+        <div className="flex gap-4" aria-hidden="true">
+          <Facebook size={18} color="#b6c2d1" />
+          <BookOpen size={18} color="#b6c2d1" />
+          <Globe size={18} color="#b6c2d1" />
+          <Users size={18} color="#b6c2d1" />
         </div>
       </div>
     </footer>

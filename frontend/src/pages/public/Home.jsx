@@ -6,14 +6,21 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, School, Facebook, BookOpen, Globe, Users } from 'lucide-react';
+import { Menu, School, Facebook, BookOpen, Globe, Users, MapPin, Mail, Phone, Pause, Play } from 'lucide-react';
 
 const Home = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [paused, setPaused] = useState(false);
   const autoSlideRef = useRef(null);
+
+  // The carousel advances on its own, so it must honour a reduced-motion
+  // preference and it must be stoppable - WCAG 2.2.2 (Pause, Stop, Hide).
+  const reduceMotion = typeof window !== 'undefined'
+    && window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const carouselImages = [
     '/capstonebackground.jpg',
@@ -32,10 +39,11 @@ const Home = () => {
 
   // Auto slide carousel - FIXED: uses useCallback for stable reference
   const startAutoSlide = useCallback(() => {
+    if (reduceMotion || paused) return;
     autoSlideRef.current = setTimeout(() => {
       setCurrentPage((prev) => (prev + 1) % carouselImages.length);
     }, 4000);
-  }, [carouselImages.length]);
+  }, [carouselImages.length, reduceMotion, paused]);
 
   useEffect(() => {
     startAutoSlide();
@@ -114,7 +122,7 @@ const Home = () => {
   const NavLink = ({ title, isActive, route }) => (
     <button
       onClick={() => navigate(route)}
-      className="px-1 py-2 flex flex-col items-center"
+      className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
       <span 
         className="font-work text-sm"
@@ -180,13 +188,13 @@ const Home = () => {
         </h2>
 
         {/* Spacer */}
-        <div className="h-19" style={{ height: '76px' }} />
+        <div style={{ height: '76px' }} />
 
         {/* CTA Buttons */}
         <div className="flex flex-wrap gap-4">
           <button
             onClick={() => navigate('/student-login')}
-            className="font-work font-bold text-sm tracking-widest px-8 py-4 rounded hover:opacity-90 transition-opacity"
+            className="font-work font-bold text-sm tracking-widest px-8 py-4 rounded hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             style={{ 
               backgroundColor: '#FEB300', 
               color: '#6A4800',
@@ -199,35 +207,58 @@ const Home = () => {
           </button>
 
           <button
-            onClick={() => navigate('/#vision')}
-            className="flex items-center gap-2 px-5 py-4 rounded border-2 border-white text-white font-work font-bold tracking-widest hover:bg-white/10 transition-colors"
+            onClick={() => document.getElementById('vision')?.scrollIntoView({
+              behavior: reduceMotion ? 'auto' : 'smooth'
+            })}
+            className="flex items-center gap-2 px-5 py-4 rounded border-2 border-white text-white font-work font-bold tracking-widest hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             style={{ height: '58px' }}
           >
             About us
-            <span>→</span>
+            <span aria-hidden="true">→</span>
           </button>
         </div>
       </div>
 
       {/* Carousel Indicators */}
       <div 
-        className="absolute bottom-30 flex gap-2"
+        className="absolute bottom-30 z-20 flex items-center gap-1"
         style={{ left: isMobile ? '20px' : '60px', bottom: '120px' }}
+        role="group"
+        aria-label="Carousel controls"
       >
         {carouselImages.map((_, index) => (
           <button
             key={index}
+            type="button"
             onClick={() => {
               clearTimeout(autoSlideRef.current);
               setCurrentPage(index);
             }}
-            className="h-2 rounded-full transition-all duration-300 cursor-pointer"
-            style={{
-              width: currentPage === index ? '24px' : '8px',
-              backgroundColor: currentPage === index ? '#FEB300' : 'rgba(255,255,255,0.5)'
-            }}
-          />
+            aria-label={`Show slide ${index + 1} of ${carouselImages.length}`}
+            aria-current={currentPage === index ? 'true' : undefined}
+            className="grid h-6 w-6 place-items-center rounded-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          >
+            <span
+              className="block h-2 rounded-full transition-all duration-300"
+              style={{
+                width: currentPage === index ? '20px' : '8px',
+                backgroundColor: currentPage === index ? '#FEB300' : 'rgba(255,255,255,0.5)'
+              }}
+            />
+          </button>
         ))}
+
+        {!reduceMotion && (
+          <button
+            type="button"
+            onClick={() => setPaused(p => !p)}
+            aria-label={paused ? 'Resume the slideshow' : 'Pause the slideshow'}
+            className="ml-2 grid h-6 w-6 place-items-center rounded-full text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}
+          >
+            {paused ? <Play size={12} fill="currentColor" /> : <Pause size={12} fill="currentColor" />}
+          </button>
+        )}
       </div>
 
       {/* Vision Card (Desktop only) */}
@@ -249,7 +280,7 @@ const Home = () => {
       </h3>
 
       <div className="flex gap-2.5">
-        <span className="font-work font-black text-2xl" style={{ color: '#001D4E' }}>II</span>
+        <span className="font-work font-black text-2xl" style={{ color: '#001D4E' }} aria-hidden="true">II</span>
         <p className="font-lato text-lg leading-relaxed" style={{ color: '#505050' }}>
           We dream of Filipinos who passionately love their country and whose values and competencies enable them to realize their full potential and contribute meaningfully to building the nation.
           <br /><br />
@@ -269,7 +300,7 @@ const Home = () => {
       <div className="flex flex-wrap justify-center gap-24 mb-15">
         {/* Brand */}
         <div style={{ width: '260px' }}>
-          <School size={40} color="#94a3b8" />
+          <School size={40} color="#b6c2d1" aria-hidden="true" />
           <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
             DELA PAZ NHS
           </h4>
@@ -283,10 +314,16 @@ const Home = () => {
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             NAVIGATION
           </h5>
-          {['Home', 'News', 'Calendar'].map(link => (
-            <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
+          {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([link, route]) => (
+            <button
+              key={link}
+              type="button"
+              onClick={() => navigate(route)}
+              className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+              style={{ color: '#cbd5e1' }}
+            >
               {link}
-            </p>
+            </button>
           ))}
         </div>
 
@@ -295,7 +332,15 @@ const Home = () => {
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             RESOURCES
           </h5>
-          {['Faculty Portal', 'Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
+          <button
+            type="button"
+            onClick={() => navigate('/faculty-login')}
+            className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+            style={{ color: '#cbd5e1' }}
+          >
+            Faculty Portal
+          </button>
+          {['Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
             <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
               {link}
             </p>
@@ -308,15 +353,15 @@ const Home = () => {
             CONTACT US
           </h5>
           <div className="flex items-center gap-2 mb-3">
-            <span style={{ color: '#94a3b8' }}>📍</span>
+            <MapPin size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>Brgy. Dela Paz, Binan City</span>
           </div>
           <div className="flex items-center gap-2 mb-3">
-            <span style={{ color: '#94a3b8' }}>✉</span>
+            <Mail size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>admissions@delapaznhs.edu.ph</span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: '#94a3b8' }}>📞</span>
+            <Phone size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8642-1234</span>
           </div>
         </div>
@@ -327,14 +372,14 @@ const Home = () => {
 
       {/* Bottom */}
       <div className="flex justify-between items-center">
-        <p className="font-public text-xs" style={{ color: '#94a3b8' }}>
+        <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
           © 2024 Dela Paz National High School. All rights reserved.
         </p>
-        <div className="flex gap-4">
-          <Facebook size={18} color="#94a3b8" />
-          <BookOpen size={18} color="#94a3b8" />
-          <Globe size={18} color="#94a3b8" />
-          <Users size={18} color="#94a3b8" />
+        <div className="flex gap-4" aria-hidden="true">
+          <Facebook size={18} color="#b6c2d1" />
+          <BookOpen size={18} color="#b6c2d1" />
+          <Globe size={18} color="#b6c2d1" />
+          <Users size={18} color="#b6c2d1" />
         </div>
       </div>
     </footer>

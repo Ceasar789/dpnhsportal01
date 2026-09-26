@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Facebook, BookOpen, Globe, Users, School, Camera, MessageCircle, Search } from 'lucide-react';
+import { Menu, Facebook, BookOpen, Globe, Users, School, Camera, MessageCircle, Search, MapPin, Mail, Phone } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
 
 const Login = () => {
@@ -83,7 +83,7 @@ const Login = () => {
   const NavLink = ({ title, isActive, route }) => (
     <button
       onClick={() => navigate(route)}
-      className="px-1 py-2 flex flex-col items-center"
+      className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
       <span 
         className="font-work text-sm"
@@ -149,18 +149,20 @@ const Login = () => {
 
       {/* Bottom Content */}
       <div className="relative z-10 flex items-center gap-2">
-        <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
-          <Facebook size={16} color="white" />
-        </div>
-        <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
-          <Camera size={16} color="white" />
-        </div>
-        <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
-          <MessageCircle size={16} color="white" />
+        <div className="flex items-center gap-2" aria-hidden="true">
+          <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
+            <Facebook size={16} color="white" />
+          </div>
+          <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
+            <Camera size={16} color="white" />
+          </div>
+          <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
+            <MessageCircle size={16} color="white" />
+          </div>
         </div>
         <div className="w-4" />
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20">
-          <Users size={16} color="white" />
+          <Users size={16} color="white" aria-hidden="true" />
           <span className="text-xs font-medium">JOIN 5,550+ ACTIVE STUDENTS</span>
         </div>
       </div>
@@ -185,7 +187,7 @@ const Login = () => {
             Hi, DPNHSian!
           </h2>
           <div className="flex items-center gap-1.5">
-            <span className="text-sm" style={{ color: '#6B7280' }}>↓</span>
+            <span className="text-sm" style={{ color: '#6B7280' }} aria-hidden="true">↓</span>
             <span className="text-sm" style={{ color: '#6B7280' }}>
               Please click or tap your destination.
             </span>
@@ -196,15 +198,15 @@ const Login = () => {
         <div className="flex flex-col gap-4 mt-10">
           <button
             onClick={() => navigate('/student-login')}
-            className="w-full h-10 rounded-3xl font-medium text-lg text-white hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: '#007bff' }}
+            className="w-full h-10 rounded-3xl font-medium text-lg text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0062cc] focus-visible:ring-offset-2"
+            style={{ backgroundColor: '#0062cc' }}
           >
             Student
           </button>
 
           <button
             onClick={() => navigate('/faculty-login')}
-            className="w-full h-10 rounded-3xl font-medium text-lg hover:opacity-90 transition-opacity"
+            className="w-full h-10 rounded-3xl font-medium text-lg hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2c3e50] focus-visible:ring-offset-2"
             style={{ backgroundColor: 'rgb(246, 242, 14)', color: '#2c3e50' }}
           >
             Faculty
@@ -214,9 +216,9 @@ const Login = () => {
         {/* Terms */}
         <p className="text-center text-xs leading-relaxed mt-8" style={{ color: '#6B7280' }}>
           By using this service, you understood and agree to the Dela Paz Online Services{' '}
-          <span className="font-medium" style={{ color: '#007bff' }}>Terms of Use</span>
+          <span className="font-semibold" style={{ color: '#4B5563' }}>Terms of Use</span>
           {' '}and{' '}
-          <span className="font-medium" style={{ color: '#007bff' }}>Privacy Statement</span>
+          <span className="font-semibold" style={{ color: '#4B5563' }}>Privacy Statement</span>
         </p>
       </div>
       </div>
@@ -242,7 +244,15 @@ const Login = () => {
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             RESOURCES
           </h5>
-          {['Faculty Portal', 'Alumni', 'Careers'].map(link => (
+          <button
+            type="button"
+            onClick={() => navigate('/faculty-login')}
+            className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+            style={{ color: '#cbd5e1' }}
+          >
+            Faculty Portal
+          </button>
+          {['Alumni', 'Careers'].map(link => (
             <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
               {link}
             </p>
@@ -265,15 +275,15 @@ const Login = () => {
             CONTACT
           </h5>
           <div className="flex items-center gap-2 mb-3">
-            <span style={{ color: '#94a3b8' }}>📍</span>
+            <MapPin size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>R. Dela Paz St., Pasig City</span>
           </div>
           <div className="flex items-center gap-2 mb-3">
-            <span style={{ color: '#94a3b8' }}>📞</span>
+            <Phone size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8641-XXXX</span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ color: '#94a3b8' }}>✉</span>
+            <Mail size={16} color="#b6c2d1" aria-hidden="true" />
             <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>info@delapaz.edu.ph</span>
           </div>
         </div>
@@ -284,14 +294,14 @@ const Login = () => {
 
       {/* Bottom */}
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <p className="font-public text-xs" style={{ color: '#94a3b8' }}>
+        <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
           © 2024 Dela Paz National High School. All rights reserved.
         </p>
-        <div className="flex gap-4">
-          <Facebook size={18} color="#94a3b8" />
-          <BookOpen size={18} color="#94a3b8" />
-          <Globe size={18} color="#94a3b8" />
-          <Users size={18} color="#94a3b8" />
+        <div className="flex gap-4" aria-hidden="true">
+          <Facebook size={18} color="#b6c2d1" />
+          <BookOpen size={18} color="#b6c2d1" />
+          <Globe size={18} color="#b6c2d1" />
+          <Users size={18} color="#b6c2d1" />
         </div>
       </div>
     </footer>

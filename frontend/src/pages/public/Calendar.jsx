@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../config/supabase';
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Tag, AlertCircle, Loader2, Megaphone, Search, Menu, School, Facebook, BookOpen, Globe, Users } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Tag, AlertCircle, Loader2, Megaphone, Search, Menu, School, Facebook, BookOpen, Globe, Users, Mail, Phone } from 'lucide-react';
 
 const CalendarPage = () => {
   const navigate = useNavigate();
@@ -68,6 +68,15 @@ const CalendarPage = () => {
       return dateStr === eventDate;
     });
   };
+
+  // A dialog has to be dismissible from the keyboard, not only by clicking
+  // the backdrop.
+  useEffect(() => {
+    if (!selectedEvent) return undefined;
+    const onKey = e => { if (e.key === 'Escape') setSelectedEvent(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedEvent]);
 
   const eventTypes = {
     Event: { color: '#1d4ed8', bg: '#dbeafe' },
@@ -151,7 +160,7 @@ const CalendarPage = () => {
   const NavLink = ({ title, isActive, route }) => (
     <button
       onClick={() => navigate(route)}
-      className="px-1 py-2 flex flex-col items-center"
+      className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
       <span 
         className="font-work text-sm"
@@ -196,23 +205,25 @@ const CalendarPage = () => {
         {/* Filter & Controls */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <ChevronLeft size={20} className="text-gray-600" />
+            <button type="button" onClick={prevMonth} aria-label="Previous month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
+              <ChevronLeft size={20} className="text-gray-600" aria-hidden="true" />
             </button>
             <h2 className="text-xl font-bold text-[#1a2b4a]">{monthNames[month]} {year}</h2>
             <select value={year} onChange={e => setCurrentDate(new Date(Number(e.target.value), month, 1))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" aria-label="Calendar year">
               {[...Array(11)].map((_, i) => { const optionYear = new Date().getFullYear() - 5 + i; return <option key={optionYear} value={optionYear}>{optionYear}</option>; })}
             </select>
-            <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <ChevronRight size={20} className="text-gray-600" />
+            <button type="button" onClick={nextMonth} aria-label="Next month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
+              <ChevronRight size={20} className="text-gray-600" aria-hidden="true" />
             </button>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {allTypes.map(type => (
               <button
                 key={type}
+                type="button"
                 onClick={() => setFilterType(type)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+                aria-pressed={filterType === type}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f] focus-visible:ring-offset-1"
                 style={{
                   backgroundColor: filterType === type ? (eventTypes[type]?.color || '#1e3a5f') : '#ffffff',
                   color: filterType === type ? '#ffffff' : '#64748b',
@@ -244,20 +255,30 @@ const CalendarPage = () => {
                   const date = i + 1;
                   const dateEvents = getEventsForDate(date);
                   const isToday = new Date().toDateString() === new Date(year, month, date).toDateString();
-                  
+                  const openDay = () => dateEvents.length > 0 && setSelectedEvent(dateEvents[0]);
+                  const interactive = dateEvents.length > 0;
+
                   return (
                     <div 
                       key={date} 
-                      className="h-24 rounded-lg border border-gray-100 p-1.5 transition-colors hover:bg-gray-50 cursor-pointer"
+                      className={`h-24 rounded-lg border border-gray-100 p-1.5 transition-colors${interactive ? ' hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f] focus-visible:ring-offset-1' : ''}`}
                       style={{ backgroundColor: isToday ? '#eff6ff' : [0, 6].includes(new Date(year, month, date).getDay()) || dateEvents.some(event => getEventType(event) === 'Holiday') ? '#fef2f2' : '#ffffff', borderColor: isToday ? '#3b82f6' : '#e5e7eb' }}
-                      onClick={() => dateEvents.length > 0 && setSelectedEvent(dateEvents[0])}
+                      {...(interactive ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        'aria-label': `${monthNames[month]} ${date}${isToday ? ', today' : ''}: ${dateEvents.length} event${dateEvents.length === 1 ? '' : 's'}`,
+                        onClick: openDay,
+                        onKeyDown: e => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDay(); }
+                        },
+                      } : {})}
                     >
                       <span className={`text-sm font-semibold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>{date}</span>
                       <div className="mt-1 space-y-0.5">
                         {dateEvents.slice(0, 3).map((evt, idx) => (
                           <div 
                             key={idx} 
-                            className="text-[10px] px-1.5 py-0.5 rounded truncate font-medium"
+                            className="text-xs px-1.5 py-0.5 rounded truncate font-medium"
                             style={{ 
                               backgroundColor: eventTypes[getEventType(evt)]?.bg || '#dbeafe',
                               color: eventTypes[getEventType(evt)]?.color || '#1d4ed8'
@@ -267,7 +288,7 @@ const CalendarPage = () => {
                           </div>
                         ))}
                         {dateEvents.length > 3 && (
-                          <div className="text-[10px] text-gray-400 px-1.5">+{dateEvents.length - 3} more</div>
+                          <div className="text-xs text-gray-600 px-1.5">+{dateEvents.length - 3} more</div>
                         )}
                       </div>
                     </div>
@@ -303,8 +324,8 @@ const CalendarPage = () => {
                           )}
                         </div>
                         {event.location && (
-                          <div className="flex items-center gap-1 text-xs text-gray-400">
-                            <MapPin size={12} /> {event.location}
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <MapPin size={12} aria-hidden="true" /> {event.location}
                           </div>
                         )}
                       </div>
@@ -312,7 +333,7 @@ const CalendarPage = () => {
                   </div>
                   <div className="mt-3 flex items-center gap-2">
                     <span 
-                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                      className="px-2 py-0.5 rounded-full text-xs font-semibold"
                       style={{ 
                         backgroundColor: eventTypes[getEventType(event)]?.bg || '#dbeafe',
                         color: eventTypes[getEventType(event)]?.color || '#1d4ed8'
@@ -353,7 +374,7 @@ const CalendarPage = () => {
         <div className="flex flex-wrap justify-center gap-24 mb-16">
           {/* Brand */}
           <div style={{ width: '260px' }}>
-            <School size={40} color="#94a3b8" />
+            <School size={40} color="#b6c2d1" aria-hidden="true" />
             <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
               DELA PAZ NHS
             </h4>
@@ -367,10 +388,16 @@ const CalendarPage = () => {
             <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
               NAVIGATION
             </h5>
-            {['Home', 'News', 'Calendar'].map(link => (
-              <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
+            {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([link, route]) => (
+              <button
+                key={link}
+                type="button"
+                onClick={() => navigate(route)}
+                className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+                style={{ color: '#cbd5e1' }}
+              >
                 {link}
-              </p>
+              </button>
             ))}
           </div>
 
@@ -379,7 +406,15 @@ const CalendarPage = () => {
             <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
               RESOURCES
             </h5>
-            {['Faculty Portal', 'Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
+            <button
+              type="button"
+              onClick={() => navigate('/faculty-login')}
+              className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+              style={{ color: '#cbd5e1' }}
+            >
+              Faculty Portal
+            </button>
+            {['Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
               <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
                 {link}
               </p>
@@ -392,15 +427,15 @@ const CalendarPage = () => {
               CONTACT US
             </h5>
             <div className="flex items-center gap-2 mb-3">
-              <span style={{ color: '#94a3b8' }}>📍</span>
+              <MapPin size={16} color="#b6c2d1" aria-hidden="true" />
               <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>Brgy. Dela Paz, Binan City</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
-              <span style={{ color: '#94a3b8' }}>✉</span>
+              <Mail size={16} color="#b6c2d1" aria-hidden="true" />
               <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>admissions@delapaznhs.edu.ph</span>
             </div>
             <div className="flex items-center gap-2">
-              <span style={{ color: '#94a3b8' }}>📞</span>
+              <Phone size={16} color="#b6c2d1" aria-hidden="true" />
               <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8642-1234</span>
             </div>
           </div>
@@ -411,14 +446,14 @@ const CalendarPage = () => {
 
         {/* Bottom */}
         <div className="flex justify-between items-center">
-          <p className="font-public text-xs" style={{ color: '#94a3b8' }}>
+          <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
             © 2024 Dela Paz National High School. All rights reserved.
           </p>
-          <div className="flex gap-4">
-            <Facebook size={18} color="#94a3b8" />
-            <BookOpen size={18} color="#94a3b8" />
-            <Globe size={18} color="#94a3b8" />
-            <Users size={18} color="#94a3b8" />
+          <div className="flex gap-4" aria-hidden="true">
+            <Facebook size={18} color="#b6c2d1" />
+            <BookOpen size={18} color="#b6c2d1" />
+            <Globe size={18} color="#b6c2d1" />
+            <Users size={18} color="#b6c2d1" />
           </div>
         </div>
       </footer>
@@ -426,16 +461,22 @@ const CalendarPage = () => {
       {/* Event Detail Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedEvent(null)}>
-          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-dialog-title"
+            className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 mb-4">
               <div 
                 className="w-10 h-10 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: eventTypes[getEventType(selectedEvent)]?.bg || '#dbeafe' }}
               >
-                <Calendar size={20} style={{ color: eventTypes[getEventType(selectedEvent)]?.color || '#1d4ed8' }} />
+                <Calendar size={20} aria-hidden="true" style={{ color: eventTypes[getEventType(selectedEvent)]?.color || '#1d4ed8' }} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-[#1a2b4a]">{selectedEvent.title}</h3>
+                <h3 id="event-dialog-title" className="text-lg font-bold text-[#1a2b4a]">{selectedEvent.title}</h3>
                 <span 
                   className="text-xs font-semibold px-2 py-0.5 rounded-full"
                   style={{ 
@@ -473,7 +514,8 @@ const CalendarPage = () => {
             
             <button 
               onClick={() => setSelectedEvent(null)}
-              className="w-full h-10 rounded-lg bg-[#1e3a5f] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+              type="button"
+              className="w-full h-10 rounded-lg bg-[#1e3a5f] text-white text-sm font-semibold hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f] focus-visible:ring-offset-2"
             >
               Close 
             </button>

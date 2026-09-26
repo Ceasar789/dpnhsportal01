@@ -122,58 +122,43 @@ real submission sitting in the table. A test that names its own fixture
 reports SKIP forever and looks like it is working. It now finds the most
 recent submission and works backwards to whoever owns it.
 
-## Open items, most useful first
+## Open items
 
-**1. Math tasks in "Other" — CLOSED.** Never diagnosed by the query that was
-pending here for three days, because the design changed out from under it.
-The subject cards used to come from `schedules` alone, so a task whose subject had no schedule row for that
-section fell into an "Other" bucket that discarded the one useful thing about
-it — its subject name.
+Almost everything that stood here is now done. What remains:
 
-The card set is now the schedule PLUS every subject the student has work in
-(`src/lib/studentTaskGraph.js`), so a task always lands on a card named after
-its own subject. Other emptied itself and was then deleted outright: the
-card, the `?subject=other` filter and `src/lib/otherTask.js` with its six
-tests are gone.
+**1. The end-to-end suite has never run.** Fifteen Playwright specs in
+`e2e/`. They parse and list, and not one has executed — the machine they
+were written on could not download a browser binary.
 
-A task with no subject at all has no card. Deliberate and safe: it is still
-counted in the pending total and still listed in full on the Tasks tab, and
-the app cannot create one anyway — both worksheet insert paths set
-`subject_id` and refuse without it.
+    npx playwright install chromium
+    npm run test:e2e
 
-**2. Performance part 2 — DONE.** The student dashboard now fetches one
-graph once (`src/lib/studentTaskGraph.js`, held by
-`student/StudentDataContext.jsx`). 18 round trips across Overview + Tasks
-became 9, and moving between the two costs none. Because nothing here
-auto-updates, the graph reloads on window focus, throttled to 30s — the
-refetch-on-tab-switch that used to surface a new task is gone.
+Read-only by design: there is no test database, so they run against the
+live one and nothing creates, edits or deletes a row.
 
-**3. Almost nothing built since 2026-09-22 has been clicked by a human.**
-The student data-layer consolidation, the teacher-notification trigger, the
-five seed files, the Teaching Load rebuild, the grade-level split of Teaching
-Load and Schedules, the inline form validation, the bell's mark-on-open and
-the removal of Other all passed `npm run build` and 94 tests. Almost none of
-it has been opened in a browser.
+**2. `profiles` still exposes columns a student should not see.** The RLS
+audit narrowed WHICH ROWS a student may read — themselves, staff, their own
+classmates — but Row Level Security cannot hide `phone`, `date_of_birth` or
+`address` while showing `name`. A student can still read those for a
+classmate.
 
-That is the exact state the `Loader2` bug shipped in: Vite does not resolve
-free identifiers, so an undeclared global goes into the bundle untouched and
-fails only in a browser. `renderSmoke.test.jsx` now covers the student tabs
-and both rebuilt admin tabs, which closes that hole and nothing wider — and
-not even all of it: with no sections in the stub, SchedulesTab renders only
-its empty state, so the section-open path is untested. Verified by removing
-an import used only there and watching the suite still pass.
+Closing it needs a view with a named column list and a change at every
+`select('*')` on profiles — five of them. Bigger than a policy change, and
+worth doing before this holds real students' data.
 
-**4. The Gemini API key ships to the browser.**
-`src/pages/dashboards/teacher/tabs/LessonPlansTab.jsx:109` reads
-`VITE_GEMINI_API_KEY`, and Vite inlines every `VITE_*` value into the bundle at
-build time. `.env` being gitignored protects the repo, not the shipped
-JavaScript. Anyone who opens the teacher dashboard can read the key. **This is
-the one thing in the system that genuinely needs a server** — an API key cannot
-be protected in a browser. Discussed with the user, not yet decided.
+## Done since this file was last rewritten
 
-**5. Merge.** Not done. The branch is pushed to origin, so the work is safe,
-but nothing is merged into `master` and the full flow has never been
-browser-tested end to end. Ask before merging.
+- **Backend built.** `backend/src` runs an Express service holding the
+  Gemini key. Confirmed generating lesson plans in production.
+- **Deployed.** One Vercel project, live, AI path verified end to end.
+- **Merged.** `task-distribution` merged to `master` and pushed.
+- **RLS audited.** 26 checks, all passing, nothing untested.
+- **Three dead features revived.** `pre_enrollment`, `documents` and
+  `grades` had RLS on with no policies and had never accepted a write.
+- **Password reset verified** on the live site, after a rename left it
+  pointing at a domain that no longer existed.
+- **Monorepo split** into `frontend/` and `backend/` workspaces.
+- **117 automated tests**, plus the RLS suite and the Playwright specs.
 
 ## Known gaps the user already knows about
 

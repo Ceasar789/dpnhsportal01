@@ -187,7 +187,10 @@ const Home = () => {
           className="font-work font-bold text-white leading-none tracking-tight text-[48px] lg:text-[72px]"
           style={{ letterSpacing: '-0.03em' }}
         >
-          Welcome to<br />EduScribe Portal
+          Welcome to<br />
+          <span style={{ color: '#FEB300' }}>Edu</span>
+          <span style={{ color: '#00D4FF' }}>Scribe</span>
+          {' '}Portal
         </h2>
 
         {/* Spacer */}
@@ -276,15 +279,15 @@ const Home = () => {
     <div
       id="vision"
       className="absolute right-0 bottom-0 bg-white p-10"
-      style={{ width: '447px', height: '438px' }}
+      style={{ width: '447px', minHeight: '438px' }}
     >
       <h3 className="font-work font-bold text-xs tracking-widest mb-8" style={{ color: '#7E5700' }}>
         OUR VISION
       </h3>
 
       <div className="flex gap-2.5">
-        <span className="font-work font-black text-2xl" style={{ color: '#001D4E' }} aria-hidden="true">II</span>
-        <p className="font-lato text-lg leading-relaxed" style={{ color: '#505050' }}>
+        <span className="font-work font-black text-4xl leading-none" style={{ color: '#001D4E' }} aria-hidden="true">“</span>
+        <p className="font-public text-lg leading-relaxed" style={{ color: '#505050' }}>
           We dream of Filipinos who passionately love their country and whose values and competencies enable them to realize their full potential and contribute meaningfully to building the nation.
           <br /><br />
           As a learner-centered public institution, the Department of Education continuously improves itself to better serve its stakeholders.
@@ -300,9 +303,9 @@ const Home = () => {
   // ============================================
   const Footer = () => (
     <footer className="w-full" style={{ backgroundColor: '#003b7a', padding: '65px 48px 32px' }}>
-      <div className="flex flex-wrap justify-center gap-24 mb-15">
+      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 mb-14 max-w-[1280px] mx-auto">
         {/* Brand */}
-        <div style={{ width: '260px' }}>
+        <div>
           <School size={40} color="#b6c2d1" aria-hidden="true" />
           <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
             DELA PAZ NHS
@@ -313,7 +316,7 @@ const Home = () => {
         </div>
 
         {/* Navigation */}
-        <div style={{ width: '150px' }}>
+        <div>
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             NAVIGATION
           </h5>
@@ -331,7 +334,7 @@ const Home = () => {
         </div>
 
         {/* Resources */}
-        <div style={{ width: '150px' }}>
+        <div>
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             RESOURCES
           </h5>
@@ -351,7 +354,7 @@ const Home = () => {
         </div>
 
         {/* Contact */}
-        <div style={{ width: '260px' }}>
+        <div>
           <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
             CONTACT US
           </h5>
@@ -371,10 +374,10 @@ const Home = () => {
       </div>
 
       {/* Divider */}
-      <div className="border-t mb-8" style={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+      <div className="border-t mb-8 max-w-[1280px] mx-auto" style={{ borderColor: 'rgba(255,255,255,0.15)' }} />
 
       {/* Bottom */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-4 max-w-[1280px] mx-auto">
         <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
           © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
         </p>

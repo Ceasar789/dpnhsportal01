@@ -14,6 +14,7 @@ export default {
       },
       fontFamily: {
         'work': ['Work Sans', 'sans-serif'],
+        'public': ['Public Sans', 'sans-serif'],
       },
     },
   },

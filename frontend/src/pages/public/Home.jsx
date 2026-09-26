@@ -268,18 +268,20 @@ const Home = () => {
       </div>
 
       {/* Vision Card (Desktop only) */}
-      {!isMobile && <VisionCard />}
+      {!isMobile && <VisionCard floating />}
     </div>
   );
 
   // ============================================
   // VISION CARD (Desktop only)
   // ============================================
-  const VisionCard = () => (
+  const VisionCard = ({ floating = false }) => (
     <div
       id="vision"
-      className="absolute right-0 bottom-0 bg-white p-10"
-      style={{ width: '447px', minHeight: '438px' }}
+      className={floating
+        ? 'absolute right-0 bottom-0 bg-white p-10'
+        : 'relative bg-white p-8 mx-5 my-10 rounded-lg shadow-sm'}
+      style={floating ? { width: '447px', minHeight: '438px' } : undefined}
     >
       <h3 className="font-work font-bold text-xs tracking-widest mb-8" style={{ color: '#7E5700' }}>
         OUR VISION
@@ -325,7 +327,7 @@ const Home = () => {
               key={link}
               type="button"
               onClick={() => navigate(route)}
-              className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+              className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
               style={{ color: '#cbd5e1' }}
             >
               {link}
@@ -341,7 +343,7 @@ const Home = () => {
           <button
             type="button"
             onClick={() => navigate('/faculty-login')}
-            className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+            className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
             style={{ color: '#cbd5e1' }}
           >
             Faculty Portal
@@ -400,6 +402,7 @@ const Home = () => {
 
       <main className="pt-[90px]">
         <HeroSection />
+        {isMobile && <VisionCard />}
         <Footer />
       </main>
     </div>

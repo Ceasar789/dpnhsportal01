@@ -65,3 +65,45 @@ test.describe('home page', () => {
     expect(body).not.toContain('Edu Scribe');
   });
 });
+
+// The vision card used to render only above 1100px, so a phone and a tablet
+// got no "Our Vision" at all — and About us, which scrolls to it, silently
+// did nothing for every one of those visitors.
+const PHONES = [[360, 740, 'small Android'], [390, 844, 'iPhone 14'], [768, 1024, 'tablet'], [1024, 768, 'tablet landscape']];
+
+test.describe('home page on small screens', () => {
+  for (const [w, h, label] of PHONES) {
+    test(`${label} ${w}x${h}: no sideways scroll, and Our Vision is there`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+
+      const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
+      expect(scrollW, `${label} scrolls sideways`).toBeLessThanOrEqual(w + 1);
+      await expect(page.locator('#vision')).toHaveCount(1);
+    });
+  }
+
+  test('About us actually scrolls on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /About us/ }).click();
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => window.scrollY), 'About us went nowhere').toBeGreaterThan(0);
+  });
+
+  test('every tap target clears 24px on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const small = await page.locator('button, a').evaluateAll(els => els
+      .map(e => ({ name: (e.textContent || e.getAttribute('aria-label') || '?').trim().slice(0, 20),
+                   b: e.getBoundingClientRect() }))
+      .filter(x => x.b.width > 0 && (x.b.width < 24 || x.b.height < 24))
+      .map(x => `${x.name} ${Math.round(x.b.width)}x${Math.round(x.b.height)}`));
+    expect(small, 'targets under the 24x24 WCAG 2.2 AA minimum').toEqual([]);
+  });
+});

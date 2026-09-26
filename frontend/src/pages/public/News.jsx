@@ -388,7 +388,7 @@ const News = () => {
               key={link}
               type="button"
               onClick={() => navigate(route)}
-              className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+              className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
               style={{ color: '#cbd5e1' }}
             >
               {link}
@@ -404,7 +404,7 @@ const News = () => {
           <button
             type="button"
             onClick={() => navigate('/faculty-login')}
-            className="block mb-4 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
+            className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
             style={{ color: '#cbd5e1' }}
           >
             Faculty Portal

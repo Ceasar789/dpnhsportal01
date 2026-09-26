@@ -80,7 +80,7 @@ variable or a project setting does not — that needs a manual Redeploy.
 ## Row Level Security — audited and closed
 
 `backend/database/tests/phase5-01-rls-tests.sql`, run 2026-09-26 against the
-live database: **24 PASS, 2 SKIP, 0 FAIL, 0 REVIEW.**
+live database: **26 PASS, 0 SKIP, 0 FAIL, 0 REVIEW.** Nothing untested.
 
 The first run found two things no unit test could have, because the
 application code is correct in both cases and the database was the one
@@ -111,10 +111,16 @@ So a student now sees only themselves, staff, and their own classmates —
 and a classmate's phone number is still visible to them. Closing that needs
 a view with a named column list and a change at every `select('*')`.
 
-**The two SKIPs are not passes.** They need one student submission to exist
-before they test anything, and they are the pair that matters most: whether
-a student can read or overwrite another student's answers. Distribute a
-task, answer it as `student01@example.com`, submit, and re-run the suite.
+**The last two checks were the hard ones**, and they now run against real
+data: a second student can neither read nor overwrite another student's
+answers.
+
+They reported SKIP at first, and the reason is worth keeping. The fixture
+named `student01@example.com` while the answer had been submitted from a
+different account, so the suite went on saying "nothing to test" with a
+real submission sitting in the table. A test that names its own fixture
+reports SKIP forever and looks like it is working. It now finds the most
+recent submission and works backwards to whoever owns it.
 
 ## Open items, most useful first
 

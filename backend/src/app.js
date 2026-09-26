@@ -79,7 +79,15 @@ export function createApp() {
 
   // For the host's health check, and for answering "is the API even up?"
   // without needing a login.
-  app.get('/health', (_req, res) => res.json({ ok: true, service: 'eduscribe-api' }));
+  //
+  // Registered at both paths because the prefix differs by host. Run as a
+  // process it is localhost:3001/health; on Vercel every request reaching
+  // the function is rewritten under /api, so Express sees /api/health. The
+  // first live check hit the second path, got this app's own 404 back, and
+  // read as "the API is not deployed" when in fact it was answering.
+  const health = (_req, res) => res.json({ ok: true, service: 'eduscribe-api' });
+  app.get('/health', health);
+  app.get('/api/health', health);
 
   app.use('/api/ai', aiRoutes);
 

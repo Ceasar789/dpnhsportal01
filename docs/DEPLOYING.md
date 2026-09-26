@@ -108,7 +108,7 @@ Authentication → URL Configuration:
 
 | | |
 | --- | --- |
-| Site URL | `https://eduscribe-dnhs-portal.vercel.app` |
+| Site URL | `https://eduscribe-dnhs-portal.vercel.app` — must match the domain in Vercel → Settings → Domains, which a project RENAME does not update on its own |
 | Redirect URLs | the same, plus `https://eduscribe-dnhs-portal.vercel.app/reset-password` and `http://localhost:5173/reset-password` |
 
 The app asks for `window.location.origin + '/reset-password'`, so it follows

@@ -332,28 +332,48 @@ BEGIN
                  WHEN v_ok THEN 'PASS' ELSE 'FAIL' END);
   END LOOP;
 
-  -- ══ 12. No policy is wide open ═════════════════════════════════════════
+  -- ══ 12. No UNEXPECTED policy is wide open ══════════════════════════════
+  -- Three unconditional reads are deliberate and were reviewed:
+  --   calendar_events  the school calendar, served on a public /calendar route
+  --   school_settings  the school's own name, address and phone — not a person's
+  --   subjects         a lookup table every screen has to read
+  -- Named rather than counted, so adding a fourth shows up as a failure
+  -- instead of raising a number nobody looks at twice.
   SELECT count(*) INTO v_n
   FROM pg_policies
-  WHERE schemaname = 'public' AND (qual = 'true' OR with_check = 'true');
+  WHERE schemaname = 'public'
+    AND (qual = 'true' OR with_check = 'true')
+    AND NOT (tablename = 'calendar_events' AND policyname = 'public_view_calendar_events')
+    AND NOT (tablename = 'school_settings' AND policyname = 'school_settings_read')
+    AND NOT (tablename = 'subjects'        AND policyname = 'subjects_read');
   INSERT INTO rls_results (area, check_name, expected, actual, status)
-  VALUES ('policies', 'No policy grants unconditional access',
-          '0 policies', v_n || ' policies',
+  VALUES ('policies', 'No unreviewed policy grants unconditional access',
+          '0 beyond the 3 reviewed', v_n || ' unreviewed',
           CASE WHEN v_n = 0 THEN 'PASS' ELSE 'REVIEW' END);
 
   -- ══ 13. Every RLS-enabled table has at least one policy ════════════════
   -- RLS on with zero policies is default-deny: the table reads as empty for
   -- everyone, which looks exactly like "no data yet" and is the failure mode
   -- this whole project keeps tripping over.
+  -- Six tables are knowingly left in that state, and default deny is the
+  -- right answer for them: nothing reads them. The only references are
+  -- src/lib/db.js, which nothing imports, and two .orig backup files; four
+  -- were superseded by worksheets and task_assignees in Phase 3.
+  --
+  -- Excluded by name, not by count. A seventh table arriving here means a
+  -- real feature was switched off, and that must not hide behind a number
+  -- that was already failing.
   SELECT count(*) INTO v_n
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity
+    AND c.relname NOT IN ('assignments', 'assignment_submissions', 'quizzes',
+                          'quiz_results', 'class_announcements', 'ilaw_lesson_plans')
     AND NOT EXISTS (SELECT 1 FROM pg_policies p
                     WHERE p.schemaname = 'public' AND p.tablename = c.relname);
   INSERT INTO rls_results (area, check_name, expected, actual, status)
-  VALUES ('policies', 'No table has RLS on with zero policies',
-          '0 tables', v_n || ' tables',
+  VALUES ('policies', 'No live table has RLS on with zero policies',
+          '0 beyond the 6 dead ones', v_n || ' live tables',
           CASE WHEN v_n = 0 THEN 'PASS' ELSE 'FAIL' END);
 
   -- No suite-wide rollback here on purpose. A DO block's BEGIN…EXCEPTION is

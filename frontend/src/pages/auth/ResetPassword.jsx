@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../config/supabase';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { validatePassword, PASSWORD_HINT } from '../../lib/passwordPolicy';
 import FlippingLogo from '../../components/FlippingLogo';
 
@@ -115,9 +115,11 @@ const ResetPassword = () => {
 
           {/* Message */}
           {message && (
-            <div className="flex items-start gap-2 p-3 rounded-md mb-4"
+            <div role="alert" className="flex items-start gap-2 p-3 rounded-md mb-4"
               style={{ backgroundColor: isSuccess ? '#d1fae5' : '#fee2e2' }}>
-              <span className="text-lg">{isSuccess ? '✅' : '⚠'}</span>
+              {isSuccess
+                ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
+                : <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />}
               <p className="text-sm flex-1" style={{ color: isSuccess ? '#065f46' : '#dc3545' }}>{message}</p>
             </div>
           )}
@@ -167,7 +169,7 @@ const ResetPassword = () => {
           {!checking && !validSession && !isSuccess && (
             <div className="flex flex-col items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                <span className="text-3xl">⚠️</span>
+                <AlertTriangle size={30} style={{ color: '#dc3545' }} aria-hidden="true" />
               </div>
               <h3 className="text-lg font-bold" style={{ color: '#dc3545' }}>Link Expired or Invalid</h3>
               <p className="text-sm text-center" style={{ color: '#6B7280' }}>

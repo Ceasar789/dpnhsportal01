@@ -356,14 +356,15 @@ const CalendarPage = () => {
         )}
 
         {/* News Link */}
-        <div className="mt-12 p-6 bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] rounded-xl text-white text-center">
+        <div className="mt-12 p-6 rounded-xl text-white text-center" style={{ backgroundColor: '#003b7a' }}>
           <h3 className="text-xl font-bold mb-2">Latest School News</h3>
-          <p className="text-blue-200 mb-4">Read the latest announcements and updates from Dela Paz National High School</p>
+          <p className="mb-4" style={{ color: '#cbd5e1' }}>Read the latest announcements and updates from Dela Paz National High School</p>
           <Link 
             to="/news" 
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#1e3a5f] rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg font-semibold hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
+            style={{ color: '#003b7a' }}
           >
-            <Megaphone size={18} /> View News
+            <Megaphone size={18} aria-hidden="true" /> View News
           </Link>
         </div>
         </div>

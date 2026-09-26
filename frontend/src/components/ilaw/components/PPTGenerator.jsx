@@ -3,7 +3,7 @@
 // ============================================
 
 import React, { useState } from 'react';
-import { Download, Loader2, ArrowLeft } from 'lucide-react';
+import { Download, Loader2, ArrowLeft, Presentation, Check } from 'lucide-react';
 
 export const PPTGenerator = ({ lessonPlan, dark, onBack, isGenerating, onGenerate }) => {
   const [pptContent, setPptContent] = useState(null);
@@ -35,7 +35,7 @@ export const PPTGenerator = ({ lessonPlan, dark, onBack, isGenerating, onGenerat
       <div className="max-w-4xl mx-auto p-6" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
         <button
           onClick={onBack}
-          className="flex items-center gap-2 mb-6 font-semibold text-blue-500 hover:text-blue-700">
+          className="flex items-center gap-2 mb-6 font-semibold hover:underline" style={{ color: dark ? '#8b9cff' : '#1908DF' }}>
           <ArrowLeft size={18} /> Back to Lesson Plan
         </button>
 
@@ -45,8 +45,8 @@ export const PPTGenerator = ({ lessonPlan, dark, onBack, isGenerating, onGenerat
             backgroundColor: dark ? '#1e293b' : '#ffffff',
             borderColor: dark ? '#334155' : '#e2e8f0'
           }}>
-          <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">📊</span>
+          <div className="w-16 h-16 rounded-lg flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#003b7a' }}>
+            <Presentation size={28} color="#ffffff" aria-hidden="true" />
           </div>
           <h2 className="text-2xl font-bold mb-4" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
             Generate PowerPoint Presentation
@@ -60,13 +60,13 @@ export const PPTGenerator = ({ lessonPlan, dark, onBack, isGenerating, onGenerat
               What will be included:
             </p>
             <ul className="space-y-2 text-sm" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
-              <li>✓ Title slide with lesson information</li>
-              <li>✓ Learning objectives slide</li>
-              <li>✓ Main content slides with key points</li>
-              <li>✓ Interactive activity slides</li>
-              <li>✓ Assessment slide</li>
-              <li>✓ Summary/reflection slide</li>
-              <li>✓ Speaker notes for each slide</li>
+              <li className="flex items-start gap-2"><Check size={15} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" /><span>Title slide with lesson information</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" /><span>Learning objectives slide</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" /><span>Main content slides with key points</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" /><span>Interactive activity slides</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" /><span>Assessment slide</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" /><span>Summary/reflection slide</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" /><span>Speaker notes for each slide</span></li>
             </ul>
           </div>
 
@@ -87,7 +87,7 @@ export const PPTGenerator = ({ lessonPlan, dark, onBack, isGenerating, onGenerat
     <div className="max-w-4xl mx-auto p-6" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
       <button
         onClick={onBack}
-        className="flex items-center gap-2 mb-6 font-semibold text-blue-500 hover:text-blue-700">
+        className="flex items-center gap-2 mb-6 font-semibold hover:underline" style={{ color: dark ? '#8b9cff' : '#1908DF' }}>
         <ArrowLeft size={18} /> Back to Lesson Plan
       </button>
 
@@ -160,7 +160,7 @@ const SlidePreview = ({ slide, slideNumber, dark }) => (
       <ul className="space-y-2 mb-4 ml-4">
         {slide.bulletPoints.map((point, idx) => (
           <li key={idx} className="flex items-start gap-2">
-            <span className="text-blue-500 font-bold">•</span>
+            <span className="font-bold" style={{ color: dark ? '#8b9cff' : '#1908DF' }} aria-hidden="true">•</span>
             <span style={{ color: dark ? '#cbd5e1' : '#374151' }}>{point}</span>
           </li>
         ))}

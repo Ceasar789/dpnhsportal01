@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { validatePassword, PASSWORD_HINT } from '../../lib/passwordPolicy';
 import FlippingLogo from '../../components/FlippingLogo';
 
@@ -54,9 +54,11 @@ const ChangePassword = () => {
           </div>
 
           {message && (
-            <div className="flex items-start gap-2 p-3 rounded-md mb-4"
+            <div role="alert" className="flex items-start gap-2 p-3 rounded-md mb-4"
               style={{ backgroundColor: isSuccess ? '#d1fae5' : '#fee2e2' }}>
-              <span className="text-lg">{isSuccess ? '✅' : '⚠'}</span>
+              {isSuccess
+                ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
+                : <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />}
               <p className="text-sm flex-1" style={{ color: isSuccess ? '#065f46' : '#dc3545' }}>{message}</p>
             </div>
           )}

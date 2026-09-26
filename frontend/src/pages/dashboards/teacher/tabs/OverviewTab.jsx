@@ -161,7 +161,8 @@ const OverviewTab = () => {
     fetchOverviewData();
   }, [fetchOverviewData]);
 
-  const classDot = (status) => (status === 'current' ? '🟢' : status === 'upcoming' ? '🔵' : '⚪');
+  const classDotColor = (status) =>
+    status === 'current' ? '#16a34a' : status === 'upcoming' ? '#2563eb' : '#94a3b8';
   const mutedColor = dark ? '#64748b' : '#94a3b8';
   const textColor = dark ? '#f1f5f9' : '#1a2b4a';
 
@@ -246,7 +247,6 @@ const OverviewTab = () => {
       {/* AI ACTIVITY — derived from real lesson_plans records */}
       <Card className="p-5 mb-8">
         <div className="flex items-center gap-2 rounded-lg px-4 py-2.5 mb-4" style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
-          <Sparkles size={16} style={{ color: 'var(--banner-accent)' }} />
           <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--banner-text)' }}>AI Activity</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -333,7 +333,13 @@ const OverviewTab = () => {
             </div>
           ) : todayClasses.map((cls) => (
             <div key={cls.id} className="flex items-start gap-3 p-3 rounded-lg" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
-              <div className="text-2xl mt-1">{classDot(cls.status)}</div>
+              <div className="mt-1">
+                <span
+                  className="block w-3 h-3 rounded-full"
+                  style={{ backgroundColor: classDotColor(cls.status) }}
+                  aria-hidden="true"
+                />
+              </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-semibold" style={{ color: textColor }}>{cls.subject}</p>

@@ -178,12 +178,7 @@ const Login = () => {
         <div className="w-full">
         {/* Title and description */}
         <div className="flex flex-col items-center mb-8">
-          <h2 className="text-3xl font-bold mb-3" style={{ 
-            background: 'linear-gradient(90deg, #FEB300 0%, #00D4FF 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }}>
+          <h2 className="text-3xl font-bold mb-3" style={{ color: '#1a2b4a' }}>
             Hi, DPNHSian!
           </h2>
           <div className="flex items-center gap-1.5">

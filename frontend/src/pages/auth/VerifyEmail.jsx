@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Mail } from 'lucide-react';
+import { Mail, CheckCircle2, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
 
 const VerifyEmail = () => {
@@ -62,9 +62,11 @@ const VerifyEmail = () => {
           </p>
 
           {message && (
-            <div className="flex items-start gap-2 p-3 rounded-md mb-4 text-left"
+            <div role="alert" className="flex items-start gap-2 p-3 rounded-md mb-4 text-left"
               style={{ backgroundColor: isSuccess ? '#d1fae5' : '#fee2e2' }}>
-              <span>{isSuccess ? '✅' : '⚠'}</span>
+              {isSuccess
+                ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
+                : <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />}
               <p className="text-sm" style={{ color: isSuccess ? '#065f46' : '#dc3545' }}>{message}</p>
             </div>
           )}

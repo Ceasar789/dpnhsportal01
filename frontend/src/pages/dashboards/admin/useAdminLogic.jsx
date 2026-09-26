@@ -349,7 +349,7 @@ export const useAdminLogic = (userData) => {
       // Step 5: Log the activity (non-blocking)
       await logActivity('Created user', `${uName} (${uRole})`);
 
-      showToast('✅ User created! They will receive a confirmation email.');
+      showToast('User created. They will receive a confirmation email.');
     }
     
     // Step 6: Refresh stats (non-blocking)

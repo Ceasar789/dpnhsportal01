@@ -14,7 +14,7 @@ import { supabase } from '../../config/supabase';
 import { roleLabel } from '../dashboards/admin/shared/helpers';
 import { useSignedPhotoUrl } from '../../hooks/useSignedPhotoUrl';
 import Avatar from '../../components/Avatar';
-import { Camera, Lock } from 'lucide-react';
+import { Camera, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 const PHOTO_CHANGE_LIMIT = 3;
 const PHOTO_CHANGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -124,9 +124,11 @@ const ProfileTab = () => {
       </div>
 
       {message && (
-        <div className="flex items-start gap-2 p-3 rounded-md mb-5"
+        <div role="alert" className="flex items-start gap-2 p-3 rounded-md mb-5"
           style={{ backgroundColor: isSuccess ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' }}>
-          <span className="text-lg">{isSuccess ? '✅' : '⚠'}</span>
+          {isSuccess
+            ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
+            : <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />}
           <p className="text-sm flex-1" style={{ color: isSuccess ? v('--green', '#16a34a') : v('--red', '#dc2626') }}>{message}</p>
         </div>
       )}

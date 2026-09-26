@@ -249,11 +249,11 @@ const LessonPlansTab = () => {
 
     try {
       // 1. Convert to base64
-      setUploadProgress('📄 Reading PDF...');
+      setUploadProgress('Reading PDF...');
       const base64 = await fileToBase64(file);
 
       // 2. Upload to Supabase storage
-      setUploadProgress('☁️ Uploading to storage...');
+      setUploadProgress('Uploading to storage...');
       const fileExt = 'pdf';
       const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       const filePath = `${userData?.uid}/${fileName}`;
@@ -277,7 +277,7 @@ const LessonPlansTab = () => {
       // 3. Send to Gemini
       setUploading(false);
       setGenerating(true);
-      setUploadProgress('🤖 Gemini AI is analyzing your PDF and generating ILAW lesson plan...');
+      setUploadProgress('Analysing your PDF and generating the ILAW lesson plan...');
 
       const { html, truncated } = await callGeminiWithPDF(base64, file.name);
       setIlawOutput(html);
@@ -285,8 +285,8 @@ const LessonPlansTab = () => {
       setView('editor');
       showToast(
         truncated
-          ? '⚠️ Lesson plan generated but was cut off near the end — review and finish it, or try regenerating.'
-          : '✅ ILAW Lesson Plan generated! You can now edit and save it.',
+          ? 'Lesson plan generated but was cut off near the end — review and finish it, or try regenerating.'
+          : 'ILAW lesson plan generated. You can edit and save it now.',
         truncated ? 'error' : 'success'
       );
     } catch (err) {
@@ -329,7 +329,7 @@ const LessonPlansTab = () => {
           .update({ objectives: ilawOutput, updated_at: new Date().toISOString() })
           .eq('id', savedPlanId);
         if (error) throw error;
-        showToast('✅ Changes saved!', 'success');
+        showToast('Changes saved.', 'success');
       } else {
         // Insert new
         const { data, error } = await supabase
@@ -338,7 +338,7 @@ const LessonPlansTab = () => {
           .select();
         if (error) throw error;
         setSavedPlanId(data?.[0]?.id);
-        showToast('✅ Lesson plan saved!', 'success');
+        showToast('Lesson plan saved.', 'success');
       }
       fetchPlans();
     } catch (err) {
@@ -423,7 +423,7 @@ th{background:#f3f4f6;}
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('📥 Downloaded as Word document!', 'success');
+    showToast('Downloaded as a Word document.', 'success');
   };
 
   // ── Load saved plan into editor ────────────────────────────
@@ -555,7 +555,9 @@ th{background:#f3f4f6;}
               {view === 'editor' ? (currentPlanMeta?.title || 'ILAW Lesson Plan') : 'Lesson Plans'}
             </h1>
             {view === 'editor' && currentPlanMeta?.file_name && (
-              <p className="text-xs truncate" style={{ color: 'var(--banner-subtext)' }}>📄 {currentPlanMeta.file_name}</p>
+              <p className="text-xs truncate flex items-center gap-1" style={{ color: 'var(--banner-subtext)' }}>
+                <FileText size={12} className="shrink-0" aria-hidden="true" />{currentPlanMeta.file_name}
+              </p>
             )}
           </div>
           <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold flex-shrink-0" style={{ backgroundColor: 'rgba(22,163,74,0.15)', color: '#16a34a' }}>
@@ -596,7 +598,7 @@ th{background:#f3f4f6;}
 
               {(uploading || generating) ? (
                 <>
-                  <p className="font-semibold mb-2 text-blue-500">{uploadProgress}</p>
+                  <p className="font-semibold mb-2" style={{ color: dark ? '#8b9cff' : '#1908DF' }}>{uploadProgress}</p>
                   <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
                     Please wait — this may take 15–30 seconds
                   </p>
@@ -756,8 +758,8 @@ th{background:#f3f4f6;}
                 </p>
               </div>
             )}
-            <p className="text-xs mb-3 font-medium" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-              ✏️ Click anywhere in the lesson plan below to edit it directly
+            <p className="text-xs mb-3 font-medium" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
+              Click anywhere in the lesson plan below to edit it directly.
             </p>
             <style>{ilawStyles}</style>
             <div

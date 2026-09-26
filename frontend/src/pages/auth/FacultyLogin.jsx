@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../config/supabase';
-import { Eye, EyeOff, Mail, Lock, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ChevronDown, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
 
 const ROLE_OPTIONS = [
@@ -63,7 +63,7 @@ const FacultyLogin = () => {
       if (normalizedUserRole === 'student') {
         console.warn('🚫 Security: Blocked STUDENT from Faculty/Admin portal');
         await supabase.auth.signOut();
-        setErrorMessage(`❌ Access Denied.\n\nStudents cannot access this portal.\n\nPlease use the STUDENT LOGIN to access your portal.`);
+        setErrorMessage(`Access denied.\n\nStudents cannot access this portal.\n\nPlease use the STUDENT LOGIN to access your portal.`);
         setIsLoading(false);
         setLoginAttempted(false);
         return;
@@ -72,7 +72,7 @@ const FacultyLogin = () => {
       if (normalizedUserRole !== normalizedSelectedRole) {
         console.warn(`🚫 Security: Role mismatch - User is ${normalizedUserRole}, selected ${normalizedSelectedRole}`);
         await supabase.auth.signOut();
-        setErrorMessage(`❌ Role Mismatch.\n\nYour account is registered as: "${userData.role}"\n\nPlease select the CORRECT role above.`);
+        setErrorMessage(`Role mismatch.\n\nYour account is registered as: "${userData.role}"\n\nPlease select the CORRECT role above.`);
         setIsLoading(false);
         setLoginAttempted(false);
         return;
@@ -115,7 +115,7 @@ const FacultyLogin = () => {
       console.error('Login error:', error);
       if (error.message?.startsWith('ROLE_MISMATCH:')) {
         const actualRole = error.actualRole || error.message.split(':')[1];
-        setErrorMessage(`❌ Role Mismatch.\n\nYour account is registered as: "${actualRole}"\n\nPlease select the CORRECT role above.`);
+        setErrorMessage(`Role mismatch.\n\nYour account is registered as: "${actualRole}"\n\nPlease select the CORRECT role above.`);
       } else {
         setErrorMessage(getErrorMessage(error.message));
       }
@@ -147,7 +147,7 @@ const FacultyLogin = () => {
 
           {errorMessage && (
             <div className="flex items-start gap-2 p-3 rounded-md mb-4" style={{ backgroundColor: '#fee2e2' }}>
-              <span className="text-red-500 text-lg">⚠</span>
+              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
               <p className="text-sm flex-1" style={{ color: '#dc3545' }}>{errorMessage}</p>
             </div>
           )}

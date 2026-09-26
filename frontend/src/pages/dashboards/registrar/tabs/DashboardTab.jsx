@@ -9,7 +9,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { localNowTimestamp } from '../../../../lib/taskFormatting';
-import { Users, ClipboardList, FileText, Activity, Loader2, FileCheck, UserCheck, Shield, BarChart3, History, RefreshCw, Sparkles, UserPlus } from 'lucide-react';
+import { Users, ClipboardList, FileText, Activity, Loader2, FileCheck, UserCheck, Shield, BarChart3, History, RefreshCw, Megaphone, UserPlus } from 'lucide-react';
 import { Card, Badge, Btn, SectionTitle, PageHeader } from '../shared/ui';
 import { STATUS_MAP, DOCUMENT_TYPES } from '../shared/constants';
 
@@ -196,7 +196,7 @@ const DashboardTab = () => {
                 {announcements.map(a => (
                   <div key={a.id} className="p-3 rounded-lg" style={{ backgroundColor: 'var(--reg-surface-hover)' }}>
                     <div className="flex items-center gap-2 mb-1">
-                      <Sparkles size={12} style={{ color: 'var(--reg-gold)' }} />
+                      <Megaphone size={12} style={{ color: 'var(--reg-gold)' }} aria-hidden="true" />
                       <p className="text-sm font-semibold" style={{ color: 'var(--reg-text)' }}>{a.title}</p>
                     </div>
                     <p className="text-xs" style={{ color: 'var(--reg-muted)' }}>{a.content}</p>

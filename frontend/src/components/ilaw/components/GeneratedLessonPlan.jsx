@@ -3,7 +3,7 @@
 // ============================================
 
 import React, { useState } from 'react';
-import { Download, Printer, Edit2, ChevronDown, FileText } from 'lucide-react';
+import { Download, Printer, Edit2, ChevronDown, FileText, FileType, FileCode, Check } from 'lucide-react';
 import { exportToPDF, exportToWord, exportToPlainText, printLessonPlan, generateFilename } from '../utils/exportUtils';
 
 export const GeneratedLessonPlan = ({ lessonPlan, dark, onEdit, onGeneratePPT }) => {
@@ -67,19 +67,19 @@ export const GeneratedLessonPlan = ({ lessonPlan, dark, onEdit, onGeneratePPT })
                 onClick={() => exportToPDF(lessonPlan, `${filename}.pdf`)}
                 className="block w-full text-left px-4 py-2 hover:opacity-80"
                 style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                📄 Export as PDF
+                <FileText size={15} className="inline mr-2 -mt-0.5" aria-hidden="true" />Export as PDF
               </button>
               <button
                 onClick={() => exportToWord(lessonPlan, `${filename}.docx`)}
                 className="block w-full text-left px-4 py-2 hover:opacity-80"
                 style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                📘 Export as Word
+                <FileType size={15} className="inline mr-2 -mt-0.5" aria-hidden="true" />Export as Word
               </button>
               <button
                 onClick={() => exportToPlainText(lessonPlan, `${filename}.txt`)}
                 className="block w-full text-left px-4 py-2 hover:opacity-80"
                 style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                📝 Export as Text
+                <FileCode size={15} className="inline mr-2 -mt-0.5" aria-hidden="true" />Export as Text
               </button>
             </div>
           </div>
@@ -153,7 +153,7 @@ export const GeneratedLessonPlan = ({ lessonPlan, dark, onEdit, onGeneratePPT })
         <ul className="space-y-2">
           {(lessonPlan.resources || []).map((resource, idx) => (
             <li key={idx} className="flex items-start gap-2">
-              <span className="text-blue-500 font-bold mt-1">•</span>
+              <span className="font-bold mt-1" style={{ color: dark ? '#8b9cff' : '#1908DF' }} aria-hidden="true">•</span>
               <span style={{ color: dark ? '#cbd5e1' : '#374151' }}>{resource}</span>
             </li>
           ))}
@@ -355,7 +355,7 @@ const ObjectiveCategory = ({ title, items, dark }) => (
     <ul className="space-y-1 ml-4">
       {items?.map((item, idx) => (
         <li key={idx} className="flex items-start gap-2">
-          <span className="text-green-500 font-bold">✓</span>
+          <Check size={16} className="shrink-0 mt-0.5" style={{ color: '#16a34a' }} aria-hidden="true" />
           <span style={{ color: dark ? '#cbd5e1' : '#374151' }}>{item}</span>
         </li>
       )) || (

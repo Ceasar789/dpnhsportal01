@@ -3,7 +3,7 @@
 // ============================================
 
 import React, { useState } from 'react';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { FileText, Download, Loader2, FileType, FileCode } from 'lucide-react';
 import { exportToPDF, exportToWord, exportToPlainText, generateFilename } from '../utils/exportUtils';
 
 export const ExportOptions = ({ lessonPlan, dark, onClose }) => {
@@ -17,21 +17,21 @@ export const ExportOptions = ({ lessonPlan, dark, onClose }) => {
       id: 'pdf',
       name: 'PDF Document',
       description: 'Print-ready PDF format with formatting preserved',
-      icon: '📄',
+      icon: FileText,
       action: () => exportToPDF(lessonPlan, `${filename}.pdf`)
     },
     {
       id: 'word',
       name: 'Microsoft Word',
       description: 'Editable Word document for further customization',
-      icon: '📘',
+      icon: FileType,
       action: () => exportToWord(lessonPlan, `${filename}.docx`)
     },
     {
       id: 'text',
       name: 'Plain Text',
       description: 'Simple text file format',
-      icon: '📝',
+      icon: FileCode,
       action: () => exportToPlainText(lessonPlan, `${filename}.txt`)
     }
   ];
@@ -100,7 +100,7 @@ export const ExportOptions = ({ lessonPlan, dark, onClose }) => {
               />
               <div className="ml-4 flex-1">
                 <p className="font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                  {format.icon} {format.name}
+                  <format.icon size={16} className="inline mr-2 -mt-0.5" aria-hidden="true" />{format.name}
                 </p>
                 <p className="text-xs" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
                   {format.description}

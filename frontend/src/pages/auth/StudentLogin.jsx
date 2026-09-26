@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../config/supabase';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
 
 const normalizeRole = (role) => {
@@ -43,7 +43,7 @@ const StudentLogin = () => {
       if (normalizedUserRole !== 'student') {
         console.warn(`🚫 Security: Blocked non-student (${userData.role}) from accessing student portal`);
         await logout();
-        setErrorMessage(`❌ Access Denied. This portal is for STUDENTS ONLY.\n\nYour account role is: "${userData.role}"\n\nPlease use the Faculty/Admin portal to log in.`);
+        setErrorMessage(`Access denied. This portal is for students only.\n\nYour account role is: "${userData.role}"\n\nPlease use the Faculty/Admin portal to log in.`);
         setLoginAttempted(false);
         setIsLoading(false);
         return;
@@ -111,7 +111,7 @@ const StudentLogin = () => {
 
           {errorMessage && (
             <div className="flex items-start gap-2 p-3 rounded-md mb-4" style={{ backgroundColor: '#fee2e2' }}>
-              <span className="text-red-500 text-lg">⚠</span>
+              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
               <p className="text-sm flex-1" style={{ color: '#dc3545' }}>{errorMessage}</p>
             </div>
           )}

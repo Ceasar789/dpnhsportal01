@@ -3,7 +3,7 @@
 // ============================================
 
 import React from 'react';
-import { BookOpen, Zap, FileText, Share2, Plus, ArrowRight } from 'lucide-react';
+import { BookOpen, Zap, FileText, Share2, Plus, ArrowRight, Check } from 'lucide-react';
 
 export const ILAWHome = ({ onGenerateNew, recentPlans = [], dark, setActiveTab }) => {
   return (
@@ -12,7 +12,7 @@ export const ILAWHome = ({ onGenerateNew, recentPlans = [], dark, setActiveTab }
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#003b7a' }}>
               <BookOpen size={24} className="text-white" />
             </div>
             <h1 className="text-4xl font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
@@ -119,7 +119,7 @@ export const ILAWHome = ({ onGenerateNew, recentPlans = [], dark, setActiveTab }
                   </p>
                   <button
                     onClick={() => setActiveTab('form')}
-                    className="text-sm font-semibold text-blue-500 hover:text-blue-700">
+                    className="text-sm font-semibold hover:underline" style={{ color: dark ? '#8b9cff' : '#1908DF' }}>
                     View →
                   </button>
                 </div>
@@ -135,21 +135,22 @@ export const ILAWHome = ({ onGenerateNew, recentPlans = [], dark, setActiveTab }
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
-              '✓ Lesson information and competency input',
-              '✓ Learning objectives generator',
-              '✓ Detailed lesson procedures',
-              '✓ Learning resources compilation',
-              '✓ Assessment strategies',
-              '✓ PowerPoint presentation generator',
-              '✓ Reflection templates',
-              '✓ DepEd compliance check',
-              '✓ Multiple export formats',
-              '✓ Edit and customize options',
-              '✓ Auto-save functionality',
-              '✓ Lesson plan templates'
+              'Lesson information and competency input',
+              'Learning objectives generator',
+              'Detailed lesson procedures',
+              'Learning resources compilation',
+              'Assessment strategies',
+              'PowerPoint presentation generator',
+              'Reflection templates',
+              'DepEd compliance check',
+              'Multiple export formats',
+              'Edit and customize options',
+              'Auto-save functionality',
+              'Lesson plan templates'
             ].map((feature, idx) => (
-              <p key={idx} style={{ color: dark ? '#cbd5e1' : '#374151' }}>
-                {feature}
+              <p key={idx} className="flex items-start gap-2" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
+                <Check size={16} className="shrink-0 mt-1" style={{ color: '#16a34a' }} aria-hidden="true" />
+                <span>{feature}</span>
               </p>
             ))}
           </div>

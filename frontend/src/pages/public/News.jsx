@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone } from 'lucide-react';
+import { Search, Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { localNowTimestamp } from '../../lib/taskFormatting';
@@ -22,6 +22,8 @@ const News = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
   const [heroExpanded, setHeroExpanded] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [historyError, setHistoryError] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1100);
@@ -50,7 +52,13 @@ const News = () => {
       .eq('status', 'Published')
       .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
       .order('published_at', { ascending: false });
-    if (!error && data) setNewsItems(data.filter(item => canViewNews(item, userData?.role || 'guest')));
+    if (error) {
+      setLoadError(error.message || 'The news could not be loaded.');
+      setNewsItems([]);
+    } else {
+      setLoadError(null);
+      setNewsItems((data || []).filter(item => canViewNews(item, userData?.role || 'guest')));
+    }
     setLoading(false);
   };
 
@@ -63,7 +71,13 @@ const News = () => {
   // back when it was still live) has since passed.
   const fetchHistory = async () => {
     const { data, error } = await supabase.from('news').select('*').eq('status', 'Archived').order('updated_at', { ascending: false });
-    if (!error) setHistoryItems((data || []).filter(item => canViewNews(item, userData?.role || 'guest')));
+    if (error) {
+      setHistoryError(error.message || 'The archive could not be loaded.');
+      setHistoryItems([]);
+      return;
+    }
+    setHistoryError(null);
+    setHistoryItems((data || []).filter(item => canViewNews(item, userData?.role || 'guest')));
   };
 
   const toggleHistory = async () => {
@@ -289,7 +303,15 @@ const News = () => {
       {showHistory && (
         <div className="mb-10 rounded-lg border border-slate-200 bg-white p-5">
           <h4 className="font-work font-bold text-lg" style={{ color: '#1E3A8A' }}>News History</h4>
-          {historyItems.length === 0 ? <p className="mt-3 text-sm text-slate-500">No archived news available.</p> : historyItems.map(item => (
+          {historyError ? (
+            <div className="mt-3 flex items-center gap-2" role="alert">
+              <AlertTriangle size={16} aria-hidden="true" style={{ color: '#b91c1c' }} />
+              <p className="text-sm" style={{ color: '#b91c1c' }}>The archive could not be loaded.</p>
+              <button type="button" onClick={fetchHistory} className="text-sm font-semibold underline focus:outline-none focus-visible:ring-2 rounded" style={{ color: '#003b7a' }}>
+                Try again
+              </button>
+            </div>
+          ) : historyItems.length === 0 ? <p className="mt-3 text-sm text-slate-500">No archived news available.</p> : historyItems.map(item => (
             <div key={item.id} className="border-b border-slate-100 py-3 last:border-0">
               <div className="font-work font-bold" style={{ color: '#1E3A8A' }}>{item.title}</div>
               <div className="text-xs text-slate-500">{item.category || 'General'} · {item.updated_at ? new Date(item.updated_at).toLocaleDateString() : ''}</div>
@@ -510,7 +532,7 @@ const News = () => {
       {/* Bottom */}
       <div className="flex justify-between items-center">
         <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
-          © 2024 Dela Paz National High School. All rights reserved.
+          © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
         </p>
         <div className="flex gap-4" aria-hidden="true">
           <Facebook size={18} color="#b6c2d1" />
@@ -534,9 +556,25 @@ const News = () => {
           <div className="flex justify-center items-center" style={{ height: '400px' }}>
             <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
+        ) : loadError ? (
+          <div className="flex flex-col justify-center items-center gap-3" style={{ height: '400px' }} role="alert">
+            <AlertTriangle size={28} aria-hidden="true" style={{ color: '#b91c1c' }} />
+            <p className="font-public text-sm font-semibold" style={{ color: '#b91c1c' }}>
+              The news could not be loaded.
+            </p>
+            <p className="font-public text-xs" style={{ color: '#475569' }}>{loadError}</p>
+            <button
+              type="button"
+              onClick={fetchNews}
+              className="mt-1 rounded px-4 py-2 font-work text-sm font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              style={{ backgroundColor: '#003b7a' }}
+            >
+              Try again
+            </button>
+          </div>
         ) : newsItems.length === 0 ? (
           <div className="flex justify-center items-center" style={{ height: '400px' }}>
-            <p className="font-public text-sm" style={{ color: '#94A3B8' }}>No published news yet.</p>
+            <p className="font-public text-sm" style={{ color: '#475569' }}>No published news yet.</p>
           </div>
         ) : (
           <>

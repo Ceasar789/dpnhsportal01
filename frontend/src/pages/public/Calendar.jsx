@@ -3,7 +3,7 @@
 // PUBLIC CALENDAR — Events from Supabase with filtering
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../config/supabase';
 import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Tag, AlertCircle, Loader2, Megaphone, Search, Menu, School, Facebook, BookOpen, Globe, Users, Mail, Phone } from 'lucide-react';
@@ -69,13 +69,45 @@ const CalendarPage = () => {
     });
   };
 
-  // A dialog has to be dismissible from the keyboard, not only by clicking
-  // the backdrop.
+  // A dialog has to be dismissible from the keyboard, and it has to own the
+  // keyboard while it is open. Escape alone was not enough: focus stayed on
+  // the day cell behind the overlay, so Tab walked straight out into the page
+  // underneath while the dialog claimed aria-modal="true".
+  const dialogRef = useRef(null);
+  const returnFocusRef = useRef(null);
+
   useEffect(() => {
     if (!selectedEvent) return undefined;
-    const onKey = e => { if (e.key === 'Escape') setSelectedEvent(null); };
+
+    // Remember what to give the keyboard back to when this closes.
+    returnFocusRef.current = document.activeElement;
+
+    const node = dialogRef.current;
+    const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+    node?.querySelector(FOCUSABLE)?.focus() ?? node?.focus();
+
+    const onKey = e => {
+      if (e.key === 'Escape') { setSelectedEvent(null); return; }
+      if (e.key !== 'Tab' || !node) return;
+
+      const items = [...node.querySelectorAll(FOCUSABLE)];
+      if (items.length === 0) { e.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+
+      // Wrap at both ends so Tab can never leave the dialog.
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      // Without this the browser drops focus to <body> and a keyboard user
+      // restarts from the top of the page.
+      const back = returnFocusRef.current;
+      if (back && typeof back.focus === 'function' && document.contains(back)) back.focus();
+    };
   }, [selectedEvent]);
 
   const eventTypes = {
@@ -196,9 +228,17 @@ const CalendarPage = () => {
 
         <div className="max-w-6xl mx-auto px-4 py-8">
         {error && (
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-red-50 text-red-600 mb-6">
+          <div role="alert" className="flex items-center gap-2 p-4 rounded-lg bg-red-50 text-red-600 mb-6">
             <AlertCircle size={18} />
-            <span className="text-sm">Error loading calendar: {error}</span>
+            <span className="text-sm flex-1">Error loading calendar: {error}</span>
+            <button
+              type="button"
+              onClick={fetchEvents}
+              className="rounded px-3 py-1.5 text-sm font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              style={{ backgroundColor: '#003b7a' }}
+            >
+              Try again
+            </button>
           </div>
         )}
 
@@ -255,41 +295,44 @@ const CalendarPage = () => {
                   const date = i + 1;
                   const dateEvents = getEventsForDate(date);
                   const isToday = new Date().toDateString() === new Date(year, month, date).toDateString();
-                  const openDay = () => dateEvents.length > 0 && setSelectedEvent(dateEvents[0]);
-                  const interactive = dateEvents.length > 0;
+                  // Weekend and holiday both used to be pink and nothing else.
+                  const isWeekend = [0, 6].includes(new Date(year, month, date).getDay());
+                  const isHoliday = dateEvents.some(event => getEventType(event) === 'Holiday');
+                  const dayLabel = `${monthNames[month]} ${date}${isToday ? ', today' : ''}${isHoliday ? ', holiday' : isWeekend ? ', weekend' : ''}`;
 
                   return (
                     <div 
                       key={date} 
-                      className={`h-24 rounded-lg border border-gray-100 p-1.5 transition-colors${interactive ? ' hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f] focus-visible:ring-offset-1' : ''}`}
-                      style={{ backgroundColor: isToday ? '#eff6ff' : [0, 6].includes(new Date(year, month, date).getDay()) || dateEvents.some(event => getEventType(event) === 'Holiday') ? '#fef2f2' : '#ffffff', borderColor: isToday ? '#3b82f6' : '#e5e7eb' }}
-                      {...(interactive ? {
-                        role: 'button',
-                        tabIndex: 0,
-                        'aria-label': `${monthNames[month]} ${date}${isToday ? ', today' : ''}: ${dateEvents.length} event${dateEvents.length === 1 ? '' : 's'}`,
-                        onClick: openDay,
-                        onKeyDown: e => {
-                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDay(); }
-                        },
-                      } : {})}
+                      role="group"
+                      aria-label={dateEvents.length
+                        ? `${dayLabel}: ${dateEvents.length} event${dateEvents.length === 1 ? '' : 's'}`
+                        : dayLabel}
+                      className="h-24 rounded-lg border border-gray-100 p-1.5 transition-colors"
+                      style={{ backgroundColor: isToday ? '#eff6ff' : isHoliday ? '#fef2f2' : isWeekend ? '#f1f5f9' : '#ffffff', borderColor: isToday ? '#3b82f6' : isHoliday ? '#fca5a5' : '#e5e7eb' }}
                     >
-                      <span className={`text-sm font-semibold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>{date}</span>
-                      <div className="mt-1 space-y-0.5">
-                        {dateEvents.slice(0, 3).map((evt, idx) => (
-                          <div 
-                            key={idx} 
-                            className="text-xs px-1.5 py-0.5 rounded truncate font-medium"
+                      <span className="flex items-center gap-1">
+                        <span className={`text-sm font-semibold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>{date}</span>
+                        {isHoliday && (
+                          <span className="text-[11px] font-bold leading-none" style={{ color: '#b91c1c' }} aria-hidden="true">H</span>
+                        )}
+                      </span>
+                      <div className="mt-1 space-y-0.5 overflow-y-auto" style={{ maxHeight: '60px' }}>
+                        {dateEvents.map((evt, idx) => (
+                          <button
+                            type="button"
+                            key={evt.id ?? idx}
+                            title={evt.title}
+                            aria-label={`Open ${evt.title}`}
+                            onClick={() => setSelectedEvent(evt)}
+                            className="block w-full text-left text-xs px-1.5 py-0.5 rounded truncate font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]"
                             style={{ 
                               backgroundColor: eventTypes[getEventType(evt)]?.bg || '#dbeafe',
                               color: eventTypes[getEventType(evt)]?.color || '#1d4ed8'
                             }}
                           >
                             {evt.title}
-                          </div>
+                          </button>
                         ))}
-                        {dateEvents.length > 3 && (
-                          <div className="text-xs text-gray-600 px-1.5">+{dateEvents.length - 3} more</div>
-                        )}
                       </div>
                     </div>
                   );
@@ -448,7 +491,7 @@ const CalendarPage = () => {
         {/* Bottom */}
         <div className="flex justify-between items-center">
           <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
-            © 2024 Dela Paz National High School. All rights reserved.
+            © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
           </p>
           <div className="flex gap-4" aria-hidden="true">
             <Facebook size={18} color="#b6c2d1" />
@@ -463,10 +506,12 @@ const CalendarPage = () => {
       {selectedEvent && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedEvent(null)}>
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="event-dialog-title"
-            className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl"
+            tabIndex={-1}
+            className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl focus:outline-none"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-4">

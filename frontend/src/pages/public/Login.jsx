@@ -160,11 +160,6 @@ const Login = () => {
             <MessageCircle size={16} color="white" />
           </div>
         </div>
-        <div className="w-4" />
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20">
-          <Users size={16} color="white" aria-hidden="true" />
-          <span className="text-xs font-medium">JOIN 5,550+ ACTIVE STUDENTS</span>
-        </div>
       </div>
     </div>
   );
@@ -290,7 +285,7 @@ const Login = () => {
       {/* Bottom */}
       <div className="flex justify-between items-center flex-wrap gap-4">
         <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
-          © 2024 Dela Paz National High School. All rights reserved.
+          © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
         </p>
         <div className="flex gap-4" aria-hidden="true">
           <Facebook size={18} color="#b6c2d1" />

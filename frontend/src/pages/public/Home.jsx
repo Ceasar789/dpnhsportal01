@@ -373,7 +373,7 @@ const Home = () => {
       {/* Bottom */}
       <div className="flex justify-between items-center">
         <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
-          © 2024 Dela Paz National High School. All rights reserved.
+          © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
         </p>
         <div className="flex gap-4" aria-hidden="true">
           <Facebook size={18} color="#b6c2d1" />

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-26T13:37:15.824Z",
+  "generatedAt": "2026-09-26T14:49:48.634Z",
   "derivedFrom": [
     {
       "path": "frontend/package.json",
@@ -8,7 +8,7 @@
     },
     {
       "path": "frontend/src/pages/dashboards/admin/AdminDashboard.jsx",
-      "sha256": "8dac7bd201cb0f35fb6ee1bc5e43c76d5354b2b969abfa98b4107be49defe6e0"
+      "sha256": "6e3d1d503b8b1bbd574a046996b1e2c861837b5d61404b2af2e5eb7685dceaa0"
     },
     {
       "path": "frontend/src/pages/dashboards/registrar/shared/ui.jsx",

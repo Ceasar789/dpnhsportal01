@@ -126,6 +126,16 @@ const CalendarPage = () => {
   // Midnight today, so an event happening later today still counts as coming.
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+  // Everything in the month on screen, named. A 43px phone cell cannot hold
+  // an event title, so the grid shows dots and this says what they are.
+  const monthEvents = filteredEvents
+    .filter(e => {
+      if (!e.event_date) return false;
+      const d = new Date(e.event_date);
+      return d.getFullYear() === year && d.getMonth() === month;
+    })
+    .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+
   const upcomingEvents = filteredEvents
     .filter(e => e.event_date && new Date(e.event_date) >= startOfToday)
     .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
@@ -165,54 +175,61 @@ const CalendarPage = () => {
           </div>
         )}
 
-        {/* Filter & Controls */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={prevMonth} aria-label="Previous month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
-              <ChevronLeft size={20} className="text-gray-600" aria-hidden="true" />
-            </button>
-            <h2 className="text-xl font-bold text-[#1a2b4a]">{monthNames[month]} {year}</h2>
-            <select value={year} onChange={e => setCurrentDate(new Date(Number(e.target.value), month, 1))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" aria-label="Calendar year">
-              {[...Array(11)].map((_, i) => { const optionYear = new Date().getFullYear() - 5 + i; return <option key={optionYear} value={optionYear}>{optionYear}</option>; })}
-            </select>
-            <button type="button" onClick={nextMonth} aria-label="Next month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
-              <ChevronRight size={20} className="text-gray-600" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {allTypes.map(type => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setFilterType(type)}
-                aria-pressed={filterType === type}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f] focus-visible:ring-offset-1"
-                style={{
-                  backgroundColor: filterType === type ? (eventTypes[type]?.color || '#1e3a5f') : '#ffffff',
-                  color: filterType === type ? '#ffffff' : '#64748b',
-                  border: '1px solid #e2e8f0'
-                }}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#1e3a5f]" size={32} /></div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Calendar Grid */}
             <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4">
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="text-center text-xs font-semibold text-gray-600 py-2">{day}</div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={prevMonth} aria-label="Previous month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
+                  <ChevronLeft size={20} className="text-gray-600" aria-hidden="true" />
+                </button>
+                <h2 className="text-xl font-bold text-[#1a2b4a]">{monthNames[month]} {year}</h2>
+                <select value={year} onChange={e => setCurrentDate(new Date(Number(e.target.value), month, 1))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" aria-label="Calendar year">
+                  {[...Array(11)].map((_, i) => { const optionYear = new Date().getFullYear() - 5 + i; return <option key={optionYear} value={optionYear}>{optionYear}</option>; })}
+                </select>
+                <button type="button" onClick={nextMonth} aria-label="Next month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
+                  <ChevronRight size={20} className="text-gray-600" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {allTypes.map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFilterType(type)}
+                    aria-pressed={filterType === type}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f] focus-visible:ring-offset-1"
+                    style={{
+                      backgroundColor: filterType === type ? (eventTypes[type]?.color || '#1e3a5f') : '#ffffff',
+                      color: filterType === type ? '#ffffff' : '#64748b',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    {type}
+                  </button>
                 ))}
+              </div>
+            </div>
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => {
+                  const weekend = i === 0 || i === 6;
+                  return (
+                    <div
+                      key={day}
+                      className={`text-center text-xs font-semibold py-2 rounded-t-lg ${weekend ? 'text-[#1e3a5f]' : 'text-gray-600'}`}
+                      style={weekend ? { backgroundColor: '#e2e8f0' } : undefined}
+                    >
+                      {day}
+                    </div>
+                  );
+                })}
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: firstDay }, (_, i) => (
-                  <div key={`empty-${i}`} className="h-24 rounded-lg" />
+                  <div key={`empty-${i}`} className="min-h-[96px] rounded-lg" />
                 ))}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const date = i + 1;
@@ -230,8 +247,8 @@ const CalendarPage = () => {
                       aria-label={dateEvents.length
                         ? `${dayLabel}: ${dateEvents.length} event${dateEvents.length === 1 ? '' : 's'}`
                         : dayLabel}
-                      className="h-24 rounded-lg border border-gray-100 p-1.5 transition-colors"
-                      style={{ backgroundColor: isToday ? '#eff6ff' : isHoliday ? '#fef2f2' : isWeekend ? '#f1f5f9' : '#ffffff', borderColor: isToday ? '#3b82f6' : isHoliday ? '#fca5a5' : '#e5e7eb' }}
+                      className="min-h-[96px] rounded-lg border border-gray-100 p-1.5 transition-colors"
+                      style={{ backgroundColor: isToday ? '#eff6ff' : isHoliday ? '#fef2f2' : isWeekend ? '#e8edf4' : '#ffffff', borderColor: isToday ? '#3b82f6' : isHoliday ? '#fca5a5' : '#e5e7eb' }}
                     >
                       <span className="flex items-center gap-1">
                         <span className={`text-sm font-semibold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>{date}</span>
@@ -258,7 +275,7 @@ const CalendarPage = () => {
                               title={evt.title}
                               aria-label={`Open ${evt.title}`}
                               onClick={() => setSelectedEvent(evt)}
-                              className="block w-full text-left text-xs px-1.5 py-1 rounded truncate font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]"
+                              className="block min-h-[24px] w-full text-left text-xs leading-tight px-1.5 py-1 rounded font-medium break-words focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]"
                               style={{
                                 backgroundColor: eventTypes[getEventType(evt)]?.bg || '#dbeafe',
                                 color: eventTypes[getEventType(evt)]?.color || '#1d4ed8'
@@ -273,17 +290,51 @@ const CalendarPage = () => {
                   );
                 })}
               </div>
-            </div>
 
-            {/* What the colours mean. Without this the grid distinguishes
-                event types by hue alone, which a colourblind reader loses. */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 -mt-2 mb-2">
-              {Object.entries(eventTypes).map(([label, { color }]) => (
-                <span key={label} className="flex items-center gap-1.5 text-xs" style={{ color: '#475569' }}>
-                  <span className="block h-2 w-2 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
-                  {label}
-                </span>
-              ))}
+              {isMobile && (
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-3">
+                    {monthNames[month]} events
+                  </h3>
+                  {monthEvents.length === 0 ? (
+                    <p className="text-sm text-gray-600">Nothing scheduled this month.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {monthEvents.map(evt => (
+                        <li key={evt.id}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEvent(evt)}
+                            aria-label={`Open ${evt.title}`}
+                            className="flex w-full items-start gap-2 rounded px-1 py-1.5 text-left hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]"
+                          >
+                            <span
+                              className="mt-1.5 block h-2 w-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: eventTypes[getEventType(evt)]?.color || '#1d4ed8' }}
+                              aria-hidden="true"
+                            />
+                            <span className="text-sm font-semibold text-[#1a2b4a]">{evt.title}</span>
+                            <span className="ml-auto shrink-0 text-xs text-gray-600">
+                              {new Date(evt.event_date).getDate()}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {/* What the colours mean. Without this the grid distinguishes
+                  event types by hue alone, which a colourblind reader loses. */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-3">
+                {Object.entries(eventTypes).map(([label, { color }]) => (
+                  <span key={label} className="flex items-center gap-1.5 text-xs" style={{ color: '#475569' }}>
+                    <span className="block h-2 w-2 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Upcoming Events List */}

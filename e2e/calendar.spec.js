@@ -125,3 +125,25 @@ test('the dialog badge says what its colour says', async ({ page }) => {
   };
   expect(bg, `badge reads "${text}" but is not that type's colour`).toBe(EXPECTED[text]);
 });
+
+test('an event name is readable at every width, not truncated to "PERIODIC ..."', async ({ page }) => {
+  for (const [w, h] of [[390, 844], [768, 1024], [1440, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/calendar');
+    await page.waitForLoadState('networkidle');
+
+    // A 97px cell truncated "PERIODIC EXAM" to a word and an ellipsis; a 43px
+    // one cut it to a letter. Nothing that names an event may be clipped.
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll('button[aria-label^="Open "]')]
+        .filter(e => e.scrollWidth > e.clientWidth + 1)
+        .map(e => e.textContent.trim()));
+    expect(clipped, `event labels clipped at ${w}px`).toEqual([]);
+
+    // On a phone the grid carries dots, so the names have to live somewhere.
+    if (w < 640) {
+      const named = await page.getByRole('button', { name: /^Open / }).count();
+      expect(named, 'a phone needs the event names listed somewhere').toBeGreaterThan(0);
+    }
+  }
+});

@@ -134,7 +134,7 @@ const News = () => {
       )}
 
       {/* News Grid */}
-      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {newsItems.map((item, index) => (
           <NewsCard key={item.id} item={item} lead={index === 0} />
         ))}
@@ -156,14 +156,14 @@ const News = () => {
     return (
       <article
         className={`flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ${
-          lead ? 'sm:col-span-2 border-2 border-[#FEB300]' : 'border border-slate-200'
+          lead ? 'sm:col-span-2 lg:col-span-3 border-2 border-[#FEB300]' : 'border border-slate-200'
         }`}
       >
         {item.featured_image_url && (
           <img
             src={item.featured_image_url}
             alt=""
-            className="w-full object-cover aspect-[3/2]"
+            className={`w-full object-cover ${lead ? 'aspect-[2/1] max-h-[320px]' : 'aspect-[3/2]'}`}
             onError={e => { e.currentTarget.style.display = 'none'; }}
           />
         )}

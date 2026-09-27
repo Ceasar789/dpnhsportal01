@@ -9,7 +9,7 @@
 // ============================================
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // A phone gets two rows: the brand, then the links. No hamburger — the three
 // destinations stay on screen rather than hiding behind an icon.
@@ -31,6 +31,9 @@ const NavLink = ({ title, route, active, onNavigate }) => (
 
 const PublicHeader = ({ isMobile, active }) => {
   const navigate = useNavigate();
+  // The Login button points at /login. On /login it points at the page the
+  // visitor is already reading, so it is not offered there.
+  const onLoginPage = useLocation().pathname === '/login';
 
   const Brand = ({ logo, title, subtitle }) => (
     <button
@@ -79,7 +82,7 @@ const PublicHeader = ({ isMobile, active }) => {
             {links.map(([title, route]) => (
               <NavLink key={route} title={title} route={route} active={active === title} onNavigate={navigate} />
             ))}
-            <LoginButton className="ml-auto px-5 py-1.5 text-sm" />
+            {!onLoginPage && <LoginButton className="ml-auto px-5 py-1.5 text-sm" />}
           </div>
         </div>
       ) : (
@@ -89,7 +92,7 @@ const PublicHeader = ({ isMobile, active }) => {
             {links.map(([title, route]) => (
               <NavLink key={route} title={title} route={route} active={active === title} onNavigate={navigate} />
             ))}
-            <LoginButton className="px-8 py-2.5" />
+            {!onLoginPage && <LoginButton className="px-8 py-2.5" />}
           </div>
         </div>
       )}

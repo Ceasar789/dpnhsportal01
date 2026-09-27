@@ -51,16 +51,31 @@ test.describe('portal chooser', () => {
     await expect(page.getByText('Hi, DPNHSian!')).toHaveCount(0);
 
     // Every word here is white on a photograph. The old 0.3-to-0.5 black
-    // wash left the school name at 2.11:1; the scrim has to be strong
-    // enough that the picture cannot decide legibility.
-    const alpha = await page.evaluate(() => {
+    // wash left the school name at 2.11:1 — legibility decided by whichever
+    // picture loaded. Measure the guarantee, not the alpha: how does white
+    // fare over the weakest end of the scrim when the frame behind it is
+    // white? Pinning a number instead would only hold for one scrim colour.
+    const worst = await page.evaluate(() => {
       const el = [...document.querySelectorAll('main div')]
         .find(d => getComputedStyle(d).backgroundImage.includes('linear-gradient'));
       if (!el) return null;
-      const m = getComputedStyle(el).backgroundImage.match(/rgba?\([^)]*?([\d.]+)\)/);
-      return m ? parseFloat(m[1]) : null;
+      const stops = [...getComputedStyle(el).backgroundImage.matchAll(/rgba?\(([^)]+)\)/g)]
+        .map(m => m[1].split(',').map(Number));
+      if (!stops.length) return null;
+
+      const lum = ([r, g, b]) => {
+        const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const ratios = stops.map(([r, g, b, a = 1]) => {
+        const over = [r, g, b].map(c => a * c + (1 - a) * 255); // white photo
+        const L = lum(over);
+        return 1.05 / (L + 0.05);
+      });
+      return Math.min(...ratios);
     });
-    expect(alpha, 'no scrim gradient found').not.toBeNull();
-    expect(alpha, 'the scrim is too weak for white text over any photo').toBeGreaterThanOrEqual(0.62);
+
+    expect(worst, 'no scrim gradient found').not.toBeNull();
+    expect(worst, 'white text could be unreadable over a bright photo').toBeGreaterThanOrEqual(4.5);
   });
 });

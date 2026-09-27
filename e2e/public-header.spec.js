@@ -19,9 +19,14 @@ for (const [path, active] of PAGES) {
     // The brand says what site this is, which a seal alone did not.
     await expect(page.getByRole('button', { name: 'EduScribe home' })).toHaveCount(1);
 
-    for (const name of ['Home', 'News', 'Calendar', 'Login']) {
+    for (const name of ['Home', 'News', 'Calendar']) {
       await expect(page.locator('nav').getByRole('button', { name, exact: true })).toHaveCount(1);
     }
+
+    // Login is offered everywhere except the login page, where it would
+    // point at the page the visitor is already reading.
+    await expect(page.locator('nav').getByRole('button', { name: 'Login', exact: true }))
+      .toHaveCount(path === '/login' ? 0 : 1);
 
     const nav = await page.locator('nav').boundingBox();
     expect(Math.round(nav.height), 'every page must use the same header height').toBe(124);

@@ -43,7 +43,7 @@ const Login = () => {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-xl px-6 py-3 font-work text-base font-bold transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b2347] ${className}`}
+      className={`flex-1 rounded-lg px-4 py-2 font-work text-sm font-bold transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/40 ${className}`}
       style={style}
     >
       {label}
@@ -68,7 +68,7 @@ const Login = () => {
         >
           <div
             className="absolute inset-0"
-            style={{ background: 'linear-gradient(to bottom, rgba(0,29,78,0.62), rgba(0,29,78,0.78))' }}
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.68))' }}
             aria-hidden="true"
           />
 
@@ -91,7 +91,7 @@ const Login = () => {
               Welcome Back.
             </h1>
 
-            <div className="mt-6 flex w-full max-w-sm gap-3">
+            <div className="mt-5 flex w-full max-w-[280px] gap-3">
               <RoleButton
                 label="Student"
                 onClick={() => navigate('/student-login')}
@@ -111,22 +111,21 @@ const Login = () => {
             <p className="mt-6 text-base leading-relaxed text-white/90">
               Access your academic progress, resources and campus news through the unified student portal.
             </p>
-          </div>
 
-          {/* Bottom: the marks, and the notice nobody reads but everybody needs */}
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex items-center gap-2" aria-hidden="true">
-              {[Facebook, Camera, MessageCircle].map((Icon, i) => (
-                <div key={i} className="flex h-8 w-8 items-center justify-center rounded-md bg-white/20">
-                  <Icon size={16} color="white" />
-                </div>
-              ))}
-            </div>
-            <p className="max-w-md text-xs leading-relaxed text-white/80 sm:text-right">
+            <p className="mt-6 max-w-sm text-xs leading-relaxed text-white/85">
               By signing in you agree to the Dela Paz Online Services{' '}
               <span className="font-semibold text-white">Terms of Use</span> and{' '}
               <span className="font-semibold text-white">Privacy Statement</span>.
             </p>
+          </div>
+
+          {/* Bottom: the marks, and the notice nobody reads but everybody needs */}
+          <div className="relative z-10 flex items-center gap-2" aria-hidden="true">
+            {[Facebook, Camera, MessageCircle].map((Icon, i) => (
+              <div key={i} className="flex h-8 w-8 items-center justify-center rounded-md bg-white/20">
+                <Icon size={16} color="white" />
+              </div>
+            ))}
           </div>
         </section>
       </main>

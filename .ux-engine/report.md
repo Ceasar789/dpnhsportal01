@@ -1,184 +1,101 @@
 # UX findings
 
-scope: path `frontend/src/pages/public/News.jsx` · 74 high · 3 medium · 2 low · 3 suppressed
+scope: path `frontend/src/pages/auth/FacultyLogin.jsx` · 30 high · 5 medium · 1 low · 2 suppressed
 
 ## High
 
-- **UX-101** · `frontend/src/pages/public/News.jsx:102` — Off-system colour `#003b7a` — nearest token `--text` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:9` — Off-system colour `#dc3545` — nearest token `--red` (distance 0.03).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:117` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:10` — Off-system colour `#0d2b5c` — nearest token `--text` (distance 0.03).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:118` — Off-system colour `#00D4FF` — no near token; likely a genuinely new value.
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:11` — Off-system colour `#6f42c1` — nearest token `--purple` (distance 0.07).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:120` — Off-system colour `rgba(255,255,255,0.85)` — no near token; likely a genuinely new value.
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:12` — Off-system colour `#198754` — nearest token `--teal` (distance 0.08).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:137` — Off-system colour `#22c55e` — nearest token `--green` (distance 0.10).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:143` — Off-system colour `#1a2b4a` — nearest token `--text` (distance 0.00).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:145` — Off-system colour `#FFFFFF` — nearest token `--card-bg` (distance 0.00).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:144` — Off-system colour `#d4a843` — no near token; likely a genuinely new value.
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:163` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:145` — Off-system colour `#6B7280` — nearest token `--heading-accent` (distance 0.07).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:163` — Off-system colour `#003b7a` — nearest token `--text` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:149` — Off-system colour `#fee2e2` — nearest token `--reg-sidebar-active-bg` (distance 0.04).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:169` — Off-system colour `#FFFFFF` — nearest token `--card-bg` (distance 0.00).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:151` — Off-system colour `#dc3545` — nearest token `--red` (distance 0.03).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:175` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
+- **UX-096** · `frontend/src/pages/auth/FacultyLogin.jsx:157` — All three field labels are positional only, so a screen reader announces the inputs as bare edit boxes and never reads "LOGIN AS" for the role control.
+  - Evidence: <label>LOGIN AS</label> at :157, EMAIL ADDRESS at :184 and PASSWORD at :192 carry no htmlFor, and the controls they sit above (the role <button> at :159, the inputs at :187 and :195) carry no id. The role control is a button, which a <label> cannot be associated with at all, so "LOGIN AS" never reaches its accessible name.
+  - Fix: Bind the label to the input so the association is programmatic rather than positional, using the identifier the input already carries. Where the design has no visible label, give the input an accessible name directly rather than relying on a placeholder, and keep that name matching whatever visible text a voice-control user would say.
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:157` — Off-system colour `#6B7280` — nearest token `--heading-accent` (distance 0.07).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:201` — Off-system colour `rgba(254,179,0,0.15)` — no near token; likely a genuinely new value.
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:159` — Off-system colour `#F8F9FA` — nearest token `--sidebar-bg` (distance 0.00).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:203` — Off-system colour `#7E5700` — no near token; likely a genuinely new value.
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:159` — Off-system colour `#E5E7EB` — nearest token `--border` (distance 0.01).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:209` — Off-system colour `#64748B` — nearest token `--heading-accent` (distance 0.06).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:166` — Off-system colour `#9CA3AF` — nearest token `--text-dim` (distance 0.02).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:219` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:168` — Off-system colour `#9CA3AF` — nearest token `--text-dim` (distance 0.02).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:229` — Off-system colour `#64748B` — nearest token `--heading-accent` (distance 0.06).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:171` — Off-system colour `#E5E7EB` — nearest token `--border` (distance 0.01).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:240` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:184` — Off-system colour `#6B7280` — nearest token `--heading-accent` (distance 0.07).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:241` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:186` — Off-system colour `#9CA3AF` — nearest token `--text-dim` (distance 0.02).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:241` — Off-system colour `#6A4800` — no near token; likely a genuinely new value.
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:187` — Off-system colour `#F8F9FA` — nearest token `--sidebar-bg` (distance 0.00).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:267` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:187` — Off-system colour `#E5E7EB` — nearest token `--border` (distance 0.01).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:268` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:192` — Off-system colour `#6B7280` — nearest token `--heading-accent` (distance 0.07).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:276` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:194` — Off-system colour `#9CA3AF` — nearest token `--text-dim` (distance 0.02).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:277` — Off-system colour `#475569` — nearest token `--text-muted` (distance 0.00).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:195` — Off-system colour `#F8F9FA` — nearest token `--sidebar-bg` (distance 0.00).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:285` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:195` — Off-system colour `#E5E7EB` — nearest token `--border` (distance 0.01).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:288` — Off-system colour `#b91c1c` — nearest token `--red` (distance 0.08).
+- **UX-091** · `frontend/src/pages/auth/FacultyLogin.jsx:196` — The show/hide password toggle announces as "button" and gives no way to tell whether the password is currently revealed.
+  - Evidence: <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2"> holds only an Eye or EyeOff glyph, with no aria-label, no aria-pressed and no visually hidden text.
+  - Fix: Give every icon-only control an accessible name that states the action in the same terms a text label would use — `aria-label="Delete invoice"`, not `aria-label="Trash icon"` — and keep it in sync with what the icon does if the action is conditional (a toggle's label should change with its state, e.g. "Mute" vs. "Unmute").
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:197` — Off-system colour `#9CA3AF` — nearest token `--text-dim` (distance 0.02).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:289` — Off-system colour `#b91c1c` — nearest token `--red` (distance 0.08).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:197` — Off-system colour `#9CA3AF` — nearest token `--text-dim` (distance 0.02).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:290` — Off-system colour `#003b7a` — nearest token `--text` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:203` — Off-system colour `#b7950b` — nearest token `--yellow` (distance 0.09).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:296` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:206` — Off-system colour `#0d2b5c` — nearest token `--text` (distance 0.03).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:332` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:332` — Off-system colour `#7E5700` — no near token; likely a genuinely new value.
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:334` — Off-system colour `#7E5700` — no near token; likely a genuinely new value.
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:337` — Off-system colour `#64748B` — nearest token `--heading-accent` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:343` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:346` — Off-system colour `#64748B` — nearest token `--heading-accent` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:354` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:355` — Off-system colour `#003b7a` — nearest token `--text` (distance 0.09).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:371` — Off-system colour `#001D4E` — nearest token `--text` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:389` — Off-system colour `#94A3B8` — nearest token `--text-dim` (distance 0.00).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:401` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:403` — Off-system colour `#0F2D5E` — nearest token `--text` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:404` — Off-system colour `#1E3A8A` — nearest token `--accent-hover` (distance 0.09).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:417` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:417` — Off-system colour `#003b7a` — nearest token `--text` (distance 0.09).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:418` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:418` — Off-system colour `#6A4800` — no near token; likely a genuinely new value.
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:429` — Off-system colour `#003b7a` — nearest token `--text` (distance 0.09).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:433` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:434` — Off-system colour `#FFFFFF` — nearest token `--card-bg` (distance 0.00).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:437` — Off-system colour `#cbd5e1` — nearest token `--border` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:444` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:452` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:453` — Off-system colour `#cbd5e1` — nearest token `--border` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:462` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:468` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:469` — Off-system colour `#cbd5e1` — nearest token `--border` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:474` — Off-system colour `#cbd5e1` — nearest token `--border` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:482` — Off-system colour `#FEB300` — nearest token `--reg-gold` (distance 0.04).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:486` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:487` — Off-system colour `#cbd5e1` — nearest token `--border` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:490` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:491` — Off-system colour `#cbd5e1` — nearest token `--border` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:494` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:495` — Off-system colour `#cbd5e1` — nearest token `--border` (distance 0.06).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:501` — Off-system colour `rgba(255,255,255,0.15)` — no near token; likely a genuinely new value.
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:505` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:509` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:510` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:511` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:512` — Off-system colour `#b6c2d1` — nearest token `--text-dim` (distance 0.10).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:522` — Off-system colour `#F8FAFC` — nearest token `--sidebar-bg` (distance 0.00).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:532` — Off-system colour `#b91c1c` — nearest token `--red` (distance 0.08).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:533` — Off-system colour `#b91c1c` — nearest token `--red` (distance 0.08).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:536` — Off-system colour `#475569` — nearest token `--text-muted` (distance 0.00).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:541` — Off-system colour `#003b7a` — nearest token `--text` (distance 0.09).
-  - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
-- **UX-101** · `frontend/src/pages/public/News.jsx:548` — Off-system colour `#475569` — nearest token `--text-muted` (distance 0.00).
+- **UX-101** · `frontend/src/pages/auth/FacultyLogin.jsx:212` — Off-system colour `#6c757d` — nearest token `--heading-accent` (distance 0.09).
   - Fix: Replace the literal with the nearest existing token from the colour group; if none of the existing tokens is semantically correct, add a new token to the source file (`styling.tokenSource`) rather than inlining a one-off value, so the palette stays the single source of truth for every colour in the UI.
 
 ## Medium
 
-- **UX-123** · `frontend/src/pages/public/News.jsx:217` — Off-system length `32px` measured against the type scale — no near token; likely a genuinely new value.
-  - Fix: Replace the literal with the `nearestToken` the finding names, choosing the ramp step by the text's role (caption, body, heading) rather than by which number is closest. If the ramp truly lacks a size the product needs, add a named step for that role so it ranks consistently everywhere it is used.
-- **UX-123** · `frontend/src/pages/public/News.jsx:217` — Off-system length `48px` measured against the type scale — no near token; likely a genuinely new value.
-  - Fix: Replace the literal with the `nearestToken` the finding names, choosing the ramp step by the text's role (caption, body, heading) rather than by which number is closest. If the ramp truly lacks a size the product needs, add a named step for that role so it ranks consistently everywhere it is used.
-- **UX-123** · `frontend/src/pages/public/News.jsx:220` — Off-system length `-0.02em` measured against the type scale — no near token; likely a genuinely new value.
-  - Fix: Replace the literal with the `nearestToken` the finding names, choosing the ramp step by the text's role (caption, body, heading) rather than by which number is closest. If the ramp truly lacks a size the product needs, add a named step for that role so it ranks consistently everywhere it is used.
+- **UX-095** · `frontend/src/pages/auth/FacultyLogin.jsx:143` — The page's outline starts at level 2, so a screen reader's heading list shows a document with no top level.
+  - Evidence: <h2>Faculty Portal</h2> at :143 is the only heading the page renders, and the auth routes mount bare with no shared layout supplying an h1 above it.
+  - Fix: Choose the level from the section's actual depth in the structure, with one top-level heading naming the screen, and set the rendered size separately from the profile's type scale. Keeping the two decisions apart lets a deeply nested heading be small and a shallow one be large without either lying about the outline.
+- **UX-099** · `frontend/src/pages/auth/FacultyLogin.jsx:149` — A rejected sign-in appears silently: the panel is painted red and nothing announces it, so a screen reader user is left on a form that looks unchanged.
+  - Evidence: The error panel mounts from {errorMessage && (...)} at :148 with no role="alert" and no aria-live. Every failure path — the student block at :66, the role mismatch at :75 and :118, the credential failures from getErrorMessage at :127 — writes into it.
+  - Fix: Render the changing content inside a region marked as live, choosing the politeness from the urgency — assertive for something that interrupts, polite for a result count or a status. Keep the live region mounted in the tree rather than creating it with its content, since a region that appears at the same moment as its text is frequently not announced at all.
+- **UX-104** · `frontend/src/pages/auth/FacultyLogin.jsx:184` — The two sign-in forms have drifted apart: the same defect is fixed on one and live on the other, so the accessible version a user gets now depends on which role they picked.
+  - Evidence: StudentLogin.jsx and FacultyLogin.jsx render the same sign-in concept from near-identical markup, but as of commit 0c5592d the student form has label associations, autocomplete, a named show/hide toggle, role="alert" and 24px targets, and this one has none of them. Both are reached from the same chooser at /login.
+  - Fix: Keep the component that already covers both call sites, extend it with the variant the other one needed through the mechanism the profile records, and replace the second at its call sites before deleting it. Leaving both in the tree behind a preference guarantees the divergence continues.
+- **UX-016** · `frontend/src/pages/auth/FacultyLogin.jsx:196` — Three controls sit under the 24x24 minimum, and the smallest of them is the one a phone user reaches for to check a mistyped password.
+  - Evidence: The show/hide toggle at :196 has no padding around its 20px glyph, so its hit area is 20x20. "Forgot password?" at :203 and "Back to role selection" at :212 are text-sm buttons with no vertical padding, so each is about 20px tall. The WCAG 2.2 AA minimum for a web target is 24x24.
+  - Fix: Grow the hit area to the platform minimum even when the visible icon stays small — padding counts, the glyph doesn't have to. Where several small targets are packed into a table row, add horizontal spacing between them sized from the layout's existing spacing tokens rather than shrinking padding to fit more in, and confirm the rendered box (not just the icon's viewBox) against the platform minimum.
+- **UX-029** · `frontend/src/pages/auth/FacultyLogin.jsx:203` — Two pure navigations are built as buttons with no destination in the markup, so they cannot be opened in a new tab, middle-clicked, or seen by a screen reader as links.
+  - Evidence: Both :203 and :212 are <button> elements whose only job is navigate('/forgot-password') and navigate('/login'). Both destinations are known at render time and neither waits on work that can fail, so the counter-example does not cover them.
+  - Fix: Match the element to the behaviour: anything that goes somewhere is an anchor carrying the real destination, and anything that changes state is a button. Where a navigation also needs script — analytics, an unsaved-changes guard — keep the destination in the markup and let the handler run alongside it.
 
 ## Low
 
-- **UX-045** · `frontend/src/pages/public/News.jsx:199` — The hero category badge carries a filled background, bold weight, wide tracking, uppercase and an accent colour all at once.
-  - Evidence: The hero category badge stacks every emphasis device the page has on one element at once: a filled background (`rgba(254,179,0,0.15)`), `font-bold`, `tracking-widest`, `toUpperCase()` and the gold accent `#7E5700`. The card categories beside it carry four of the same five, so the badge is not standing out against a quiet field — it is competing with its own repetitions.
-  - Fix: Pick the one device the profile already uses for this level — usually weight or colour, rarely both — and drop the rest, keeping the element's meaning in its words. Where the element still does not stand out enough, lower the emphasis of what surrounds it rather than adding a fourth device to it.
-- **UX-038** · `frontend/src/pages/public/News.jsx:347` — The card body and the page itself have no maximum width, so prose stretches with the monitor.
-  - Evidence: The card body renders with no max-width, inside a `lg:grid-cols-3` grid, inside a page whose only width constraint is `px-5 lg:px-[100px]` — there is no max-w on any wrapper in the file. On a 2560px monitor each column is roughly 790px, putting a 14px paragraph near 120 characters a line. The hero description sets maxWidth 500px and the stay-connected copy 350px; the card body and the page shell set none.
-  - Fix: Cap the prose container using the profile's content-width token so lines settle at a readable measure regardless of viewport, and let the surrounding layout keep the freed width. Leave tables, charts and data surfaces uncapped — they are scanned in columns, not read in lines.
+- **UX-072** · `frontend/src/pages/auth/FacultyLogin.jsx:187` — Neither credential field is annotated, so the browser and any password manager have nothing to fill — on a portal staff sign into daily.
+  - Evidence: The email input at :187 and the password input at :195 declare neither autoComplete nor name.
+  - Fix: Annotate each standard field with the autocomplete token naming what it collects, using the compound tokens for grouped values such as address lines so the platform can fill the group in one action. Keep the field's name, type and token consistent so a manager that stored a value can recognise it again.
 
 ## Suppressed
 
-- UX-121 suppressed for sizing — 0 distinct values, not a scale (12 literals)
-  - Most used: `400px` (×4), `150px` (×2), `260px` (×2), `90px` (×1), `250px` (×1), `350px` (×1), `500px` (×1)
-  - These are the raw material for a sizing scale; the remedy is tokens, not a quieter report.
-- UX-102 suppressed for 7 length(s) whose surrounding code does not say which token group they belong to — no scale was applied, so no substitution was offered
-  - Written after: `height` (×2), `padding-left` (×2), `padding-right` (×2), `border` (×1)
-- UX-102 suppressed for spacing — 0 distinct values, not a scale (8 literals)
-  - Most used: `100px` (×3), `32px` (×1), `48px` (×1), `60px` (×1), `65px` (×1), `90px` (×1)
-  - These are the raw material for a spacing scale; the remedy is tokens, not a quieter report.
+- UX-102 suppressed for 4 length(s) whose surrounding code does not say which token group they belong to — no scale was applied, so no substitution was offered
+  - Written after: `border` (×4)
+- UX-103 suppressed for motion — 0 distinct values, not a scale (1 literals)
+  - Most used: `0.2s` (×1)
+  - These are the raw material for a motion scale; the remedy is tokens, not a quieter report.
 

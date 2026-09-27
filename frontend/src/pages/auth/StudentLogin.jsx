@@ -110,43 +110,43 @@ const StudentLogin = () => {
           </div>
 
           {errorMessage && (
-            <div className="flex items-start gap-2 p-3 rounded-md mb-4" style={{ backgroundColor: '#fee2e2' }}>
-              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
-              <p className="text-sm flex-1" style={{ color: '#dc3545' }}>{errorMessage}</p>
+            <div role="alert" className="flex items-start gap-2 p-3 rounded-md mb-4" style={{ backgroundColor: '#fee2e2' }}>
+              <AlertTriangle size={18} className="shrink-0 mt-0.5" style={{ color: '#b91c1c' }} aria-hidden="true" />
+              <p className="text-sm flex-1 whitespace-pre-line" style={{ color: '#b91c1c' }}>{errorMessage}</p>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="flex flex-col gap-5">
             <div>
-              <label className="block text-xs font-semibold tracking-widest mb-2" style={{ color: '#6B7280' }}>EMAIL ADDRESS</label>
+              <label htmlFor="student-email" className="block text-xs font-semibold tracking-widest mb-2" style={{ color: '#6B7280' }}>EMAIL ADDRESS</label>
               <div className="relative">
-                <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@dpnhs.edu.ph" className="w-full h-12 pl-12 pr-4 rounded-md text-sm outline-none focus:ring-2" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
+                <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} aria-hidden="true" />
+                <input id="student-email" name="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@dpnhs.edu.ph" className="w-full h-12 pl-12 pr-4 rounded-md text-sm outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold tracking-widest mb-2" style={{ color: '#6B7280' }}>PASSWORD</label>
+              <label htmlFor="student-password" className="block text-xs font-semibold tracking-widest mb-2" style={{ color: '#6B7280' }}>PASSWORD</label>
               <div className="relative">
-                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full h-12 pl-12 pr-12 rounded-md text-sm outline-none focus:ring-2" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {showPassword ? <EyeOff size={20} style={{ color: '#9CA3AF' }} /> : <Eye size={20} style={{ color: '#9CA3AF' }} />}
+                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} aria-hidden="true" />
+                <input id="student-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full h-12 pl-12 pr-12 rounded-md text-sm outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded">
+                  {showPassword ? <EyeOff size={20} style={{ color: '#64748b' }} aria-hidden="true" /> : <Eye size={20} style={{ color: '#64748b' }} aria-hidden="true" />}
                 </button>
               </div>
             </div>
 
             <div className="flex justify-end">
-              <button type="button" onClick={() => navigate('/forgot-password')} className="text-sm font-semibold" style={{ color: '#b7950b' }}>Forgot password?</button>
+              <button type="button" onClick={() => navigate('/forgot-password')} className="text-sm font-semibold py-1.5 px-1 -mr-1 rounded" style={{ color: '#7E5700' }}>Forgot password?</button>
             </div>
 
-            <button type="submit" disabled={isLoading} className="w-full h-12 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity disabled:opacity-50" style={{ backgroundColor: '#007bff' }}>
-              {isLoading ? <div className="flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /></div> : 'Sign In as Student'}
+            <button type="submit" disabled={isLoading} aria-busy={isLoading} className="w-full h-12 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity disabled:opacity-50" style={{ backgroundColor: '#0062cc' }}>
+              {isLoading ? <div className="flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" /><span className="sr-only">Signing in</span></div> : 'Sign In as Student'}
             </button>
           </form>
 
           <div className="flex justify-center mt-5">
-            <button onClick={() => navigate('/login')} className="text-sm" style={{ color: '#6c757d' }}>← Back to role selection</button>
+            <button type="button" onClick={() => navigate('/login')} className="text-sm py-1.5 px-2 rounded" style={{ color: '#6c757d' }}>← Back to role selection</button>
           </div>
         </div>
       </div>

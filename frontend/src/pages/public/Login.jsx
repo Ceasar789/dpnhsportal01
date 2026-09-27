@@ -13,12 +13,10 @@ import FlippingLogo from '../../components/FlippingLogo';
 
 const Login = () => {
   const navigate = useNavigate();
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 900);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1100);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsDesktop(window.innerWidth > 900);
       setIsMobile(window.innerWidth < 1100);
     };
     handleResize();
@@ -28,147 +26,109 @@ const Login = () => {
 
 
   // ============================================
-  // LEFT PANEL — ORIGINAL with background image
+  // THE PANEL
+  //
+  // One full-width panel over the campus photograph. The card that used to
+  // sit on the right is gone with its second heading ("Hi, DPNHSian!") and
+  // its downward arrow; the Student and Faculty buttons it held now sit
+  // under "Welcome Back." where the eye already is.
+  //
+  // The scrim is the part that matters. Everything here is white text on a
+  // photograph, and the old 0.3-to-0.5 black wash left the school name at
+  // 2.11:1 and the paragraph at 3.04:1 against a bright frame. Navy at 0.62
+  // rising to 0.78 holds white at 4.81:1 in the worst case a photograph can
+  // produce, so legibility stops depending on which picture loads.
   // ============================================
-  const LeftPanel = () => (
-    <div 
-      className="relative flex flex-col justify-between p-10 text-white"
-      style={{
-        backgroundImage: 'url(/capstonebackground.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        minHeight: isDesktop ? 'calc(100vh - 90px)' : '400px'
-      }}
+  const RoleButton = ({ label, onClick, className, style }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 rounded-xl px-6 py-3 font-work text-base font-bold transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b2347] ${className}`}
+      style={style}
     >
-      {/* Dark overlay */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.5))'
-        }}
-      />
-
-      {/* Top Content */}
-      <div className="relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-            <School size={30} color="#1a5276" />
-          </div>
-          <div>
-            <p className="font-semibold text-base">Dela Paz</p>
-            <p className="font-normal text-sm">National High School</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Center Logo */}
-      <div className="relative z-20 flex flex-col items-center justify-center">
-        <FlippingLogo size={380} className="mb-8" />
-        <h2 className="text-4xl font-bold leading-tight mb-4 text-center">
-          Welcome Back.
-        </h2>
-        <p className="text-base leading-relaxed text-white/90 text-center">
-          Access your academic progress, resources,<br />
-          and campus news through the unified student<br />
-          portal.
-        </p>
-      </div>
-
-      {/* Bottom Content */}
-      <div className="relative z-10 flex items-center gap-2">
-        <div className="flex items-center gap-2" aria-hidden="true">
-          <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
-            <Facebook size={16} color="white" />
-          </div>
-          <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
-            <Camera size={16} color="white" />
-          </div>
-          <div className="w-8 h-8 bg-white/20 rounded-md flex items-center justify-center">
-            <MessageCircle size={16} color="white" />
-          </div>
-        </div>
-      </div>
-    </div>
+      {label}
+    </button>
   );
 
-  // ============================================
-  // RIGHT PANEL — ORIGINAL design preserved
-  // ============================================
-  const RightPanel = () => (
-    <div className="flex flex-col items-center justify-center px-8 py-10" style={{ backgroundColor: '#F8F9FA', minHeight: isDesktop ? 'calc(100vh - 90px)' : 'auto' }}>
-      <div className="w-full max-w-sm bg-white p-8" style={{ borderRadius: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-        <div className="w-full">
-        {/* Title and description */}
-        <div className="flex flex-col items-center mb-8">
-          <h2 className="text-3xl font-bold mb-3" style={{ color: '#1a2b4a' }}>
-            Hi, DPNHSian!
-          </h2>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm" style={{ color: '#6B7280' }} aria-hidden="true">↓</span>
-            <span className="text-sm" style={{ color: '#6B7280' }}>
-              Please click or tap your destination.
-            </span>
-          </div>
-        </div>
+  const navHeight = isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop;
 
-        {/* Buttons */}
-        <div className="flex flex-col gap-4 mt-10">
-          <button
-            onClick={() => navigate('/student-login')}
-            className="w-full h-10 rounded-3xl font-medium text-lg text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0062cc] focus-visible:ring-offset-2"
-            style={{ backgroundColor: '#0062cc' }}
-          >
-            Student
-          </button>
-
-          <button
-            onClick={() => navigate('/faculty-login')}
-            className="w-full h-10 rounded-3xl font-medium text-lg hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2c3e50] focus-visible:ring-offset-2"
-            style={{ backgroundColor: 'rgb(246, 242, 14)', color: '#2c3e50' }}
-          >
-            Faculty
-          </button>
-        </div>
-
-        {/* Terms */}
-        <p className="text-center text-xs leading-relaxed mt-8" style={{ color: '#6B7280' }}>
-          By using this service, you understood and agree to the Dela Paz Online Services{' '}
-          <span className="font-semibold" style={{ color: '#4B5563' }}>Terms of Use</span>
-          {' '}and{' '}
-          <span className="font-semibold" style={{ color: '#4B5563' }}>Privacy Statement</span>
-        </p>
-      </div>
-      </div>
-    </div>
-  );
-
-  // ============================================
-  // FOOTER — EduScribe Dark Blue Theme, original text
-  // ============================================
-
-  // ============================================
-  // MAIN RENDER
-  // ============================================
   return (
     <div className="min-h-screen flex flex-col">
       <PublicHeader isMobile={isMobile} active={null} />
-      
-      <main className="flex-1" style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>
-        {isDesktop ? (
-          <div className="flex">
-            <div className="flex-1">
-              <LeftPanel />
+
+      <main className="flex-1" style={{ paddingTop: navHeight }}>
+        <section
+          className="relative flex flex-col justify-between px-5 py-8 sm:px-10 sm:py-10 text-white"
+          style={{
+            backgroundImage: 'url(/capstonebackground.jpg)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            minHeight: `calc(100vh - ${navHeight}px)`,
+          }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,29,78,0.62), rgba(0,29,78,0.78))' }}
+            aria-hidden="true"
+          />
+
+          {/* Top: who this belongs to */}
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white">
+              <School size={26} color="#1a5276" aria-hidden="true" />
             </div>
-            <div className="flex-1">
-              <RightPanel />
+            <div className="leading-tight">
+              <p className="font-semibold text-base">Dela Paz</p>
+              <p className="text-sm text-white/90">National High School</p>
             </div>
           </div>
-        ) : (
-          <div className="flex flex-col">
-            <LeftPanel />
-            <RightPanel />
+
+          {/* Centre: the welcome and the choice */}
+          <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center py-8 text-center">
+            <FlippingLogo size={isMobile ? 200 : 300} className="mb-6" />
+
+            <h1 className="font-work text-3xl sm:text-4xl font-bold leading-tight">
+              Welcome Back.
+            </h1>
+
+            <div className="mt-6 flex w-full max-w-sm gap-3">
+              <RoleButton
+                label="Student"
+                onClick={() => navigate('/student-login')}
+                className="text-white"
+                style={{ backgroundColor: '#0062cc' }}
+              />
+              <RoleButton
+                label="Faculty"
+                onClick={() => navigate('/faculty-login')}
+                className=""
+                style={{ backgroundColor: '#FEB300', color: '#6A4800' }}
+              />
+            </div>
+
+            {/* No hard line breaks: they were cut for a desktop column and
+                left "portal." alone on its own line at 390px. */}
+            <p className="mt-6 text-base leading-relaxed text-white/90">
+              Access your academic progress, resources and campus news through the unified student portal.
+            </p>
           </div>
-        )}
+
+          {/* Bottom: the marks, and the notice nobody reads but everybody needs */}
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex items-center gap-2" aria-hidden="true">
+              {[Facebook, Camera, MessageCircle].map((Icon, i) => (
+                <div key={i} className="flex h-8 w-8 items-center justify-center rounded-md bg-white/20">
+                  <Icon size={16} color="white" />
+                </div>
+              ))}
+            </div>
+            <p className="max-w-md text-xs leading-relaxed text-white/80 sm:text-right">
+              By signing in you agree to the Dela Paz Online Services{' '}
+              <span className="font-semibold text-white">Terms of Use</span> and{' '}
+              <span className="font-semibold text-white">Privacy Statement</span>.
+            </p>
+          </div>
+        </section>
       </main>
 
       <PublicFooter />

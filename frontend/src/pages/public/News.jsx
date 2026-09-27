@@ -52,7 +52,7 @@ const News = () => {
       .select('*')
       .eq('status', 'Published')
       .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
-      .order('published_at', { ascending: false });
+      .order('published_at', { ascending: false, nullsFirst: false });
     if (error) {
       setLoadError(error.message || 'The news could not be loaded.');
       setNewsItems([]);
@@ -154,14 +154,27 @@ const News = () => {
     });
 
     return (
-      <article className={`flex flex-col${lead ? ' sm:col-span-2' : ''}`}>
+      <article
+        className={`flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ${
+          lead ? 'sm:col-span-2 border-2 border-[#FEB300]' : 'border border-slate-200'
+        }`}
+      >
         {item.featured_image_url && (
           <img
             src={item.featured_image_url}
             alt=""
-            className="w-full object-cover rounded-lg mb-4 aspect-[3/2]"
+            className="w-full object-cover aspect-[3/2]"
             onError={e => { e.currentTarget.style.display = 'none'; }}
           />
+        )}
+        <div className="flex flex-col p-5">
+        {lead && (
+          <span
+            className="self-start mb-3 rounded-full px-2.5 py-1 font-work text-[11px] font-bold tracking-widest"
+            style={{ backgroundColor: '#FEB300', color: '#6A4800' }}
+          >
+            LATEST
+          </span>
         )}
         <div className="flex items-center gap-3 mb-3">
           {/* #FEB300 is 1.80:1 on white. The same gold darkened to #7E5700
@@ -193,6 +206,7 @@ const News = () => {
             <ArrowRight size={14} aria-hidden="true" />
           </button>
         )}
+        </div>
       </article>
     );
   };

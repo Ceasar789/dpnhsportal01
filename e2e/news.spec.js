@@ -54,6 +54,45 @@ test.describe('public news', () => {
     expect(labels.filter(l => l === ''), 'every button needs a name').toEqual([]);
   });
 
+  test('each story is a separate card, and the newest is marked', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/news');
+    await page.waitForLoadState('networkidle');
+
+    // Bare text blocks on a tinted page ran together with nothing to say
+    // where one story ended. Every card needs its own surface and edge.
+    const surfaces = await page.locator('article').evaluateAll(els => els.map(e => {
+      const s = getComputedStyle(e);
+      return { bg: s.backgroundColor, border: parseFloat(s.borderTopWidth) };
+    }));
+    expect(surfaces.length).toBeGreaterThan(1);
+    for (const s of surfaces) {
+      expect(s.bg, 'a card needs a surface of its own').toBe('rgb(255, 255, 255)');
+      expect(s.border, 'a card needs an edge').toBeGreaterThan(0);
+    }
+
+    await expect(page.getByText('LATEST', { exact: true })).toHaveCount(1);
+  });
+
+  test('a post with no publish date is not treated as the newest', async ({ page }) => {
+    let rows = null;
+    page.on('response', async r => {
+      if (rows || !r.url().includes('/rest/v1/news') || r.status() !== 200) return;
+      try { const j = await r.json(); if (Array.isArray(j)) rows = j; } catch { /* not json */ }
+    });
+    await page.goto('/news');
+    await page.waitForLoadState('networkidle');
+    test.skip(!rows || rows.length === 0, 'no news returned');
+
+    // Postgres sorts NULLs first on DESC, so an undated post used to lead the
+    // page and wear the LATEST badge ahead of genuinely recent news.
+    const firstNull = rows.findIndex(r => !r.published_at);
+    const lastDated = rows.map(r => !!r.published_at).lastIndexOf(true);
+    if (firstNull !== -1 && lastDated !== -1) {
+      expect(firstNull, 'undated posts must sort below dated ones').toBeGreaterThan(lastDated);
+    }
+  });
+
   test('prose is capped rather than stretching with the monitor', async ({ page }) => {
     await page.setViewportSize({ width: 2560, height: 1200 });
     await page.goto('/news');

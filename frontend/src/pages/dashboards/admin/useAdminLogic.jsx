@@ -11,6 +11,7 @@ import { supabase } from '../../../config/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useDashboardTheme } from '../../../styles/dashboardTheme';
 import { withRetry } from '../../../lib/supabaseRetry';
+import { publishedAtPatch } from '../../../lib/newsRules';
 import { validatePassword } from '../../../lib/passwordPolicy';
 import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
 
@@ -440,7 +441,10 @@ export const useAdminLogic = (userData) => {
   }, []);
 
   const openNewPost = () => {
-    setEditNews(null); setNewsReadOnly(false); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget(''); setNImageFile(null); setNImageUrl(''); setNExpiresDate('');
+    const inThirtyDays = new Date();
+    inThirtyDays.setDate(inThirtyDays.getDate() + 30);
+    setEditNews(null); setNewsReadOnly(false); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget(''); setNImageFile(null); setNImageUrl('');
+    setNExpiresDate(inThirtyDays.toISOString().slice(0, 10));
     openModal('news');
   };
   const openEditNews = (n) => {
@@ -515,7 +519,7 @@ export const useAdminLogic = (userData) => {
         title: nTitle.trim(), category: nCat, content: nContent, status: nStatus,
         author_id: userData?.uid,
         target_roles: nTarget === 'custom' ? `custom:${nCustomTarget.trim()}` : nTarget,
-        published_at: nStatus === 'Published' ? new Date().toISOString() : null,
+        ...publishedAtPatch(nStatus, editNews?.published_at),
         featured_image_url: featuredImageUrl,
         // "Expires on Sep 30" means visible through all of Sep 30 and gone
         // Oct 1, so this stores end-of-day, not midnight. news.expires_at is
@@ -587,7 +591,7 @@ export const useAdminLogic = (userData) => {
       .from('news')
       .update({
         status,
-        published_at: status === 'Published' ? new Date().toISOString() : null,
+        ...publishedAtPatch(status, newsItem?.published_at),
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);

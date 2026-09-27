@@ -146,7 +146,7 @@ const CalendarPage = () => {
 
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="public-shell min-h-screen bg-[#f8fafc]">
       <PublicHeader isMobile={isMobile} active="Calendar" />
       
       <main style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>

@@ -219,7 +219,7 @@ const News = () => {
   // MAIN RENDER
   // ============================================
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F8FAFC' }}>
+    <div className="public-shell min-h-screen" style={{ backgroundColor: '#F8FAFC' }}>
       <PublicHeader isMobile={isMobile} active="News" />
 
       <main style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>

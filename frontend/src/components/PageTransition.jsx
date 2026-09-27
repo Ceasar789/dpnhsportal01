@@ -5,11 +5,20 @@
 // the route or active tab changes.
 // ============================================
 
+import { useLayoutEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const PageTransition = ({ children, transitionKey }) => {
   const location = useLocation();
   const key = transitionKey ?? location.pathname;
+
+  // Without this a route change kept the old scroll offset, so leaving a
+  // scrolled /news for /calendar opened the calendar halfway down itself. It
+  // jumps rather than scrolls: an animated scroll on navigation fights the
+  // fade-in, and it is motion nobody asked for.
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [key]);
 
   return (
     <div key={key} className="page-transition">

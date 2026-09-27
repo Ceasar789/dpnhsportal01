@@ -53,7 +53,7 @@ const Login = () => {
   const navHeight = isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="public-shell min-h-screen flex flex-col">
       <PublicHeader isMobile={isMobile} active={null} />
 
       <main className="flex-1" style={{ paddingTop: navHeight }}>

@@ -26,8 +26,9 @@ for (const [path, name] of PAGES) {
       expect(body, `${name} still renders ${glyph}`).not.toContain(glyph);
     }
 
-    // The footer navigation is now real controls, not <p> tags.
-    await expect(page.getByRole('button', { name: 'Faculty Portal' })).toBeVisible();
+    // Faculty Portal is a real link, not a <p> tag and not a button that
+    // cannot be opened in a new tab.
+    await expect(page.getByRole('link', { name: 'Faculty Portal' })).toBeVisible();
 
     expect(errors, `${name} console errors:\n${errors.join('\n')}`).toEqual([]);
   });

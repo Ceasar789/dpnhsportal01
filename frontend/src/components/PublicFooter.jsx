@@ -10,14 +10,12 @@
 // ============================================
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { School, Facebook, BookOpen, Globe, Users, MapPin, Mail, Phone } from 'lucide-react';
 
 const LINK = 'block mb-3 py-1 font-public text-sm text-left hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]';
 
 const PublicFooter = () => {
-  const navigate = useNavigate();
-
   return (
     <footer
       className="w-full"
@@ -27,7 +25,7 @@ const PublicFooter = () => {
         padding: '48px 24px 32px',
       }}
     >
-      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 mb-12 max-w-[1280px] mx-auto">
+      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 mb-12 max-w-[1280px] mx-auto">
         <div>
           <School size={40} color="#b6c2d1" aria-hidden="true" />
           <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
@@ -40,22 +38,11 @@ const PublicFooter = () => {
 
         <div>
           <h5 className="font-work font-bold text-xs tracking-widest mb-5" style={{ color: '#FEB300' }}>
-            NAVIGATION
-          </h5>
-          {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([label, route]) => (
-            <button key={label} type="button" onClick={() => navigate(route)} className={LINK} style={{ color: '#cbd5e1' }}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div>
-          <h5 className="font-work font-bold text-xs tracking-widest mb-5" style={{ color: '#FEB300' }}>
             RESOURCES
           </h5>
-          <button type="button" onClick={() => navigate('/faculty-login')} className={LINK} style={{ color: '#cbd5e1' }}>
+          <Link to="/faculty-login" className={LINK} style={{ color: '#cbd5e1' }}>
             Faculty Portal
-          </button>
+          </Link>
           {/* No route exists for these yet, so they stay text rather than
               pretending to be links that go nowhere. */}
           {['Alumni', 'Privacy Policy', 'Terms of Service'].map(label => (

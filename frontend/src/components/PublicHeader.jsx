@@ -9,16 +9,18 @@
 // ============================================
 
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 // A phone gets two rows: the brand, then the links. No hamburger — the three
 // destinations stay on screen rather than hiding behind an icon.
 export const PUBLIC_HEADER_HEIGHT = { mobile: 118, desktop: 90 };
 
-const NavLink = ({ title, route, active, onNavigate, compact = false }) => (
-  <button
-    type="button"
-    onClick={() => onNavigate(route)}
+// Links, not buttons: this is the only navigation left on the public pages
+// now that the footer's copy is gone, so it has to be openable in a new tab
+// and readable as navigation by a screen reader.
+const NavLink = ({ title, route, active, compact = false }) => (
+  <Link
+    to={route}
     aria-current={active ? 'page' : undefined}
     className={`${compact ? 'px-1.5' : 'px-1'} py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]`}
   >
@@ -26,19 +28,17 @@ const NavLink = ({ title, route, active, onNavigate, compact = false }) => (
       {title}
     </span>
     {active && <div className="mt-0.5 h-0.5 w-5 rounded-full" style={{ backgroundColor: '#FEB300' }} />}
-  </button>
+  </Link>
 );
 
 const PublicHeader = ({ isMobile, active }) => {
-  const navigate = useNavigate();
-  // The Login button points at /login. On /login it points at the page the
+  // The Login link points at /login. On /login it points at the page the
   // visitor is already reading, so it is not offered there.
   const onLoginPage = useLocation().pathname === '/login';
 
   const Brand = ({ logo, title, subtitle }) => (
-    <button
-      type="button"
-      onClick={() => navigate('/')}
+    <Link
+      to="/"
       aria-label="EduScribe home"
       className="flex shrink-0 items-center rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
@@ -54,17 +54,17 @@ const PublicHeader = ({ isMobile, active }) => {
           </span>
         )}
       </span>
-    </button>
+    </Link>
   );
 
   const LoginButton = ({ className }) => (
-    <button
-      onClick={() => navigate('/login')}
-      className={`font-work font-semibold text-white rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a] ${className}`}
+    <Link
+      to="/login"
+      className={`font-work font-semibold text-white rounded-lg text-center hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a] ${className}`}
       style={{ backgroundColor: '#22c55e' }}
     >
       Login
-    </button>
+    </Link>
   );
 
   const links = [['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']];
@@ -82,7 +82,7 @@ const PublicHeader = ({ isMobile, active }) => {
           <Brand logo="38px" title="text-lg" subtitle="text-[11px]" />
           <div className="flex items-center gap-1">
             {links.map(([title, route]) => (
-              <NavLink key={route} title={title} route={route} active={active === title} onNavigate={navigate} compact />
+              <NavLink key={route} title={title} route={route} active={active === title} compact />
             ))}
             {!onLoginPage && <LoginButton className="ml-auto px-4 py-1 text-xs" />}
           </div>
@@ -92,7 +92,7 @@ const PublicHeader = ({ isMobile, active }) => {
           <Brand logo="60px" title="text-2xl" subtitle="text-xs" />
           <div className="flex items-center gap-8">
             {links.map(([title, route]) => (
-              <NavLink key={route} title={title} route={route} active={active === title} onNavigate={navigate} />
+              <NavLink key={route} title={title} route={route} active={active === title} />
             ))}
             {!onLoginPage && <LoginButton className="px-8 py-2.5" />}
           </div>

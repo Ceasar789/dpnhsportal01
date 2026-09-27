@@ -57,3 +57,47 @@ test.describe('design tokens', () => {
     expect(after.text).toBe('#1a2b4a');
   });
 });
+
+// Every text token against every surface token it can land on. The muted pair
+// used to be inverted — the pale grey on light backgrounds at 2.56:1, the dark
+// one on dark backgrounds at 2.38:1 — so each failed in its own theme.
+test.describe('token contrast', () => {
+  const TEXT = ['--text', '--text-muted', '--text-dim'];
+  const SURFACE = ['--bg', '--card-bg', '--card2', '--sidebar-bg'];
+
+  const MEASURE = `(text, surface) => {
+    const v = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const lum = (hex) => {
+      const [r, g, b] = rgb(hex).map((c) => {
+        c /= 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const out = [];
+    for (const t of text) {
+      for (const s of surface) {
+        const a = lum(v(t)), b = lum(v(s));
+        const [hi, lo] = a > b ? [a, b] : [b, a];
+        out.push([t, s, (hi + 0.05) / (lo + 0.05)]);
+      }
+    }
+    return out;
+  }`;
+
+  for (const [label, path, setDark] of [['light', '/', false], ['dark', '/', true]]) {
+    test(`${label}: every text token clears 4.5:1 on every surface`, async ({ page }) => {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      if (setDark) await page.evaluate(() => document.documentElement.classList.add('dark'));
+
+      const rows = await page.evaluate(
+        ([t, s, fn]) => eval(fn)(t, s), [TEXT, SURFACE, MEASURE],
+      );
+      for (const [t, s, ratio] of rows) {
+        expect(ratio, `${t} on ${s} (${label}) reads at ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
+});

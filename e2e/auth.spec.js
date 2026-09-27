@@ -50,7 +50,7 @@ test.describe('authentication', () => {
     // it claims — a student was never rejected, they were never let as far
     // as trying. Picking Teacher makes it a real attempt.
     await page.getByRole('button', { name: /select your role/i }).click();
-    await page.getByRole('button', { name: 'Teacher', exact: true }).click();
+    await page.getByRole('option', { name: 'Teacher', exact: true }).click();
 
     await page.locator('input[type="email"]').fill(STUDENT.email);
     await page.locator('input[type="password"]').fill(PASSWORD);

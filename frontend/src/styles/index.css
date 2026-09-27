@@ -25,7 +25,10 @@ PURPOSE: Global styles + Tailwind directives
   --border: #e2e8f0;
   --text: #1a2b4a;
   --text-muted: #4a5568;
-  --text-dim: #94a3b8;
+  /* Both dim tokens used to sit on the wrong side: #94a3b8 read 2.56:1 here
+     and #5a6070 read 2.38:1 in dark. Each is now the shade that belongs to
+     its own theme, measured against bg, card-bg and card2 alike. */
+  --text-dim: #5d6b80;
   --accent: #1908DF;
   --accent-hover: #12069f;
   --green: #16a34a;
@@ -60,8 +63,8 @@ PURPOSE: Global styles + Tailwind directives
   --card2: #2a2f3a;
   --border: #2e3340;
   --text: #e8eaf0;
-  --text-muted: #8b92a5;
-  --text-dim: #5a6070;
+  --text-muted: #959cae;
+  --text-dim: #94a3b8;
   --accent: #4b3bf5;
   --accent-hover: #6357f7;
   --green: #22c55e;
@@ -99,6 +102,23 @@ body {
 .dashboard-shell [style*="transform"],
 .dashboard-shell .transform {
   transition-property: transform, opacity;
+}
+
+/* Public and auth pages had no transition of their own — the rule above is
+   scoped to .dashboard-shell — so every hover, focus and theme change on the
+   landing pages snapped. Same properties, same easing, so the two halves of
+   the app feel like one app. Colour and shadow only: layout properties are
+   left alone so nothing shifts while it animates. */
+.public-shell,
+.public-shell * {
+  transition-property: background-color, border-color, color, box-shadow, fill, stroke, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+.public-shell a,
+.public-shell button {
+  transition-property: background-color, border-color, color, box-shadow, fill, stroke, opacity, transform;
 }
 
 /* Page transition — smooth fade/slide-in on route or tab change */

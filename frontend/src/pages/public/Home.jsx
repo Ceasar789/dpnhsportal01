@@ -224,7 +224,7 @@ const Home = () => {
   // MAIN RENDER
   // ============================================
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FAF8FF' }}>
+    <div className="public-shell min-h-screen" style={{ backgroundColor: '#FAF8FF' }}>
       <PublicHeader isMobile={isMobile} active="Home" />
 
       <main style={{ paddingTop: navHeight }}>

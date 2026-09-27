@@ -39,12 +39,11 @@ export async function login(page, { email, password }, loginPath, dashboardPath,
 
   if (role) {
     await page.getByRole('button', { name: /select your role/i }).click();
-    // The options are buttons inside the opened panel, labelled exactly as
-    // ROLE_OPTIONS in FacultyLogin.jsx spells them. `exact` matters:
-    // "Admin" would otherwise also match nothing else here, but Teacher and
-    // Registrar are short enough that a loose match is asking for trouble
-    // the day a fifth role is added.
-    await page.getByRole('button', { name: role, exact: true }).click();
+    // The choices are options in a listbox, labelled exactly as ROLE_OPTIONS
+    // in FacultyLogin.jsx spells them. `exact` matters: Teacher and Registrar
+    // are short enough that a loose match is asking for trouble the day a
+    // fifth role is added.
+    await page.getByRole('option', { name: role, exact: true }).click();
   }
 
   await page.locator('input[type="email"]').fill(email);

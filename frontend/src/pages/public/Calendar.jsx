@@ -396,7 +396,7 @@ const CalendarPage = () => {
                     color: eventTypes[getEventType(selectedEvent)]?.color || '#1d4ed8'
                   }}
                 >
-                  {selectedEvent.type || 'Event'}
+                  {getEventType(selectedEvent)}
                 </span>
               </div>
             </div>

@@ -101,3 +101,27 @@ test.describe('public calendar on small screens', () => {
     expect(body).not.toMatch(/\bat \d{1,2}:\d{2}:\d{2}\b/);
   });
 });
+
+test('the dialog badge says what its colour says', async ({ page }) => {
+  await page.goto('/calendar');
+  await page.waitForLoadState('networkidle');
+  const chips = page.getByRole('button', { name: /^Open / });
+  test.skip(await chips.count() === 0, 'no events this month');
+
+  await chips.first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+
+  // The badge coloured itself from event_type but printed `type`, so a row
+  // with event_type "Deadline" and no type showed the word "Event" in
+  // Deadline amber. Both must come from one source.
+  const badge = dialog.locator('span').filter({ hasText: /^(Event|Deadline|Holiday|Other)$/ }).first();
+  const { text, bg } = await badge.evaluate(el => ({
+    text: el.textContent.trim(), bg: getComputedStyle(el).backgroundColor,
+  }));
+  const EXPECTED = {
+    Event: 'rgb(219, 234, 254)', Deadline: 'rgb(254, 243, 199)',
+    Holiday: 'rgb(254, 226, 226)', Other: 'rgb(204, 251, 241)',
+  };
+  expect(bg, `badge reads "${text}" but is not that type's colour`).toBe(EXPECTED[text]);
+});

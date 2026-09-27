@@ -19,7 +19,14 @@ const PublicFooter = () => {
   const navigate = useNavigate();
 
   return (
-    <footer className="w-full" style={{ backgroundColor: '#003b7a', padding: '48px 24px 32px' }}>
+    <footer
+      className="w-full"
+      style={{
+        backgroundColor: '#002a57',
+        borderTop: '1px solid rgba(255,255,255,0.14)',
+        padding: '48px 24px 32px',
+      }}
+    >
       <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 mb-12 max-w-[1280px] mx-auto">
         <div>
           <School size={40} color="#b6c2d1" aria-hidden="true" />

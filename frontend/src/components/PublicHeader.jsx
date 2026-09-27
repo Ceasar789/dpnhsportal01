@@ -13,16 +13,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 // A phone gets two rows: the brand, then the links. No hamburger — the three
 // destinations stay on screen rather than hiding behind an icon.
-export const PUBLIC_HEADER_HEIGHT = { mobile: 124, desktop: 90 };
+export const PUBLIC_HEADER_HEIGHT = { mobile: 72, desktop: 90 };
 
-const NavLink = ({ title, route, active, onNavigate }) => (
+const NavLink = ({ title, route, active, onNavigate, compact = false }) => (
   <button
     type="button"
     onClick={() => onNavigate(route)}
     aria-current={active ? 'page' : undefined}
-    className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
+    className={`${compact ? 'px-1.5' : 'px-1'} py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]`}
   >
-    <span className="font-work text-sm text-white" style={{ fontWeight: active ? 700 : 500 }}>
+    <span className={`font-work text-white ${compact ? 'text-xs' : 'text-sm'}`} style={{ fontWeight: active ? 700 : 500 }}>
       {title}
     </span>
     {active && <div className="mt-0.5 h-0.5 w-5 rounded-full" style={{ backgroundColor: '#FEB300' }} />}
@@ -40,17 +40,19 @@ const PublicHeader = ({ isMobile, active }) => {
       type="button"
       onClick={() => navigate('/')}
       aria-label="EduScribe home"
-      className="flex items-center rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
+      className="flex shrink-0 items-center rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
       <img src="/capstonelogo.png" alt="" style={{ height: logo, borderRadius: '50%' }} />
-      <span className="ml-3 flex flex-col justify-center">
+      <span className="ml-2 flex flex-col justify-center sm:ml-3">
         <span className={`font-work font-bold tracking-tight leading-none ${title}`}>
           <span style={{ color: '#FEB300' }}>Edu</span>
           <span style={{ color: '#00D4FF' }}>Scribe</span>
         </span>
-        <span className={`font-work mt-0.5 ${subtitle}`} style={{ color: 'rgba(255,255,255,0.85)' }}>
-          Dela Paz National High School
-        </span>
+        {subtitle && (
+          <span className={`font-work mt-0.5 ${subtitle}`} style={{ color: 'rgba(255,255,255,0.85)' }}>
+            Dela Paz National High School
+          </span>
+        )}
       </span>
     </button>
   );
@@ -76,13 +78,13 @@ const PublicHeader = ({ isMobile, active }) => {
       }}
     >
       {isMobile ? (
-        <div className="flex h-full flex-col justify-center gap-2 px-5">
-          <Brand logo="40px" title="text-xl" subtitle="text-[11px]" />
-          <div className="flex items-center gap-1">
+        <div className="flex h-full items-center gap-2 px-4">
+          <Brand logo="36px" title="text-base" subtitle={null} />
+          <div className="ml-auto flex items-center gap-1">
             {links.map(([title, route]) => (
-              <NavLink key={route} title={title} route={route} active={active === title} onNavigate={navigate} />
+              <NavLink key={route} title={title} route={route} active={active === title} onNavigate={navigate} compact />
             ))}
-            {!onLoginPage && <LoginButton className="ml-auto px-5 py-1.5 text-sm" />}
+            {!onLoginPage && <LoginButton className="ml-1 px-3 py-1.5 text-xs" />}
           </div>
         </div>
       ) : (

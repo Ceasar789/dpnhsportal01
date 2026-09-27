@@ -85,7 +85,7 @@ const Login = () => {
 
           {/* Centre: the welcome and the choice */}
           <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center py-8 text-center">
-            <FlippingLogo size={isMobile ? 200 : 300} className="mb-6" />
+            <FlippingLogo size={isMobile ? 200 : 360} className="mb-6" />
 
             <h1 className="font-work text-3xl sm:text-4xl font-bold leading-tight">
               Welcome Back.

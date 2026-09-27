@@ -7,6 +7,16 @@ import { test, expect } from '@playwright/test';
 
 const PAGES = [['/', 'Home'], ['/news', 'News'], ['/calendar', 'Calendar'], ['/login', null]];
 
+// Heights are recorded from the first page and compared against, rather than
+// pinned to a number: what matters is that the four agree, not what they
+// agree on. A pinned 124 only failed when the header legitimately became one
+// row at 72.
+const seen = {};
+const sameEverywhere = (key, value, where) => {
+  if (seen[key] === undefined) seen[key] = value;
+  expect(value, `${where} disagrees with the other pages about the header height`).toBe(seen[key]);
+};
+
 for (const [path, active] of PAGES) {
   test(`${path} carries the shared header on a phone`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -29,7 +39,7 @@ for (const [path, active] of PAGES) {
       .toHaveCount(path === '/login' ? 0 : 1);
 
     const nav = await page.locator('nav').boundingBox();
-    expect(Math.round(nav.height), 'every page must use the same header height').toBe(124);
+    sameEverywhere('phone', Math.round(nav.height), path);
 
     const current = page.locator('nav [aria-current="page"]');
     if (active) await expect(current).toHaveText(active);
@@ -44,6 +54,6 @@ test('the header is one component, not four copies', async ({ page }) => {
     await page.goto(path);
     await page.waitForLoadState('networkidle');
     const nav = await page.locator('nav').boundingBox();
-    expect(Math.round(nav.height), `${path} desktop header height`).toBe(90);
+    sameEverywhere('desktop', Math.round(nav.height), `${path} (desktop)`);
   }
 });

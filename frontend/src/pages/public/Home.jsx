@@ -7,7 +7,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
-import { School, Facebook, BookOpen, Globe, Users, MapPin, Mail, Phone, Pause, Play } from 'lucide-react';
+import PublicFooter from '../../components/PublicFooter';
+import { Pause, Play } from 'lucide-react';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -218,95 +219,6 @@ const Home = () => {
   // ============================================
   // FOOTER - UPDATED: Dark blue theme
   // ============================================
-  const Footer = () => (
-    <footer className="w-full" style={{ backgroundColor: '#003b7a', padding: '65px 48px 32px' }}>
-      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 mb-14 max-w-[1280px] mx-auto">
-        {/* Brand */}
-        <div>
-          <School size={40} color="#b6c2d1" aria-hidden="true" />
-          <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
-            DELA PAZ NHS
-          </h4>
-          <p className="font-public text-sm leading-relaxed" style={{ color: '#cbd5e1' }}>
-            Inspiring excellence and shaping futures through quality secondary education in a nurturing environment.
-          </p>
-        </div>
-
-        {/* Navigation */}
-        <div>
-          <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
-            NAVIGATION
-          </h5>
-          {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([link, route]) => (
-            <button
-              key={link}
-              type="button"
-              onClick={() => navigate(route)}
-              className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
-              style={{ color: '#cbd5e1' }}
-            >
-              {link}
-            </button>
-          ))}
-        </div>
-
-        {/* Resources */}
-        <div>
-          <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
-            RESOURCES
-          </h5>
-          <button
-            type="button"
-            onClick={() => navigate('/faculty-login')}
-            className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
-            style={{ color: '#cbd5e1' }}
-          >
-            Faculty Portal
-          </button>
-          {['Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
-            <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
-              {link}
-            </p>
-          ))}
-        </div>
-
-        {/* Contact */}
-        <div>
-          <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
-            CONTACT US
-          </h5>
-          <div className="flex items-center gap-2 mb-3">
-            <MapPin size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>Brgy. Dela Paz, Binan City</span>
-          </div>
-          <div className="flex items-center gap-2 mb-3">
-            <Mail size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>admissions@delapaznhs.edu.ph</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Phone size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8642-1234</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t mb-8 max-w-[1280px] mx-auto" style={{ borderColor: 'rgba(255,255,255,0.15)' }} />
-
-      {/* Bottom */}
-      <div className="flex flex-wrap justify-between items-center gap-4 max-w-[1280px] mx-auto">
-        <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
-          © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
-        </p>
-        <div className="flex gap-4" aria-hidden="true">
-          <Facebook size={18} color="#b6c2d1" />
-          <BookOpen size={18} color="#b6c2d1" />
-          <Globe size={18} color="#b6c2d1" />
-          <Users size={18} color="#b6c2d1" />
-        </div>
-      </div>
-    </footer>
-  );
 
   // ============================================
   // MAIN RENDER
@@ -318,7 +230,7 @@ const Home = () => {
       <main style={{ paddingTop: navHeight }}>
         <HeroSection />
         {isMobile && <VisionCard />}
-        <Footer />
+        <PublicFooter />
       </main>
     </div>
   );

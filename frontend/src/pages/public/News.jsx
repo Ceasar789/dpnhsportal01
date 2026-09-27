@@ -1,14 +1,15 @@
 // ============================================
 // FILE: src/pages/public/News.jsx
 // PURPOSE: News page - EXACT match to Flutter NewsPage
-// DESIGN: Hero article, latest news grid, newsletter, footer
+// DESIGN: one list of news, newest first, in a responsive grid
 // DATA: Live from Supabase 'news' table (admin-managed)
 // ============================================
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
-import { ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone, AlertTriangle } from 'lucide-react';
+import PublicFooter from '../../components/PublicFooter';
+import { ArrowRight, ExternalLink, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { localNowTimestamp } from '../../lib/taskFormatting';
@@ -21,7 +22,6 @@ const News = () => {
   const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
-  const [heroExpanded, setHeroExpanded] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [historyError, setHistoryError] = useState(null);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
@@ -87,85 +87,7 @@ const News = () => {
     if (next) await fetchHistory();
   };
 
-  // Hero = most recent article, rest = remaining
-  const hero = newsItems[0] || null;
-  const rest = newsItems.slice(1);
-
-  // ============================================
-  // HERO SECTION
-  // ============================================
-  const HeroSection = () => (
-    <div className="w-full pt-6 pb-4 lg:pt-10 lg:pb-10 px-5 lg:px-[100px] max-w-[1280px] mx-auto">
-      <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
-        <div className={hero?.featured_image_url ? 'lg:flex-[3]' : 'w-full'}>
-          <HeroText />
-        </div>
-        {hero?.featured_image_url && (
-          <div className="lg:flex-[2]">
-            <HeroImage />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const HeroText = () => (
-    <div>
-      {/* Category Badge */}
-      <p className="font-work font-bold text-xs tracking-widest mb-3" style={{ color: '#7E5700' }}>
-        {hero.category?.toUpperCase() || 'GENERAL'}
-      </p>
-
-      {/* Date */}
-      <p className="font-public text-sm mb-4" style={{ color: '#64748B' }}>
-        {hero.published_at
-          ? new Date(hero.published_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })
-          : ''}
-      </p>
-
-      {/* Headline */}
-      <h2
-        className="font-work font-extrabold leading-tight mb-5 text-[32px] lg:text-[48px]"
-        style={{
-          color: '#1E3A8A',
-          letterSpacing: '-0.02em'
-        }}
-      >
-        {hero.title}
-      </h2>
-
-      {/* Description */}
-      <p
-        className="font-public text-base leading-relaxed mb-5 lg:mb-8"
-        style={{ color: '#64748B', maxWidth: '500px' }}
-      >
-        {heroExpanded ? hero.content : `${hero.content?.slice(0, 220) || ''}${hero.content?.length > 220 ? '...' : ''}`}
-      </p>
-
-      {/* Read More Button */}
-      {hero.content?.length > 220 && (
-        <button
-          type="button"
-          onClick={() => setHeroExpanded(v => !v)}
-          aria-expanded={heroExpanded}
-          className="inline-flex items-center gap-2 px-6 py-3.5 rounded font-work font-bold text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A8A] focus-visible:ring-offset-2"
-          style={{ backgroundColor: '#FEB300', color: '#6A4800' }}
-        >
-          {heroExpanded ? 'Show less' : 'Read the full Story'}
-          <ArrowRight size={16} aria-hidden="true" />
-        </button>
-      )}
-    </div>
-  );
-
-  const HeroImage = () => (
-    <img
-      src={hero.featured_image_url}
-      alt=""
-      className="w-full object-cover rounded-lg h-[250px] lg:h-[400px]"
-      onError={e => { e.target.src = '/capstoneimage1.jpg'; }}
-    />
-  );
+  // Newest first; the first card is the lead and spans two columns.
 
   // ============================================
   // LATEST NEWS SECTION
@@ -213,14 +135,14 @@ const News = () => {
 
       {/* News Grid */}
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-        {rest.map(item => (
-          <NewsCard key={item.id} item={item} />
+        {newsItems.map((item, index) => (
+          <NewsCard key={item.id} item={item} lead={index === 0} />
         ))}
       </div>
     </div>
   );
 
-  const NewsCard = ({ item }) => {
+  const NewsCard = ({ item, lead = false }) => {
     const expanded = expandedIds.has(item.id);
     const body = item.content || '';
     const isLong = body.length > 160;
@@ -232,7 +154,7 @@ const News = () => {
     });
 
     return (
-      <article className="flex flex-col">
+      <article className={`flex flex-col${lead ? ' sm:col-span-2' : ''}`}>
         {item.featured_image_url && (
           <img
             src={item.featured_image_url}
@@ -253,10 +175,10 @@ const News = () => {
               : ''}
           </span>
         </div>
-        <h4 className="font-work font-bold text-lg leading-snug mb-2" style={{ color: '#1E3A8A' }}>
+        <h4 className={`font-work font-bold leading-snug mb-2 ${lead ? 'text-xl sm:text-2xl' : 'text-lg'}`} style={{ color: '#1E3A8A' }}>
           {item.title}
         </h4>
-        <p className="font-public text-sm leading-relaxed" style={{ color: '#64748B' }}>
+        <p className="font-public text-sm leading-relaxed max-w-[62ch]" style={{ color: '#64748B' }}>
           {expanded || !isLong ? body : `${body.slice(0, 160)}...`}
         </p>
         {isLong && (
@@ -278,95 +200,6 @@ const News = () => {
   // ============================================
   // FOOTER — EduScribe Dark Blue Theme
   // ============================================
-  const Footer = () => (
-    <footer className="w-full" style={{ backgroundColor: '#003b7a', padding: '65px 48px 32px' }}>
-      <div className="flex flex-wrap justify-center gap-24 mb-15">
-        {/* Brand */}
-        <div style={{ width: '260px' }}>
-          <School size={40} color="#b6c2d1" aria-hidden="true" />
-          <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
-            DELA PAZ NHS
-          </h4>
-          <p className="font-public text-sm leading-relaxed" style={{ color: '#cbd5e1' }}>
-            Inspiring excellence and shaping futures through quality secondary education in a nurturing environment.
-          </p>
-        </div>
-
-        {/* Navigation */}
-        <div style={{ width: '150px' }}>
-          <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
-            NAVIGATION
-          </h5>
-          {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([link, route]) => (
-            <button
-              key={link}
-              type="button"
-              onClick={() => navigate(route)}
-              className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
-              style={{ color: '#cbd5e1' }}
-            >
-              {link}
-            </button>
-          ))}
-        </div>
-
-        {/* Resources */}
-        <div style={{ width: '150px' }}>
-          <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
-            RESOURCES
-          </h5>
-          <button
-            type="button"
-            onClick={() => navigate('/faculty-login')}
-            className="block mb-3 py-1 font-public text-sm text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] rounded"
-            style={{ color: '#cbd5e1' }}
-          >
-            Faculty Portal
-          </button>
-          {['Alumni', 'Privacy Policy', 'Terms of Service'].map(link => (
-            <p key={link} className="font-public text-sm mb-4" style={{ color: '#cbd5e1' }}>
-              {link}
-            </p>
-          ))}
-        </div>
-
-        {/* Contact */}
-        <div style={{ width: '260px' }}>
-          <h5 className="font-work font-bold text-xs tracking-widest mb-6" style={{ color: '#FEB300' }}>
-            CONTACT US
-          </h5>
-          <div className="flex items-center gap-2 mb-3">
-            <MapPin size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>Brgy. Dela Paz, Binan City</span>
-          </div>
-          <div className="flex items-center gap-2 mb-3">
-            <Mail size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>admissions@delapaznhs.edu.ph</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Phone size={16} color="#b6c2d1" aria-hidden="true" />
-            <span className="font-public text-sm" style={{ color: '#cbd5e1' }}>(02) 8642-1234</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t mb-8" style={{ borderColor: 'rgba(255,255,255,0.15)' }} />
-
-      {/* Bottom */}
-      <div className="flex justify-between items-center">
-        <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
-          © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
-        </p>
-        <div className="flex gap-4" aria-hidden="true">
-          <Facebook size={18} color="#b6c2d1" />
-          <BookOpen size={18} color="#b6c2d1" />
-          <Globe size={18} color="#b6c2d1" />
-          <Users size={18} color="#b6c2d1" />
-        </div>
-      </div>
-    </footer>
-  );
 
   // ============================================
   // MAIN RENDER
@@ -402,11 +235,10 @@ const News = () => {
           </div>
         ) : (
           <>
-            <HeroSection />
-            {rest.length > 0 && <LatestNewsSection />}
+            <LatestNewsSection />
           </>
         )}
-        <Footer />
+        <PublicFooter />
       </main>
     </div>
   );

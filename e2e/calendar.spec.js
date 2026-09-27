@@ -57,3 +57,47 @@ test.describe('public calendar', () => {
     await expect(page.getByLabel('Calendar year')).toBeVisible();
   });
 });
+
+// A seven-column month grid gives each day 43px on a 390px phone. An event
+// chip in that space truncated to "P..." — a letter and an ellipsis naming
+// nothing — in a 29x20 target, under the 24x24 minimum.
+test.describe('public calendar on small screens', () => {
+  for (const [w, h, label] of [[390, 844, 'phone'], [768, 1024, 'tablet']]) {
+    test(`${label} ${w}x${h}: no sideways scroll and no sub-24px targets`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto('/calendar');
+      await page.waitForLoadState('networkidle');
+
+      const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
+      expect(scrollW, `${label} scrolls sideways`).toBeLessThanOrEqual(w + 1);
+
+      const small = await page.locator('button, a, select').evaluateAll(els => els
+        .map(e => ({ n: (e.textContent || e.getAttribute('aria-label') || '?').trim().slice(0, 20),
+                     b: e.getBoundingClientRect() }))
+        .filter(x => x.b.width > 0 && (x.b.width < 24 || x.b.height < 24))
+        .map(x => `${x.n} ${Math.round(x.b.width)}x${Math.round(x.b.height)}`));
+      expect(small, 'targets under the 24x24 minimum').toEqual([]);
+
+      // The grid stops pretending 43px can hold an event name; the list does.
+      await expect(page.getByRole('button', { name: /^Open / })).not.toHaveCount(0);
+    });
+  }
+
+  test('the colours in the grid are named somewhere', async ({ page }) => {
+    await page.goto('/calendar');
+    await page.waitForLoadState('networkidle');
+    // Event type is carried by hue in the grid; a legend keeps that readable
+    // for anyone who cannot separate the hues.
+    for (const label of ['Event', 'Deadline', 'Holiday', 'Other']) {
+      await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+    }
+  });
+
+  test('a start time reads as a clock time, not a database value', async ({ page }) => {
+    await page.goto('/calendar');
+    await page.waitForLoadState('networkidle');
+    const body = await page.locator('main').innerText();
+    // "13:00:00" came straight out of the Postgres TIME column.
+    expect(body).not.toMatch(/\bat \d{1,2}:\d{2}:\d{2}\b/);
+  });
+});

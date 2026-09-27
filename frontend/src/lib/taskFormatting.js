@@ -76,3 +76,25 @@ export function formatCountdown(dueAt, now = new Date()) {
   const tone = ms < DAY ? 'urgent' : ms < 3 * DAY ? 'soon' : 'normal';
   return { text, tone, isLate: false };
 }
+
+/**
+ * A Postgres TIME column arrives as "13:00:00". Rendering it straight gives
+ * "at 13:00:00", which is how the calendar showed every event's start.
+ *
+ * Returns null for anything unparseable so callers can omit the time rather
+ * than print a broken one.
+ */
+export function formatClockTime(value) {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{1,2}):(\d{2})/.exec(value.trim());
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+
+  // 0 and 12 both display as 12 — midnight is 12:00 AM, noon is 12:00 PM.
+  const suffix = hours < 12 ? 'AM' : 'PM';
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${match[2]} ${suffix}`;
+}

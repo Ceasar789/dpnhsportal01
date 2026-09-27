@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   TASK_TYPES, TASK_TYPE_LABELS, DEFAULT_DUE_TIME,
-  formatCountdown, combineDateAndTime,
+  formatCountdown, combineDateAndTime, formatClockTime,
 } from './taskFormatting';
 
 const NOW = new Date('2026-09-21T10:00:00');
@@ -77,5 +77,30 @@ describe('formatCountdown', () => {
   it('treats the exact deadline instant as not yet late', () => {
     const r = formatCountdown('2026-09-21T10:00:00', NOW);
     expect(r.isLate).toBe(false);
+  });
+});
+
+describe('formatClockTime', () => {
+  it('turns a Postgres TIME into something a person reads', () => {
+    // The calendar was printing "at 13:00:00" straight from the column.
+    expect(formatClockTime('13:00:00')).toBe('1:00 PM');
+    expect(formatClockTime('09:30:00')).toBe('9:30 AM');
+  });
+
+  it('gets midnight and noon the right way round', () => {
+    expect(formatClockTime('00:00:00')).toBe('12:00 AM');
+    expect(formatClockTime('12:00:00')).toBe('12:00 PM');
+    expect(formatClockTime('12:30:00')).toBe('12:30 PM');
+    expect(formatClockTime('00:15:00')).toBe('12:15 AM');
+  });
+
+  it('accepts a time with no seconds', () => {
+    expect(formatClockTime('08:05')).toBe('8:05 AM');
+  });
+
+  it('returns null rather than a broken string', () => {
+    for (const bad of [null, undefined, '', 'noon', '25:00:00', '10:99:00', 42]) {
+      expect(formatClockTime(bad)).toBeNull();
+    }
   });
 });

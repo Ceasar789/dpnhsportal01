@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
 import PublicFooter from '../../components/PublicFooter';
 import { supabase } from '../../config/supabase';
+import { formatClockTime } from '../../lib/taskFormatting';
 import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, AlertCircle, Loader2, Megaphone } from 'lucide-react';
 
 const CalendarPage = () => {
@@ -122,6 +123,13 @@ const CalendarPage = () => {
 
   const filteredEvents = filterType === 'All' ? events : events.filter(e => getEventType(e) === filterType);
 
+  // Midnight today, so an event happening later today still counts as coming.
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const upcomingEvents = filteredEvents
+    .filter(e => e.event_date && new Date(e.event_date) >= startOfToday)
+    .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 
@@ -133,12 +141,11 @@ const CalendarPage = () => {
         {/* Header */}
         <header className="bg-[#1e3a5f] text-white py-12 px-4">
           <div className="max-w-6xl mx-auto">
-            <div className="flex items-center gap-2 mb-4 text-[#FEB300]">
-              <Calendar size={20} />
-              <span className="text-sm font-semibold uppercase tracking-wider">Academic Calendar</span>
+            <div className="flex items-center gap-2 mb-2 text-[#FEB300]">
+              <Calendar size={20} aria-hidden="true" />
+              <h1 className="text-2xl md:text-4xl font-bold text-white">Academic Calendar</h1>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">School Events & Schedule</h1>
-            <p className="text-blue-200 max-w-2xl">View academic calendar, holidays, exams, and school events for the current school year.</p>
+            <p className="text-blue-200 max-w-2xl">Holidays, exams and school events for the current school year.</p>
           </div>
         </header>
 
@@ -200,7 +207,7 @@ const CalendarPage = () => {
             <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4">
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="text-center text-xs font-semibold text-gray-400 py-2">{day}</div>
+                  <div key={day} className="text-center text-xs font-semibold text-gray-600 py-2">{day}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -233,22 +240,34 @@ const CalendarPage = () => {
                         )}
                       </span>
                       <div className="mt-1 space-y-0.5 overflow-y-auto" style={{ maxHeight: '60px' }}>
-                        {dateEvents.map((evt, idx) => (
-                          <button
-                            type="button"
-                            key={evt.id ?? idx}
-                            title={evt.title}
-                            aria-label={`Open ${evt.title}`}
-                            onClick={() => setSelectedEvent(evt)}
-                            className="block w-full text-left text-xs px-1.5 py-0.5 rounded truncate font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]"
-                            style={{ 
-                              backgroundColor: eventTypes[getEventType(evt)]?.bg || '#dbeafe',
-                              color: eventTypes[getEventType(evt)]?.color || '#1d4ed8'
-                            }}
-                          >
-                            {evt.title}
-                          </button>
-                        ))}
+                        {isMobile ? (
+                          <span className="flex flex-wrap gap-1 pt-0.5" aria-hidden="true">
+                            {dateEvents.slice(0, 4).map((evt, idx) => (
+                              <span
+                                key={evt.id ?? idx}
+                                className="block h-1.5 w-1.5 rounded-full"
+                                style={{ backgroundColor: eventTypes[getEventType(evt)]?.color || '#1d4ed8' }}
+                              />
+                            ))}
+                          </span>
+                        ) : (
+                          dateEvents.map((evt, idx) => (
+                            <button
+                              type="button"
+                              key={evt.id ?? idx}
+                              title={evt.title}
+                              aria-label={`Open ${evt.title}`}
+                              onClick={() => setSelectedEvent(evt)}
+                              className="block w-full text-left text-xs px-1.5 py-1 rounded truncate font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]"
+                              style={{
+                                backgroundColor: eventTypes[getEventType(evt)]?.bg || '#dbeafe',
+                                color: eventTypes[getEventType(evt)]?.color || '#1d4ed8'
+                              }}
+                            >
+                              {evt.title}
+                            </button>
+                          ))
+                        )}
                       </div>
                     </div>
                   );
@@ -256,14 +275,27 @@ const CalendarPage = () => {
               </div>
             </div>
 
+            {/* What the colours mean. Without this the grid distinguishes
+                event types by hue alone, which a colourblind reader loses. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 -mt-2 mb-2">
+              {Object.entries(eventTypes).map(([label, { color }]) => (
+                <span key={label} className="flex items-center gap-1.5 text-xs" style={{ color: '#475569' }}>
+                  <span className="block h-2 w-2 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+                  {label}
+                </span>
+              ))}
+            </div>
+
             {/* Upcoming Events List */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-4">Upcoming Events</h3>
-              {filteredEvents.slice(0, 10).map(event => (
-                <div 
-                  key={event.id} 
-                  className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600 mb-4">Upcoming Events</h3>
+              {upcomingEvents.slice(0, 10).map(event => (
+                <button
+                  type="button"
+                  key={event.id}
                   onClick={() => setSelectedEvent(event)}
+                  aria-label={`Open ${event.title}`}
+                  className="block w-full text-left bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f] focus-visible:ring-offset-2"
                 >
                   <div className="flex items-start gap-3">
                     <div 
@@ -275,11 +307,11 @@ const CalendarPage = () => {
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-bold text-[#1a2b4a] mb-1 truncate">{event.title}</h4>
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <div className="flex items-center gap-1 text-xs text-gray-600">
                           <Clock size={12} />
                           <span>{new Date(event.event_date).toLocaleDateString()}</span>
                           {event.start_time && (
-                            <span> at {event.start_time}</span>
+                            <span> at {formatClockTime(event.start_time) || event.start_time}</span>
                           )}
                         </div>
                         {event.location && (
@@ -301,13 +333,17 @@ const CalendarPage = () => {
                       {getEventType(event)}
                     </span>
                   </div>
-                </div>
+                </button>
               ))}
               
-              {filteredEvents.length === 0 && (
+              {upcomingEvents.length === 0 && (
                 <div className="text-center py-8">
-                  <Calendar size={32} className="mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-400">No events found</p>
+                  <Calendar size={32} className="mx-auto mb-2 text-gray-300" aria-hidden="true" />
+                  <p className="text-sm text-gray-600">
+                    {filteredEvents.length > 0
+                      ? 'Nothing coming up — every event under this filter has already passed.'
+                      : 'No events found.'}
+                  </p>
                 </div>
               )}
             </div>
@@ -367,19 +403,19 @@ const CalendarPage = () => {
             
             <div className="space-y-3 mb-6">
               <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Clock size={16} className="text-gray-400" />
+                <Clock size={16} className="text-gray-600" />
                 <span>{new Date(selectedEvent.event_date).toLocaleDateString()}</span>
-                {selectedEvent.start_time && <span className="ml-1">at {selectedEvent.start_time}</span>}
+                {selectedEvent.start_time && <span className="ml-1">at {formatClockTime(selectedEvent.start_time) || selectedEvent.start_time}</span>}
               </div>
               {selectedEvent.end_time && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Clock size={16} className="text-gray-400" />
+                  <Clock size={16} className="text-gray-600" />
                   <span>Ends at: {selectedEvent.end_time}</span>
                 </div>
               )}
               {selectedEvent.location && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin size={16} className="text-gray-400" />
+                  <MapPin size={16} className="text-gray-600" />
                   <span>{selectedEvent.location}</span>
                 </div>
               )}

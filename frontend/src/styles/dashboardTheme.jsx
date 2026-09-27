@@ -5,12 +5,13 @@
 // dashboard's header/sidebar, and the dark/light toggle hook that drives it.
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 
 const THEME_STORAGE_KEY = 'smartedu-theme';
 
 // Dark mode is the default (matches Admin's original behavior); toggling adds
-// a `.light` class to <html> which the CSS variables below key off of.
+// a `.dark` class to <html>, which src/styles/index.css keys off. Light is the
+// bare :root so that pages outside a dashboard still have usable tokens.
 export const useDashboardTheme = () => {
   const [darkMode, setDarkMode] = useState(() => {
     try {
@@ -21,12 +22,16 @@ export const useDashboardTheme = () => {
     return true;
   });
 
+  // Layout effect, not effect: the class has to be on <html> before the
+  // browser paints, or a dark-mode user sees a light frame on every load.
+  // The cleanup matters as much — this hook only runs inside a dashboard, and
+  // leaving .dark behind would theme the public pages on the way out.
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    return () => document.documentElement.classList.remove('dark');
+  }, [darkMode]);
+
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.remove('light');
-    } else {
-      document.documentElement.classList.add('light');
-    }
     try {
       localStorage.setItem(THEME_STORAGE_KEY, darkMode ? 'dark' : 'light');
     } catch { /* localStorage unavailable */ }
@@ -37,62 +42,11 @@ export const useDashboardTheme = () => {
   return { darkMode, setDarkMode, toggleDarkMode };
 };
 
-// Shell-only styles: CSS variables, header/nav, sidebar, main layout,
-// toast + spinner animations. Tab-content styles (tables, modals, stat
-// grids, etc.) stay local to each dashboard for now.
+// Shell-only styles: header/nav, sidebar, main layout, toast + spinner
+// animations. The CSS variables these read live in src/styles/index.css, so
+// that they exist on every page rather than only where this mounts.
 export const DashboardThemeStyles = () => (
   <style>{`
-    :root {
-      --bg: #1a1d23;
-      --sidebar-bg: #1e2128;
-      --card-bg: #23272f;
-      --card2: #2a2f3a;
-      --border: #2e3340;
-      --text: #e8eaf0;
-      --text-muted: #8b92a5;
-      --text-dim: #5a6070;
-      --accent: #4b3bf5;
-      --accent-hover: #6357f7;
-      --green: #22c55e;
-      --yellow: #f59e0b;
-      --red: #ef4444;
-      --purple: #a78bfa;
-      --teal: #2dd4bf;
-      --banner-bg: linear-gradient(135deg, #1c2340 0%, #212a4a 55%, #1a2140 100%);
-      --banner-text: #f1f5f9;
-      --banner-subtext: #a8b3d9;
-      --banner-accent: #8b93ff;
-      --banner-border: rgba(255,255,255,0.10);
-      --banner-pill-bg: rgba(255,255,255,0.10);
-      --banner-pill-border: rgba(255,255,255,0.18);
-      --heading-accent: #8b93ff;
-    }
-    :root.light {
-      --bg: #f4f6fb;
-      --sidebar-bg: #f8fafc;
-      --card-bg: #ffffff;
-      --card2: #f1f5f9;
-      --border: #e2e8f0;
-      --text: #1a2b4a;
-      --text-muted: #4a5568;
-      --text-dim: #94a3b8;
-      --accent: #1908DF;
-      --accent-hover: #12069f;
-      --green: #16a34a;
-      --yellow: #d97706;
-      --red: #dc2626;
-      --purple: #7c3aed;
-      --teal: #0d9488;
-      --banner-bg: linear-gradient(135deg, #D7DEFA 0%, #C9D3F6 55%, #DCEBFF 100%);
-      --banner-text: #1a2b4a;
-      --banner-subtext: #4d5b8a;
-      --banner-accent: #1908DF;
-      --banner-border: rgba(25,8,223,0.14);
-      --banner-pill-bg: rgba(255,255,255,.75);
-      --banner-pill-border: rgba(25,8,223,.16);
-      --heading-accent: #6366a3;
-    }
-
     body { font-family: 'Public Sans', sans-serif; }
 
     .dashboard-shell .sidebar {

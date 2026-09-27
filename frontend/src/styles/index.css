@@ -10,6 +10,77 @@ PURPOSE: Global styles + Tailwind directives
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   Design tokens — the single declaration.
+   Light is the :root default so that every page has usable tokens, including
+   the public and auth pages, which never mount a dashboard. Dark is opt-in
+   under .dark, set on <html> by useDashboardTheme and by the inline script in
+   index.html that runs before first paint.
+   ============================================ */
+:root {
+  --bg: #f4f6fb;
+  --sidebar-bg: #f8fafc;
+  --card-bg: #ffffff;
+  --card2: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #1a2b4a;
+  --text-muted: #4a5568;
+  --text-dim: #94a3b8;
+  --accent: #1908DF;
+  --accent-hover: #12069f;
+  --green: #16a34a;
+  --yellow: #d97706;
+  --red: #dc2626;
+  --purple: #7c3aed;
+  --teal: #0d9488;
+  --banner-bg: linear-gradient(135deg, #D7DEFA 0%, #C9D3F6 55%, #DCEBFF 100%);
+  --banner-text: #1a2b4a;
+  --banner-subtext: #4d5b8a;
+  --banner-accent: #1908DF;
+  --banner-border: rgba(25,8,223,0.14);
+  --banner-pill-bg: rgba(255,255,255,.75);
+  --banner-pill-border: rgba(25,8,223,.16);
+  --heading-accent: #6366a3;
+  --nav-bg: #ffffff;
+  --nav-border: #e2e8f0;
+  --nav-text: #1a2b4a;
+  --nav-text-muted: #4a5568;
+  --nav-link-active-color: #1a2b4a;
+  --nav-link-hover-bg: #f1f5f9;
+  --nav-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  /* The toggle shows the mode it switches TO, so these two run opposite. */
+  --toggle-bg: #1a2b4a;
+  --toggle-icon: #ffffff;
+}
+
+:root.dark {
+  --bg: #1a1d23;
+  --sidebar-bg: #1e2128;
+  --card-bg: #23272f;
+  --card2: #2a2f3a;
+  --border: #2e3340;
+  --text: #e8eaf0;
+  --text-muted: #8b92a5;
+  --text-dim: #5a6070;
+  --accent: #4b3bf5;
+  --accent-hover: #6357f7;
+  --green: #22c55e;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --purple: #a78bfa;
+  --teal: #2dd4bf;
+  --banner-bg: linear-gradient(135deg, #1c2340 0%, #212a4a 55%, #1a2140 100%);
+  --banner-text: #f1f5f9;
+  --banner-subtext: #a8b3d9;
+  --banner-accent: #8b93ff;
+  --banner-border: rgba(255,255,255,0.10);
+  --banner-pill-bg: rgba(255,255,255,0.10);
+  --banner-pill-border: rgba(255,255,255,0.18);
+  --heading-accent: #8b93ff;
+  --toggle-bg: #e2e8f0;
+  --toggle-icon: #4a5568;
+}
+
 /* Base styles */
 body {
   font-family: 'Public Sans', sans-serif;

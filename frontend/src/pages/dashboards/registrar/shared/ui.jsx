@@ -90,7 +90,7 @@ export const ThemeStyles = () => (
   <>
     <DashboardThemeStyles />
     <style>{`
-      :root, :root.light {
+      :root {
         --reg-bg: var(--bg);
         --reg-surface: var(--card-bg);
         --reg-surface-hover: var(--card2);

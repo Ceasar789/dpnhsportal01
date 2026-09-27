@@ -13,7 +13,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 // A phone gets two rows: the brand, then the links. No hamburger — the three
 // destinations stay on screen rather than hiding behind an icon.
-export const PUBLIC_HEADER_HEIGHT = { mobile: 72, desktop: 90 };
+export const PUBLIC_HEADER_HEIGHT = { mobile: 118, desktop: 90 };
 
 const NavLink = ({ title, route, active, onNavigate, compact = false }) => (
   <button
@@ -78,13 +78,13 @@ const PublicHeader = ({ isMobile, active }) => {
       }}
     >
       {isMobile ? (
-        <div className="flex h-full items-center gap-2 px-4">
-          <Brand logo="36px" title="text-base" subtitle={null} />
-          <div className="ml-auto flex items-center gap-1">
+        <div className="flex h-full flex-col justify-center gap-1.5 px-4">
+          <Brand logo="38px" title="text-lg" subtitle="text-[11px]" />
+          <div className="flex items-center gap-1">
             {links.map(([title, route]) => (
               <NavLink key={route} title={title} route={route} active={active === title} onNavigate={navigate} compact />
             ))}
-            {!onLoginPage && <LoginButton className="ml-1 px-3 py-1.5 text-xs" />}
+            {!onLoginPage && <LoginButton className="ml-auto px-4 py-1 text-xs" />}
           </div>
         </div>
       ) : (

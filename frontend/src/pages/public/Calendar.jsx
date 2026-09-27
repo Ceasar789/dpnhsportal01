@@ -64,7 +64,9 @@ const CalendarPage = () => {
 
   const getEventsForDate = (date) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-    return events.filter(e => {
+    // filteredEvents, not events: the grid has to answer the same filter the
+    // lists do, or the control only half works.
+    return filteredEvents.filter(e => {
       const eventDate = e.event_date?.split('T')[0];
       if (e.end_date) return dateStr >= eventDate && dateStr <= e.end_date.split('T')[0];
       return dateStr === eventDate;
@@ -149,17 +151,17 @@ const CalendarPage = () => {
       
       <main style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>
         {/* Header */}
-        <header className="bg-[#1e3a5f] text-white py-12 px-4">
+        <header className="bg-[#1e3a5f] text-white py-6 md:py-12 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center gap-2 mb-2 text-[#FEB300]">
               <Calendar size={20} aria-hidden="true" />
               <h1 className="text-2xl md:text-4xl font-bold text-white">Academic Calendar</h1>
             </div>
-            <p className="text-blue-200 max-w-2xl">Holidays, exams and school events for the current school year.</p>
+            <p className="hidden md:block text-blue-200 max-w-2xl">Holidays, exams and school events for the current school year.</p>
           </div>
         </header>
 
-        <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto px-4 py-4 md:py-8">
         {error && (
           <div role="alert" className="flex items-center gap-2 p-4 rounded-lg bg-red-50 text-red-600 mb-6">
             <AlertCircle size={18} />
@@ -186,7 +188,7 @@ const CalendarPage = () => {
                 <button type="button" onClick={prevMonth} aria-label="Previous month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
                   <ChevronLeft size={20} className="text-gray-600" aria-hidden="true" />
                 </button>
-                <h2 className="text-xl font-bold text-[#1a2b4a]">{monthNames[month]} {year}</h2>
+                <h2 className="text-lg md:text-xl font-bold text-[#1a2b4a] whitespace-nowrap">{monthNames[month]} {year}</h2>
                 <select value={year} onChange={e => setCurrentDate(new Date(Number(e.target.value), month, 1))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" aria-label="Calendar year">
                   {[...Array(11)].map((_, i) => { const optionYear = new Date().getFullYear() - 5 + i; return <option key={optionYear} value={optionYear}>{optionYear}</option>; })}
                 </select>
@@ -219,8 +221,8 @@ const CalendarPage = () => {
                   return (
                     <div
                       key={day}
-                      className={`text-center text-xs font-semibold py-2 rounded-t-lg ${weekend ? 'text-[#1e3a5f]' : 'text-gray-600'}`}
-                      style={weekend ? { backgroundColor: '#e2e8f0' } : undefined}
+                      className={`text-center text-xs font-semibold py-2 rounded-t-lg ${weekend ? 'text-[#b91c1c]' : 'text-gray-600'}`}
+                      style={weekend ? { backgroundColor: '#fef2f2' } : undefined}
                     >
                       {day}
                     </div>
@@ -229,7 +231,7 @@ const CalendarPage = () => {
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: firstDay }, (_, i) => (
-                  <div key={`empty-${i}`} className="min-h-[96px] rounded-lg" />
+                  <div key={`empty-${i}`} className={isMobile ? 'min-h-[52px]' : 'min-h-[96px]'} />
                 ))}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const date = i + 1;
@@ -247,8 +249,11 @@ const CalendarPage = () => {
                       aria-label={dateEvents.length
                         ? `${dayLabel}: ${dateEvents.length} event${dateEvents.length === 1 ? '' : 's'}`
                         : dayLabel}
-                      className="min-h-[96px] rounded-lg border border-gray-100 p-1.5 transition-colors"
-                      style={{ backgroundColor: isToday ? '#eff6ff' : isHoliday ? '#fef2f2' : isWeekend ? '#e8edf4' : '#ffffff', borderColor: isToday ? '#3b82f6' : isHoliday ? '#fca5a5' : '#e5e7eb' }}
+                      className={`${isMobile ? 'min-h-[52px]' : 'min-h-[96px]'} rounded-lg border border-gray-100 p-1.5 transition-colors`}
+                      style={{
+                        backgroundColor: isToday ? '#eff6ff' : isHoliday ? '#fecdd3' : isWeekend ? '#fef2f2' : '#ffffff',
+                        borderColor: isToday ? '#3b82f6' : isHoliday ? '#e11d48' : isWeekend ? '#fecdd3' : '#e5e7eb',
+                      }}
                     >
                       <span className="flex items-center gap-1">
                         <span className={`text-sm font-semibold ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>{date}</span>
@@ -314,8 +319,8 @@ const CalendarPage = () => {
                               aria-hidden="true"
                             />
                             <span className="text-sm font-semibold text-[#1a2b4a]">{evt.title}</span>
-                            <span className="ml-auto shrink-0 text-xs text-gray-600">
-                              {new Date(evt.event_date).getDate()}
+                            <span className="ml-auto shrink-0 text-xs font-medium text-gray-600">
+                              {new Date(evt.event_date).toLocaleDateString('en-PH', { weekday: 'short', day: 'numeric' })}
                             </span>
                           </button>
                         </li>

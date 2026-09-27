@@ -147,3 +147,36 @@ test('an event name is readable at every width, not truncated to "PERIODIC ..."'
     }
   }
 });
+
+test('the type filter narrows the grid, not just the lists', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/calendar');
+  await page.waitForLoadState('networkidle');
+
+  const before = await page.getByRole('button', { name: /^Open / }).count();
+  test.skip(before === 0, 'no events this month');
+
+  // getEventsForDate read `events` rather than `filteredEvents`, so tapping
+  // Deadline narrowed the lists and left every Event chip on the calendar.
+  const deadline = page.getByRole('button', { name: 'Deadline', exact: true }).first();
+  test.skip(await deadline.count() === 0, 'no Deadline filter offered');
+  await deadline.click();
+  await page.waitForTimeout(300);
+
+  const after = await page.getByRole('button', { name: /^Open / }).count();
+  expect(after, 'the grid ignored the filter').toBeLessThan(before);
+});
+
+test('a phone sees the filter result without scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/calendar');
+  await page.waitForLoadState('networkidle');
+
+  // The banner was 184px and the cells 96px, which put the event names at
+  // y=840 on an 844px screen: tapping a filter changed nothing visible.
+  const list = page.getByText(/EVENTS$/i).first();
+  const box = await list.boundingBox();
+  expect(box, 'the month list should render').not.toBeNull();
+  expect(box.y + box.height, 'the event names must be on screen with the filter')
+    .toBeLessThanOrEqual(844);
+});

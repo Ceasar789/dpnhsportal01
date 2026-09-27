@@ -6,14 +6,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Facebook, BookOpen, Globe, Users, School, Camera, MessageCircle, Search, MapPin, Mail, Phone } from 'lucide-react';
+import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
+import { Facebook, BookOpen, Globe, Users, School, Camera, MessageCircle, MapPin, Mail, Phone } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
 
 const Login = () => {
   const navigate = useNavigate();
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 900);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1100);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -25,80 +25,6 @@ const Login = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ============================================
-  // TOP NAVIGATION BAR — EduScribe Theme
-  // ============================================
-  const TopNavBar = () => (
-    <nav 
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 lg:px-8" 
-      style={{ 
-        height: '90px', 
-        backgroundColor: '#003b7a',
-        paddingLeft: isMobile ? '16px' : '32px', 
-        paddingRight: isMobile ? '16px' : '32px' 
-      }}
-    >
-      {/* Logo + EduScribe Branding */}
-      <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-        <FlippingLogo size={isMobile ? 50 : 60} />
-        {!isMobile && (
-          <div className="ml-4 flex flex-col justify-center">
-            <h1 className="font-work font-bold text-2xl tracking-tight leading-none">
-              <span style={{ color: '#FEB300' }}>Edu</span>
-              <span style={{ color: '#00D4FF' }}>Scribe</span>
-            </h1>
-            <span className="font-work text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              Dela Paz National High School
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop Nav */}
-      {!isMobile ? (
-        <div className="flex items-center gap-8">
-          <NavLink title="Home" isActive={false} route="/" />
-          <NavLink title="News" isActive={false} route="/news" />
-          <NavLink title="Calendar" isActive={false} route="/calendar" />
-          <button onClick={() => navigate('/login')} className="font-work font-semibold text-white px-8 py-2.5 rounded-lg" style={{ backgroundColor: '#22c55e' }}>Login</button>
-        </div>
-      ) : (
-        <div className="relative">
-          <button onClick={() => setMenuOpen(open => !open)} className="p-2" aria-label="Toggle navigation menu" aria-expanded={menuOpen}>
-            <Menu size={28} color="#FFFFFF" />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-14 w-52 rounded-xl bg-white p-2 shadow-xl">
-              {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([title, route]) => (
-                <button key={route} onClick={() => { setMenuOpen(false); navigate(route); }} className="block w-full rounded-lg px-4 py-3 text-left font-work text-sm text-slate-700 hover:bg-slate-100">{title}</button>
-              ))}
-              <button onClick={() => { setMenuOpen(false); navigate('/login'); }} className="mt-1 w-full rounded-lg bg-green-500 px-4 py-3 text-left font-work text-sm font-semibold text-white">Login</button>
-            </div>
-          )}
-        </div>
-      )}
-    </nav>
-  );
-
-  const NavLink = ({ title, isActive, route }) => (
-    <button
-      onClick={() => navigate(route)}
-      className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
-    >
-      <span 
-        className="font-work text-sm"
-        style={{ 
-          fontWeight: isActive ? 700 : 500,
-          color: '#FFFFFF'
-        }}
-      >
-        {title}
-      </span>
-      {isActive && (
-        <div className="mt-0.5 h-0.5 w-5 rounded-full" style={{ backgroundColor: '#FEB300' }} />
-      )}
-    </button>
-  );
 
   // ============================================
   // LEFT PANEL — ORIGINAL with background image
@@ -302,9 +228,9 @@ const Login = () => {
   // ============================================
   return (
     <div className="min-h-screen flex flex-col">
-      <TopNavBar />
+      <PublicHeader isMobile={isMobile} active={null} />
       
-      <main className="flex-1 pt-[90px]">
+      <main className="flex-1" style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>
         {isDesktop ? (
           <div className="flex">
             <div className="flex-1">

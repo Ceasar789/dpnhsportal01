@@ -7,7 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone, AlertTriangle } from 'lucide-react';
+import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
+import { ArrowRight, ExternalLink, Facebook, Globe, Mail, School, BookOpen, Users, MapPin, Phone, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { localNowTimestamp } from '../../lib/taskFormatting';
@@ -16,7 +17,6 @@ const News = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [newsItems, setNewsItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
@@ -92,96 +92,10 @@ const News = () => {
   const rest = newsItems.slice(1);
 
   // ============================================
-  // TOP NAVIGATION BAR — EduScribe Theme
-  // ============================================
-  const TopNavBar = () => (
-    <nav 
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 lg:px-8" 
-      style={{ 
-        height: '90px', 
-        backgroundColor: '#003b7a',
-        paddingLeft: isMobile ? '16px' : '32px', 
-        paddingRight: isMobile ? '16px' : '32px' 
-      }}
-    >
-      {/* Logo + EduScribe Branding */}
-      <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-        <img 
-          src="/capstonelogo.png" 
-          alt="DPNHS Logo" 
-          style={{ height: isMobile ? '50px' : '60px', borderRadius: '50%' }} 
-        />
-        {!isMobile && (
-          <div className="ml-4 flex flex-col justify-center">
-            <h1 className="font-work font-bold text-2xl tracking-tight leading-none">
-              <span style={{ color: '#FEB300' }}>Edu</span>
-              <span style={{ color: '#00D4FF' }}>Scribe</span>
-            </h1>
-            <span className="font-work text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              Dela Paz National High School
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop Nav */}
-      {!isMobile ? (
-        <div className="flex items-center gap-8">
-          <NavLink title="Home" route="/" isActive={false} />
-          <NavLink title="News" route="/news" isActive={true} />
-          <NavLink title="Calendar" route="/calendar" isActive={false} />
-          
-          <button
-            onClick={() => navigate('/login')}
-            className="font-work font-semibold text-white px-8 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: '#22c55e' }}
-          >
-            Login
-          </button>
-        </div>
-      ) : (
-        <div className="relative">
-          <button onClick={() => setMenuOpen(open => !open)} className="p-2" aria-label="Toggle navigation menu" aria-expanded={menuOpen}>
-            <Menu size={28} color="#FFFFFF" />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-14 w-52 rounded-xl bg-white p-2 shadow-xl">
-              {[['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']].map(([title, route]) => (
-                <button key={route} onClick={() => { setMenuOpen(false); navigate(route); }} className="block w-full rounded-lg px-4 py-3 text-left font-work text-sm text-slate-700 hover:bg-slate-100">{title}</button>
-              ))}
-              <button onClick={() => { setMenuOpen(false); navigate('/login'); }} className="mt-1 w-full rounded-lg bg-green-500 px-4 py-3 text-left font-work text-sm font-semibold text-white">Login</button>
-            </div>
-          )}
-        </div>
-      )}
-    </nav>
-  );
-
-  const NavLink = ({ title, route, isActive }) => (
-    <button
-      onClick={() => navigate(route)}
-      className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
-    >
-      <span
-        className="font-work text-sm"
-        style={{
-          fontWeight: isActive ? 700 : 500,
-          color: '#FFFFFF'
-        }}
-      >
-        {title}
-      </span>
-      {isActive && (
-        <div className="mt-0.5 h-0.5 w-5 rounded-full" style={{ backgroundColor: '#FEB300' }} />
-      )}
-    </button>
-  );
-
-  // ============================================
   // HERO SECTION
   // ============================================
   const HeroSection = () => (
-    <div className="w-full pt-10 pb-10 px-5 lg:px-[100px] max-w-[1280px] mx-auto">
+    <div className="w-full pt-6 pb-4 lg:pt-10 lg:pb-10 px-5 lg:px-[100px] max-w-[1280px] mx-auto">
       <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
         <div className={hero?.featured_image_url ? 'lg:flex-[3]' : 'w-full'}>
           <HeroText />
@@ -222,7 +136,7 @@ const News = () => {
 
       {/* Description */}
       <p
-        className="font-public text-base leading-relaxed mb-8"
+        className="font-public text-base leading-relaxed mb-5 lg:mb-8"
         style={{ color: '#64748B', maxWidth: '500px' }}
       >
         {heroExpanded ? hero.content : `${hero.content?.slice(0, 220) || ''}${hero.content?.length > 220 ? '...' : ''}`}
@@ -257,9 +171,9 @@ const News = () => {
   // LATEST NEWS SECTION
   // ============================================
   const LatestNewsSection = () => (
-    <div className="w-full py-[60px] px-5 lg:px-[100px] max-w-[1280px] mx-auto">
+    <div className="w-full py-8 lg:py-[60px] px-5 lg:px-[100px] max-w-[1280px] mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-end mb-10">
+      <div className="flex justify-between items-end mb-6 lg:mb-10">
         <div>
           <div className="w-10 h-1 mb-4" style={{ backgroundColor: '#FEB300' }} />
           <h3 className="font-work font-extrabold text-3xl tracking-tight" style={{ color: '#1E3A8A' }}>
@@ -459,9 +373,9 @@ const News = () => {
   // ============================================
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F8FAFC' }}>
-      <TopNavBar />
+      <PublicHeader isMobile={isMobile} active="News" />
 
-      <main className="pt-[90px]">
+      <main style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>
         {loading ? (
           <div className="flex justify-center items-center" style={{ height: '400px' }}>
             <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />

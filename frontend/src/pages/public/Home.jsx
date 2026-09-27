@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
 import { School, Facebook, BookOpen, Globe, Users, MapPin, Mail, Phone, Pause, Play } from 'lucide-react';
 
 const Home = () => {
@@ -13,7 +14,7 @@ const Home = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   // Two rows on a phone (brand over links), one row on a desktop.
-  const navHeight = isMobile ? 124 : 90;
+  const navHeight = isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop;
   const [paused, setPaused] = useState(false);
   const autoSlideRef = useRef(null);
 
@@ -50,93 +51,6 @@ const Home = () => {
     startAutoSlide();
     return () => clearTimeout(autoSlideRef.current);
   }, [currentPage, startAutoSlide]);
-
-  // ============================================
-  // TOP NAVIGATION BAR - UPDATED: EduScribe Theme
-  // ============================================
-  const Brand = ({ logo, title, subtitle }) => (
-    <button
-      type="button"
-      onClick={() => navigate('/')}
-      aria-label="EduScribe home"
-      className="flex items-center rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
-    >
-      <img src="/capstonelogo.png" alt="" style={{ height: logo, borderRadius: '50%' }} />
-      <span className="ml-3 flex flex-col justify-center">
-        <span className={`font-work font-bold tracking-tight leading-none ${title}`}>
-          <span style={{ color: '#FEB300' }}>Edu</span>
-          <span style={{ color: '#00D4FF' }}>Scribe</span>
-        </span>
-        <span className={`font-work mt-0.5 ${subtitle}`} style={{ color: 'rgba(255,255,255,0.85)' }}>
-          Dela Paz National High School
-        </span>
-      </span>
-    </button>
-  );
-
-  const LoginButton = ({ className }) => (
-    <button
-      onClick={() => navigate('/login')}
-      className={`font-work font-semibold text-white rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a] ${className}`}
-      style={{ backgroundColor: '#22c55e' }}
-    >
-      Login
-    </button>
-  );
-
-  const TopNavBar = () => (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50"
-      style={{ height: navHeight, backgroundColor: '#003b7a' }}
-    >
-      {isMobile ? (
-        // Two rows rather than a hamburger: the three destinations stay on
-        // screen instead of hiding behind an icon the visitor has to guess at.
-        <div className="flex h-full flex-col justify-center gap-2 px-5">
-          <Brand logo="40px" title="text-xl" subtitle="text-[11px]" />
-          <div className="flex items-center gap-1">
-            <NavLink title="Home" isActive={true} route="/" />
-            <NavLink title="News" isActive={false} route="/news" />
-            <NavLink title="Calendar" isActive={false} route="/calendar" />
-            <LoginButton className="ml-auto px-5 py-1.5 text-sm" />
-          </div>
-        </div>
-      ) : (
-        <div className="flex h-full items-center justify-between px-8">
-          <Brand logo="60px" title="text-2xl" subtitle="text-xs" />
-          <div className="flex items-center gap-8">
-            <NavLink title="Home" isActive={true} route="/" />
-            <NavLink title="News" isActive={false} route="/news" />
-            <NavLink title="Calendar" isActive={false} route="/calendar" />
-            <LoginButton className="px-8 py-2.5" />
-          </div>
-        </div>
-      )}
-    </nav>
-  );
-
-  // ============================================
-  // NAV LINK COMPONENT - UPDATED: White text
-  // ============================================
-  const NavLink = ({ title, isActive, route }) => (
-    <button
-      onClick={() => navigate(route)}
-      className="px-1 py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
-    >
-      <span 
-        className="font-work text-sm"
-        style={{ 
-          fontWeight: isActive ? 700 : 500,
-          color: '#FFFFFF'
-        }}
-      >
-        {title}
-      </span>
-      {isActive && (
-        <div className="mt-0.5 h-0.5 w-5 rounded-full" style={{ backgroundColor: '#FEB300' }} />
-      )}
-    </button>
-  );
 
   // ============================================
   // HERO SECTION - FIXED CAROUSEL
@@ -399,7 +313,7 @@ const Home = () => {
   // ============================================
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FAF8FF' }}>
-      <TopNavBar />
+      <PublicHeader isMobile={isMobile} active="Home" />
 
       <main style={{ paddingTop: navHeight }}>
         <HeroSection />

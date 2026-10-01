@@ -126,36 +126,30 @@ recent submission and works backwards to whoever owns it.
 
 Almost everything that stood here is now done. What remains:
 
-**1. `phase5-04` has not been run against the database yet.** The file is
-written and committed; until somebody runs it in the SQL Editor, students
-can still read their classmates' and teachers' phone numbers. See
-"The profiles column exposure" below for what it does.
+**1. Forty-four places still render text at 11px.** WCAG sets no minimum
+font size, so this is a convention rather than a failure, and raising them
+is a visual decision rather than a repair. `e2e/text-size.spec.js` holds the
+floor at 11px to match; raise the floor with them if they ever move.
 
-    backend/database/migrations/phase5-04-profiles-column-exposure.sql
+**2. The restyle script cannot help the auth pages**, and the reason is a
+real gap. Its refusals there are `scoped-token`: the nearest match for a
+field background is `--sidebar-bg` and for a muted label a dashboard text
+token, so taking either would tie a login page to the dashboard sidebar's
+next redesign. The system has no neutral token for those roles. Adding
+`--field-bg` and `--label` would close it.
 
-It prints a five-row result table. Read every row — SKIP is not PASS.
-
-**2. The ux-engine profile is stale.** Its `tokenSource` still names the
-three files the design tokens used to live in, before they moved to
-`frontend/src/styles/index.css`. Any `/ux-audit` run now measures against
-yesterday's token set. Re-run `/ux-design-system` before trusting one.
-
-**3. Four auth pages have never been audited.** ForgotPassword,
-ResetPassword, ChangePassword and VerifyEmail. StudentLogin and FacultyLogin
-came from the same source and each had the same eight defects — unlabelled
-fields, no autocomplete, an unnamed show/hide toggle, an unannounced error,
-and text under 4.5:1 — so these almost certainly carry them too.
-
-**4. Fifteen icon buttons carry `title` and no `aria-label`.** A mouse user
-gets a tooltip; a screen reader gets "button". Mostly the admin tables —
-SectionsTab, SchedulesTab, UsersTab.
-
-**5. Thirty-one pieces of text sit under 12px**, including a 9px unread
-count on the notification bell that is also 3.76:1 against its red dot.
+**3. The e2e suite has no admin or registrar fixture.** `e2e/helpers.js`
+seeds a student and a teacher only, so the admin tables and the registrar's
+screens are reasoned about rather than measured — including the phone-width
+admin calendar, whose font size was raised without a browser to check it in.
 
 ## The profiles column exposure
 
-Closed in `phase5-04`, pending the run. Recorded here because the shape of
+Closed in `phase5-04`, and **run against the database on 2026-10-01** — five
+checks, five PASS, no SKIP: a student cannot read another student's row or a
+teacher's, can still read their own, sees exactly one row in the whole table,
+and staff still have the directory. The e2e suite was re-run against the
+tightened policy afterwards: 111 passed, nothing broke. Recorded here because the shape of
 the fix is not what this file previously predicted.
 
 RLS is row-level: it cannot show `name` while hiding `phone`. The proposal

@@ -126,25 +126,54 @@ recent submission and works backwards to whoever owns it.
 
 Almost everything that stood here is now done. What remains:
 
-**1. The end-to-end suite has never run.** Fifteen Playwright specs in
-`e2e/`. They parse and list, and not one has executed — the machine they
-were written on could not download a browser binary.
+**1. `phase5-04` has not been run against the database yet.** The file is
+written and committed; until somebody runs it in the SQL Editor, students
+can still read their classmates' and teachers' phone numbers. See
+"The profiles column exposure" below for what it does.
 
-    npx playwright install chromium
-    npm run test:e2e
+    backend/database/migrations/phase5-04-profiles-column-exposure.sql
 
-Read-only by design: there is no test database, so they run against the
-live one and nothing creates, edits or deletes a row.
+It prints a five-row result table. Read every row — SKIP is not PASS.
 
-**2. `profiles` still exposes columns a student should not see.** The RLS
-audit narrowed WHICH ROWS a student may read — themselves, staff, their own
-classmates — but Row Level Security cannot hide `phone`, `date_of_birth` or
-`address` while showing `name`. A student can still read those for a
-classmate.
+**2. The ux-engine profile is stale.** Its `tokenSource` still names the
+three files the design tokens used to live in, before they moved to
+`frontend/src/styles/index.css`. Any `/ux-audit` run now measures against
+yesterday's token set. Re-run `/ux-design-system` before trusting one.
 
-Closing it needs a view with a named column list and a change at every
-`select('*')` on profiles — five of them. Bigger than a policy change, and
-worth doing before this holds real students' data.
+**3. Four auth pages have never been audited.** ForgotPassword,
+ResetPassword, ChangePassword and VerifyEmail. StudentLogin and FacultyLogin
+came from the same source and each had the same eight defects — unlabelled
+fields, no autocomplete, an unnamed show/hide toggle, an unannounced error,
+and text under 4.5:1 — so these almost certainly carry them too.
+
+**4. Fifteen icon buttons carry `title` and no `aria-label`.** A mouse user
+gets a tooltip; a screen reader gets "button". Mostly the admin tables —
+SectionsTab, SchedulesTab, UsersTab.
+
+**5. Thirty-one pieces of text sit under 12px**, including a 9px unread
+count on the notification bell that is also 3.76:1 against its red dot.
+
+## The profiles column exposure
+
+Closed in `phase5-04`, pending the run. Recorded here because the shape of
+the fix is not what this file previously predicted.
+
+RLS is row-level: it cannot show `name` while hiding `phone`. The proposal
+was a view with a named column list plus a change at every `select('*')` on
+profiles. Reading the application first showed that was more machinery than
+the problem needed. Nothing a student can reach reads another person's
+profile at all — the student dashboard queries five tables and profiles is
+not among them, AuthContext reads only `.eq('id', userId)`, and news carries
+its author as a column rather than a join.
+
+The five `select('*')` calls were in `src/lib/db.js`, which turned out to be
+**entirely unreferenced** — 77 exported query helpers, no importers. Deleted.
+
+So the fix is one narrowed policy: a student reads their own row and nothing
+else, staff keep the directory and the phone numbers they need to call a
+parent. If a later screen genuinely needs a classmate's or teacher's name,
+the answer is the view — `phase5-04` carries the exact DDL in a comment —
+not widening the policy back.
 
 ## Done since this file was last rewritten
 

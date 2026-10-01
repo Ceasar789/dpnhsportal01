@@ -153,18 +153,51 @@ test('the type filter narrows the grid, not just the lists', async ({ page }) =>
   await page.goto('/calendar');
   await page.waitForLoadState('networkidle');
 
-  const before = await page.getByRole('button', { name: /^Open / }).count();
-  test.skip(before === 0, 'no events this month');
+  // role=group is the day cell, so this counts GRID chips only. Counting
+  // every 'Open ...' on the page measures the month and upcoming lists too,
+  // and those read filteredEvents correctly — the first rewrite of this test
+  // did exactly that and still passed with the bug deliberately put back.
+  const chips = page.getByRole('group').getByRole('button', { name: /^Open / });
+  // The month the suite happens to run in may be empty — October 2026 is —
+  // and a test that skips forever looks like it is working. Walk forward
+  // until a month has grid chips, up to a year, and only give up then.
+  let all = await chips.count();
+  for (let hop = 0; all === 0 && hop < 12; hop++) {
+    await page.getByRole('button', { name: 'Next month' }).click();
+    await page.waitForTimeout(200);
+    all = await chips.count();
+  }
+  test.skip(all === 0, 'no month in the next year has a calendar event');
 
-  // getEventsForDate read `events` rather than `filteredEvents`, so tapping
-  // Deadline narrowed the lists and left every Event chip on the calendar.
-  const deadline = page.getByRole('button', { name: 'Deadline', exact: true }).first();
-  test.skip(await deadline.count() === 0, 'no Deadline filter offered');
-  await deadline.click();
-  await page.waitForTimeout(300);
+  // The first version of this test clicked Deadline and asserted the count
+  // dropped. That holds only while the visible month happens to carry more
+  // than one type, and it went red on 1 October for a calendar that was
+  // behaving correctly: October's single event IS a Deadline, so filtering
+  // to Deadline rightly changed nothing.
+  //
+  // The invariant that does not depend on this month's data: the filter
+  // buttons are built from the types actually present, so the per-type
+  // counts have to partition the unfiltered count. The bug this guards —
+  // getEventsForDate reading `events` instead of `filteredEvents`, so the
+  // grid ignored the filter — would make every type return the full count,
+  // and the sum would overshoot.
+  const names = (await page.locator('button[aria-pressed]').allInnerTexts())
+    .map((t) => t.trim())
+    .filter((t) => t && t !== 'All');
+  test.skip(names.length === 0, 'no type filters offered');
 
-  const after = await page.getByRole('button', { name: /^Open / }).count();
-  expect(after, 'the grid ignored the filter').toBeLessThan(before);
+  let summed = 0;
+  for (const name of names) {
+    await page.getByRole('button', { name, exact: true }).first().click();
+    await page.waitForTimeout(300);
+    const n = await chips.count();
+    expect(n, `"${name}" alone shows more chips than the unfiltered month`)
+      .toBeLessThanOrEqual(all);
+    summed += n;
+  }
+
+  expect(summed, `the per-type counts (${summed}) should partition the month (${all})`)
+    .toBe(all);
 });
 
 test('a phone sees the filter result without scrolling', async ({ page }) => {

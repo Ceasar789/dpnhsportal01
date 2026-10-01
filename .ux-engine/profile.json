@@ -1,22 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-26T14:49:48.634Z",
+  "generatedAt": "2026-10-01T05:25:11.722Z",
   "derivedFrom": [
     {
       "path": "frontend/package.json",
       "sha256": "f865d7df2aa41d9bdf7c86385e0f639fe9cacfca10e50beaaee3a5d9fe269ec5"
     },
     {
-      "path": "frontend/src/pages/dashboards/admin/AdminDashboard.jsx",
-      "sha256": "6e3d1d503b8b1bbd574a046996b1e2c861837b5d61404b2af2e5eb7685dceaa0"
-    },
-    {
-      "path": "frontend/src/pages/dashboards/registrar/shared/ui.jsx",
-      "sha256": "a0de5d18706bb31fc88df8eb7579c74f03b27fef5f015d4ef34d3873c1c7a3a6"
-    },
-    {
-      "path": "frontend/src/styles/dashboardTheme.jsx",
-      "sha256": "281bef948aff5bb3a5cb6e39b92ff6ccea9babe9057849a59f47504fae42f8a1"
+      "path": "frontend/src/styles/index.css",
+      "sha256": "f1884a959f063c55d467075f538f83499c1f31763927c6b144fc0c0b00d1aaa4"
     },
     {
       "path": "package.json",
@@ -26,15 +18,11 @@
   "styling": {
     "system": "tailwind-v3",
     "tokenSource": [
-      "frontend/src/styles/dashboardTheme.jsx",
-      "frontend/src/pages/dashboards/admin/AdminDashboard.jsx",
-      "frontend/src/pages/dashboards/registrar/shared/ui.jsx"
-    ],
-    "tokenSyntax": null,
-    "utilityFirst": true,
-    "extraStylesheets": [
       "frontend/src/styles/index.css"
     ],
+    "tokenSyntax": ":root",
+    "utilityFirst": true,
+    "extraStylesheets": [],
     "themedTokens": [
       "--accent",
       "--accent-hover",
@@ -79,7 +67,7 @@
       "--border": "#e2e8f0",
       "--text": "#1a2b4a",
       "--text-muted": "#4a5568",
-      "--text-dim": "#94a3b8",
+      "--text-dim": "#5d6b80",
       "--accent": "#1908DF",
       "--accent-hover": "#12069f",
       "--green": "#16a34a",
@@ -95,47 +83,24 @@
       "--banner-pill-bg": "rgba(255,255,255,.75)",
       "--banner-pill-border": "rgba(25,8,223,.16)",
       "--heading-accent": "#6366a3",
+      "--toggle-bg": "#1a2b4a",
+      "--toggle-icon": "#ffffff",
       "--nav-bg": "#ffffff",
       "--nav-border": "#e2e8f0",
       "--nav-text": "#1a2b4a",
       "--nav-text-muted": "#4a5568",
       "--nav-link-active-color": "#1a2b4a",
-      "--nav-link-hover-bg": "#f1f5f9",
-      "--toggle-bg": "#1a2b4a",
-      "--toggle-icon": "#ffffff",
-      "--reg-bg": "var(--bg)",
-      "--reg-sidebar-bg": "var(--sidebar-bg)",
-      "--reg-sidebar-active-bg": "#eef0f5",
-      "--reg-header-bg": "var(--card-bg)",
-      "--reg-input-bg": "var(--bg)",
-      "--reg-gold": "#FFC542",
-      "--reg-blue": "#2563EB"
+      "--nav-link-hover-bg": "#f1f5f9"
     },
     "spacing": {},
     "sizing": {},
     "radius": {},
-    "type": {
-      "--reg-text": "var(--text)",
-      "--reg-text-secondary": "var(--text)",
-      "--reg-sidebar-text": "var(--text-muted)",
-      "--reg-sidebar-active-text": "var(--accent)"
-    },
+    "type": {},
     "shadow": {
       "--nav-shadow": "0 1px 3px rgba(0,0,0,0.08)"
     },
     "motion": {},
-    "other": {
-      "--reg-surface": "var(--card-bg)",
-      "--reg-surface-hover": "var(--card2)",
-      "--reg-border": "var(--border)",
-      "--reg-muted": "var(--text-muted)",
-      "--reg-muted-light": "var(--text-dim)",
-      "--reg-navy": "var(--accent)",
-      "--reg-green": "var(--green)",
-      "--reg-amber": "var(--yellow)",
-      "--reg-red": "var(--red)",
-      "--reg-purple": "var(--purple)"
-    }
+    "other": {}
   },
   "conventions": {
     "framework": "react-18",

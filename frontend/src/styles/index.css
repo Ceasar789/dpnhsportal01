@@ -17,6 +17,38 @@ PURPOSE: Global styles + Tailwind directives
    under .dark, set on <html> by useDashboardTheme and by the inline script in
    index.html that runs before first paint.
    ============================================ */
+/* .dark is listed first on purpose. It has a class in it, so it outranks
+   bare :root whatever the order, and putting light last says plainly — to a
+   reader and to any tool reading the last declaration — which theme is the
+   default. */
+:root.dark {
+  --bg: #1a1d23;
+  --sidebar-bg: #1e2128;
+  --card-bg: #23272f;
+  --card2: #2a2f3a;
+  --border: #2e3340;
+  --text: #e8eaf0;
+  --text-muted: #959cae;
+  --text-dim: #94a3b8;
+  --accent: #4b3bf5;
+  --accent-hover: #6357f7;
+  --green: #22c55e;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --purple: #a78bfa;
+  --teal: #2dd4bf;
+  --banner-bg: linear-gradient(135deg, #1c2340 0%, #212a4a 55%, #1a2140 100%);
+  --banner-text: #f1f5f9;
+  --banner-subtext: #a8b3d9;
+  --banner-accent: #8b93ff;
+  --banner-border: rgba(255,255,255,0.10);
+  --banner-pill-bg: rgba(255,255,255,0.10);
+  --banner-pill-border: rgba(255,255,255,0.18);
+  --heading-accent: #8b93ff;
+  --toggle-bg: #e2e8f0;
+  --toggle-icon: #4a5568;
+}
+
 :root {
   --bg: #f4f6fb;
   --sidebar-bg: #f8fafc;
@@ -56,33 +88,6 @@ PURPOSE: Global styles + Tailwind directives
   --toggle-icon: #ffffff;
 }
 
-:root.dark {
-  --bg: #1a1d23;
-  --sidebar-bg: #1e2128;
-  --card-bg: #23272f;
-  --card2: #2a2f3a;
-  --border: #2e3340;
-  --text: #e8eaf0;
-  --text-muted: #959cae;
-  --text-dim: #94a3b8;
-  --accent: #4b3bf5;
-  --accent-hover: #6357f7;
-  --green: #22c55e;
-  --yellow: #f59e0b;
-  --red: #ef4444;
-  --purple: #a78bfa;
-  --teal: #2dd4bf;
-  --banner-bg: linear-gradient(135deg, #1c2340 0%, #212a4a 55%, #1a2140 100%);
-  --banner-text: #f1f5f9;
-  --banner-subtext: #a8b3d9;
-  --banner-accent: #8b93ff;
-  --banner-border: rgba(255,255,255,0.10);
-  --banner-pill-bg: rgba(255,255,255,0.10);
-  --banner-pill-border: rgba(255,255,255,0.18);
-  --heading-accent: #8b93ff;
-  --toggle-bg: #e2e8f0;
-  --toggle-icon: #4a5568;
-}
 
 /* Base styles */
 body {

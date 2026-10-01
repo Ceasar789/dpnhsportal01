@@ -125,7 +125,7 @@ const DocumentsTab = () => {
               <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ backgroundColor: 'var(--reg-border)' }}>
                 <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--reg-green)' }} />
               </div>
-              <p className="text-[10px]" style={{ color: 'var(--reg-muted)' }}>{pct}% verified</p>
+              <p className="text-xs" style={{ color: 'var(--reg-muted)' }}>{pct}% verified</p>
             </Card>
           );
         })}

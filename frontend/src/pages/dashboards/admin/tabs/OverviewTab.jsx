@@ -46,7 +46,7 @@ const OverviewTab = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', borderRadius: 12, padding: '12px 24px', backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)', flexShrink: 0 }}>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>Academic Year</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>Academic Year</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--banner-text)' }}>{settings.academic_year} · {settings.semester}</div>
                   </div>
                 </div>

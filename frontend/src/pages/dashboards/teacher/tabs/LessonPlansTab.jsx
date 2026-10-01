@@ -508,8 +508,8 @@ th{background:#f3f4f6;}
 
   .ilaw-field { padding: 8px 12px; border-bottom: 1px solid ${dark ? '#334155' : '#e5e7eb'}; background: ${dark ? '#1e293b' : '#ffffff'}; }
   .ilaw-field:last-child { border-bottom: none; }
-  .ilaw-label { font-weight: 700; color: ${dark ? '#94a3b8' : '#374151'}; display: block; margin-bottom: 4px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .ilaw-label-hint { font-weight: 400; text-transform: none; font-style: italic; font-size: 10px; display: block; color: ${dark ? '#64748b' : '#9ca3af'}; margin-bottom: 4px; letter-spacing: 0; }
+  .ilaw-label { font-weight: 700; color: ${dark ? '#94a3b8' : '#374151'}; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .ilaw-label-hint { font-weight: 400; text-transform: none; font-style: italic; font-size: 12px; display: block; color: ${dark ? '#64748b' : '#9ca3af'}; margin-bottom: 4px; letter-spacing: 0; }
   .ilaw-field p { margin: 4px 0; color: ${dark ? '#cbd5e1' : '#374151'}; line-height: 1.6; }
   .ilaw-field ul, .ilaw-field ol { margin: 4px 0; padding-left: 20px; color: ${dark ? '#cbd5e1' : '#374151'}; }
   .ilaw-field li { margin-bottom: 4px; line-height: 1.55; }

@@ -177,7 +177,7 @@ const StudentLayout = ({ children }) => {
           />
           {!sidebarCollapsed && <div>
             <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>{userData?.name || 'Student User'}</p>
-            <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Student</p>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Student</p>
           </div>}
           {!sidebarCollapsed && <ChevronRight size={15} className={`ml-auto transition-transform ${profileOpen ? 'rotate-90' : ''}`} style={{ color: textMuted }} />}
           </button>

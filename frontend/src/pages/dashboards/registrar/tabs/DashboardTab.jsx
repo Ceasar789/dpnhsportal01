@@ -111,7 +111,7 @@ const DashboardTab = () => {
         </div>
         <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
           <div>
-            <p className="text-[10px] font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
+            <p className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
             <p className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>2025–2026</p>
           </div>
         </div>
@@ -200,7 +200,7 @@ const DashboardTab = () => {
                       <p className="text-sm font-semibold" style={{ color: 'var(--reg-text)' }}>{a.title}</p>
                     </div>
                     <p className="text-xs" style={{ color: 'var(--reg-muted)' }}>{a.content}</p>
-                    <p className="text-[10px] mt-1" style={{ color: 'var(--reg-muted-light)' }}>
+                    <p className="text-xs mt-1" style={{ color: 'var(--reg-muted-light)' }}>
                       Posted {new Date(a.created_at).toLocaleDateString()}
                     </p>
                   </div>

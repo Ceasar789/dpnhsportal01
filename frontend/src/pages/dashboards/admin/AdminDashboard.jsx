@@ -334,7 +334,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-row input[type="radio"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
         .picker-actions { display: flex; gap: 8px; margin-top: 8px; }
         .picker-actions .btn:disabled { opacity: .45; cursor: default; }
-        .picker-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
+        .picker-tag { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
         .picker-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
         .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
         .picker-warning { margin-top: 8px; font-size: 12px; line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: 7px; padding: 7px 10px; }
@@ -556,8 +556,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .cal-toolbar > * { max-width: 100%; }
           .cal-grid { min-width: 0; }
           .cal-cell { min-height: 64px; padding: 5px; }
-          .cal-head { padding: 7px 2px; font-size: 10px; }
-          .cal-event { padding: 2px 3px; font-size: 10px; }
+          .cal-head { padding: 7px 2px; font-size: 12px; }
+          .cal-event { padding: 2px 3px; font-size: 12px; }
           .modal { padding: 18px; }
         }
       `}</style>

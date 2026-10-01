@@ -82,7 +82,7 @@ const TeacherLayout = ({ children }) => {
               <p className="font-work text-sm text-white/85">Teacher Dashboard</p>
               {userData?.profile?.department && (
                 <span
-                  className="px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide leading-none"
+                  className="px-2 py-0.5 rounded-full text-xs font-bold tracking-wide leading-none"
                   style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: '#ffffff' }}
                 >
                   {userData.profile.department.toUpperCase()}

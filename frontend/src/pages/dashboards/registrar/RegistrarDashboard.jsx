@@ -137,10 +137,10 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
             {!sidebarCollapsed && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>All systems online</span>}
           </div>
           {!sidebarCollapsed && <div className="mt-3 px-2">
-            <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
               Academic Year 2025–2026
             </p>
-            <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
               Semester: 2nd Semester
             </p>
           </div>}

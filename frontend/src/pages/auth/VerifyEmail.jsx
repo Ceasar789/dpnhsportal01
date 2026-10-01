@@ -45,9 +45,9 @@ const VerifyEmail = () => {
           <div className="flex flex-col items-center mb-6">
             <FlippingLogo size={60} />
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mt-4 mb-3">
-              <Mail size={32} className="text-blue-600" />
+              <Mail size={32} className="text-blue-600" aria-hidden="true" />
             </div>
-            <h2 className="text-2xl font-bold" style={{ color: '#1a2b4a' }}>Verify Your Email</h2>
+            <h1 className="text-2xl font-bold" style={{ color: '#1a2b4a' }}>Verify Your Email</h1>
             <div className="w-10 h-1 mt-2" style={{ backgroundColor: '#d4a843' }} />
           </div>
 
@@ -65,21 +65,21 @@ const VerifyEmail = () => {
             <div role="alert" className="flex items-start gap-2 p-3 rounded-md mb-4 text-left"
               style={{ backgroundColor: isSuccess ? '#d1fae5' : '#fee2e2' }}>
               {isSuccess
-                ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
-                : <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />}
-              <p className="text-sm" style={{ color: isSuccess ? '#065f46' : '#dc3545' }}>{message}</p>
+                ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" style={{ color: '#065f46' }} aria-hidden="true" />
+                : <AlertTriangle size={18} className="shrink-0 mt-0.5" style={{ color: '#b91c1c' }} aria-hidden="true" />}
+              <p className="text-sm whitespace-pre-line" style={{ color: isSuccess ? '#065f46' : '#b91c1c' }}>{message}</p>
             </div>
           )}
 
-          <button onClick={handleResend} disabled={isLoading}
+          <button type="button" onClick={handleResend} disabled={isLoading} aria-busy={isLoading}
             className="w-full h-12 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity disabled:opacity-50 mb-3"
             style={{ backgroundColor: '#0d2b5c' }}>
             {isLoading
-              ? <div className="flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>
+              ? <div className="flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" /><span className="sr-only">Sending</span></div>
               : 'Resend Verification Email'}
           </button>
 
-          <button onClick={handleLogout} className="text-sm" style={{ color: '#6c757d' }}>
+          <button type="button" onClick={handleLogout} className="text-sm py-1.5 px-2 rounded" style={{ color: '#6c757d' }}>
             Back to login
           </button>
         </div>

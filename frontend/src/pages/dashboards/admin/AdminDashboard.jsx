@@ -11,6 +11,8 @@ import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Ca
 import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
+import Modal from '../../../components/ui/Modal';
+import Button from '../../../components/ui/Button';
 import { initials, avatarColor, roleBadge, roleLabel } from './shared/helpers';
 import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
@@ -683,8 +685,31 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
       {/* MODALS */}
 
       {/* DELETE CONFIRM MODAL */}
-      <div className={`modal-overlay ${deleteConfirm ? 'open' : ''}`} onClick={() => setDeleteConfirm(null)}>
-        <div className="modal" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+      {/* Condition 3: initial focus lands on Cancel, not on the
+          destructive button. <Modal> focuses the first focusable element,
+          and Cancel is first in the footer, so this holds by construction —
+          and e2e/admin-modal.spec.js asserts it rather than trusting it. */}
+      <Modal
+        open={Boolean(deleteConfirm)}
+        title={deleteConfirm?.title || 'Archive User?'}
+        onClose={() => setDeleteConfirm(null)}
+        footer={(requestClose) => (
+          <>
+            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+            <Button
+              variant="danger-solid"
+              onClick={async () => {
+                const fn = deleteConfirm?.onConfirm;
+                setDeleteConfirm(null);
+                if (fn) await fn();
+              }}
+            >
+              {deleteConfirm?.confirmLabel || 'Yes, Archive'}
+            </Button>
+          </>
+        )}
+      >
+        <div style={{ textAlign: 'center' }}>
           <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
             <div style={{
               width: 52, height: 52, borderRadius: '50%',
@@ -693,9 +718,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             }}>
               <AlertTriangle size={26} color="var(--red)" />
             </div>
-          </div>
-          <div className="modal-title" style={{ textAlign: 'center', marginBottom: 8 }}>
-            {deleteConfirm?.title || 'Archive User?'}
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.6 }}>
             {deleteConfirm?.message || 'This user will be moved to the archive and removed from the active user list:'}
@@ -713,24 +735,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               {deleteConfirm?.warning || 'The account will not be permanently deleted.'}
             </p>
           )}
-          <div className="modal-actions" style={{ justifyContent: 'center', gap: 12 }}>
-            <button className="btn btn-ghost" onClick={() => setDeleteConfirm(null)}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ background: 'var(--red)', borderColor: 'var(--red)' }}
-              onClick={async () => {
-                const fn = deleteConfirm?.onConfirm;
-                setDeleteConfirm(null);
-                if (fn) await fn();
-              }}
-            >
-              {deleteConfirm?.confirmLabel || 'Yes, Archive'}
-            </button>
-          </div>
         </div>
-      </div>
+      </Modal>
 
     </div>
   );

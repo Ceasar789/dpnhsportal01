@@ -30,6 +30,16 @@ const FOCUSABLE = [
   'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+// Nothing in the admin stacks dialogs today — all four delete confirmations
+// are triggered from a table row, never from inside another modal, and the
+// two SectionsTab overlays are opened from the same row's actions, so the
+// table is behind an overlay either way.
+//
+// This exists so that stops being load-bearing. If a second dialog ever
+// mounts over a first, only the top of the stack answers Escape and Tab;
+// without it both would, and Escape would close them in the wrong order.
+const stack = [];
+
 /**
  * @param {boolean}  open
  * @param {string}   title      names the dialog for assistive technology
@@ -64,7 +74,11 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
   // Escape closes, and Tab cycles rather than walking out of the dialog.
   useEffect(() => {
     if (!open) return;
+    const me = {};
+    stack.push(me);
     const onKeyDown = (e) => {
+      // Only the topmost dialog answers the keyboard.
+      if (stack[stack.length - 1] !== me) return;
       if (e.key === 'Escape') { e.preventDefault(); requestClose(); return; }
       if (e.key !== 'Tab') return;
 
@@ -87,7 +101,11 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
       }
     };
     document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      const at = stack.indexOf(me);
+      if (at !== -1) stack.splice(at, 1);
+    };
   }, [open, requestClose]);
 
   if (!open) return null;

@@ -38,6 +38,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Trash2, Plus } from 'lucide-react';
+import Modal from '../../../../components/ui/Modal';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS, normalizeGradeLevel, canTeachSection } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
@@ -238,11 +239,20 @@ const SchedulesTab = () => {
       </div>
 
       {scheduleModal && (
-        <div className="modal-overlay open" onClick={closeScheduleOverlay}>
-          <div className="modal">
-            <div className="modal-title">
-              {nameOf(subjects, schedSubject)} — {nameOf(sections, schedSection)}
-            </div>
+        <Modal
+          open
+          title={`${nameOf(subjects, schedSubject)} — ${nameOf(sections, schedSection)}`}
+          onClose={dismiss}
+          // The selects count: a teacher and a day already chosen are work
+          // the user would have to redo.
+          isDirty={() => Boolean(schedTeacher || schedDay || schedStart || schedEnd || schedRoom)}
+          footer={(requestClose) => (
+            <>
+              <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={create} disabled={schedSaving}>Create</button>
+            </>
+          )}
+        >
 
             <div className="form-row">
               <label className="form-label">Teacher</label>
@@ -295,12 +305,7 @@ const SchedulesTab = () => {
               <input className="form-input" value={schedRoom} onChange={e => setSchedRoom(e.target.value)} placeholder="e.g. Room 201" />
             </div>
 
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={dismiss}>Cancel</button>
-              <button className="btn btn-primary" onClick={create} disabled={schedSaving}>Create</button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

@@ -139,3 +139,78 @@ test.describe('admin user modal', () => {
     expect(attempts, `a double click fired ${attempts} signup requests`).toBe(1);
   });
 });
+
+// Phase 1b — the other eight overlays, and the one rule that differs.
+test.describe('every admin dialog', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.waitForLoadState('networkidle');
+  });
+
+  // tab label, the control that opens the dialog, the name it should carry
+  const DIALOGS = [
+    ['Subjects', /add subject/i, /add subject/i],
+    ['Sections', /add section/i, /add section/i],
+    ['News Management', /new post|add post/i, /new post/i],
+    ['Memos', /compose|new memo/i, /compose memo/i],
+    ['Calendar', /add event|new event/i, /add calendar event/i],
+  ];
+
+  for (const [tab, opener, name] of DIALOGS) {
+    test(`${tab}: the dialog takes focus and Escape returns it`, async ({ page }) => {
+      await openAdminTab(page, tab);
+      const trigger = page.getByRole('button', { name: opener }).first();
+      test.skip(await trigger.count() === 0, `no opener matching ${opener} on ${tab}`);
+      await trigger.click();
+
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveAttribute('aria-modal', 'true');
+      await expect(dialog).toHaveAccessibleName(name);
+
+      expect(await page.evaluate(() =>
+        Boolean(document.querySelector('[role=dialog]')?.contains(document.activeElement))),
+      `${tab}: focus stayed behind the overlay`).toBe(true);
+
+      await page.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+      expect(await trigger.evaluate((el) => el === document.activeElement),
+        `${tab}: focus did not return to the opener`).toBe(true);
+    });
+  }
+
+  // Condition 3. The destructive button must NOT be what the keyboard lands
+  // on — a stray Enter on an archive confirmation is the whole point.
+  test('the delete confirmation opens with focus on Cancel', async ({ page }) => {
+    await openAdminTab(page, 'Subjects');
+    const del = page.getByRole('button', { name: /^Delete / }).first();
+    test.skip(await del.count() === 0, 'no subject to delete against');
+    await del.click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
+    expect(focused, 'focus landed somewhere other than Cancel').toBe('Cancel');
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  });
+
+  // UX-106: the filled-danger look is a named variant now, not an inline
+  // override invented at the call site.
+  test('the destructive confirm button uses the named variant', async ({ page }) => {
+    await openAdminTab(page, 'Subjects');
+    const del = page.getByRole('button', { name: /^Delete / }).first();
+    test.skip(await del.count() === 0, 'no subject to delete against');
+    await del.click();
+
+    const confirm = page.getByRole('dialog').getByRole('button', { name: /yes,|delete/i }).first();
+    await expect(confirm).toHaveClass(/btn-danger-solid/);
+    const inline = await confirm.evaluate((el) => el.getAttribute('style') || '');
+    expect(inline, 'the call site is still overriding colours inline').not.toMatch(/background/);
+
+    await page.keyboard.press('Escape');
+  });
+});

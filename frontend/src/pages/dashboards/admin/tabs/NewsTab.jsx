@@ -7,6 +7,7 @@
 import React from 'react';
 import { Archive, ArchiveRestore, Search } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
+import Modal from '../../../../components/ui/Modal';
 import { TARGET_ROLES } from '../shared/helpers';
 
 const NewsTab = () => {
@@ -94,9 +95,25 @@ const NewsTab = () => {
             </div>
 
       {/* NEWS MODAL */}
-      <div className={`modal-overlay ${modal === 'news' ? 'open' : ''}`} onClick={handleOverlayClick}>
-        <div className="modal">
-          <div className="modal-title">{newsReadOnly ? 'View Published Post' : editNews ? 'Edit Post' : 'New Post'}</div>
+      <Modal
+        open={modal === 'news'}
+        title={newsReadOnly ? 'View Published Post' : editNews ? 'Edit Post' : 'New Post'}
+        onClose={closeModal}
+        // nExpiresDate is excluded on purpose: openNewsModal prefills it
+        // thirty days out, so including it made every freshly opened form
+        // dirty and the discard prompt fire on a form nobody had touched.
+        // A prompt that always fires teaches people to click through it.
+        isDirty={() => Boolean(nTitle || nContent || nImageFile || nCustomTarget)}
+        footer={(requestClose) => (
+          <>
+            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={newsReadOnly ? saveNewsExpiry : saveNews} disabled={nSaving}>
+              {nSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+              {newsReadOnly ? 'Save Expiry' : editNews ? 'Update' : 'Publish'}
+            </button>
+          </>
+        )}
+      >
           {newsReadOnly && (
             <div className="form-row" style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
               A published post's content is locked so it can't be quietly rewritten. You can still change or clear its expiry date below.
@@ -160,15 +177,7 @@ const NewsTab = () => {
               onChange={e => setNExpiresDate(e.target.value)}
             />
           </div>
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn btn-primary" onClick={newsReadOnly ? saveNewsExpiry : saveNews} disabled={nSaving}>
-              {nSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
-              {newsReadOnly ? 'Save Expiry' : editNews ? 'Update' : 'Publish'}
-            </button>
-          </div>
-        </div>
-      </div>
+      </Modal>
 
     </>
   );

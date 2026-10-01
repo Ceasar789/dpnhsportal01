@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Pencil, Trash2, Plus } from 'lucide-react';
+import Modal from '../../../../components/ui/Modal';
 import { useAdminContext } from '../AdminContext';
 
 const SubjectsTab = () => {
@@ -63,9 +64,20 @@ const SubjectsTab = () => {
       </div>
 
       {subjectModal && (
-        <div className="modal-overlay open" onClick={closeSubjectOverlay}>
-          <div className="modal">
-            <div className="modal-title">{editingSubject ? 'Edit Subject' : 'Add Subject'}</div>
+        <Modal
+          open
+          title={editingSubject ? 'Edit Subject' : 'Add Subject'}
+          onClose={closeSubjectModal}
+          isDirty={() => Boolean(sName || sCode)}
+          footer={(requestClose) => (
+            <>
+              <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveSubject} disabled={sSaving}>
+                {editingSubject ? 'Update' : 'Create'}
+              </button>
+            </>
+          )}
+        >
 
             <div className="form-row">
               <label className="form-label">Subject Name</label>
@@ -85,14 +97,7 @@ const SubjectsTab = () => {
               </select>
             </div>
 
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={closeSubjectModal}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveSubject} disabled={sSaving}>
-                {editingSubject ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

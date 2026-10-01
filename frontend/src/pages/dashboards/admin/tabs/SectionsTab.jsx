@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
+import Modal from '../../../../components/ui/Modal';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 
@@ -74,9 +75,22 @@ const SectionsTab = () => {
       </div>
 
       {sectionModal && (
-        <div className="modal-overlay open" onClick={closeSectionOverlay}>
-          <div className="modal">
-            <div className="modal-title">{editingSection ? 'Edit Section' : 'Add Section'}</div>
+        <Modal
+          open
+          title={editingSection ? 'Edit Section' : 'Add Section'}
+          onClose={closeSectionModal}
+          // Capacity has a default, so a untouched form is not dirty just
+          // because it carries one.
+          isDirty={() => Boolean(secName || secGrade || secAdviser)}
+          footer={(requestClose) => (
+            <>
+              <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveSection} disabled={secSaving}>
+                {editingSection ? 'Update' : 'Create'}
+              </button>
+            </>
+          )}
+        >
 
             <div className="form-row">
               <label className="form-label">Section Name</label>
@@ -104,20 +118,18 @@ const SectionsTab = () => {
               <input className="form-input" type="number" value={secCapacity} onChange={e => setSecCapacity(e.target.value)} />
             </div>
 
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={closeSectionModal}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveSection} disabled={secSaving}>
-                {editingSection ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {activeSection && (
-        <div className="modal-overlay open" onClick={closeClassListOverlay}>
-          <div className="modal" style={{ maxWidth: 560 }}>
-            <div className="modal-title">{activeSection.name} — Class List</div>
+        <Modal
+          open
+          title={`${activeSection.name} — Class List`}
+          onClose={closeClassList}
+          footer={(requestClose) => (
+            <button className="btn btn-ghost" onClick={requestClose}>Close</button>
+          )}
+        >
 
             <div className="form-row" style={{ display: 'flex', gap: 8 }}>
               <select className="form-input" value={pick} onChange={e => setPick(e.target.value)}>
@@ -155,11 +167,7 @@ const SectionsTab = () => {
               </tbody>
             </table></div>
 
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={closeClassList}>Close</button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

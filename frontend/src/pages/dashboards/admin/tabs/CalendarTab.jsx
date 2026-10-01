@@ -7,6 +7,7 @@
 import React from 'react';
 import { Sun } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
+import Modal from '../../../../components/ui/Modal';
 import { MONTHS, EVENT_TYPES } from '../shared/helpers';
 
 const CalendarTab = () => {
@@ -94,9 +95,21 @@ const CalendarTab = () => {
             </div>
 
       {/* EVENT MODAL */}
-      <div className={`modal-overlay ${modal === 'event' ? 'open' : ''}`} onClick={handleOverlayClick}>
-        <div className="modal">
-          <div className="modal-title">{editEvent ? 'Edit Event' : 'Add Calendar Event'}</div>
+      <Modal
+        open={modal === 'event'}
+        title={editEvent ? 'Edit Event' : 'Add Calendar Event'}
+        onClose={closeModal}
+        isDirty={() => Boolean(evTitle || evDesc || evDate || evEnd || evCustomType)}
+        footer={(requestClose) => (
+          <>
+            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={saveEvent} disabled={evSaving}>
+              {evSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+              {editEvent ? 'Update' : 'Add Event'}
+            </button>
+          </>
+        )}
+      >
           <div className="form-row">
             <label className="form-label">Title</label>
             <input className="form-input" value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="Event title" />
@@ -125,15 +138,7 @@ const CalendarTab = () => {
             <label className="form-label">Description</label>
             <textarea className="form-input" rows={3} value={evDesc} onChange={e => setEvDesc(e.target.value)} placeholder="Event details..." />
           </div>
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveEvent} disabled={evSaving}>
-              {evSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
-              {editEvent ? 'Update' : 'Add Event'}
-            </button>
-          </div>
-        </div>
-      </div>
+      </Modal>
 
     </>
   );

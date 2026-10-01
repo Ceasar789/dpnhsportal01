@@ -7,6 +7,7 @@
 import React from 'react';
 import { Search } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
+import Modal from '../../../../components/ui/Modal';
 
 const MemosTab = () => {
   const {
@@ -94,9 +95,23 @@ const MemosTab = () => {
             </div>
 
       {/* MEMO MODAL */}
-      <div className={`modal-overlay ${modal === 'memo' ? 'open' : ''}`} onClick={handleOverlayClick}>
-        <div className="modal">
-          <div className="modal-title">{editMemo ? 'Edit Memo' : 'Compose Memo'}</div>
+      <Modal
+        open={modal === 'memo'}
+        title={editMemo ? 'Edit Memo' : 'Compose Memo'}
+        onClose={closeModal}
+        // mTo is excluded: it is prefilled with "All Faculty". Same reason
+        // as the news expiry date — a default is not the user's work.
+        isDirty={() => Boolean(mSubj || mBody)}
+        footer={(requestClose) => (
+          <>
+            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={saveMemo} disabled={mSaving}>
+              {mSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+              {editMemo ? 'Update' : 'Send'}
+            </button>
+          </>
+        )}
+      >
           <div className="form-row">
             <label className="form-label">From Office</label>
             <input className="form-input" value={mFrom} onChange={e => setMFrom(e.target.value)} placeholder="e.g. Principal's Office" />
@@ -120,15 +135,7 @@ const MemosTab = () => {
             <label className="form-label">Body</label>
             <textarea className="form-input" rows={6} value={mBody} onChange={e => setMBody(e.target.value)} placeholder="Write your memo..." />
           </div>
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveMemo} disabled={mSaving}>
-              {mSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
-              {editMemo ? 'Update' : 'Send'}
-            </button>
-          </div>
-        </div>
-      </div>
+      </Modal>
     </>
   );
 };

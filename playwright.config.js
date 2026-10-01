@@ -27,7 +27,7 @@ import { defineConfig, devices } from '@playwright/test';
 //
 // Parsed here rather than with dotenv: it is nine lines against a dependency,
 // and this file is the only thing that needs it.
-for (const file of ['.env', 'frontend/.env']) {
+for (const file of ['.env', 'frontend/.env', 'backend/.env']) {
   if (!existsSync(file)) continue;
   for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);

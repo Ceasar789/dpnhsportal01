@@ -30,7 +30,7 @@ test.describe('admin dashboard', () => {
   test('every tab renders something', async ({ page }) => {
     for (const label of ADMIN_TABS) {
       await openAdminTab(page, label);
-      const main = page.locator('.main-content, main').first();
+      const main = page.locator('.main').first();
       const text = (await main.innerText().catch(() => '')).trim();
       expect(text.length, `${label} rendered a blank panel`).toBeGreaterThan(0);
     }

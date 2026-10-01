@@ -8,6 +8,8 @@
 // testing. Nothing real is committed here.
 // ============================================
 
+import { expect } from '@playwright/test';
+
 export const PASSWORD = '123456789';
 
 export const STUDENT = { email: 'student01@example.com', password: PASSWORD };
@@ -95,6 +97,27 @@ export const ADMIN_TABS = [
 ];
 
 export async function openAdminTab(page, label) {
-  await page.locator('.sidebar-item', { hasText: label }).first().click();
+  const item = page.locator('.sidebar-item', { hasText: label }).first();
+
+  // Below 900px the sidebar is off-canvas (AdminDashboard.jsx:531) and the
+  // entry cannot be clicked until the drawer is open. 900, not the 1024 the
+  // design rules ask for — that gap is a Phase 6 finding, not something to
+  // paper over here.
+  const onScreen = async () => {
+    const box = await item.boundingBox();
+    return Boolean(box) && box.x >= 0 && box.x < page.viewportSize().width;
+  };
+  if (!(await onScreen())) {
+    await page.getByRole('button', { name: 'Open navigation' }).click();
+    await expect.poll(onScreen, { message: 'the drawer never slid in' }).toBe(true);
+  }
+
+  // force, because .sidebar-item carries `transition: all .3s ease`
+  // (AdminDashboard.jsx:220) and the active entry's padding and left border
+  // both change — so Playwright's stability check waits out its own timeout
+  // on an element that is only animating its own appearance. Rule L5 caps
+  // transitions at 150ms and bans `all`; when Phase 5 applies it, this
+  // force can come out.
+  await item.click({ force: true });
   await page.waitForLoadState('networkidle');
 }

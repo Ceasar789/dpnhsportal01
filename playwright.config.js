@@ -18,7 +18,24 @@
 // suite that blames the app for its own load teaches nothing.
 // ============================================
 
+import { readFileSync, existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+
+// The admin specs need a real admin login, and those credentials must never
+// reach the repository. They come from .env, which .gitignore covers, and
+// from the shell before it — so CI can export them instead of writing a file.
+//
+// Parsed here rather than with dotenv: it is nine lines against a dependency,
+// and this file is the only thing that needs it.
+for (const file of ['.env', 'frontend/.env']) {
+  if (!existsSync(file)) continue;
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (!m) continue;
+    const value = m[2].replace(/^['"]|['"]$/g, '');
+    if (process.env[m[1]] === undefined) process.env[m[1]] = value;
+  }
+}
 
 const PORT = 5173;
 

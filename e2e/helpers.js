@@ -14,6 +14,31 @@ export const STUDENT = { email: 'student01@example.com', password: PASSWORD };
 export const STUDENT_B = { email: 'student41@example.com', password: PASSWORD };
 export const TEACHER = { email: 'teacher.math7@example.com', password: PASSWORD };
 
+/**
+ * The admin account is deliberately NOT in this file.
+ *
+ * Every other account here is a throwaway from backend/database/seeds, all
+ * sharing one password, none of them able to do real damage. An admin can
+ * edit every user in the school, so its credentials come from the
+ * environment — E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD — read out of .env by
+ * playwright.config.js, or exported into the shell before the run. .env is
+ * gitignored; these values must never be committed.
+ *
+ * When they are absent, `hasAdminCredentials` is false and the admin specs
+ * skip with that reason rather than failing — and a skip is not a pass. If
+ * the whole admin suite reports SKIP, nothing about the admin dashboard has
+ * been tested.
+ */
+export const ADMIN = {
+  email: process.env.E2E_ADMIN_EMAIL || '',
+  password: process.env.E2E_ADMIN_PASSWORD || '',
+};
+
+export const hasAdminCredentials = Boolean(ADMIN.email && ADMIN.password);
+
+export const ADMIN_SKIP_REASON =
+  'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD in .env — the admin dashboard is untested without them';
+
 // The two login screens are separate routes with separate forms: students go
 // through /student-login, everybody else through /faculty-login.
 export const STUDENT_LOGIN = '/student-login';
@@ -58,5 +83,18 @@ export const loginAsStudent = (page, who = STUDENT) =>
 export const loginAsTeacher = (page, who = TEACHER) =>
   login(page, who, STAFF_LOGIN, '/teacher-dashboard', 'Teacher');
 
-export const loginAsAdmin = (page, who) =>
+export const loginAsAdmin = (page, who = ADMIN) =>
   login(page, who, STAFF_LOGIN, '/admin-dashboard', 'Admin');
+
+// The admin's tabs are `page` state inside AdminDashboard, not routes, so a
+// spec cannot reach one by URL — it clicks the sidebar entry, exactly as a
+// person does. These are the labels that entry renders.
+export const ADMIN_TABS = [
+  'Overview', 'User Management', 'Subjects', 'Teaching Load', 'Sections',
+  'Schedules', 'News Management', 'Calendar', 'Memos', 'System Settings',
+];
+
+export async function openAdminTab(page, label) {
+  await page.locator('.sidebar-item', { hasText: label }).first().click();
+  await page.waitForLoadState('networkidle');
+}

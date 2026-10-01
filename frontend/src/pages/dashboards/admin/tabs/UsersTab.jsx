@@ -8,6 +8,8 @@ import React from 'react';
 import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { initials, avatarColor, roleBadge, roleLabel } from '../shared/helpers';
+import Modal from '../../../../components/ui/Modal';
+import Button from '../../../../components/ui/Button';
 import { useSignedPhotoUrl } from '../../../../hooks/useSignedPhotoUrl';
 import Avatar from '../../../../components/Avatar';
 
@@ -100,10 +102,27 @@ const UsersTab = () => {
               </div>
             </div>
 
-      {/* USER MODAL */}
-      <div className={`modal-overlay ${modal === 'user' ? 'open' : ''}`} onClick={handleOverlayClick}>
-        <div className="modal">
-          <div className="modal-title">{editUser ? 'Edit User' : 'Create User'}</div>
+      {/* USER MODAL — first migration to <Modal>. Fixes UX-098 (no focus
+          contract) and UX-026 (every close path discarded the form). The
+          fields are untouched; labels and validation are Phase 2 and 3. */}
+      <Modal
+        open={modal === 'user'}
+        title={editUser ? 'Edit User' : 'Create User'}
+        onClose={closeModal}
+        isDirty={() => Boolean(uName || uEmail || uPass || uDept)}
+        footer={(requestClose) => (
+          <>
+            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+            <Button
+              onClick={saveUser}
+              busy={uSaving}
+              busyLabel={editUser ? 'Updating…' : 'Creating…'}
+            >
+              {editUser ? 'Update' : 'Create'}
+            </Button>
+          </>
+        )}
+      >
           <div className="form-row">
             <label className="form-label">Full Name</label>
             <input className="form-input" value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz" />
@@ -141,15 +160,7 @@ const UsersTab = () => {
               <input className="form-input" type="password" value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char" />
             </div>
           )}
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveUser} disabled={uSaving}>
-              {uSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
-              {editUser ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </div>
-      </div>
+      </Modal>
 
     </>
   );

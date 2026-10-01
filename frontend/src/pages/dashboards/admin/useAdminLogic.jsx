@@ -201,6 +201,9 @@ export const useAdminLogic = (userData) => {
   const [uStatus, setUStatus] = useState('active');
   const [uPass,   setUPass]   = useState('');
   const [uSaving, setUSaving] = useState(false);
+  // Guards saveUser against a double click now that Rule B2 has taken the
+  // disabled attribute off the button. See the note in saveUser.
+  const savingUserRef = useRef(false);
 
   const fetchUsers = useCallback(async () => {
     setUL(true);
@@ -248,6 +251,8 @@ export const useAdminLogic = (userData) => {
 
   const saveUser = async () => {
   if (!uName.trim() || !uEmail.trim()) return showToast('Name and email required', 'error');
+  if (savingUserRef.current) return;   // the second of a double click
+  savingUserRef.current = true;
   setUSaving(true);
   try {
     if (editUser) {
@@ -368,6 +373,7 @@ export const useAdminLogic = (userData) => {
     console.error('❌ User save error:', e);
     showToast(e.message || 'Error saving user', 'error');
   } finally { 
+    savingUserRef.current = false;
     setUSaving(false); 
   }
 };

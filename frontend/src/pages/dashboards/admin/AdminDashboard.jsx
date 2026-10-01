@@ -562,7 +562,19 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         }
       `}</style>
 
-      {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
+      {/* UX-099: mounted always, so the live region exists before the text
+            arrives. A region created at the same moment as its content is
+            frequently not announced. assertive for an error, polite for a
+            success — the urgency differs and so should the interruption. */}
+        <div
+          className={toast ? `toast ${toast.type}` : undefined}
+          role={toast?.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast?.type === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+          style={toast ? undefined : { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+        >
+          {toast?.msg ?? ''}
+        </div>
 
       <nav>
         <button className="nav-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open navigation">

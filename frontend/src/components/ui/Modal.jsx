@@ -24,6 +24,26 @@
 
 import { useCallback, useEffect, useId, useRef } from 'react';
 
+// Every field the dialog holds, as one comparable string.
+//
+// A snapshot taken at open and compared at close is the only dirty check
+// that is right for both halves of the problem. Listing the fields by hand
+// got it wrong in both directions: including News's prefilled expiry made
+// every untouched form dirty, and then excluding it meant a user who changed
+// ONLY the expiry lost that change with no prompt at all.
+//
+// Reading the DOM rather than a prop also means a field added later is
+// covered the day it is added, instead of the day someone remembers to
+// extend a list.
+const readFields = (root) =>
+  Array.from(root.querySelectorAll('input, select, textarea'))
+    .map((el) => {
+      const key = el.name || el.id || '';
+      const value = el.type === 'checkbox' || el.type === 'radio' ? String(el.checked) : el.value;
+      return key + '\u0001' + value;
+    })
+    .join('\u0000');
+
 // Everything that can hold focus inside the dialog, in document order.
 const FOCUSABLE = [
   'a[href]', 'button:not([disabled])', 'input:not([disabled])',
@@ -44,28 +64,40 @@ const stack = [];
  * @param {boolean}  open
  * @param {string}   title      names the dialog for assistive technology
  * @param {function} onClose    the real close — called once the dirty check passes
- * @param {function} [isDirty]  () => boolean; when true, every close path confirms first
+ * @param {function} [isDirty]  overrides the automatic snapshot comparison.
+ *                              Pass `() => false` for a dialog that holds
+ *                              controls but no unsaved work.
  * @param {function} [footer]   (requestClose) => ReactNode, so Cancel shares the guard
  */
 export default function Modal({ open, title, onClose, isDirty, footer, children }) {
   const card = useRef(null);
   const returnTo = useRef(null);
+  const openedWith = useRef(null);
   const titleId = useId();
 
   // The guard every exit runs through. An untouched form closes immediately,
   // so the prompt costs nothing in the common case.
+  const dirty = useCallback(() => {
+    if (typeof isDirty === 'function') return isDirty();
+    if (openedWith.current === null || !card.current) return false;
+    return readFields(card.current) !== openedWith.current;
+  }, [isDirty]);
+
   const requestClose = useCallback(() => {
-    if (isDirty?.() && !window.confirm('Discard changes?')) return;
+    if (dirty() && !window.confirm('Discard changes?')) return;
     onClose();
-  }, [isDirty, onClose]);
+  }, [dirty, onClose]);
 
   // Remember the invoking control while it still exists, and move focus in.
   useEffect(() => {
     if (!open) return;
     returnTo.current = document.activeElement;
+    // After render, so the fields already hold whatever the caller prefilled.
+    openedWith.current = card.current ? readFields(card.current) : null;
     const first = card.current?.querySelector(FOCUSABLE);
     (first ?? card.current)?.focus();
     return () => {
+      openedWith.current = null;
       const target = returnTo.current;
       if (target && document.contains(target)) target.focus();
     };

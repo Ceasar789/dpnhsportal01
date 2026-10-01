@@ -29,16 +29,16 @@ const SettingsTab = () => {
                 <div className="settings-section-title">General</div>
                 <div className="settings-card">
                   <div className="settings-input-row">
-                    <span className="settings-input-label">Portal Name</span>
-                    <input value="EduScribe Portal" readOnly disabled style={{ flex:1 }} />
+                    <label className="settings-input-label" htmlFor="settings-portal-name">Portal Name</label>
+                    <input id="settings-portal-name" value="EduScribe Portal" readOnly disabled style={{ flex:1 }} />
                   </div>
                   <div className="settings-input-row">
-                    <span className="settings-input-label">Academic Year</span>
-                    <input value={settings.academic_year} onChange={e => setSettings({...settings, academic_year: e.target.value})} style={{ flex:1 }} />
+                    <label className="settings-input-label" htmlFor="settings-academic-year">Academic Year</label>
+                    <input id="settings-academic-year" value={settings.academic_year} onChange={e => setSettings({...settings, academic_year: e.target.value})} style={{ flex:1 }} />
                   </div>
                   <div className="settings-input-row">
-                    <span className="settings-input-label">Quarter</span>
-                    <select value={settings.semester} onChange={e => setSettings({...settings, semester: e.target.value})} style={{ flex:1 }}>
+                    <label className="settings-input-label" htmlFor="settings-quarter">Quarter</label>
+                    <select id="settings-quarter" value={settings.semester} onChange={e => setSettings({...settings, semester: e.target.value})} style={{ flex:1 }}>
                       <option>1st Quarter</option><option>2nd Quarter</option><option>3rd Quarter</option><option>4th Quarter</option>
                     </select>
                   </div>
@@ -47,7 +47,7 @@ const SettingsTab = () => {
                       <div className="settings-label">Auto-Save Settings</div>
                       <div className="settings-hint">Automatically save changes after 2 seconds</div>
                     </div>
-                    <Toggle on={autoSave} onClick={() => setAutoSave(!autoSave)} />
+                    <Toggle on={autoSave} onClick={() => setAutoSave(!autoSave)} label="Auto-Save Settings" />
                   </div>
                   <div className="settings-save">
                     <button className="btn btn-primary" onClick={saveSettings} disabled={settingsSaving}>
@@ -95,7 +95,7 @@ const SettingsTab = () => {
                       <div className="settings-label">Email Notifications</div>
                       <div className="settings-hint">Send alerts to admin email</div>
                     </div>
-                    <Toggle on={emailNotifications} onClick={() => setEmailNotifications(!emailNotifications)} />
+                    <Toggle on={emailNotifications} onClick={() => setEmailNotifications(!emailNotifications)} label="Email Notifications" />
                   </div>
                 </div>
               </div>
@@ -108,7 +108,7 @@ const SettingsTab = () => {
                       <div className="settings-label">Auto-Backup</div>
                       <div className="settings-hint">Run the configured database backup schedule</div>
                     </div>
-                    <Toggle on={autoBackup} onClick={() => setAutoBackup(!autoBackup)} />
+                    <Toggle on={autoBackup} onClick={() => setAutoBackup(!autoBackup)} label="Automatic Backup" />
                   </div>
                   <div className="settings-row">
                     <div>

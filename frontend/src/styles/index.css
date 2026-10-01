@@ -210,6 +210,38 @@ PURPOSE: Global styles + Tailwind directives
   animation-duration: var(--motion-spin);
 }
 
+/* ===== Phase 2: divs that became buttons =====
+   UX-093 — the sidebar, the settings jump links, the memo rows and the
+   calendar events were all click-only divs: unreachable by keyboard,
+   announced as nothing. They are real buttons now.
+
+   A button is not a div, though: it carries a background, a border, a
+   font and a centred text alignment of its own. This strips all of that
+   back so the conversion is a behaviour change and not a visual one.
+   Phase 2 is meant to be invisible; the restyle is Phase 5. */
+.ux-unbutton {
+  appearance: none;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  /* A div is block and fills its container; a button is inline-block and
+     shrinks. display:block alone is not enough — two of these sit in flex
+     parents and shrank to their text — so the width is restored too. */
+  display: block;
+  cursor: pointer;
+}
+
+/* ...except where the element declares a width of its own. The toggle is a
+   fixed 44px pill, and a blanket width:100% flattened all three of them to
+   0px. Excluded here rather than repeating the 44 in a second place. */
+.ux-unbutton:not(.toggle) {
+  width: 100%;
+}
+
 /* Base styles */
 body {
   font-family: 'Public Sans', sans-serif;

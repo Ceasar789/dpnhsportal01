@@ -68,7 +68,6 @@ const SubjectsTab = () => {
           open
           title={editingSubject ? 'Edit Subject' : 'Add Subject'}
           onClose={closeSubjectModal}
-          isDirty={() => Boolean(sName || sCode)}
           footer={(requestClose) => (
             <>
               <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
@@ -80,18 +79,18 @@ const SubjectsTab = () => {
         >
 
             <div className="form-row">
-              <label className="form-label">Subject Name</label>
-              <input className="form-input" value={sName} onChange={e => setSName(e.target.value)} placeholder="e.g. Mathematics" />
+              <label className="form-label" htmlFor="subjects-subject-name">Subject Name</label>
+              <input id="subjects-subject-name" className="form-input" value={sName} onChange={e => setSName(e.target.value)} placeholder="e.g. Mathematics" />
             </div>
 
             <div className="form-row">
-              <label className="form-label">Code</label>
-              <input className="form-input" value={sCode} onChange={e => setSCode(e.target.value)} placeholder="e.g. MATH" />
+              <label className="form-label" htmlFor="subjects-code">Code</label>
+              <input id="subjects-code" className="form-input" value={sCode} onChange={e => setSCode(e.target.value)} placeholder="e.g. MATH" />
             </div>
 
             <div className="form-row">
-              <label className="form-label">Status</label>
-              <select className="form-input" value={sActive ? 'active' : 'inactive'} onChange={e => setSActive(e.target.value === 'active')}>
+              <label className="form-label" htmlFor="subjects-status">Status</label>
+              <select id="subjects-status" className="form-input" value={sActive ? 'active' : 'inactive'} onChange={e => setSActive(e.target.value === 'active')}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>

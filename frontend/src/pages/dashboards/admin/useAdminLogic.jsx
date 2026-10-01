@@ -979,10 +979,17 @@ export const useAdminLogic = (userData) => {
     timeout(fetchSettings());
   }, [fetchStats, fetchLogs, fetchRoleDist, fetchUsers, fetchNews, fetchCalEvents, fetchMemos, fetchSettings]);
 
-  const Toggle = ({ on, onClick }) => (
-    <div className={`toggle ${on ? 'on' : 'off'}`} onClick={onClick}>
-      <div className="toggle-knob"></div>
-    </div>
+  const Toggle = ({ on, onClick, label }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      className={`ux-unbutton toggle ${on ? 'on' : 'off'}`}
+      onClick={onClick}
+    >
+      <span className="toggle-knob" />
+    </button>
   );
 
   return {

@@ -12,11 +12,25 @@ decision; if a row survives Phase 5, it has become one by accident.
 | 4 | `e2e/helpers.js` · `openAdminTab` | Reopens the drawer before every tab click | Not a workaround for a defect — clicking a tab calls `setSidebarOpen(false)`, so the drawer genuinely has to be reopened. It stays. | — |
 | 5 | `e2e/admin.spec.js` · `FLOOR = 11` | The text-size floor is 11px, not 12px | Writing 12 before Phase 4 raises the type scale would make the suite red before any work started. | **Phase 4**, together with `e2e/text-size.spec.js`. |
 
+| 6 | `styles/index.css` · `.ux-unbutton` | A reset that strips a button back to looking like a div | Phase 2 turned five click-only divs into real buttons, and a button brings its own background, border, font and centred text. Condition 1 said Phase 2 must not move anything. `:not(.toggle)` is part of it: a blanket `width: 100%` beat `.toggle`'s own `width: 44px` and flattened all three switches to 0px. | **Phase 5**, when these controls get real styling and stop needing to impersonate a div. |
+
+## Deferred out of Phase 2 by condition 1
+
+- **UX-014** — the destructive row actions in SubjectsTab and SectionsTab
+  should take the `.archive-action` variant per Rule B4. That variant is
+  `color: var(--red)`, so applying it turns two grey icons red. Condition 1
+  forbids visual change in Phase 2, so it moves to **Phase 5**. It was
+  applied, measured and reverted rather than argued about.
+- **UX-107** — `formatDate()` exists and is deliberately still unused.
+  Applying it changes how every date on the dashboard reads, which is again
+  a visual change. **Phase 5**.
+
 ## Not a workaround, but owed
 
 - **Drawer breakpoint is 900px**, not the 1024px Rule X2 asks for
   (`AdminDashboard.jsx:531`). Recorded as a **Phase 6** item rather than
   patched around in the test helper.
-- **`handleOverlayClick`** is still exported from `useAdminLogic` and
-  destructured by the seven tabs not yet migrated. It goes when the last one
-  moves to `<Modal>`.
+- **`handleOverlayClick`** is still exported from `useAdminLogic` and still
+  destructured by some tabs, but every overlay is now a `<Modal>` and
+  nothing calls it. Dead; delete it in **Phase 3** when those files are open
+  anyway.

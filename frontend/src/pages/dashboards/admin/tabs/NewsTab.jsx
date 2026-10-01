@@ -65,23 +65,23 @@ const NewsTab = () => {
                         <div className="news-actions">
                           {n.status === 'Published' && (
                             <>
-                              <button className="news-action blue" onClick={() => openEditNews(n)}>View</button>
-                              <button className="news-action archive-news-action" onClick={() => updateNewsStatus(n.id,'Archived')}><Archive size={14} /> Archive</button>
+                              <button className="news-action blue" aria-label={`View ${n.title}`} onClick={() => openEditNews(n)}>View</button>
+                              <button className="news-action archive-news-action" aria-label={`Archive ${n.title}`} onClick={() => updateNewsStatus(n.id,'Archived')}><Archive size={14} /> Archive</button>
                             </>
                           )}
                           {n.status === 'Draft' && (
                             <>
-                              <button className="news-action" onClick={() => openEditNews(n)}>Edit</button>
-                              <button className="news-action green" onClick={() => updateNewsStatus(n.id,'Published')}>Publish</button>
-                              <button className="news-action blue" style={{ marginLeft:'auto' }} onClick={() => openEditNews(n)}>Preview</button>
+                              <button className="news-action" aria-label={`Edit ${n.title}`} onClick={() => openEditNews(n)}>Edit</button>
+                              <button className="news-action green" aria-label={`Publish ${n.title}`} onClick={() => updateNewsStatus(n.id,'Published')}>Publish</button>
+                              <button className="news-action blue" style={{ marginLeft:'auto' }} aria-label={`Preview ${n.title}`} onClick={() => openEditNews(n)}>Preview</button>
                             </>
                           )}
                           {n.status === 'Archived' && (
                             <>
-                                                            <button className="news-action green archive-news-action" onClick={() => updateNewsStatus(n.id,'Published')}><ArchiveRestore size={14} /> Restore</button>
+                                                            <button className="news-action green archive-news-action" aria-label={`Restore ${n.title}`} onClick={() => updateNewsStatus(n.id,'Published')}><ArchiveRestore size={14} /> Restore</button>
                             </>
                           )}
-                          <button className="news-action red" style={{ marginLeft: n.status === 'Draft' ? 0 : 'auto' }} onClick={() => deleteNewsItem(n.id)}>Delete</button>
+                          <button className="news-action red" style={{ marginLeft: n.status === 'Draft' ? 0 : 'auto' }} aria-label={`Delete ${n.title}`} onClick={() => deleteNewsItem(n.id)}>Delete</button>
                         </div>
                       </div>
                     );
@@ -99,11 +99,6 @@ const NewsTab = () => {
         open={modal === 'news'}
         title={newsReadOnly ? 'View Published Post' : editNews ? 'Edit Post' : 'New Post'}
         onClose={closeModal}
-        // nExpiresDate is excluded on purpose: openNewsModal prefills it
-        // thirty days out, so including it made every freshly opened form
-        // dirty and the discard prompt fire on a form nobody had touched.
-        // A prompt that always fires teaches people to click through it.
-        isDirty={() => Boolean(nTitle || nContent || nImageFile || nCustomTarget)}
         footer={(requestClose) => (
           <>
             <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
@@ -120,26 +115,26 @@ const NewsTab = () => {
             </div>
           )}
           <div className="form-row">
-            <label className="form-label">Title</label>
-            <input className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" disabled={newsReadOnly} />
+            <label className="form-label" htmlFor="news-title">Title</label>
+            <input id="news-title" className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" disabled={newsReadOnly} />
           </div>
           <div className="form-row">
-            <label className="form-label">Category</label>
-            <select className="form-input" value={nCat} onChange={e => setNCat(e.target.value)} disabled={newsReadOnly}>
+            <label className="form-label" htmlFor="news-category">Category</label>
+            <select id="news-category" className="form-input" value={nCat} onChange={e => setNCat(e.target.value)} disabled={newsReadOnly}>
               {['Academics','Events','Scholarships','Announcements','Sports'].map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div className="form-row">
-            <label className="form-label">Target Audience</label>
-            <select className="form-input" value={nTarget} onChange={e => setNTarget(e.target.value)} disabled={newsReadOnly}>
+            <label className="form-label" htmlFor="news-target-audience">Target Audience</label>
+            <select id="news-target-audience" className="form-input" value={nTarget} onChange={e => setNTarget(e.target.value)} disabled={newsReadOnly}>
               {TARGET_ROLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           {nTarget === 'custom' && (
             <div className="form-row">
-              <label className="form-label">Custom Audience</label>
+              <label className="form-label" htmlFor="news-custom-audience">Custom Audience</label>
               <input
-                className="form-input"
+                id="news-custom-audience" className="form-input"
                 value={nCustomTarget}
                 onChange={e => setNCustomTarget(e.target.value)}
                 placeholder="e.g. Grade 10 students or Science Department"
@@ -148,30 +143,30 @@ const NewsTab = () => {
             </div>
           )}
           <div className="form-row">
-            <label className="form-label">Author</label>
-            <input className="form-input" value={nAuthor} onChange={e => setNAuthor(e.target.value)} placeholder="Your name" disabled={newsReadOnly} />
+            <label className="form-label" htmlFor="news-author">Author</label>
+            <input id="news-author" className="form-input" value={nAuthor} onChange={e => setNAuthor(e.target.value)} placeholder="Your name" disabled={newsReadOnly} />
           </div>
           <div className="form-row">
-            <label className="form-label">Content</label>
-            <textarea className="form-input" rows={5} value={nContent} onChange={e => setNContent(e.target.value)} placeholder="Write your announcement..." disabled={newsReadOnly} />
+            <label className="form-label" htmlFor="news-content">Content</label>
+            <textarea id="news-content" className="form-input" rows={5} value={nContent} onChange={e => setNContent(e.target.value)} placeholder="Write your announcement..." disabled={newsReadOnly} />
           </div>
           <div className="form-row">
-            <label className="form-label">Attach Image</label>
-            <input className="form-input" type="file" accept="image/*" onChange={e => setNImageFile(e.target.files?.[0] || null)} disabled={newsReadOnly} />
+            <label className="form-label" htmlFor="news-attach-image">Attach Image</label>
+            <input id="news-attach-image" className="form-input" type="file" accept="image/*" onChange={e => setNImageFile(e.target.files?.[0] || null)} disabled={newsReadOnly} />
             {nImageUrl && <img src={nImageUrl} alt="Attached news" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginTop: 8 }} />}
           </div>
           <div className="form-row">
-            <label className="form-label">Status</label>
-            <select className="form-input" value={nStatus} onChange={e => setNStatus(e.target.value)} disabled={newsReadOnly}>
+            <label className="form-label" htmlFor="news-status">Status</label>
+            <select id="news-status" className="form-input" value={nStatus} onChange={e => setNStatus(e.target.value)} disabled={newsReadOnly}>
               <option>Draft</option><option>Published</option>
             </select>
           </div>
           <div className="form-row">
-            <label className="form-label">Expires on (optional)</label>
+            <label className="form-label" htmlFor="news-expires-on-optional">Expires on (optional)</label>
             {/* Expiry is a visibility control, not content — it stays
                 editable even on a locked, already-published post. */}
             <input
-              className="form-input"
+              id="news-expires-on-optional" className="form-input"
               type="date"
               value={nExpiresDate}
               onChange={e => setNExpiresDate(e.target.value)}

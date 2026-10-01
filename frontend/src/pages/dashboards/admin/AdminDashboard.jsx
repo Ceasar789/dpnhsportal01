@@ -5,7 +5,7 @@
 // ============================================
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
@@ -78,15 +78,19 @@ const AdminDashboard = () => {
           <div>Signed in as: <strong style={{ color: '#f1f5f9' }}>{userData?.email || '— not signed in —'}</strong></div>
           <div>Detected role: <strong style={{ color: '#f1f5f9' }}>{userData?.role || '— none —'}</strong></div>
         </div>
-        <button
-          onClick={() => navigate('/faculty-login', { replace: true })}
+        <Link
+          to="/faculty-login"
+          replace
           style={{
             marginTop: 8, padding: '10px 20px', borderRadius: 8, border: 'none',
-            background: '#3b82f6', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+            background: '#3b82f6', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            // A <button> centres its own text and an <a> does not; these two
+            // keep the control looking exactly as it did.
+            display: 'inline-block', textAlign: 'center', textDecoration: 'none'
           }}
         >
           Go to login
-        </button>
+        </Link>
       </div>
     );
   }
@@ -636,10 +640,21 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             ['memos',     'Memos', FileText],
             ['settings',  'System Settings', Settings],
           ].map(([k, v, Icon]) => (
-            <div key={k} className={`sidebar-item ${page === k ? 'active' : ''}`} onClick={() => { setPage(k); setSidebarOpen(false); }}>
-              <span className="sidebar-icon"><Icon size={16} /></span>
+            <button
+              key={k}
+              type="button"
+              className={`ux-unbutton sidebar-item ${page === k ? 'active' : ''}`}
+              // Condition 2 — the current page, announced as such.
+              aria-current={page === k ? 'page' : undefined}
+              // UX-097: collapsed, the label is not rendered and the glyph
+              // carries the destination on its own.
+              aria-label={sidebarCollapsed ? v : undefined}
+              title={sidebarCollapsed ? v : undefined}
+              onClick={() => { setPage(k); setSidebarOpen(false); }}
+            >
+              <span className="sidebar-icon"><Icon size={16} aria-hidden="true" /></span>
               {!sidebarCollapsed && <span>{v}</span>}
-            </div>
+            </button>
           ))}
 
           {page === 'settings' && !sidebarCollapsed && (
@@ -652,7 +667,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                 ['sec-backup',        'Backup & Logs'],
                 ['sec-appearance',    'Appearance'],
               ].map(([id, label]) => (
-                <div key={id} className={`sidebar-sub ${activeSettingsSub === id ? 'active' : ''}`} onClick={() => { scrollToSection(id); setSidebarOpen(false); }}>{label}</div>
+                <button
+                  key={id}
+                  type="button"
+                  className={`ux-unbutton sidebar-sub ${activeSettingsSub === id ? 'active' : ''}`}
+                  aria-current={activeSettingsSub === id ? 'true' : undefined}
+                  onClick={() => { scrollToSection(id); setSidebarOpen(false); }}
+                >{label}</button>
               ))}
             </div>
           )}

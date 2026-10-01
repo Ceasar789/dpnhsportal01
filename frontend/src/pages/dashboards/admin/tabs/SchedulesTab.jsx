@@ -243,9 +243,6 @@ const SchedulesTab = () => {
           open
           title={`${nameOf(subjects, schedSubject)} — ${nameOf(sections, schedSection)}`}
           onClose={dismiss}
-          // The selects count: a teacher and a day already chosen are work
-          // the user would have to redo.
-          isDirty={() => Boolean(schedTeacher || schedDay || schedStart || schedEnd || schedRoom)}
           footer={(requestClose) => (
             <>
               <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
@@ -255,8 +252,8 @@ const SchedulesTab = () => {
         >
 
             <div className="form-row">
-              <label className="form-label">Teacher</label>
-              <select className={`form-input${missingTeacher ? ' is-invalid' : ''}`}
+              <label className="form-label" htmlFor="schedules-teacher">Teacher</label>
+              <select id="schedules-teacher" className={`form-input${missingTeacher ? ' is-invalid' : ''}`}
                 value={schedTeacher} onChange={e => setSchedTeacher(e.target.value)}>
                 <option value="">
                   {eligibleTeachers.length === 0
@@ -276,21 +273,21 @@ const SchedulesTab = () => {
             </div>
 
             <div className="form-row">
-              <label className="form-label">Day</label>
-              <select className="form-input" value={schedDay} onChange={e => setSchedDay(e.target.value)}>
+              <label className="form-label" htmlFor="schedules-day">Day</label>
+              <select id="schedules-day" className="form-input" value={schedDay} onChange={e => setSchedDay(e.target.value)}>
                 {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
 
             <div className="form-row" style={{ display: 'flex', gap: 8 }}>
               <div style={{ flex: 1 }}>
-                <label className="form-label">Start</label>
-                <input className={`form-input${missingTime ? ' is-invalid' : ''}`}
+                <label className="form-label" htmlFor="schedules-start">Start</label>
+                <input id="schedules-start" className={`form-input${missingTime ? ' is-invalid' : ''}`}
                   type="time" value={schedStart} onChange={e => setSchedStart(e.target.value)} />
               </div>
               <div style={{ flex: 1 }}>
-                <label className="form-label">End</label>
-                <input className={`form-input${missingTime ? ' is-invalid' : ''}`}
+                <label className="form-label" htmlFor="schedules-end">End</label>
+                <input id="schedules-end" className={`form-input${missingTime ? ' is-invalid' : ''}`}
                   type="time" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} />
               </div>
             </div>
@@ -301,8 +298,8 @@ const SchedulesTab = () => {
             )}
 
             <div className="form-row">
-              <label className="form-label">Room</label>
-              <input className="form-input" value={schedRoom} onChange={e => setSchedRoom(e.target.value)} placeholder="e.g. Room 201" />
+              <label className="form-label" htmlFor="schedules-room">Room</label>
+              <input id="schedules-room" className="form-input" value={schedRoom} onChange={e => setSchedRoom(e.target.value)} placeholder="e.g. Room 201" />
             </div>
 
         </Modal>

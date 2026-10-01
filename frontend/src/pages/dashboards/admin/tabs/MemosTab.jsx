@@ -43,7 +43,13 @@ const MemosTab = () => {
                   {memosLoading
                     ? <div className="loading-row"><div className="spin"></div></div>
                     : filteredMemos.map(m => (
-                      <div key={m.id} className={`memo-list-item ${selMemo?.id === m.id ? 'active' : ''}`} onClick={() => setSelMemo(m)}>
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`ux-unbutton memo-list-item ${selMemo?.id === m.id ? 'active' : ''}`}
+                        aria-current={selMemo?.id === m.id ? 'true' : undefined}
+                        onClick={() => setSelMemo(m)}
+                      >
                         <div className="memo-title-item">{m.subject}</div>
                         <div className="memo-meta">
                           <span>{m.from_office || '—'}</span>
@@ -52,7 +58,7 @@ const MemosTab = () => {
                           <span style={{ color:'var(--text-dim)' }}>{new Date(m.created_at).toLocaleDateString()}</span>
                         </div>
                         <div className="memo-snippet">{m.content?.slice(0,60)}...</div>
-                      </div>
+                      </button>
                     ))
                   }
                   {filteredMemos.length === 0 && !memosLoading && (
@@ -99,9 +105,6 @@ const MemosTab = () => {
         open={modal === 'memo'}
         title={editMemo ? 'Edit Memo' : 'Compose Memo'}
         onClose={closeModal}
-        // mTo is excluded: it is prefilled with "All Faculty". Same reason
-        // as the news expiry date — a default is not the user's work.
-        isDirty={() => Boolean(mSubj || mBody)}
         footer={(requestClose) => (
           <>
             <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
@@ -113,12 +116,12 @@ const MemosTab = () => {
         )}
       >
           <div className="form-row">
-            <label className="form-label">From Office</label>
-            <input className="form-input" value={mFrom} onChange={e => setMFrom(e.target.value)} placeholder="e.g. Principal's Office" />
+            <label className="form-label" htmlFor="memos-from-office">From Office</label>
+            <input id="memos-from-office" className="form-input" value={mFrom} onChange={e => setMFrom(e.target.value)} placeholder="e.g. Principal's Office" />
           </div>
           <div className="form-row">
-            <label className="form-label">Recipient</label>
-            <select className="form-input" value={mTo} onChange={e => setMTo(e.target.value)}>
+            <label className="form-label" htmlFor="memos-recipient">Recipient</label>
+            <select id="memos-recipient" className="form-input" value={mTo} onChange={e => setMTo(e.target.value)}>
               <option>All Faculty</option>
               <option>All Students</option>
               <option>All</option>
@@ -128,12 +131,12 @@ const MemosTab = () => {
             </select>
           </div>
           <div className="form-row">
-            <label className="form-label">Subject</label>
-            <input className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" />
+            <label className="form-label" htmlFor="memos-subject">Subject</label>
+            <input id="memos-subject" className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" />
           </div>
           <div className="form-row">
-            <label className="form-label">Body</label>
-            <textarea className="form-input" rows={6} value={mBody} onChange={e => setMBody(e.target.value)} placeholder="Write your memo..." />
+            <label className="form-label" htmlFor="memos-body">Body</label>
+            <textarea id="memos-body" className="form-input" rows={6} value={mBody} onChange={e => setMBody(e.target.value)} placeholder="Write your memo..." />
           </div>
       </Modal>
     </>

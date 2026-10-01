@@ -9,6 +9,7 @@ import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { initials, avatarColor, roleBadge, roleLabel } from '../shared/helpers';
 import Modal from '../../../../components/ui/Modal';
+import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import Button from '../../../../components/ui/Button';
 import { useSignedPhotoUrl } from '../../../../hooks/useSignedPhotoUrl';
 import Avatar from '../../../../components/Avatar';
@@ -80,7 +81,20 @@ const UsersTab = () => {
                           </td>
                           <td>
                             <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={() => openEditUser(u)}><Pencil size={16} /></button>
-                            <button className="icon-action archive-action" title="Archive user" aria-label={`Archive ${u.name || u.email}`} onClick={() => deleteUser(u.id)}><Trash2 size={16} /></button>
+                            <button
+                              className="icon-action archive-action"
+                              title="Archive user"
+                              aria-label={`Archive ${u.name || u.email}`}
+                              onClick={(e) => {
+                                // UX-025 — decide where focus goes before the
+                                // row that holds it is unmounted.
+                                const settle = focusAfterRemoval(
+                                  e.currentTarget, 'table', '.archive-action', 'h2, .page-title',
+                                );
+                                deleteUser(u.id);
+                                settle();
+                              }}
+                            ><Trash2 size={16} /></button>
                           </td>
                         </tr>
                       ))}
@@ -109,7 +123,6 @@ const UsersTab = () => {
         open={modal === 'user'}
         title={editUser ? 'Edit User' : 'Create User'}
         onClose={closeModal}
-        isDirty={() => Boolean(uName || uEmail || uPass || uDept)}
         footer={(requestClose) => (
           <>
             <Button variant="ghost" onClick={requestClose}>Cancel</Button>
@@ -124,16 +137,16 @@ const UsersTab = () => {
         )}
       >
           <div className="form-row">
-            <label className="form-label">Full Name</label>
-            <input className="form-input" value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz" />
+            <label className="form-label" htmlFor="users-full-name">Full Name</label>
+            <input id="users-full-name" className="form-input" value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz" />
           </div>
           <div className="form-row">
-            <label className="form-label">Email</label>
-            <input className="form-input" value={uEmail} onChange={e => setUEmail(e.target.value)} placeholder="user@school.edu" disabled={!!editUser} />
+            <label className="form-label" htmlFor="users-email">Email</label>
+            <input id="users-email" className="form-input" value={uEmail} onChange={e => setUEmail(e.target.value)} placeholder="user@school.edu" disabled={!!editUser} />
           </div>
           <div className="form-row">
-            <label className="form-label">Role</label>
-            <select className="form-input" value={uRole} onChange={e => setURole(e.target.value)}>
+            <label className="form-label" htmlFor="users-role">Role</label>
+            <select id="users-role" className="form-input" value={uRole} onChange={e => setURole(e.target.value)}>
               <option value="student">Student</option>
               <option value="teacher">Teacher</option>
               <option value="faculty">Faculty</option>
@@ -143,21 +156,21 @@ const UsersTab = () => {
           </div>
           {(uRole === 'teacher' || uRole === 'faculty') && (
             <div className="form-row">
-              <label className="form-label">Department / Subject</label>
-              <input className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
+              <label className="form-label" htmlFor="users-department-subject">Department / Subject</label>
+              <input id="users-department-subject" className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
             </div>
           )}
           {editUser && <div className="form-row">
-            <label className="form-label">Account Status</label>
-            <select className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)}>
+            <label className="form-label" htmlFor="users-account-status">Account Status</label>
+            <select id="users-account-status" className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>}
           {!editUser && (
             <div className="form-row">
-              <label className="form-label">Password</label>
-              <input className="form-input" type="password" value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char" />
+              <label className="form-label" htmlFor="users-password">Password</label>
+              <input id="users-password" className="form-input" type="password" value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char" />
             </div>
           )}
       </Modal>

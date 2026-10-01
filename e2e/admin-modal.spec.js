@@ -214,3 +214,66 @@ test.describe('every admin dialog', () => {
     await page.keyboard.press('Escape');
   });
 });
+
+// The dirty check, on the two forms that open with a field already filled.
+//
+// Listing the fields by hand was wrong in both directions. Naming News's
+// prefilled expiry made every untouched form dirty; leaving it out meant a
+// user who changed ONLY the expiry lost it silently. <Modal> now snapshots
+// every field at open and compares at close, so both of these hold.
+test.describe('the dirty check sees prefilled fields', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.waitForLoadState('networkidle');
+  });
+
+  // tab, opener, the prefilled control, and what to change it to
+  const CASES = [
+    ['News Management', /new post|add post/i, 'input[type="date"]', '2030-01-01'],
+    // The memo recipient is a <select> prefilled with 'All Faculty'.
+    ['Memos', /compose|new memo/i, null, 'All Students'],
+  ];
+
+  for (const [tab, opener, dateSelector, newValue] of CASES) {
+    const what = dateSelector ? 'the expiry date' : 'the recipient';
+
+    test(`${tab}: opening and closing straight away asks nothing`, async ({ page }) => {
+      await openAdminTab(page, tab);
+      await page.getByRole('button', { name: opener }).first().click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      let asked = false;
+      page.on('dialog', (d) => { asked = true; d.dismiss(); });
+
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      expect(asked, `${tab} prompted on a form nobody had touched`).toBe(false);
+    });
+
+    test(`${tab}: changing only ${what} still prompts`, async ({ page }) => {
+      await openAdminTab(page, tab);
+      await page.getByRole('button', { name: opener }).first().click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+
+      // Touch ONLY the field that arrives prefilled — nothing else.
+      if (dateSelector) {
+        await dialog.locator(dateSelector).first().fill(newValue);
+      } else {
+        await dialog.getByRole('combobox').first().selectOption(newValue);
+      }
+
+      let prompts = 0;
+      page.on('dialog', (d) => { prompts++; prompts === 1 ? d.dismiss() : d.accept(); });
+
+      await page.locator('.modal-overlay:has([role=dialog])').click({ position: { x: 5, y: 5 } });
+      expect(prompts, `${tab} discarded a change to ${what} without asking`).toBe(1);
+      await expect(dialog, 'declining the prompt should keep the dialog open').toBeVisible();
+
+      await page.locator('.modal-overlay:has([role=dialog])').click({ position: { x: 5, y: 5 } });
+      await expect(dialog).toHaveCount(0);
+    });
+  }
+});

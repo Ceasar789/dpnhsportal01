@@ -61,9 +61,16 @@ const CalendarTab = () => {
                         <div key={i} className={`cal-cell ${isToday ? 'today' : ''} ${!cell.cur ? 'other-month' : ''} ${isWeekend ? 'weekend' : ''} ${hasHoliday ? 'holiday' : ''}`}>
                           <div className="cal-day">{cell.d}</div>
                           {evs.map((e, j) => (
-                            <div key={j} className={`cal-event ${typeClass(e.event_type)}`} onClick={() => openEditEvent(e)} title="Click to edit">
+                            <button
+                              key={j}
+                              type="button"
+                              className={`ux-unbutton cal-event ${typeClass(e.event_type)}`}
+                              onClick={() => openEditEvent(e)}
+                              aria-label={`Edit ${e.title}`}
+                              title="Click to edit"
+                            >
                               {e.title}
-                            </div>
+                            </button>
                           ))}
                         </div>
                       );
@@ -99,7 +106,6 @@ const CalendarTab = () => {
         open={modal === 'event'}
         title={editEvent ? 'Edit Event' : 'Add Calendar Event'}
         onClose={closeModal}
-        isDirty={() => Boolean(evTitle || evDesc || evDate || evEnd || evCustomType)}
         footer={(requestClose) => (
           <>
             <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
@@ -111,32 +117,32 @@ const CalendarTab = () => {
         )}
       >
           <div className="form-row">
-            <label className="form-label">Title</label>
-            <input className="form-input" value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="Event title" />
+            <label className="form-label" htmlFor="calendar-title">Title</label>
+            <input id="calendar-title" className="form-input" value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="Event title" />
           </div>
           <div className="form-row">
-            <label className="form-label">Start Date</label>
-            <input className="form-input" type="date" value={evDate} onChange={e => setEvDate(e.target.value)} />
+            <label className="form-label" htmlFor="calendar-start-date">Start Date</label>
+            <input id="calendar-start-date" className="form-input" type="date" value={evDate} onChange={e => setEvDate(e.target.value)} />
           </div>
           <div className="form-row">
-            <label className="form-label">End Date (optional)</label>
-            <input className="form-input" type="date" value={evEnd} onChange={e => setEvEnd(e.target.value)} />
+            <label className="form-label" htmlFor="calendar-end-date-optional">End Date (optional)</label>
+            <input id="calendar-end-date-optional" className="form-input" type="date" value={evEnd} onChange={e => setEvEnd(e.target.value)} />
           </div>
           <div className="form-row">
-            <label className="form-label">Type</label>
-            <select className="form-input" value={evType} onChange={e => setEvType(e.target.value)}>
+            <label className="form-label" htmlFor="calendar-type">Type</label>
+            <select id="calendar-type" className="form-input" value={evType} onChange={e => setEvType(e.target.value)}>
               {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
           {evType === 'Custom Type' && (
             <div className="form-row">
-              <label className="form-label">Custom Event Type</label>
-              <input className="form-input" value={evCustomType} onChange={e => setEvCustomType(e.target.value)} placeholder="e.g. Foundation Day or Faculty Meeting" />
+              <label className="form-label" htmlFor="calendar-custom-event-type">Custom Event Type</label>
+              <input id="calendar-custom-event-type" className="form-input" value={evCustomType} onChange={e => setEvCustomType(e.target.value)} placeholder="e.g. Foundation Day or Faculty Meeting" />
             </div>
           )}
           <div className="form-row">
-            <label className="form-label">Description</label>
-            <textarea className="form-input" rows={3} value={evDesc} onChange={e => setEvDesc(e.target.value)} placeholder="Event details..." />
+            <label className="form-label" htmlFor="calendar-description">Description</label>
+            <textarea id="calendar-description" className="form-input" rows={3} value={evDesc} onChange={e => setEvDesc(e.target.value)} placeholder="Event details..." />
           </div>
       </Modal>
 

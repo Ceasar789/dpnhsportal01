@@ -44,6 +44,7 @@
 import React, { useMemo, useState } from 'react';
 import { Plus, X, Copy, Search, ArrowRight } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
+import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
 
@@ -339,7 +340,15 @@ const TeachingLoadTab = () => {
                     <button className="chip-x"
                       aria-label={`Remove ${subjectLabel(e.subject_id)} for ${teacherLabel(e.teacher_id)} from the list`}
                       title="Remove from list"
-                      onClick={() => setStaged(prev => prev.filter((_, i) => i !== e.index))}>
+                      onClick={(ev) => {
+                        // When the last staged entry goes, the whole draft
+                        // card unmounts, so the fallback matters here.
+                        const settle = focusAfterRemoval(
+                          ev.currentTarget, '.draft-card, .card', '.chip-x', '.draft-grade, .page-title',
+                        );
+                        setStaged(prev => prev.filter((_, i) => i !== e.index));
+                        settle();
+                      }}>
                       <X size={13} aria-hidden="true" />
                     </button>
                   </div>

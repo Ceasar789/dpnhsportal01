@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
+import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 
@@ -79,9 +80,6 @@ const SectionsTab = () => {
           open
           title={editingSection ? 'Edit Section' : 'Add Section'}
           onClose={closeSectionModal}
-          // Capacity has a default, so a untouched form is not dirty just
-          // because it carries one.
-          isDirty={() => Boolean(secName || secGrade || secAdviser)}
           footer={(requestClose) => (
             <>
               <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
@@ -93,29 +91,29 @@ const SectionsTab = () => {
         >
 
             <div className="form-row">
-              <label className="form-label">Section Name</label>
-              <input className="form-input" value={secName} onChange={e => setSecName(e.target.value)} placeholder="e.g. 7-Rizal" />
+              <label className="form-label" htmlFor="sections-section-name">Section Name</label>
+              <input id="sections-section-name" className="form-input" value={secName} onChange={e => setSecName(e.target.value)} placeholder="e.g. 7-Rizal" />
             </div>
 
             <div className="form-row">
-              <label className="form-label">Grade Level</label>
-              <select className="form-input" value={secGrade} onChange={e => setSecGrade(e.target.value)}>
+              <label className="form-label" htmlFor="sections-grade-level">Grade Level</label>
+              <select id="sections-grade-level" className="form-input" value={secGrade} onChange={e => setSecGrade(e.target.value)}>
                 <option value="">Select…</option>
                 {GRADE_LEVELS.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
 
             <div className="form-row">
-              <label className="form-label">Adviser</label>
-              <select className="form-input" value={secAdviser} onChange={e => setSecAdviser(e.target.value)}>
+              <label className="form-label" htmlFor="sections-adviser">Adviser</label>
+              <select id="sections-adviser" className="form-input" value={secAdviser} onChange={e => setSecAdviser(e.target.value)}>
                 <option value="">No adviser yet</option>
                 {teachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
               </select>
             </div>
 
             <div className="form-row">
-              <label className="form-label">Capacity</label>
-              <input className="form-input" type="number" value={secCapacity} onChange={e => setSecCapacity(e.target.value)} />
+              <label className="form-label" htmlFor="sections-capacity">Capacity</label>
+              <input id="sections-capacity" className="form-input" type="number" value={secCapacity} onChange={e => setSecCapacity(e.target.value)} />
             </div>
 
         </Modal>
@@ -126,6 +124,7 @@ const SectionsTab = () => {
           open
           title={`${activeSection.name} — Class List`}
           onClose={closeClassList}
+          isDirty={() => false}
           footer={(requestClose) => (
             <button className="btn btn-ghost" onClick={requestClose}>Close</button>
           )}
@@ -161,7 +160,20 @@ const SectionsTab = () => {
                     <td>{i + 1}</td>
                     <td>{c.name}</td>
                     <td>{c.email}</td>
-                    <td><button className="icon-action" aria-label={`Remove ${c.name} from this section`} title="Remove" onClick={() => removeStudentFromSection(c.id)}><X size={15} aria-hidden="true" /></button></td>
+                    <td><button
+                      className="icon-action"
+                      aria-label={`Remove ${c.name} from this section`}
+                      title="Remove"
+                      onClick={(e) => {
+                        // Losing focus here drops the user on the body with
+                        // a modal still open over it.
+                        const settle = focusAfterRemoval(
+                          e.currentTarget, 'table', '.icon-action', '.modal-title',
+                        );
+                        removeStudentFromSection(c.id);
+                        settle();
+                      }}
+                    ><X size={15} aria-hidden="true" /></button></td>
                   </tr>
                 ))}
               </tbody>

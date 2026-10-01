@@ -145,8 +145,8 @@ const DashboardTab = () => {
         <Card className="p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <SectionTitle>Recent Activity</SectionTitle>
-            <button onClick={fetchDashboardData} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: 'var(--reg-muted)' }}>
-              <RefreshCw size={14} />
+            <button onClick={fetchDashboardData} aria-label="Refresh recent activity" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: 'var(--reg-muted)' }}>
+              <RefreshCw size={14} aria-hidden="true" />
             </button>
           </div>
           <div className="space-y-4">

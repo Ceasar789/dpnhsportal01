@@ -336,9 +336,11 @@ const TeachingLoadTab = () => {
                     <span className="draft-teacher">{teacherLabel(e.teacher_id)}</span>
                     <span className="draft-dots" />
                     <span className="draft-subject">{subjectLabel(e.subject_id)}</span>
-                    <button className="chip-x" title="Remove from list"
+                    <button className="chip-x"
+                      aria-label={`Remove ${subjectLabel(e.subject_id)} for ${teacherLabel(e.teacher_id)} from the list`}
+                      title="Remove from list"
                       onClick={() => setStaged(prev => prev.filter((_, i) => i !== e.index))}>
-                      <X size={13} />
+                      <X size={13} aria-hidden="true" />
                     </button>
                   </div>
                 ))}
@@ -381,8 +383,8 @@ const TeachingLoadTab = () => {
                   .map(l => (
                     <span key={l.id} className="chip">
                       {subjectCode(l.subject_id)}
-                      <button className="chip-x" title="Remove" onClick={() => removeLoad(l.id)}>
-                        <X size={12} />
+                      <button className="chip-x" aria-label={`Remove ${subjectCode(l.subject_id)}`} title="Remove" onClick={() => removeLoad(l.id)}>
+                        <X size={12} aria-hidden="true" />
                       </button>
                     </span>
                   ))}

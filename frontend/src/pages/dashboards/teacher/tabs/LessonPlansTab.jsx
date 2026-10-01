@@ -701,9 +701,10 @@ th{background:#f3f4f6;}
                         <Eye size={14} /> View & Edit
                       </Btn>
                       <button onClick={() => handleDeletePlan(plan.id)}
+                        aria-label={`Delete ${plan.title}`}
                         className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
                         style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-                        <Trash2 size={16} />
+                        <Trash2 size={16} aria-hidden="true" />
                       </button>
                     </div>
                   </div>

@@ -63,9 +63,9 @@ const SectionsTab = () => {
                 <td>{adviserName(s.adviser_id)}</td>
                 <td>{s.capacity}</td>
                 <td>
-                  <button className="icon-action" title="Class list" onClick={() => openClassList(s)}><Users size={15} /></button>
-                  <button className="icon-action" title="Edit" onClick={() => openEditSection(s)}><Pencil size={15} /></button>
-                  <button className="icon-action" title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} /></button>
+                  <button className="icon-action" aria-label={`Class list for ${s.name}`} title="Class list" onClick={() => openClassList(s)}><Users size={15} aria-hidden="true" /></button>
+                  <button className="icon-action" aria-label={`Edit ${s.name}`} title="Edit" onClick={() => openEditSection(s)}><Pencil size={15} aria-hidden="true" /></button>
+                  <button className="icon-action" aria-label={`Delete ${s.name}`} title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
                 </td>
               </tr>
             ))}
@@ -149,7 +149,7 @@ const SectionsTab = () => {
                     <td>{i + 1}</td>
                     <td>{c.name}</td>
                     <td>{c.email}</td>
-                    <td><button className="icon-action" title="Remove" onClick={() => removeStudentFromSection(c.id)}><X size={15} /></button></td>
+                    <td><button className="icon-action" aria-label={`Remove ${c.name} from this section`} title="Remove" onClick={() => removeStudentFromSection(c.id)}><X size={15} aria-hidden="true" /></button></td>
                   </tr>
                 ))}
               </tbody>

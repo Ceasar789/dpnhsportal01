@@ -375,9 +375,9 @@ const WorksheetsTab = () => {
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#94a3b8' : '#64748b' }}>
                 Encode scores
               </button>
-              <button onClick={() => handleDelete(ws.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
+              <button onClick={() => handleDelete(ws.id)} aria-label={`Delete ${ws.title}`} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50"
                 style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-                <Trash2 size={14} />
+                <Trash2 size={14} aria-hidden="true" />
               </button>
             </div>
             {assessment.postingsError ? (

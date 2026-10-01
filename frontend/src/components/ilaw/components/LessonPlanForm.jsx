@@ -530,8 +530,9 @@ const ArrayInput = ({ label, items = [], onAdd, onRemove, placeholder, dark }) =
             <button
               type="button"
               onClick={() => onRemove(idx)}
+              aria-label={`Remove ${item}`}
               className="text-red-500 hover:text-red-700">
-              <Trash2 size={16} />
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
         ))}

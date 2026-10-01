@@ -86,8 +86,8 @@ const DashboardLayout = ({ role, children }) => {
     <div className="dashboard-shell flex flex-col h-screen overflow-hidden bg-[#f1f5f9]">
       {/* ===== HEADER ===== */}
       <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30" style={{ backgroundColor: brandBackground }}>
-        <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
-          <Menu size={20} />
+        <button onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu" className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
+          <Menu size={20} aria-hidden="true" />
         </button>
 
         <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
@@ -130,10 +130,12 @@ const DashboardLayout = ({ role, children }) => {
         >
           <button
             onClick={() => setSidebarCollapsed(c => !c)}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!sidebarCollapsed}
             className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full items-center justify-center shadow-md z-10 bg-white text-slate-500"
             style={{ border: `1px solid ${borderColor}` }}
           >
-            {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+            {sidebarCollapsed ? <ChevronRight size={13} aria-hidden="true" /> : <ChevronLeft size={13} aria-hidden="true" />}
           </button>
 
           <div className="p-5 border-b" style={{ borderColor }}>
@@ -201,7 +203,7 @@ const DashboardLayout = ({ role, children }) => {
           </nav>
 
           <div className="p-4 border-t" style={{ borderColor }}>
-            <button
+            <button aria-label="Logout"
               onClick={handleLogout}
               className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors border ${sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
               style={{ color: '#dc2626', borderColor: '#f3b9ba', backgroundColor: '#fdf1f1' }}

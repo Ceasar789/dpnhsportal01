@@ -32,8 +32,8 @@ const MobileAppBar = ({ role, onMenuClick }) => {
       
       {/* Left: Menu + Logo */}
       <div className="flex items-center gap-3">
-        <button onClick={onMenuClick} className="text-white p-1">
-          <Menu size={24} />
+        <button onClick={onMenuClick} aria-label="Open navigation menu" className="text-white p-1">
+          <Menu size={24} aria-hidden="true" />
         </button>
         <img src="/capstonelogo.png" alt="Logo" className="w-8 h-8" />
         <span className="text-white font-work font-semibold text-lg">
@@ -45,9 +45,11 @@ const MobileAppBar = ({ role, onMenuClick }) => {
       <div className="relative">
         <button 
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Account menu"
+          aria-expanded={menuOpen}
           className="text-white p-1"
         >
-          <User size={28} />
+          <User size={28} aria-hidden="true" />
         </button>
 
         {/* Dropdown */}

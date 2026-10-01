@@ -268,12 +268,14 @@ const CheckSubmissionsModal = ({
                       {!unscorable && (
                         <>
                           <button type="button" onClick={() => setMark(it.id, it.points)}
+                            aria-label={`Mark question ${index + 1} fully correct`}
                             title="Mark fully correct"
                             className="h-8 w-8 rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: 'rgba(22,163,74,0.12)', color: '#16a34a' }}>
                             <Check size={14} />
                           </button>
                           <button type="button" onClick={() => setMark(it.id, 0)}
+                            aria-label={`Mark question ${index + 1} wrong`}
                             title="Mark wrong"
                             className="h-8 w-8 rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: 'rgba(220,38,38,0.12)', color: '#dc2626' }}>

@@ -577,7 +577,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         </div>
         <div className="nav-actions">
           <NotificationBell />
-          <button className="nav-toggle-btn" title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} onClick={() => setDarkMode(d => !d)}>
+          <button className="nav-toggle-btn" aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} onClick={() => setDarkMode(d => !d)}>
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
@@ -644,7 +644,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           )}
 
           <div className="sidebar-logout">
-            <button className="nav-logout-btn" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', color:'#dc2626', borderColor:'#f3b9ba', background:'#fdf1f1' }} onClick={() => { logout(); navigate('/login'); }}>
+            <button className="nav-logout-btn" aria-label="Logout" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', color:'#dc2626', borderColor:'#f3b9ba', background:'#fdf1f1' }} onClick={() => { logout(); navigate('/login'); }}>
               <LogOut size={15} />
               {!sidebarCollapsed && 'Logout'}
             </button>

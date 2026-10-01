@@ -197,16 +197,16 @@ const StudentsTab = () => {
                     <td className="px-5 py-3.5">
                       <div className="flex gap-1">
                         <button onClick={() => { setSelectedStudent(s); setShowViewModal(true); }}
-                          className="p-1.5 rounded-md transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20" style={{ color: 'var(--reg-blue)' }} title="View">
-                          <Eye size={16} />
+                          className="p-1.5 rounded-md transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20" style={{ color: 'var(--reg-blue)' }} aria-label={`View ${s.name}`} title="View">
+                          <Eye size={16} aria-hidden="true" />
                         </button>
                         <button onClick={() => { setSelectedStudent(s); setShowEditModal(true); }}
-                          className="p-1.5 rounded-md transition-colors hover:bg-amber-50 dark:hover:bg-amber-900/20" style={{ color: 'var(--reg-amber)' }} title="Edit">
-                          <Edit3 size={16} />
+                          className="p-1.5 rounded-md transition-colors hover:bg-amber-50 dark:hover:bg-amber-900/20" style={{ color: 'var(--reg-amber)' }} aria-label={`Edit ${s.name}`} title="Edit">
+                          <Edit3 size={16} aria-hidden="true" />
                         </button>
                         <button onClick={() => handleDeleteStudent(s.id)}
-                          className="p-1.5 rounded-md transition-colors hover:bg-red-50 dark:hover:bg-red-900/20" style={{ color: 'var(--reg-red)' }} title="Delete">
-                          <Trash2 size={16} />
+                          className="p-1.5 rounded-md transition-colors hover:bg-red-50 dark:hover:bg-red-900/20" style={{ color: 'var(--reg-red)' }} aria-label={`Delete ${s.name}`} title="Delete">
+                          <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </div>
                     </td>

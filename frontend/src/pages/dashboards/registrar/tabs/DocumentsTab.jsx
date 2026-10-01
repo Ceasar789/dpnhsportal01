@@ -181,19 +181,19 @@ const DocumentsTab = () => {
                       <div className="flex gap-2">
                         {d.status === 'pending' && (
                           <>
-                            <button onClick={() => handleVerify(d.id)} className="p-1.5 rounded-md hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" style={{ color: 'var(--reg-green)' }} title="Verify">
-                              <Check size={14} />
+                            <button onClick={() => handleVerify(d.id)} className="p-1.5 rounded-md hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" style={{ color: 'var(--reg-green)' }} aria-label={`Verify ${d.student_name}'s ${d.type}`} title="Verify">
+                              <Check size={14} aria-hidden="true" />
                             </button>
-                            <button onClick={() => handleReject(d.id)} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" style={{ color: 'var(--reg-red)' }} title="Reject">
-                              <X size={14} />
+                            <button onClick={() => handleReject(d.id)} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" style={{ color: 'var(--reg-red)' }} aria-label={`Reject ${d.student_name}'s ${d.type}`} title="Reject">
+                              <X size={14} aria-hidden="true" />
                             </button>
                           </>
                         )}
-                        <button className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" style={{ color: 'var(--reg-blue)' }} title="View">
-                          <Eye size={14} />
+                        <button className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" style={{ color: 'var(--reg-blue)' }} aria-label={`View ${d.student_name}'s ${d.type}`} title="View">
+                          <Eye size={14} aria-hidden="true" />
                         </button>
-                        <button onClick={() => handleDeleteDoc(d.id)} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" style={{ color: 'var(--reg-red)' }} title="Delete">
-                          <Trash2 size={14} />
+                        <button onClick={() => handleDeleteDoc(d.id)} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" style={{ color: 'var(--reg-red)' }} aria-label={`Delete ${d.student_name}'s ${d.type}`} title="Delete">
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
                     </td>

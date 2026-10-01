@@ -99,8 +99,8 @@ const StudentLayout = ({ children }) => {
         className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30"
         style={{ backgroundColor: '#003b7a' }}
       >
-        <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
-          <Menu size={20} />
+        <button onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu" className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
+          <Menu size={20} aria-hidden="true" />
         </button>
         <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
           <FlippingLogo className="w-12 h-12 sm:w-16 sm:h-16" />
@@ -115,6 +115,7 @@ const StudentLayout = ({ children }) => {
           <button
             onClick={toggleDark}
             className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors"
+            aria-label={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
             {dark ? <Sun size={18} /> : <Moon size={18} />}
@@ -152,10 +153,12 @@ const StudentLayout = ({ children }) => {
       >
         <button
           onClick={() => setSidebarCollapsed(c => !c)}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!sidebarCollapsed}
           className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full items-center justify-center shadow-md z-10"
           style={{ backgroundColor: 'var(--sidebar-bg)', border: '1px solid var(--border)', color: textMuted }}
         >
-          {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronRight size={13} className="rotate-180" />}
+          {sidebarCollapsed ? <ChevronRight size={13} aria-hidden="true" /> : <ChevronRight size={13} className="rotate-180" aria-hidden="true" />}
         </button>
         {/* Role profile */}
         <div className="p-5 border-b" style={{ borderColor: 'var(--border)' }}>
@@ -232,6 +235,7 @@ const StudentLayout = ({ children }) => {
             onClick={handleLogout}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
             style={{ color: '#dc2626', borderColor: '#f3b9ba', backgroundColor: dark ? 'rgba(127, 29, 29, 0.2)' : '#fdf1f1' }}
+            aria-label="Logout"
             title={sidebarCollapsed ? 'Logout' : undefined}
           >
             <LogOut size={15} />

@@ -83,7 +83,7 @@ export const Modal = ({ title, onClose, children, size = 'max-w-md' }) => {
         style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
         <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
           <h2 className="text-lg font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button onClick={onClose} aria-label={`Close ${title}`} className="text-gray-400 hover:text-gray-600"><X size={20} aria-hidden="true" /></button>
         </div>
         <div className="p-5 overflow-y-auto">{children}</div>
       </div>

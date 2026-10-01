@@ -173,10 +173,10 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                   className="h-8 w-20 px-2 rounded text-xs outline-none" style={fieldStyle} />
                 <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>points</span>
                 <div className="ml-auto flex gap-1">
-                  <button onClick={() => move(index, -1)} title="Move up"><ChevronUp size={14} /></button>
-                  <button onClick={() => move(index, 1)} title="Move down"><ChevronDown size={14} /></button>
-                  <button onClick={() => setItems(prev => prev.filter((_, i) => i !== index))} title="Delete">
-                    <Trash2 size={14} className="text-red-500" />
+                  <button onClick={() => move(index, -1)} aria-label={`Move question ${index + 1} up`} title="Move up"><ChevronUp size={14} aria-hidden="true" /></button>
+                  <button onClick={() => move(index, 1)} aria-label={`Move question ${index + 1} down`} title="Move down"><ChevronDown size={14} aria-hidden="true" /></button>
+                  <button onClick={() => setItems(prev => prev.filter((_, i) => i !== index))} aria-label={`Delete question ${index + 1}`} title="Delete">
+                    <Trash2 size={14} className="text-red-500" aria-hidden="true" />
                   </button>
                 </div>
               </div>

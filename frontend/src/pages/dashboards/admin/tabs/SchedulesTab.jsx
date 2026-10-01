@@ -214,8 +214,10 @@ const SchedulesTab = () => {
                                 {r.day_of_week} · {String(r.start_time).slice(0, 5)}–{String(r.end_time).slice(0, 5)}
                                 {r.room_number ? ` · ${r.room_number}` : ''}
                               </span>
-                              <button className="icon-action archive-action" title="Delete"
-                                onClick={() => deleteSchedule(r.id)}><Trash2 size={14} /></button>
+                              <button className="icon-action archive-action"
+                                aria-label={`Delete ${nameOf(teachers, r.teacher_id)}'s ${r.day_of_week} schedule`}
+                                title="Delete"
+                                onClick={() => deleteSchedule(r.id)}><Trash2 size={14} aria-hidden="true" /></button>
                             </div>
                           ))}
                         </td>

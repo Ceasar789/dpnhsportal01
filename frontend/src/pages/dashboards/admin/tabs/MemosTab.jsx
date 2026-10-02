@@ -80,7 +80,7 @@ const MemosTab = () => {
                         <span className="memo-field-label">Date</span>
                         <span className="memo-field-val">{new Date(selMemo.created_at).toLocaleString()}</span>
                       </div>
-                      <div style={{ marginTop:16, lineHeight:1.6, fontSize:13, whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
+                      <div style={{ marginTop:16, lineHeight:1.6, fontSize: 'var(--font-size-13)', whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
                       <div className="memo-actions">
                         <button className="btn btn-ghost" onClick={() => openEditMemo(selMemo)}>Edit</button>
                         <button className="btn btn-danger" onClick={() => deleteMemo(selMemo.id)}>Delete</button>

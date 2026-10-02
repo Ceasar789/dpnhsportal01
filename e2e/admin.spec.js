@@ -70,11 +70,14 @@ test.describe('admin dashboard', () => {
     expect(unnamed).toEqual([]);
   });
 
-  // 11, not 12. The repo's floor is 11px today and e2e/text-size.spec.js
-  // holds the same line; Phase 4 raises both together (decision 8). Writing
-  // 12 here would make this red from the start, and a suite that is red
-  // before any work begins stops being a signal.
-  const FLOOR = 11;
+  // 12 as of Phase 4c, which put every font size on the --font-size-*
+  // scale and rounded the 19 call sites at 11px up to it.
+  //
+  // e2e/text-size.spec.js still says 11, and that is not an oversight: it
+  // measures the public pages and the student and teacher dashboards,
+  // which this overhaul has not reached. The two floors converge when
+  // those are done.
+  const FLOOR = 12;
 
   test(`no tab paints text below ${FLOOR}px`, async ({ page }) => {
     const small = [];

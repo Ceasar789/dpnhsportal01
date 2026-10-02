@@ -86,20 +86,20 @@ const CalendarTab = () => {
                   </div>
                 </div>
                 <div className="cal-sidebar">
-                  <div style={{ fontSize:13, fontWeight:600, marginBottom:12, color:'var(--text-muted)' }}>Upcoming</div>
+                  <div style={{ fontSize: 'var(--font-size-13)', fontWeight:600, marginBottom:12, color:'var(--text-muted)' }}>Upcoming</div>
                   {/* UX-047: the grid and this list both rendered as a
                       fully-populated empty month for the whole fetch. */}
                   {calLoading
-                    ? <div style={{ fontSize:12, color:'var(--text-dim)' }}>{slowCal ? 'Loading events…' : ''}</div>
+                    ? <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-dim)' }}>{slowCal ? 'Loading events…' : ''}</div>
                     : upcomingEvents.length === 0
-                    ? <div style={{ fontSize:12, color:'var(--text-dim)' }}>No upcoming events</div>
+                    ? <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-dim)' }}>No upcoming events</div>
                     : upcomingEvents.map((e, i) => (
                       <div key={i} className="upcoming-item" style={{ borderColor: typeColor(e.event_type) }}>
-                        <div style={{ fontSize:13, fontWeight:600 }}>{e.title}</div>
-                        <div style={{ fontSize:12, color:'var(--text-muted)' }}>{new Date(e.event_date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+                        <div style={{ fontSize: 'var(--font-size-13)', fontWeight:600 }}>{e.title}</div>
+                        <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-muted)' }}>{new Date(e.event_date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
                         <div style={{ display:'flex', gap:8, marginTop:4 }}>
-                          <button className="news-action" style={{ fontSize:11 }} onClick={() => openEditEvent(e)}>Edit</button>
-                          <button className="news-action red" style={{ fontSize:11 }} onClick={() => deleteEvent(e.id)}>Remove</button>
+                          <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => openEditEvent(e)}>Edit</button>
+                          <button className="news-action red" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => deleteEvent(e.id)}>Remove</button>
                         </div>
                       </div>
                     ))

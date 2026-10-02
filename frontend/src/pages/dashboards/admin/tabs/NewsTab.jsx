@@ -96,7 +96,7 @@ const NewsTab = () => {
                       </div>
                     );
                   })}
-                  {filteredNews.length === 0 && <div style={{ color:'var(--text-muted)', fontSize:13 }}>No posts found</div>}
+                  {filteredNews.length === 0 && <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>No posts found</div>}
                 </div>
               }
               <div className="news-footer">
@@ -119,7 +119,7 @@ const NewsTab = () => {
         )}
       >
           {newsReadOnly && (
-            <div className="form-row" style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+            <div className="form-row" style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-muted)', marginBottom: 4 }}>
               A published post's content is locked so it can't be quietly rewritten. You can still change or clear its expiry date below.
             </div>
           )}

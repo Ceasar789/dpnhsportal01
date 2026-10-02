@@ -46,3 +46,6 @@ supabase/.env
 
 # Backend secrets
 backend/.env
+
+# Phase 4 before/after comparison shots — large, local, not history
+screenshots/

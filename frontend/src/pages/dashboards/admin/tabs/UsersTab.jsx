@@ -18,7 +18,7 @@ import Avatar from '../../../../components/Avatar';
 // without breaking the rules of hooks inside .map().
 const UserAvatarCell = ({ user }) => {
   const photoUrl = useSignedPhotoUrl(user.photo_url);
-  return <Avatar className="avatar" src={photoUrl} name={user.name || user.email || ''} size={34} bg={avatarColor(user.name || user.email || '')} />;
+  return <Avatar className="avatar" src={photoUrl} name={user.name || user.email || ''} size={34} fontSize="var(--font-size-12)" bg={avatarColor(user.name || user.email || '')} />;
 };
 
 const UsersTab = () => {
@@ -86,7 +86,7 @@ const UsersTab = () => {
                               <UserAvatarCell user={u} />
                               <div>
                                 <div style={{ fontWeight:600 }}>{u.name || '—'}</div>
-                                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{roleLabel(u.role)}</div>
+                                <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-muted)' }}>{roleLabel(u.role)}</div>
                               </div>
                             </div>
                           </td>

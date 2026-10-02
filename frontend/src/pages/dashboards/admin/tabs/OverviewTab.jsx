@@ -39,17 +39,17 @@ const OverviewTab = () => {
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--banner-text)', marginBottom: 2 }}>
+                  <div style={{ fontSize: 'var(--font-size-20)', fontWeight: 800, color: 'var(--banner-text)', marginBottom: 2 }}>
                     Welcome to <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: 'var(--font-size-12)', fontWeight: 700, letterSpacing: 1.5, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>
                     Dela Paz National High School
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', borderRadius: 12, padding: '12px 24px', backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)', flexShrink: 0 }}>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>Academic Year</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--banner-text)' }}>{settings.academic_year} · {settings.semester}</div>
+                    <div style={{ fontSize: 'var(--font-size-12)', fontWeight: 700, letterSpacing: 1, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>Academic Year</div>
+                    <div style={{ fontSize: 'var(--font-size-20)', fontWeight: 800, color: 'var(--banner-text)' }}>{settings.academic_year} · {settings.semester}</div>
                   </div>
                 </div>
               </div>
@@ -86,9 +86,9 @@ const OverviewTab = () => {
                       for the whole span of the fetch — an empty state that
                       read as an answer. */}
                   {overviewLoading
-                    ? <div style={{ color:'var(--text-muted)', fontSize:13 }}>{slowOverview ? 'Loading activity…' : ''}</div>
+                    ? <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>{slowOverview ? 'Loading activity…' : ''}</div>
                     : activityLogs.length === 0
-                    ? <div style={{ color:'var(--text-muted)', fontSize:13 }}>No recent activity</div>
+                    ? <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>No recent activity</div>
                     : activityLogs.map((l, i) => (
                       <div key={i} className="recent-item">
                         <span className="recent-dot" style={{ background: ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#2dd4bf'][i % 5] }}></span>

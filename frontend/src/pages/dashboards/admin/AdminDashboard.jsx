@@ -48,7 +48,7 @@ const AdminDashboard = () => {
           animation: 'spin .7s linear infinite'
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: 'var(--gate-muted)', fontSize: 14 }}>Loading session…</span>
+        <span style={{ color: 'var(--gate-muted)', fontSize: 'var(--font-size-14)' }}>Loading session…</span>
       </div>
     );
   }
@@ -64,16 +64,16 @@ const AdminDashboard = () => {
         justifyContent: 'center', background: 'var(--gate-bg)', flexDirection: 'column',
         gap: 12, padding: 24, textAlign: 'center'
       }}>
-        <h1 style={{ color: 'var(--gate-text)', fontSize: 20, fontWeight: 700 }}>
+        <h1 style={{ color: 'var(--gate-text)', fontSize: 'var(--font-size-20)', fontWeight: 700 }}>
           Administrator access required
         </h1>
-        <p style={{ color: 'var(--gate-muted)', fontSize: 14, maxWidth: 420 }}>
+        <p style={{ color: 'var(--gate-muted)', fontSize: 'var(--font-size-14)', maxWidth: 420 }}>
           This account is not registered as an administrator, so the admin
           dashboard cannot be opened.
         </p>
         <div style={{
           background: 'var(--gate-panel)', border: '1px solid var(--gate-border)', borderRadius: 8,
-          padding: '12px 16px', color: 'var(--gate-muted)', fontSize: 13, textAlign: 'left'
+          padding: '12px 16px', color: 'var(--gate-muted)', fontSize: 'var(--font-size-13)', textAlign: 'left'
         }}>
           <div>Signed in as: <strong style={{ color: 'var(--gate-text)' }}>{userData?.email || '— not signed in —'}</strong></div>
           <div>Detected role: <strong style={{ color: 'var(--gate-text)' }}>{userData?.role || '— none —'}</strong></div>
@@ -83,7 +83,7 @@ const AdminDashboard = () => {
           replace
           style={{
             marginTop: 8, padding: '10px 20px', borderRadius: 8, border: 'none',
-            background: 'var(--gate-action)', color: 'var(--on-accent)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            background: 'var(--gate-action)', color: 'var(--on-accent)', fontSize: 'var(--font-size-14)', fontWeight: 600, cursor: 'pointer',
             // A <button> centres its own text and an <a> does not; these two
             // keep the control looking exactly as it did.
             display: 'inline-block', textAlign: 'center', textDecoration: 'none'
@@ -127,7 +127,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
     <div className="dashboard-shell">
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Public Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; font-size: 14px; }
+        body { font-family: 'Public Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; font-size: var(--font-size-14); }
 
         nav {
           background: #003b7a;
@@ -162,20 +162,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           background: #ffffff;
           border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 900;
+          font-size: var(--font-size-13); font-weight: 900;
           color: #1908DF; flex-shrink: 0;
         }
         .nav-logo-text { display: flex; flex-direction: column; line-height: 1.2; font-family: 'Work Sans', sans-serif; }
         .nav-logo-text span:first-child { font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: var(--brand-gold); }
         .nav-logo-text span:first-child i { color: var(--brand-cyan); font-style: normal; }
-        .nav-logo-text span:last-child { font-size: 14px; color: rgba(255,255,255,.85); font-weight: 500; }
+        .nav-logo-text span:last-child { font-size: var(--font-size-14); color: rgba(255,255,255,.85); font-weight: 500; }
 
         .nav-links { display: flex; gap: 2px; flex: 1; }
         .nav-link {
           padding: 6px 14px;
           cursor: pointer;
           color: rgba(255,255,255,.72);
-          font-size: 13px; font-weight: 600;
+          font-size: var(--font-size-13); font-weight: 600;
           letter-spacing: 0.03em;
           transition: all .15s;
           border: none; background: none;
@@ -213,7 +213,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           width: 40px; height: 40px; border-radius: 50%;
           background: var(--brand-gold-bright);
           display: flex; align-items: center; justify-content: center;
-          font-size: 11px; font-weight: 700; color: #12069f;
+          font-size: var(--font-size-12); font-weight: 700; color: #12069f;
           cursor: pointer; border: 2px solid rgba(255,255,255,.5);
           flex-shrink: 0;
         }
@@ -222,7 +222,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           padding: 6px 14px; border-radius: 7px;
           border: 1px solid rgba(255,255,255,.3);
           background: transparent; cursor: pointer;
-          color: rgba(255,255,255,.85); font-size: 13px; font-weight: 600;
+          color: rgba(255,255,255,.85); font-size: var(--font-size-13); font-weight: 600;
           transition: all .15s;
         }
         .nav-logout-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
@@ -233,7 +233,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar-user { min-height: 76px; padding: 20px 8px; border-bottom: 1px solid var(--border); display: flex !important; align-items: center; gap: 10px; margin-bottom: 0; visibility: visible; }
         .admin-profile-row { min-height: 76px; width: 100%; display: flex !important; align-items: center; visibility: visible; }
         .sidebar.collapsed .sidebar-user { justify-content: center; }
-        .sidebar-item { padding: 10px 12px; margin-bottom: 4px; border-radius: 12px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600; transition: all .3s ease; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
+        .sidebar-item { padding: 10px 12px; margin-bottom: 4px; border-radius: 12px; cursor: pointer; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; transition: all .3s ease; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
         .sidebar-user + .sidebar-item { margin-top: 16px; }
         .sidebar.collapsed .sidebar-item { justify-content: center; padding-left: 8px; padding-right: 8px; }
         .sidebar-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .3s ease; }
@@ -241,20 +241,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar-item.active .sidebar-icon { background: #ffffff; box-shadow: 0 2px 6px var(--overlay-accent-glow); }
         .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
         .sidebar-item.active { color: var(--accent); background: #eef0f5; border-left-color: transparent; }
-        .sidebar-section { padding: 16px 12px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
-        .sidebar-sub { padding: 7px 20px 7px 28px; cursor: pointer; color: var(--text-dim); font-size: 12px; transition: all .15s; }
+        .sidebar-section { padding: 16px 12px 6px; font-size: var(--font-size-12); text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
+        .sidebar-sub { padding: 7px 20px 7px 28px; cursor: pointer; color: var(--text-dim); font-size: var(--font-size-12); transition: all .15s; }
         .sidebar-sub:hover { color: var(--text-muted); }
         .sidebar-sub.active { color: var(--accent); }
         .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px var(--overlay-sm); }
         .sidebar-logout { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--border); }
         .main { flex: 1; padding: 24px 32px; overflow-y: auto; }
 
-        .page-title { font-size: 22px; font-weight: 700; color: var(--text); }
-        .page-sub { color: var(--text-muted); font-size: 13px; margin-top: 3px; margin-bottom: 20px; }
+        .page-title { font-size: var(--font-size-24); font-weight: 700; color: var(--text); }
+        .page-sub { color: var(--text-muted); font-size: var(--font-size-13); margin-top: 3px; margin-bottom: 20px; }
         .page-header-bar { border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; background: var(--banner-bg); border: 1px solid var(--banner-border); }
         .page-header-bar .page-title { color: var(--banner-text); }
         .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }
-        .btn { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
         .btn-primary { background: var(--accent); color: var(--on-accent); }
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
@@ -268,18 +268,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .archive-toggle:hover, .archive-toggle.active { color: var(--accent); border-color: var(--accent); background: rgba(99,102,241,.12); }
         .archive-status-badge { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; line-height: 1; }
         .archive-news-action { display: inline-flex; align-items: center; gap: 5px; }
-        .btn-sm { padding: 4px 10px; font-size: 12px; }
-        input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 8px 12px; font-size: 13px; outline: none; }
+        .btn-sm { padding: 4px 10px; font-size: var(--font-size-12); }
+        input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 8px 12px; font-size: var(--font-size-13); outline: none; }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); }
         select { appearance: none; cursor: pointer; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; }
-        .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; color: var(--on-accent); }
-        .badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+        .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-12); font-weight: 700; flex-shrink: 0; color: var(--on-accent); }
+        .badge { padding: 2px 10px; border-radius: 20px; font-size: var(--font-size-12); font-weight: 600; border: 1px solid; white-space: nowrap; }
         .badge-blue    { color: var(--badge-blue-fg); border-color: var(--badge-blue-border); background: var(--badge-blue-bg); }
         .badge-green   { color: var(--badge-green-fg); border-color: var(--badge-green-border); background: var(--badge-green-bg); }
         .badge-teal    { color: var(--badge-teal-fg); border-color: var(--badge-teal-border); background: var(--badge-teal-bg); }
         .badge-yellow  { color: var(--badge-yellow-fg); border-color: var(--badge-yellow-border); background: var(--badge-yellow-bg); }
-        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--badge-blue-fg); border: 1px solid var(--badge-blue-border); background: var(--badge-blue-bg); }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: 20px; font-size: var(--font-size-12); font-weight: 600; white-space: nowrap; color: var(--badge-blue-fg); border: 1px solid var(--badge-blue-border); background: var(--badge-blue-bg); }
         .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: 6px; margin: -6px; opacity: .7; }
         .chip-x:hover { opacity: 1; }
         .badge-red     { color: var(--badge-red-fg); border-color: var(--badge-red-border); background: var(--badge-red-bg); }
@@ -291,8 +291,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .dot-red { background: var(--red); }
         .dot-gray  { background: #4b5563; }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
-        td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { text-align: left; padding: 10px 14px; font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: var(--font-size-13); }
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: rgba(255,255,255,0.02); }
         .toolbar { display: flex; gap: 10px; margin-bottom: 18px; align-items: center; flex-wrap: wrap; }
@@ -304,9 +304,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            dashboard, so it follows the light/dark theme without branching. */
         .bulk-grid { display: grid; grid-template-columns: minmax(280px, 1.3fr) minmax(240px, 1fr); gap: 20px; }
         @media (max-width: 860px) { .bulk-grid { grid-template-columns: 1fr; } }
-        .bulk-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 7px; display: flex; align-items: center; }
+        .bulk-label { font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); margin-bottom: 7px; display: flex; align-items: center; }
         .bulk-submit { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
-        .bulk-hint { font-size: 12px; color: var(--text-muted); flex: 1; min-width: 180px; line-height: 1.45; }
+        .bulk-hint { font-size: var(--font-size-12); color: var(--text-muted); flex: 1; min-width: 180px; line-height: 1.45; }
         .picker-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text-muted); margin-bottom: 8px; }
         .picker-search:focus-within { border-color: var(--accent); }
         .picker-search input { border: none; background: transparent; padding: 8px 0; flex: 1; min-width: 0; }
@@ -314,18 +314,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         /* Capped and scrollable: 48 teachers would otherwise push the Add
            button and the whole list far below the fold. */
         .picker-panel { max-height: 230px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); }
-        .picker-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+        .picker-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: var(--font-size-13); color: var(--text); }
         .picker-row:last-child { border-bottom: none; }
         .picker-row:hover { background: rgba(255,255,255,0.03); }
         .picker-row input[type="checkbox"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
         .picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .picker-dept { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-        .picker-empty { padding: 18px 12px; text-align: center; font-size: 12px; color: var(--text-muted); }
+        .picker-dept { font-size: var(--font-size-12); color: var(--text-muted); white-space: nowrap; }
+        .picker-empty { padding: 18px 12px; text-align: center; font-size: var(--font-size-12); color: var(--text-muted); }
         .grade-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
-        .grade-tab { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
+        .grade-tab { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
         .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
         .grade-tab.active { color: var(--accent); background: var(--card-bg); border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
-        .grade-tab-count { font-size: 11px; font-weight: 700; min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 20px; color: #60a5fa; background: rgba(59,130,246,0.12); }
+        .grade-tab-count { font-size: var(--font-size-12); font-weight: 700; min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 20px; color: #60a5fa; background: rgba(59,130,246,0.12); }
         .grade-tab-count.empty { color: var(--text-muted); background: rgba(148,163,184,0.12); }
 
         /* Shown only after someone presses the button. A form that is red
@@ -334,13 +334,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            button cannot tell you what is missing, which is the whole
            complaint this answers. */
         .is-invalid, .form-input.is-invalid, .picker-panel.is-invalid { border-color: var(--red); }
-        .field-error { font-size: 12px; color: var(--red); margin-top: 6px; line-height: 1.4; }
+        .field-error { font-size: var(--font-size-12); color: var(--red); margin-top: 6px; line-height: 1.4; }
         /* UX-062: which fields are required, said in the label rather than
            discovered by submitting and reading a toast. */
         .form-req { color: var(--red); margin-left: 2px; }
-        .form-legend { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+        .form-legend { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: 14px; }
         /* UX-058: a disabled field says why it is disabled. */
-        .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        .form-hint { font-size: var(--font-size-12); color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
         /* UX-075: the password field and its reveal share a row. */
         .form-with-action { display: flex; gap: 8px; align-items: center; }
         .form-with-action .form-input { flex: 1; }
@@ -349,11 +349,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--card-bg); cursor: pointer; transition: all .15s; }
         .section-chip:hover { border-color: var(--accent); }
         .section-chip.active { border-color: var(--accent); background: rgba(99,102,241,.12); }
-        .section-chip-name { font-size: 13px; font-weight: 600; color: var(--text); }
-        .section-chip-count { font-size: 11px; color: var(--text-muted); }
-        .sched-line { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 13px; }
+        .section-chip-name { font-size: var(--font-size-13); font-weight: 600; color: var(--text); }
+        .section-chip-count { font-size: var(--font-size-12); color: var(--text-muted); }
+        .sched-line { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: var(--font-size-13); }
         .sched-teacher { font-weight: 600; color: var(--text); white-space: nowrap; }
-        .sched-when { color: var(--text-muted); font-size: 12px; flex: 1; }
+        .sched-when { color: var(--text-muted); font-size: var(--font-size-12); flex: 1; }
 
         .picker-row.selected { background: rgba(99,102,241,.14); }
         .picker-row.disabled { cursor: default; opacity: .5; }
@@ -361,23 +361,23 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-row input[type="radio"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
         .picker-actions { display: flex; gap: 8px; margin-top: 8px; }
         .picker-actions .btn:disabled { opacity: .45; cursor: default; }
-        .picker-tag { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
-        .picker-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+        .picker-tag { font-size: var(--font-size-12); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
+        .picker-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: var(--font-size-12); color: var(--text-muted); cursor: pointer; }
         .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
-        .picker-warning { margin-top: 8px; font-size: 12px; line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: 7px; padding: 7px 10px; }
+        .picker-warning { margin-top: 8px; font-size: var(--font-size-12); line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: 7px; padding: 7px 10px; }
         .grade-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-        .grade-toggle { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+        .grade-toggle { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: all .15s; }
         .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
         .grade-toggle.active { border-color: var(--accent); color: var(--on-accent); background: var(--accent); }
         /* The draft: entries staged but not yet written. Dashed border and
            an accent tint so it never reads as saved data at a glance. */
         .draft-card { padding: 16px; margin-bottom: 20px; border-style: dashed; border-color: var(--accent); background: rgba(99,102,241,.05); }
         .draft-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-        .draft-title { font-size: 14px; font-weight: 700; color: var(--text); }
-        .draft-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .draft-title { font-size: var(--font-size-14); font-weight: 700; color: var(--text); }
+        .draft-sub { font-size: var(--font-size-12); color: var(--text-muted); margin-top: 2px; }
         .draft-group + .draft-group { margin-top: 14px; }
-        .draft-grade { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
-        .draft-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); }
+        .draft-grade { font-size: var(--font-size-12); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+        .draft-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: var(--font-size-13); color: var(--text); border-bottom: 1px solid var(--border); }
         .draft-line:last-child { border-bottom: none; }
         .draft-teacher { font-weight: 600; white-space: nowrap; }
         .draft-dots { flex: 1; min-width: 20px; border-bottom: 1px dotted var(--border); }
@@ -385,9 +385,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .group-row td { background: var(--banner-bg); padding: 9px 14px; }
         tr.group-row:hover td { background: var(--banner-bg); }
-        .group-title { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--banner-text); }
-        .group-count { font-size: 11px; color: var(--text-muted); margin-left: 10px; }
-        .row-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .group-title { font-size: var(--font-size-12); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--banner-text); }
+        .group-count { font-size: var(--font-size-12); color: var(--text-muted); margin-left: 10px; }
+        .row-sub { font-size: var(--font-size-12); color: var(--text-muted); margin-top: 2px; }
 
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 184px; }
@@ -396,45 +396,45 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .clickable-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .stat-icon-block { height: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .stat-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 18px; }
-        .stat-label { font-size: 12px; font-weight: 700; color: var(--text); margin-top: 2px; }
-        .stat-value { font-size: 24px; font-weight: 700; }
-        .stat-change { font-size: 12px; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+        .stat-label { font-size: var(--font-size-12); font-weight: 700; color: var(--text); margin-top: 2px; }
+        .stat-value { font-size: var(--font-size-24); font-weight: 700; }
+        .stat-change { font-size: var(--font-size-12); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
         .stat-change.up   { color: var(--green); }
         .stat-change.down { color: var(--red); }
         .overview-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
         .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
-        .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-        .chart-sub   { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+        .chart-title { font-size: var(--font-size-14); font-weight: 600; margin-bottom: 4px; }
+        .chart-sub   { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: 16px; }
         .bars { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
         .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
         .bar { background: var(--accent); border-radius: 4px 4px 0 0; width: 100%; transition: opacity .15s; }
         .bar:hover { opacity: .8; }
-        .bar-label { font-size: 11px; color: var(--text-dim); }
+        .bar-label { font-size: var(--font-size-12); color: var(--text-dim); }
         .recent-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
         .recent-item:last-child { border-bottom: none; }
         .recent-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .recent-info { flex: 1; }
-        .recent-title { font-size: 13px; color: var(--text); }
-        .recent-time  { font-size: 11px; color: var(--text-dim); }
+        .recent-title { font-size: var(--font-size-13); color: var(--text); }
+        .recent-time  { font-size: var(--font-size-12); color: var(--text-dim); }
         .role-bar { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
         .role-row { display: flex; align-items: center; gap: 10px; }
         .role-track { flex: 1; height: 10px; background: var(--border); border-radius: 10px; overflow: hidden; }
         .role-fill  { height: 100%; border-radius: 10px; }
-        .role-label { font-size: 12px; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+        .role-label { font-size: var(--font-size-12); color: var(--text-muted); width: 110px; flex-shrink: 0; }
         .role-overview { display: flex; align-items: center; gap: 18px; margin: 12px 0 18px; }
         .role-pie { width: 118px; height: 118px; border-radius: 50%; flex-shrink: 0; position: relative; }
         .role-pie::after { content: ''; position: absolute; inset: 25px; border-radius: 50%; background: var(--card-bg); }
         .role-legend { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
-        .role-legend-item { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 7px; font-size: 12px; color: var(--text-muted); }
+        .role-legend-item { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 7px; font-size: var(--font-size-12); color: var(--text-muted); }
         .role-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-        .role-legend-item strong { color: var(--text); font-size: 11px; }
+        .role-legend-item strong { color: var(--text); font-size: var(--font-size-12); }
 
-        .pagination { display: flex; align-items: center; gap: 6px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
-        .page-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        .pagination { display: flex; align-items: center; gap: 6px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: var(--font-size-13); color: var(--text-muted); }
+        .page-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-13); }
         .page-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
         .assign-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; }
-        .assign-label { font-size: 13px; font-weight: 600; }
-        .assign-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .assign-label { font-size: var(--font-size-13); font-weight: 600; }
+        .assign-hint { font-size: var(--font-size-12); color: var(--text-muted); margin-top: 2px; }
 
         .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
@@ -444,30 +444,30 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .news-card-top.arch  { background: var(--text-dim); }
         .news-card-body { padding: 14px 16px; }
         .news-meta   { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-        .news-title  { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-        .news-author { font-size: 12px; color: var(--text-muted); }
+        .news-title  { font-size: var(--font-size-16); font-weight: 600; margin-bottom: 6px; }
+        .news-author { font-size: var(--font-size-12); color: var(--text-muted); }
         .news-actions { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 14px; align-items: center; }
-        .news-action { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--text-muted); }
+        .news-action { background: none; border: none; cursor: pointer; font-size: var(--font-size-12); color: var(--text-muted); }
         .news-action:hover { color: var(--text); }
         .news-action.red   { color: var(--red); }
         .news-action.green { color: var(--green); }
         .news-action.blue  { color: var(--accent); }
-        .news-footer { font-size: 12px; color: var(--text-muted); margin-top: 16px; }
+        .news-footer { font-size: var(--font-size-12); color: var(--text-muted); margin-top: 16px; }
 
         .cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-        .cal-title   { font-size: 16px; font-weight: 600; }
-        .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 5px; }
+        .cal-title   { font-size: var(--font-size-16); font-weight: 600; }
+        .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); padding: 4px 8px; border-radius: 5px; }
         .cal-nav:hover { background: rgba(255,255,255,0.06); color: var(--text); }
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: 10px; overflow: hidden; }
-        .cal-head { background: #f8fafc; padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #64748b; }
+        .cal-head { background: #f8fafc; padding: 10px; text-align: center; font-size: var(--font-size-12); font-weight: 600; color: #64748b; }
         .cal-cell { background: var(--card-bg); min-height: 80px; padding: 8px; position: relative; }
         .cal-cell.weekend { background: rgba(254,226,226,.55); }
         .cal-cell.holiday { background: rgba(254,226,226,.8); }
         .cal-cell:hover { background: #f1f5f9; }
-        .cal-day { font-size: 13px; color: #475569; margin-bottom: 4px; }
+        .cal-day { font-size: var(--font-size-13); color: #475569; margin-bottom: 4px; }
         .cal-cell.today .cal-day { background: #2563eb; color: var(--on-accent); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
         .cal-cell.other-month .cal-day { color: #94a3b8; }
-        .cal-event { font-size: 11px; font-weight: 600; padding: 3px 6px; border-radius: 4px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        .cal-event { font-size: var(--font-size-12); font-weight: 600; padding: 3px 6px; border-radius: 4px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .cal-event:hover { opacity: 0.8; }
         .ev-blue   { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
         .ev-yellow { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
@@ -492,49 +492,49 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-sidebar { width: 200px; flex-shrink: 0; }
         .upcoming-item { padding: 10px 0; border-left: 3px solid; padding-left: 10px; margin-bottom: 10px; }
         .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
-        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-12); color: var(--text-muted); }
         .legend-dot  { width: 12px; height: 12px; border-radius: 2px; }
 
         .memo-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; }
         .memo-list-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s; }
         .memo-list-item:hover { background: rgba(255,255,255,0.03); }
         .memo-list-item.active { background: rgba(59,130,246,0.08); border-left: 3px solid var(--accent); }
-        .memo-title-item { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
-        .memo-meta    { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .memo-snippet { font-size: 12px; color: var(--text-dim); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .memo-title-item { font-size: var(--font-size-13); font-weight: 600; margin-bottom: 3px; }
+        .memo-meta    { font-size: var(--font-size-12); color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .memo-snippet { font-size: var(--font-size-12); color: var(--text-dim); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .memo-preview { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
-        .memo-field       { display: flex; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+        .memo-field       { display: flex; gap: 8px; margin-bottom: 8px; font-size: var(--font-size-13); }
         .memo-field-label { color: var(--text-muted); width: 50px; flex-shrink: 0; }
         .memo-field-val   { color: var(--text); font-weight: 500; }
         .memo-actions     { display: flex; gap: 10px; margin-top: 16px; }
         .memo-stats-bar   { padding: 14px 16px; border-top: 1px solid var(--border); display: flex; gap: 16px; }
-        .memo-stat-val    { font-size: 24px; font-weight: 700; }
-        .memo-stat-label  { font-size: 12px; color: var(--text-muted); }
+        .memo-stat-val    { font-size: var(--font-size-24); font-weight: 700; }
+        .memo-stat-label  { font-size: var(--font-size-12); color: var(--text-muted); }
 
         .settings-section { margin-bottom: 24px; }
-        .settings-section-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .settings-section-title { font-size: var(--font-size-16); font-weight: 700; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
         .settings-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
         .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .settings-row:last-child { border-bottom: none; }
-        .settings-label { font-size: 13px; font-weight: 600; }
-        .settings-hint  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .settings-label { font-size: var(--font-size-13); font-weight: 600; }
+        .settings-hint  { font-size: var(--font-size-12); color: var(--text-muted); margin-top: 2px; }
         .settings-history { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 14px; }
-        .settings-history-empty { color: var(--text-dim); font-size: 12px; margin-top: 10px; }
-        .settings-history-item { color: var(--text-muted); font-size: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .settings-history-empty { color: var(--text-dim); font-size: var(--font-size-12); margin-top: 10px; }
+        .settings-history-item { color: var(--text-muted); font-size: var(--font-size-12); padding: 8px 0; border-bottom: 1px solid var(--border); }
         .settings-hint a { color: var(--accent); text-decoration: none; }
         .settings-input-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .settings-input-row:last-child { border-bottom: none; }
-        .settings-input-label { font-size: 13px; color: var(--text-muted); width: 120px; flex-shrink: 0; }
+        .settings-input-label { font-size: var(--font-size-13); color: var(--text-muted); width: 120px; flex-shrink: 0; }
         .settings-save { display: flex; justify-content: flex-end; margin-top: 16px; }
         /* UX-028: one bar for the page, not a button inside one card. It
            sticks to the bottom so it is reachable from any card without
            scrolling back to General. */
         .settings-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 20px; background: var(--card-bg); border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 -6px 18px var(--overlay-lg); z-index: 5; }
-        .settings-savebar-count { font-size: 13px; font-weight: 700; }
+        .settings-savebar-count { font-size: var(--font-size-13); font-weight: 700; }
         .settings-savebar-actions { margin-left: auto; display: flex; gap: 8px; }
         /* A setting the system does not act on is a sentence, not a control. */
-        .settings-readonly { font-size: 13px; color: var(--text-muted); max-width: 42ch; text-align: right; }
-        .settings-note { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+        .settings-readonly { font-size: var(--font-size-13); color: var(--text-muted); max-width: 42ch; text-align: right; }
+        .settings-note { font-size: var(--font-size-13); color: var(--text-muted); line-height: 1.5; }
 
         .toggle { width: 44px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
         .toggle.on  { background: var(--accent); }
@@ -546,13 +546,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-overlay.open { display: flex; }
         .modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 440px; max-height: 90vh; overflow-y: auto; }
-        .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+        .modal-title { font-size: var(--font-size-16); font-weight: 700; margin-bottom: 16px; }
         .form-row   { margin-bottom: 14px; }
-        .form-label { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: block; }
+        .form-label { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: 5px; display: block; }
         .form-input { width: 100%; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
-        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 2000; animation: slideUp .3s ease; }
+        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: var(--font-size-13); font-weight: 600; z-index: 2000; animation: slideUp .3s ease; }
         .toast.success { background: var(--green); color: var(--on-accent); }
         .toast.error   { background: var(--red); color: var(--on-accent); }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -592,8 +592,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .cal-toolbar > * { max-width: 100%; }
           .cal-grid { min-width: 0; }
           .cal-cell { min-height: 64px; padding: 5px; }
-          .cal-head { padding: 7px 2px; font-size: 12px; }
-          .cal-event { padding: 2px 3px; font-size: 12px; }
+          .cal-head { padding: 7px 2px; font-size: var(--font-size-12); }
+          .cal-event { padding: 2px 3px; font-size: var(--font-size-12); }
           .modal { padding: 18px; }
         }
       `}</style>
@@ -645,13 +645,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left' }}
             >
             <Avatar className="nav-avatar" src={photoUrl} name={userData?.name || 'Admin User'} size={36} style={{ display: 'flex', visibility: 'visible' }} />
-            {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin User'}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Administrator</div></div>}
+            {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 'var(--font-size-13)', fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin User'}</div><div style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-muted)' }}>Administrator</div></div>}
             {!sidebarCollapsed && <ChevronRight size={15} style={{ marginLeft: 'auto', color: 'var(--text-muted)', transform: profileOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />}
             </button>
             {profileOpen && !sidebarCollapsed && (
               <button
                 onClick={() => leaveSettings(() => { setPage('profile'); setProfileOpen(false); })}
-                style={{ width: '100%', marginTop: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8, color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 13, fontWeight: 600 }}
+                style={{ width: '100%', marginTop: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8, color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 'var(--font-size-13)', fontWeight: 600 }}
               >
                 <Settings size={15} />
                 <span>Profile Settings</span>
@@ -770,10 +770,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               <AlertTriangle size={26} color="var(--red)" />
             </div>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'var(--font-size-13)', color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.6 }}>
             {deleteConfirm?.message || 'This user will be moved to the archive and removed from the active user list:'}
           </p>
-          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+          <p style={{ fontSize: 'var(--font-size-14)', fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
             {deleteConfirm?.label}
           </p>
           {deleteConfirm?.role && (
@@ -782,7 +782,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             </span>
           )}
           {deleteConfirm?.warning !== null && (
-            <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 10, marginBottom: 20 }}>
+            <p style={{ fontSize: 'var(--font-size-12)', color: 'var(--red)', marginTop: 10, marginBottom: 20 }}>
               {deleteConfirm?.warning || 'The account will not be permanently deleted.'}
             </p>
           )}

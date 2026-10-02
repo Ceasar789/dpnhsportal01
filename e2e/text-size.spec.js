@@ -8,9 +8,15 @@
 // The floor asserted here is 11px, not 12px, and that is deliberate. WCAG
 // sets no minimum font size; 12px is a convention. The 9px and 10px text was
 // raised because it was genuinely hard to read — a 9px unread count is about
-// half the height of body text — but 44 remaining call sites at 11px are a
+// half the height of body text — but the remaining call sites at 11px are a
 // visual decision for whoever owns the design, not an accessibility failure
-// to fix unilaterally. If those are raised later, raise this floor with them.
+// to fix unilaterally.
+//
+// The ADMIN dashboard is already at 12: Phase 4c put its type on the
+// --font-size-* scale and rounded its 19 eleven-pixel call sites up.
+// e2e/admin.spec.js asserts that floor separately. This file covers the
+// public pages and the student and teacher dashboards, which the overhaul
+// has not reached — the two floors converge when it does.
 import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { login, STUDENT, TEACHER, STUDENT_LOGIN, STAFF_LOGIN } from './helpers.js';

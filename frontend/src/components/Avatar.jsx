@@ -7,7 +7,11 @@
 import { useState, useEffect } from 'react';
 import { initials, avatarColor } from '../pages/dashboards/admin/shared/helpers';
 
-const Avatar = ({ src, name = 'User', size = 36, bg, color = '#ffffff', className = '', style = {}, ...rest }) => {
+// fontSize is opt-in. Left unset, the initials scale with the circle
+// exactly as they always have, so every existing caller is untouched. The
+// admin dashboard passes it because Phase 4c put a 12px floor under that
+// dashboard's type and a 34px circle lands on 11.
+const Avatar = ({ src, name = 'User', size = 36, bg, color = '#ffffff', fontSize, className = '', style = {}, ...rest }) => {
   const [failed, setFailed] = useState(false);
 
   // Reset the broken-image flag whenever a new src comes in (e.g. the
@@ -35,7 +39,7 @@ const Avatar = ({ src, name = 'User', size = 36, bg, color = '#ffffff', classNam
         height: size,
         background: bg || avatarColor(name),
         color,
-        fontSize: Math.max(10, Math.round(size * 0.32)),
+        fontSize: fontSize ?? Math.max(10, Math.round(size * 0.32)),
         ...style,
       }}
       {...rest}

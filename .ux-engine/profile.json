@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-01T05:25:11.722Z",
+  "generatedAt": "2026-10-02T16:40:35.982Z",
   "derivedFrom": [
     {
       "path": "frontend/package.json",
@@ -8,7 +8,7 @@
     },
     {
       "path": "frontend/src/styles/index.css",
-      "sha256": "f1884a959f063c55d467075f538f83499c1f31763927c6b144fc0c0b00d1aaa4"
+      "sha256": "fe6686f3beea4d35c9f75eef8748b85d93937434df72ff1dc8df2df0398962aa"
     },
     {
       "path": "package.json",
@@ -92,14 +92,47 @@
       "--nav-link-active-color": "#1a2b4a",
       "--nav-link-hover-bg": "#f1f5f9"
     },
-    "spacing": {},
-    "sizing": {},
-    "radius": {},
-    "type": {},
+    "spacing": {
+      "--space-2": "2px",
+      "--space-4": "4px",
+      "--space-8": "8px",
+      "--space-12": "12px",
+      "--space-16": "16px",
+      "--space-24": "24px",
+      "--space-32": "32px",
+      "--space-48": "48px"
+    },
+    "sizing": {
+      "--icon-size-16": "16px",
+      "--icon-size-20": "20px",
+      "--avatar-size-24": "24px",
+      "--avatar-size-32": "32px",
+      "--avatar-size-48": "48px"
+    },
+    "radius": {
+      "--radius-xs": "4px",
+      "--radius-sm": "6px",
+      "--radius-md": "8px",
+      "--radius-lg": "12px",
+      "--radius-full": "9999px"
+    },
+    "type": {
+      "--font-size-12": "12px",
+      "--font-size-13": "13px",
+      "--font-size-14": "14px",
+      "--font-size-16": "16px",
+      "--font-size-20": "20px",
+      "--font-size-24": "24px"
+    },
     "shadow": {
       "--nav-shadow": "0 1px 3px rgba(0,0,0,0.08)"
     },
-    "motion": {},
+    "motion": {
+      "--motion-fast": "80ms",
+      "--motion-base": "150ms",
+      "--ease-out": "cubic-bezier(0.16, 1, 0.3, 1)",
+      "--motion-spin": "700ms"
+    },
     "other": {}
   },
   "conventions": {

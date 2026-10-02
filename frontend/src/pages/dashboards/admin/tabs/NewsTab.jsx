@@ -4,11 +4,12 @@
 // Includes the NEWS MODAL, which only this tab opens.
 // ============================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Archive, ArchiveRestore, Search } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import { TARGET_ROLES } from '../shared/helpers';
+import Button from '../../../../components/ui/Button';
 
 const NewsTab = () => {
   const {
@@ -20,6 +21,16 @@ const NewsTab = () => {
   } = useAdminContext();
 
   const isExpired = (n) => !!n.expires_at && new Date(n.expires_at) < new Date();
+
+  // UX-052: Archive, Publish and Restore each run a status mutation while
+  // the card renders exactly as it did before, so a change in flight looks
+  // like a press that did nothing. One id at a time is enough — these are
+  // single-card actions, and the id is what tells the other cards apart.
+  const [statusBusy, setStatusBusy] = useState(null);
+  const changeStatus = async (id, status) => {
+    setStatusBusy(id);
+    try { await updateNewsStatus(id, status); } finally { setStatusBusy(null); }
+  };
 
   return (
     <>
@@ -66,19 +77,19 @@ const NewsTab = () => {
                           {n.status === 'Published' && (
                             <>
                               <button className="news-action blue" aria-label={`View ${n.title}`} onClick={() => openEditNews(n)}>View</button>
-                              <button className="news-action archive-news-action" aria-label={`Archive ${n.title}`} onClick={() => updateNewsStatus(n.id,'Archived')}><Archive size={14} /> Archive</button>
+                              <button className="news-action archive-news-action" aria-label={`Archive ${n.title}`} aria-busy={statusBusy === n.id || undefined} onClick={() => changeStatus(n.id,'Archived')}><Archive size={14} /> {statusBusy === n.id ? 'Archiving…' : 'Archive'}</button>
                             </>
                           )}
                           {n.status === 'Draft' && (
                             <>
                               <button className="news-action" aria-label={`Edit ${n.title}`} onClick={() => openEditNews(n)}>Edit</button>
-                              <button className="news-action green" aria-label={`Publish ${n.title}`} onClick={() => updateNewsStatus(n.id,'Published')}>Publish</button>
+                              <button className="news-action green" aria-label={`Publish ${n.title}`} aria-busy={statusBusy === n.id || undefined} onClick={() => changeStatus(n.id,'Published')}>{statusBusy === n.id ? 'Publishing…' : 'Publish'}</button>
                               <button className="news-action blue" style={{ marginLeft:'auto' }} aria-label={`Preview ${n.title}`} onClick={() => openEditNews(n)}>Preview</button>
                             </>
                           )}
                           {n.status === 'Archived' && (
                             <>
-                                                            <button className="news-action green archive-news-action" aria-label={`Restore ${n.title}`} onClick={() => updateNewsStatus(n.id,'Published')}><ArchiveRestore size={14} /> Restore</button>
+                                                            <button className="news-action green archive-news-action" aria-label={`Restore ${n.title}`} aria-busy={statusBusy === n.id || undefined} onClick={() => changeStatus(n.id,'Published')}><ArchiveRestore size={14} /> {statusBusy === n.id ? 'Restoring…' : 'Restore'}</button>
                             </>
                           )}
                           <button className="news-action red" style={{ marginLeft: n.status === 'Draft' ? 0 : 'auto' }} aria-label={`Delete ${n.title}`} onClick={() => deleteNewsItem(n.id)}>Delete</button>
@@ -101,11 +112,10 @@ const NewsTab = () => {
         onClose={closeModal}
         footer={(requestClose) => (
           <>
-            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={newsReadOnly ? saveNewsExpiry : saveNews} disabled={nSaving}>
-              {nSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+            <Button onClick={newsReadOnly ? saveNewsExpiry : saveNews} busy={nSaving}>
               {newsReadOnly ? 'Save Expiry' : editNews ? 'Update' : 'Publish'}
-            </button>
+            </Button>
           </>
         )}
       >

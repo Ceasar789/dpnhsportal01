@@ -43,6 +43,7 @@ import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS, normalizeGradeLevel, canTeachSection } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
+import Button from '../../../../components/ui/Button';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -269,8 +270,8 @@ const SchedulesTab = () => {
           onClose={dismiss}
           footer={(requestClose) => (
             <>
-              <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-              <button className="btn btn-primary" onClick={create} disabled={schedSaving}>Create</button>
+              <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+              <Button onClick={create} busy={schedSaving} busyLabel="Creating…">Create</Button>
             </>
           )}
         >

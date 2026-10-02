@@ -5,7 +5,7 @@
 // already ~1030 lines and covers users, news, calendar, memos and settings.
 // ============================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { canTeachSection, currentSchoolYear } from '../../../lib/academicRules';
@@ -22,6 +22,11 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const [sCode, setSCode] = useState('');
   const [sActive, setSActive] = useState(true);
   const [sSaving, setSSaving] = useState(false);
+  // Rule B2 took the disabled attribute off the save buttons, so the second
+  // half of a double click now reaches the handler. A ref is what stops it:
+  // it is set synchronously, where a state flag would not update until the
+  // next render and both clicks would get through.
+  const savingSubjectRef = useRef(false);
 
   const fetchSubjects = useCallback(async () => {
     const { data, error } = await withRetry(
@@ -64,6 +69,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     const code = sCode.trim().toUpperCase();
     if (!name) return showToast('Subject name is required', 'error');
     if (!code) return showToast('Subject code is required', 'error');
+    if (savingSubjectRef.current) return;   // the second of a double click
+    savingSubjectRef.current = true;
 
     setSSaving(true);
     const payload = { name, code, is_active: sActive, updated_at: new Date().toISOString() };
@@ -73,6 +80,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       : await supabase.from('subjects').insert([payload]);
 
     setSSaving(false);
+    savingSubjectRef.current = false;
     if (error) return showToast(`Could not save subject: ${error.message}`, 'error');
 
     showToast(editingSubject ? 'Subject updated' : 'Subject created');
@@ -273,6 +281,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const [secAdviser, setSecAdviser] = useState('');
   const [secCapacity, setSecCapacity] = useState('40');
   const [secSaving, setSecSaving] = useState(false);
+  const savingSectionRef = useRef(false);
 
   const fetchSections = useCallback(async () => {
     const { data, error } = await withRetry(
@@ -311,6 +320,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     const name = secName.trim();
     if (!name) return showToast('Section name is required', 'error');
     if (!secGrade) return showToast('Grade level is required', 'error');
+    if (savingSectionRef.current) return;   // the second of a double click
+    savingSectionRef.current = true;
 
     setSecSaving(true);
     const payload = {
@@ -327,6 +338,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       : await supabase.from('sections').insert([payload]);
 
     setSecSaving(false);
+    savingSectionRef.current = false;
     if (error) {
       return showToast(
         error.code === '23505'
@@ -477,6 +489,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const [schedEnd, setSchedEnd] = useState('09:00');
   const [schedRoom, setSchedRoom] = useState('');
   const [schedSaving, setSchedSaving] = useState(false);
+  const savingScheduleRef = useRef(false);
 
   const fetchSchedules = useCallback(async () => {
     const { data, error } = await withRetry(
@@ -522,6 +535,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     const verdict = canTeachSection(teacherLoad, schedSubject, section);
     if (!verdict.ok) return showToast(verdict.reason, 'error');
 
+    if (savingScheduleRef.current) return;   // the second of a double click
+    savingScheduleRef.current = true;
     setSchedSaving(true);
     const { error } = await supabase.from('schedules').insert([{
       section_id: schedSection,
@@ -534,6 +549,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       school_year: schoolYear,
     }]);
     setSchedSaving(false);
+    savingScheduleRef.current = false;
 
     if (error) return showToast(`Could not save schedule: ${error.message}`, 'error');
     showToast('Schedule created');

@@ -465,6 +465,11 @@ export const useAdminLogic = (userData) => {
   const [nExpiresDate, setNExpiresDate] = useState('');
   const [newsReadOnly, setNewsReadOnly] = useState(false);
   const [nSaving,  setNSaving]      = useState(false);
+  // Rule B2 took the disabled attribute off the save buttons, so the second
+  // half of a double click now reaches the handler. A ref is what stops it:
+  // it is set synchronously, where a state flag would not update until the
+  // next render and both clicks would get through.
+  const savingNewsRef = useRef(false);
 
   const fetchNews = useCallback(async () => {
     setNL(true);
@@ -542,6 +547,8 @@ export const useAdminLogic = (userData) => {
     if (newsReadOnly) return showToast('Published news is locked and cannot be edited.', 'error');
     if (!nTitle.trim()) return showToast('Title required', 'error');
     if (nTarget === 'custom' && !nCustomTarget.trim()) return showToast('Custom audience required', 'error');
+    if (savingNewsRef.current) return;   // the second of a double click
+    savingNewsRef.current = true;
     setNSaving(true);
     try {
       let featuredImageUrl = nImageUrl || null;
@@ -590,7 +597,7 @@ export const useAdminLogic = (userData) => {
       closeModal();
     } catch (e) {
       showToast(e.message || 'Error', 'error');
-    } finally { setNSaving(false); }
+    } finally { savingNewsRef.current = false; setNSaving(false); }
   };
 
   // A published post's content is locked (see newsReadOnly in openEditNews)
@@ -603,6 +610,8 @@ export const useAdminLogic = (userData) => {
   // re-saving a published post's expiry must not re-notify its audience.
   const saveNewsExpiry = async () => {
     if (!editNews) return;
+    if (savingNewsRef.current) return;   // the second of a double click
+    savingNewsRef.current = true;
     setNSaving(true);
     try {
       const expires_at = nExpiresDate ? combineDateAndTime(nExpiresDate, DEFAULT_DUE_TIME) : null;
@@ -617,7 +626,7 @@ export const useAdminLogic = (userData) => {
       closeModal();
     } catch (e) {
       showToast(e.message || 'Error updating expiry', 'error');
-    } finally { setNSaving(false); }
+    } finally { savingNewsRef.current = false; setNSaving(false); }
   };
 
   const updateNewsStatus = async (id, status) => {
@@ -680,6 +689,7 @@ export const useAdminLogic = (userData) => {
   const [evCustomType, setEvCustomType] = useState('');
   const [evDesc,  setEvDesc]    = useState('');
   const [evSaving, setEvSaving] = useState(false);
+  const savingEventRef = useRef(false);
 
   const fetchCalEvents = useCallback(async () => {
     setCalLoading(true);
@@ -713,6 +723,8 @@ export const useAdminLogic = (userData) => {
   const saveEvent = async () => {
     if (!evTitle.trim() || !evDate) return showToast('Title and date required', 'error');
     if (evType === 'Custom Type' && !evCustomType.trim()) return showToast('Custom event type required', 'error');
+    if (savingEventRef.current) return;   // the second of a double click
+    savingEventRef.current = true;
     setEvSaving(true);
     try {
       const payload = {
@@ -737,7 +749,7 @@ export const useAdminLogic = (userData) => {
       closeModal();
     } catch (e) {
       showToast(e.message || 'Error', 'error');
-    } finally { setEvSaving(false); }
+    } finally { savingEventRef.current = false; setEvSaving(false); }
   };
 
   const deleteEvent = async (id) => {
@@ -783,6 +795,7 @@ export const useAdminLogic = (userData) => {
   const [mSubj,   setMSubj]       = useState('');
   const [mBody,   setMBody]       = useState('');
   const [mSaving, setMSaving]     = useState(false);
+  const savingMemoRef = useRef(false);
   const [memoSearch, setMemoSearch] = useState(''); // NEW: search
   const [memoFilter, setMemoFilter] = useState(''); // NEW: filter
 
@@ -812,6 +825,8 @@ export const useAdminLogic = (userData) => {
 
   const saveMemo = async () => {
     if (!mSubj.trim()) return showToast('Subject required', 'error');
+    if (savingMemoRef.current) return;   // the second of a double click
+    savingMemoRef.current = true;
     setMSaving(true);
     try {
       const payload = {
@@ -834,7 +849,7 @@ export const useAdminLogic = (userData) => {
       closeModal();
     } catch (e) {
       showToast(e.message || 'Error', 'error');
-    } finally { setMSaving(false); }
+    } finally { savingMemoRef.current = false; setMSaving(false); }
   };
 
   const deleteMemo = async (id) => {

@@ -10,6 +10,7 @@ import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
+import Button from '../../../../components/ui/Button';
 
 const SectionsTab = () => {
   const {
@@ -20,9 +21,13 @@ const SectionsTab = () => {
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
     activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
+    showToast,
   } = useAdminContext();
 
   const [pick, setPick] = useState('');
+  // UX-052: adding a student is two round trips. Without this the press
+  // produces no visible change at all until the roster reloads.
+  const [adding, setAdding] = useState(false);
   const adviserName = (id) => teachers.find(t => t.id === id)?.name || '—';
   const closeSectionOverlay = (e) => { if (e.target === e.currentTarget) closeSectionModal(); };
   const closeClassListOverlay = (e) => { if (e.target === e.currentTarget) closeClassList(); };
@@ -82,10 +87,10 @@ const SectionsTab = () => {
           onClose={closeSectionModal}
           footer={(requestClose) => (
             <>
-              <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveSection} disabled={secSaving}>
+              <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+              <Button onClick={saveSection} busy={secSaving} busyLabel={editingSection ? 'Updating…' : 'Creating…'}>
                 {editingSection ? 'Update' : 'Create'}
-              </button>
+              </Button>
             </>
           )}
         >
@@ -135,10 +140,21 @@ const SectionsTab = () => {
                 <option value="">Add a student…</option>
                 {unassignedStudents.map(s => <option key={s.id} value={s.id}>{s.name || s.email}</option>)}
               </select>
-              <button className="btn btn-primary" disabled={!pick} onClick={async () => {
-                await addStudentToSection(pick);
-                setPick('');
-              }}>Add</button>
+              {/* Rule B1: not disabled on an empty choice. A disabled button
+                  leaves the tab order and cannot say why it is unavailable,
+                  so the check runs on press and answers in words. */}
+              <Button
+                busy={adding}
+                busyLabel="Adding…"
+                onClick={async () => {
+                  if (!pick) return showToast('Choose a student to add', 'error');
+                  setAdding(true);
+                  try {
+                    await addStudentToSection(pick);
+                    setPick('');
+                  } finally { setAdding(false); }
+                }}
+              >Add</Button>
             </div>
 
             <div className="table-card"><table>

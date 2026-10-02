@@ -41,13 +41,14 @@
 //    have to be entered at different grades or by hand.
 // ============================================
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Plus, X, Copy, Search, ArrowRight } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
+import Button from '../../../../components/ui/Button';
 
 // Case-insensitive match across every field an admin might type: the name,
 // the email (which for the seeded accounts encodes subject and grade) and
@@ -78,6 +79,12 @@ const TeachingLoadTab = () => {
   // [{ teacher_id, grade_level, subject_id }]. Nothing here has been written.
   const [staged, setStaged] = useState([]);
   const [saving, setSaving] = useState(false);
+  // Rule B2: Assign is no longer disabled while the write is in flight, so
+  // the ref is what stops the second half of a double click from writing
+  // the same staged entries twice.
+  const savingRef = useRef(false);
+  // UX-052: the copy is two round trips and rendered identically to idle.
+  const [copying, setCopying] = useState(false);
   // Set by pressing Add to list. Nothing is marked red until then — a form
   // that is red before it has been touched reads as broken, not incomplete.
   const [tried, setTried] = useState(false);
@@ -160,9 +167,12 @@ const TeachingLoadTab = () => {
   };
 
   const assignAll = async () => {
+    if (savingRef.current) return;   // the second of a double click
+    savingRef.current = true;
     setSaving(true);
     const written = await addLoadEntries(staged);
     setSaving(false);
+    savingRef.current = false;
     // Cleared only on a write that actually happened. addLoadEntries returns
     // null on failure, and emptying the draft then would destroy work the
     // admin would have to rebuild before they could retry.
@@ -209,10 +219,18 @@ const TeachingLoadTab = () => {
         <input className="form-input" style={{ width: 140, flex: 'none' }} value={schoolYear}
           onChange={e => setSchoolYear(e.target.value)} placeholder="2025-2026" />
         {prevYear && (
-          <button className="btn btn-ghost" onClick={() => copyLoadFromYear(prevYear)}>
+          <Button
+            variant="ghost"
+            busy={copying}
+            busyLabel={`Copying from ${prevYear}…`}
+            onClick={async () => {
+              setCopying(true);
+              try { await copyLoadFromYear(prevYear); } finally { setCopying(false); }
+            }}
+          >
             <Copy size={15} style={{ marginRight: 6 }} />
             Copy from {prevYear}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -337,10 +355,10 @@ const TeachingLoadTab = () => {
               <button className="btn btn-ghost btn-sm" onClick={() => setStaged([])} disabled={saving}>
                 Discard
               </button>
-              <button className="btn btn-primary" onClick={assignAll} disabled={saving}>
+              <Button onClick={assignAll} busy={saving} busyLabel="Assigning…">
                 <ArrowRight size={15} />
-                {saving ? 'Assigning…' : `Assign ${staged.length} entr${staged.length === 1 ? 'y' : 'ies'}`}
-              </button>
+                {`Assign ${staged.length} entr${staged.length === 1 ? 'y' : 'ies'}`}
+              </Button>
             </div>
           </div>
 

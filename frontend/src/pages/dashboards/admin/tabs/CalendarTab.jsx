@@ -10,6 +10,7 @@ import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { MONTHS, EVENT_TYPES } from '../shared/helpers';
+import Button from '../../../../components/ui/Button';
 
 const CalendarTab = () => {
   const {
@@ -114,11 +115,10 @@ const CalendarTab = () => {
         onClose={closeModal}
         footer={(requestClose) => (
           <>
-            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveEvent} disabled={evSaving}>
-              {evSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+            <Button onClick={saveEvent} busy={evSaving} busyLabel={editEvent ? 'Updating…' : 'Adding…'}>
               {editEvent ? 'Update' : 'Add Event'}
-            </button>
+            </Button>
           </>
         )}
       >

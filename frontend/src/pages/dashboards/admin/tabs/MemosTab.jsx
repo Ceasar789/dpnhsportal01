@@ -8,6 +8,7 @@ import React from 'react';
 import { Search } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
+import Button from '../../../../components/ui/Button';
 
 const MemosTab = () => {
   const {
@@ -107,11 +108,10 @@ const MemosTab = () => {
         onClose={closeModal}
         footer={(requestClose) => (
           <>
-            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveMemo} disabled={mSaving}>
-              {mSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
+            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+            <Button onClick={saveMemo} busy={mSaving} busyLabel={editMemo ? 'Updating…' : 'Sending…'}>
               {editMemo ? 'Update' : 'Send'}
-            </button>
+            </Button>
           </>
         )}
       >

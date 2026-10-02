@@ -7,6 +7,7 @@ import React from 'react';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { useAdminContext } from '../AdminContext';
+import Button from '../../../../components/ui/Button';
 
 const SubjectsTab = () => {
   const {
@@ -70,10 +71,10 @@ const SubjectsTab = () => {
           onClose={closeSubjectModal}
           footer={(requestClose) => (
             <>
-              <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveSubject} disabled={sSaving}>
+              <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+              <Button onClick={saveSubject} busy={sSaving} busyLabel={editingSubject ? 'Updating…' : 'Creating…'}>
                 {editingSubject ? 'Update' : 'Create'}
-              </button>
+              </Button>
             </>
           )}
         >

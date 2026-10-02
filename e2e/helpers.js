@@ -112,12 +112,15 @@ export async function openAdminTab(page, label) {
     await expect.poll(onScreen, { message: 'the drawer never slid in' }).toBe(true);
   }
 
-  // force, because .sidebar-item carries `transition: all .3s ease`
-  // (AdminDashboard.jsx:220) and the active entry's padding and left border
-  // both change — so Playwright's stability check waits out its own timeout
-  // on an element that is only animating its own appearance. Rule L5 caps
-  // transitions at 150ms and bans `all`; when Phase 5 applies it, this
-  // force can come out.
-  await item.click({ force: true });
+  // The `force: true` that used to be here is gone. It existed because
+  // .sidebar-item carried `transition: all .3s ease` and the active entry
+  // animates its own padding and left border, so Playwright's stability
+  // check waited out its own timeout on an element that was only changing
+  // its appearance. Phase 4f halved that to 150ms — measured, not assumed:
+  // getComputedStyle reports 0.15s — and the click now lands on its own.
+  //
+  // `transition: all` is still there; banning the keyword is Phase 5.
+  // Half the removal condition turned out to be enough.
+  await item.click();
   await page.waitForLoadState('networkidle');
 }

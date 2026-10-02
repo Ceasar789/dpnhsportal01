@@ -45,7 +45,7 @@ const AdminDashboard = () => {
         <div style={{
           width: 40, height: 40, border: '3px solid var(--gate-border)',
           borderTopColor: 'var(--gate-action)', borderRadius: '50%',
-          animation: 'spin .7s linear infinite'
+          animation: 'spin var(--motion-spin) linear infinite'
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <span style={{ color: 'var(--gate-muted)', fontSize: 'var(--font-size-14)' }}>Loading session…</span>
@@ -177,7 +177,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           color: rgba(255,255,255,.72);
           font-size: var(--font-size-13); font-weight: 600;
           letter-spacing: 0.03em;
-          transition: all .15s;
+          transition: all var(--motion-base);
           border: none; background: none;
           border-radius: var(--radius-sm);
           position: relative;
@@ -199,14 +199,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           width: 40px; height: 40px; border-radius: 50%;
           border: none; background: rgba(255,255,255,.12); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          color: #ffffff; transition: background .15s;
+          color: #ffffff; transition: background var(--motion-base);
         }
         .nav-search-btn:hover { background: rgba(255,255,255,.22); }
         .nav-toggle-btn {
           width: 40px; height: 40px; border-radius: 50%;
           border: none; background: rgba(255,255,255,.12); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          color: #ffffff; transition: all .2s;
+          color: #ffffff; transition: all var(--motion-base);
         }
         .nav-toggle-btn:hover { background: rgba(255,255,255,.22); }
         .nav-avatar {
@@ -223,26 +223,26 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           border: 1px solid rgba(255,255,255,.3);
           background: transparent; cursor: pointer;
           color: rgba(255,255,255,.85); font-size: var(--font-size-13); font-weight: 600;
-          transition: all .15s;
+          transition: all var(--motion-base);
         }
         .nav-logout-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
 
         .layout { display: flex; flex: 1; min-height: calc(100vh - 76px); }
-        .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 var(--space-12) var(--space-16); flex-shrink: 0; display: flex; flex-direction: column; transition: width .3s ease, transform .3s ease; position: relative; }
+        .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 var(--space-12) var(--space-16); flex-shrink: 0; display: flex; flex-direction: column; transition: width var(--motion-base) ease, transform var(--motion-base) ease; position: relative; }
         .sidebar.collapsed { width: 80px; }
         .sidebar-user { min-height: 76px; padding: var(--space-24) var(--space-8); border-bottom: 1px solid var(--border); display: flex !important; align-items: center; gap: var(--space-12); margin-bottom: 0; visibility: visible; }
         .admin-profile-row { min-height: 76px; width: 100%; display: flex !important; align-items: center; visibility: visible; }
         .sidebar.collapsed .sidebar-user { justify-content: center; }
-        .sidebar-item { padding: var(--space-12) var(--space-12); margin-bottom: var(--space-4); border-radius: var(--radius-lg); cursor: pointer; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; transition: all .3s ease; display: flex; align-items: center; gap: var(--space-12); border-left: 3px solid transparent; }
+        .sidebar-item { padding: var(--space-12) var(--space-12); margin-bottom: var(--space-4); border-radius: var(--radius-lg); cursor: pointer; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; transition: all var(--motion-base) ease; display: flex; align-items: center; gap: var(--space-12); border-left: 3px solid transparent; }
         .sidebar-user + .sidebar-item { margin-top: var(--space-16); }
         .sidebar.collapsed .sidebar-item { justify-content: center; padding-left: var(--space-8); padding-right: var(--space-8); }
-        .sidebar-icon { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .3s ease; }
+        .sidebar-icon { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all var(--motion-base) ease; }
         .sidebar-item:not(.active) .sidebar-icon { border: 1px solid var(--border); }
         .sidebar-item.active .sidebar-icon { background: #ffffff; box-shadow: 0 2px 6px var(--overlay-accent-glow); }
         .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
         .sidebar-item.active { color: var(--accent); background: #eef0f5; border-left-color: transparent; }
         .sidebar-section { padding: var(--space-16) var(--space-12) var(--space-8); font-size: var(--font-size-12); text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
-        .sidebar-sub { padding: var(--space-8) var(--space-24) var(--space-8) var(--space-32); cursor: pointer; color: var(--text-dim); font-size: var(--font-size-12); transition: all .15s; }
+        .sidebar-sub { padding: var(--space-8) var(--space-24) var(--space-8) var(--space-32); cursor: pointer; color: var(--text-dim); font-size: var(--font-size-12); transition: all var(--motion-base); }
         .sidebar-sub:hover { color: var(--text-muted); }
         .sidebar-sub.active { color: var(--accent); }
         .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px var(--overlay-sm); }
@@ -254,12 +254,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .page-header-bar { border-radius: var(--radius-lg); padding: var(--space-16) var(--space-16); margin-bottom: var(--space-24); background: var(--banner-bg); border: 1px solid var(--banner-border); }
         .page-header-bar .page-title { color: var(--banner-text); }
         .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }
-        .btn { padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: var(--space-8); }
+        .btn { padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: all var(--motion-base); display: inline-flex; align-items: center; gap: var(--space-8); }
         .btn-primary { background: var(--accent); color: var(--on-accent); }
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
         .btn-danger { background: transparent; color: var(--red); border: none; cursor: pointer; }
-        .icon-action { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; cursor: pointer; transition: transform .15s, background-color .15s, color .15s; }
+        .icon-action { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; cursor: pointer; transition: transform var(--motion-base), background-color var(--motion-base), color var(--motion-base); }
         .edit-action { color: var(--accent); }
         .edit-action:hover { background: rgba(99,102,241,.12); transform: scale(1.08); }
         .archive-action { color: var(--red); }
@@ -322,7 +322,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-dept { font-size: var(--font-size-12); color: var(--text-muted); white-space: nowrap; }
         .picker-empty { padding: var(--space-16) var(--space-12); text-align: center; font-size: var(--font-size-12); color: var(--text-muted); }
         .grade-tabs { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-16); border-bottom: 1px solid var(--border); padding-bottom: 0; }
-        .grade-tab { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border: 1px solid transparent; border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
+        .grade-tab { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border: 1px solid transparent; border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all var(--motion-base); }
         .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
         .grade-tab.active { color: var(--accent); background: var(--card-bg); border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
         .grade-tab-count { font-size: var(--font-size-12); font-weight: 700; min-width: 20px; text-align: center; padding: 1px var(--space-8); border-radius: var(--radius-full); color: #60a5fa; background: rgba(59,130,246,0.12); }
@@ -346,7 +346,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .form-with-action .form-input { flex: 1; }
 
         .section-picker { display: flex; gap: var(--space-8); flex-wrap: wrap; margin-bottom: var(--space-16); }
-        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-8) var(--space-16); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); cursor: pointer; transition: all .15s; }
+        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-8) var(--space-16); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); cursor: pointer; transition: all var(--motion-base); }
         .section-chip:hover { border-color: var(--accent); }
         .section-chip.active { border-color: var(--accent); background: rgba(99,102,241,.12); }
         .section-chip-name { font-size: var(--font-size-13); font-weight: 600; color: var(--text); }
@@ -366,7 +366,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
         .picker-warning { margin-top: var(--space-8); font-size: var(--font-size-12); line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: var(--radius-md); padding: var(--space-8) var(--space-12); }
         .grade-picker { display: flex; flex-wrap: wrap; gap: var(--space-8); align-items: center; }
-        .grade-toggle { padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: all .15s; }
+        .grade-toggle { padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: all var(--motion-base); }
         .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
         .grade-toggle.active { border-color: var(--accent); color: var(--on-accent); background: var(--accent); }
         /* The draft: entries staged but not yet written. Dashed border and
@@ -391,7 +391,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-16); margin-bottom: var(--space-24); }
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; height: 184px; }
-        .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform .15s, border-color .15s, box-shadow .15s; }
+        .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform var(--motion-base), border-color var(--motion-base), box-shadow var(--motion-base); }
         .clickable-stat:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px var(--overlay-md); }
         .clickable-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .stat-icon-block { height: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
@@ -407,7 +407,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .chart-sub   { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: var(--space-16); }
         .bars { display: flex; align-items: flex-end; gap: var(--space-8); height: 120px; }
         .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); flex: 1; }
-        .bar { background: var(--accent); border-radius: var(--radius-xs) var(--radius-xs) 0 0; width: 100%; transition: opacity .15s; }
+        .bar { background: var(--accent); border-radius: var(--radius-xs) var(--radius-xs) 0 0; width: 100%; transition: opacity var(--motion-base); }
         .bar:hover { opacity: .8; }
         .bar-label { font-size: var(--font-size-12); color: var(--text-dim); }
         .recent-item { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) 0; border-bottom: 1px solid var(--border); }
@@ -496,7 +496,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .legend-dot  { width: 12px; height: 12px; border-radius: var(--radius-xs); }
 
         .memo-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: var(--space-16); }
-        .memo-list-item { padding: var(--space-12) var(--space-16); cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s; }
+        .memo-list-item { padding: var(--space-12) var(--space-16); cursor: pointer; border-bottom: 1px solid var(--border); transition: background var(--motion-fast); }
         .memo-list-item:hover { background: rgba(255,255,255,0.03); }
         .memo-list-item.active { background: rgba(59,130,246,0.08); border-left: 3px solid var(--accent); }
         .memo-title-item { font-size: var(--font-size-13); font-weight: 600; margin-bottom: var(--space-4); }
@@ -536,10 +536,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .settings-readonly { font-size: var(--font-size-13); color: var(--text-muted); max-width: 42ch; text-align: right; }
         .settings-note { font-size: var(--font-size-13); color: var(--text-muted); line-height: 1.5; }
 
-        .toggle { width: 44px; height: 24px; border-radius: var(--radius-lg); position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
+        .toggle { width: 44px; height: 24px; border-radius: var(--radius-lg); position: relative; cursor: pointer; transition: background var(--motion-base); flex-shrink: 0; }
         .toggle.on  { background: var(--accent); }
         .toggle.off { background: var(--text-dim); }
-        .toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 3px; transition: left .2s; }
+        .toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 3px; transition: left var(--motion-base); }
         .toggle.on  .toggle-knob { left: 23px; }
         .toggle.off .toggle-knob { left: 3px; }
 
@@ -552,12 +552,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .form-input { width: 100%; }
         .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-12); margin-top: var(--space-24); }
 
-        .toast { position: fixed; bottom: 24px; right: 24px; padding: var(--space-12) var(--space-24); border-radius: var(--radius-md); font-size: var(--font-size-13); font-weight: 600; z-index: 2000; animation: slideUp .3s ease; }
+        .toast { position: fixed; bottom: 24px; right: 24px; padding: var(--space-12) var(--space-24); border-radius: var(--radius-md); font-size: var(--font-size-13); font-weight: 600; z-index: 2000; animation: slideUp var(--motion-base) ease; }
         .toast.success { background: var(--green); color: var(--on-accent); }
         .toast.error   { background: var(--red); color: var(--on-accent); }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        .spin { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+        .spin { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin var(--motion-spin) linear infinite; display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading-row { text-align: center; padding: var(--space-48); color: var(--text-muted); }
 
@@ -646,7 +646,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             >
             <Avatar className="nav-avatar" src={photoUrl} name={userData?.name || 'Admin User'} size={36} style={{ display: 'flex', visibility: 'visible' }} />
             {!sidebarCollapsed && <div style={{ minWidth: 0 }}><div style={{ fontSize: 'var(--font-size-13)', fontWeight: 700, color: 'var(--text)' }}>{userData?.name || 'Admin User'}</div><div style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-muted)' }}>Administrator</div></div>}
-            {!sidebarCollapsed && <ChevronRight size={15} style={{ marginLeft: 'auto', color: 'var(--text-muted)', transform: profileOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />}
+            {!sidebarCollapsed && <ChevronRight size={15} style={{ marginLeft: 'auto', color: 'var(--text-muted)', transform: profileOpen ? 'rotate(90deg)' : 'none', transition: 'transform var(--motion-base)' }} />}
             </button>
             {profileOpen && !sidebarCollapsed && (
               <button

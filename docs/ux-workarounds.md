@@ -43,22 +43,54 @@ non-deterministic — the same abort test passed on one run and hung on the
 next, which is why every UI test in `e2e/network-failure.spec.js` uses an
 HTTP 500 and the mechanism is proven in unit tests instead.
 
-The remedy is a **timeout** in `withRetry` — race `queryFn()` against a
-deadline and treat the deadline as an error. That changes behaviour for
-genuinely slow-but-working connections, so it is a decision rather than a
-repair. **Not done; needs a call on the deadline.**
+The obvious remedy is a **timeout** in `withRetry` — race `queryFn()` against
+a deadline and treat the deadline as an error. It was scoped, measured and
+then **dropped to stay inside the admin dashboard's scope**. No code was
+written; what follows is the analysis, so the next person does not have to
+redo it.
 
-**2. The teacher dashboard still swallows a failed read.** With
-`/rest/v1/worksheets` returning 500, WorksheetsTab renders "No worksheets
-found" — its empty state — with no message and no retry. That is UX-048 in
-a dashboard this overhaul has not reached. `e2e/network-failure.spec.js`
-asserts the current behaviour so the suite stays a signal; the assertion
-inverts when the teacher dashboard is done.
+**`withRetry` wraps reads only.** Every call site under `frontend/src`,
+excluding `archives/` and test files, was walked with a brace-matching parser
+that reads the whole balanced argument rather than a fixed line window:
 
-**Registrar and faculty are untested.** `e2e/helpers.js` has a student, a
-teacher and an admin. Their fetchers use the same `withRetry`, so the fix
-reaches them — but that is reasoning, not measurement. `E2E_REGISTRAR_*`
-and `E2E_FACULTY_*` in `.env` would close it.
+| | |
+|---|---|
+| call sites | 104 |
+| first supabase verb is `.select` | 103 |
+| no verb (the definition itself, `supabaseRetry.js:58`) | 1 |
+| `insert` / `update` / `delete` / `upsert` / `rpc` | **0** |
+| storage `.upload()` calls in the app | 4, **none** inside `withRetry` |
+
+So the two hardest parts of a timeout design have **no call sites to protect
+today**: there is no write to leave in doubt, and no upload to exempt. The
+four uploads — `useAdminLogic.jsx:550`, `LessonPlansTab.jsx:263`,
+`WorksheetsTab.jsx:164`, `ProfileTab.jsx:78` — call supabase storage
+directly.
+
+If it is picked up later, the shape that was agreed:
+
+- **Reads** — 15s deadline, then retry as normal.
+- **Writes** — 15s deadline, **no** automatic retry: the write may have
+  landed on the server and a retry would duplicate it. Report
+  "Couldn't confirm the save. Refresh to check."
+- **Uploads** — no deadline, or a far longer one, and cancel for real with
+  `AbortController` via supabase-js `.abortSignal()` rather than just
+  abandoning the wait.
+- Unit tests: a read timeout retries, a write timeout does not, an upload
+  running past 15s is not cut off.
+
+Until then the failure mode in note 1 above stands: an aborted query can
+hang the screen on its loading state, and nothing times it out.
+
+## Out of scope — logged, not fixed
+
+Found while working on the admin dashboard; none of it is admin code, so by
+standing instruction it is recorded here and left alone.
+
+| What | Where | Why it is parked |
+|---|---|---|
+| A failed read renders the empty state | `teacher/tabs/WorksheetsTab.jsx` | With `/rest/v1/worksheets` returning 500 the tab shows "No worksheets found" — no message, no retry. That is UX-048 in a dashboard this overhaul has not reached. `e2e/network-failure.spec.js` asserts the **current** behaviour so the suite stays a signal; invert that assertion when the teacher dashboard is done. |
+| Registrar and faculty have no e2e fixture | `e2e/helpers.js` | There is a student, a teacher and an admin. No registrar or faculty test account exists and none is being created now, so `E2E_REGISTRAR_*` / `E2E_FACULTY_*` stay unset. Their fetchers go through the same `withRetry`, so the UX-054 fix reaches them — but that is reasoning, not measurement, and it is written down here rather than claimed in a test name. |
 
 ## Not a workaround, but owed
 

@@ -5,11 +5,13 @@
 
 import React from 'react';
 import { useAdminContext } from '../AdminContext';
+import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { roleLabel } from '../shared/helpers';
 import { Users, Newspaper, Calendar, FileText } from 'lucide-react';
 
 const OverviewTab = () => {
-  const { activityLogs, roleDist, setPage, settings, stats } = useAdminContext();
+  const { activityLogs, overviewLoading, roleDist, setPage, settings, stats } = useAdminContext();
+  const slowOverview = useDelayedFlag(overviewLoading);
   const roleColors = { student:'#3b82f6', teacher:'#22c55e', faculty:'#2dd4bf', registrar:'#f59e0b', main_admin:'#ef4444' };
   const totalRoles = roleDist.reduce((total, { count }) => total + count, 0);
   let roleOffset = 0;
@@ -80,7 +82,12 @@ const OverviewTab = () => {
                 <div className="chart-card">
                   <div className="chart-title">Recent Activity</div>
                   <div className="chart-sub">Latest actions on the portal</div>
-                  {activityLogs.length === 0
+                  {/* UX-047: "No recent activity" used to be what rendered
+                      for the whole span of the fetch — an empty state that
+                      read as an answer. */}
+                  {overviewLoading
+                    ? <div style={{ color:'var(--text-muted)', fontSize:13 }}>{slowOverview ? 'Loading activity…' : ''}</div>
+                    : activityLogs.length === 0
                     ? <div style={{ color:'var(--text-muted)', fontSize:13 }}>No recent activity</div>
                     : activityLogs.map((l, i) => (
                       <div key={i} className="recent-item">

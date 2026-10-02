@@ -25,6 +25,26 @@ decision; if a row survives Phase 5, it has become one by accident.
   Applying it changes how every date on the dashboard reads, which is again
   a visual change. **Phase 5**.
 
+## Found in Phase 3a, not fixed in it
+
+**`withRetry` has no `try`/`catch`.** `src/lib/supabaseRetry.js` does
+`let result = await queryFn()` and reads `result.error`. supabase-js returns
+`{ error }` for an HTTP failure, which every fetcher handles — but a
+*network-level* failure (connection dropped, request aborted) **throws**
+instead. The rejection escapes `withRetry`, escapes the fetcher, and the
+error flag is never set: the screen sits on its empty state with no message
+and no retry.
+
+Found because `route.abort('failed')` in the e2e suite reproduced it exactly
+and three state tests hung for minutes. The specs now use an HTTP 500, which
+is what the findings describe and what supabase-js reports as `{ error }`.
+
+This predates Phase 3a and is wider than the admin dashboard — every
+dashboard's fetchers go through this helper. It is also **UX-054**
+(losing the connection reported as a server error), which the audit
+screened and did not file. One `try`/`catch` in `withRetry` closes it for
+every screen at once.
+
 ## Not a workaround, but owed
 
 - **Drawer breakpoint is 900px**, not the 1024px Rule X2 asks for

@@ -67,7 +67,27 @@ export const useAdminLogic = (userData) => {
       console.warn('Local activity cache unavailable:', e);
     }
   };
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [calLoading, setCalLoading] = useState(true);
+  // Declared up here, above fetchLogs, deliberately: a useCallback's
+  // dependency array is evaluated where it is written, so a reference to a
+  // const declared lower in the same scope throws on first render.
+  //
+  // Three fetches feed the Overview and they finish in any order, so the
+  // flag counts them rather than tracking one. A ref, because the three
+  // callbacks must see each other's writes within the same tick.
+  const overviewPending = useRef(0);
+  const overviewStarted = useCallback(() => {
+    overviewPending.current += 1;
+    setOverviewLoading(true);
+  }, []);
+  const overviewSettled = useCallback(() => {
+    overviewPending.current = Math.max(0, overviewPending.current - 1);
+    if (overviewPending.current === 0) setOverviewLoading(false);
+  }, []);
+
   const fetchLogs = useCallback(async () => {
+    overviewStarted();
     const localLogs = readLocalActivityLogs();
     try {
       const { data, error } = await withRetry(
@@ -90,8 +110,10 @@ export const useAdminLogic = (userData) => {
     } catch (e) {
       console.warn('Activity logs fetch error; using local activity cache:', e.message);
       setActivityLogs(localLogs.slice(0, 5));
+    } finally {
+      overviewSettled();
     }
-  }, []);
+  }, [overviewStarted, overviewSettled]);
 
   const logActivity = useCallback(async (action, details = '') => {
     const localLog = {
@@ -126,8 +148,12 @@ export const useAdminLogic = (userData) => {
   //  OVERVIEW STATS — Real-time
   // ═══════════════════════════════════════════
   const [stats, setStats] = useState({ users: 0, news: 0, events: 0, memos: 0 });
+  // UX-047. Without these the Overview's zeros and "No recent activity"
+  // were what rendered while the fetches were still in flight — an empty
+  // state that looked like an answer.
 
   const fetchStats = useCallback(async () => {
+    overviewStarted();
     try {
       const results = await Promise.all([
         withRetry(() => supabase.from('profiles').select('*', { count: 'exact', head: true }), { label: 'Stats: users count fetch' }),
@@ -158,11 +184,14 @@ export const useAdminLogic = (userData) => {
       }));
     } catch (e) {
       console.warn('Stats fetch error:', e);
+    } finally {
+      overviewSettled();
     }
-  }, []);
+  }, [overviewStarted, overviewSettled]);
 
   const [roleDist, setRoleDist] = useState([]);
   const fetchRoleDist = useCallback(async () => {
+    overviewStarted();
     try {
       const { data, error } = await withRetry(
         () => supabase.from('profiles').select('role'),
@@ -180,8 +209,10 @@ export const useAdminLogic = (userData) => {
       setRoleDist(Object.entries(counts).map(([role, count]) => ({ role, count })));
     } catch (e) {
       console.warn('Role distribution error:', e);
+    } finally {
+      overviewSettled();
     }
-  }, []);
+  }, [overviewStarted, overviewSettled]);
 
   // ═══════════════════════════════════════════
   //  USERS — Supabase CRUD + Real-time
@@ -651,6 +682,7 @@ export const useAdminLogic = (userData) => {
   const [evSaving, setEvSaving] = useState(false);
 
   const fetchCalEvents = useCallback(async () => {
+    setCalLoading(true);
     try {
       const { data, error } = await withRetry(
         () => supabase.from('calendar_events').select('*').order('event_date', { ascending: true }),
@@ -662,6 +694,8 @@ export const useAdminLogic = (userData) => {
       console.error('Error loading events:', err);
       showToast('Error loading events: ' + err.message, 'error');
       setCalEvents([]);
+    } finally {
+      setCalLoading(false);
     }
   }, []);
 
@@ -994,7 +1028,7 @@ export const useAdminLogic = (userData) => {
 
   return {
     Toggle, activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime,
-    calEvents, calFilter, calGrid, calMonth, calYear, closeModal,
+    calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     darkMode, debounceTimersRef, debouncedFetchRoleDist, debouncedFetchStats, debouncedFetchUsers, deleteConfirm,
     deleteEvent, deleteMemo, deleteNewsItem, deleteUser, editEvent, editMemo,
     editNews, editUser, emailNotifications, evDate, evDesc, evEnd,
@@ -1021,7 +1055,7 @@ export const useAdminLogic = (userData) => {
     setSettings, setStats, setTheme, setToast, setTwoFactorAuth,
     setUDept, setUEmail, setUL, setUName, setUPass, setURole,
     setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
-    stats, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
+    stats, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading,

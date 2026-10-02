@@ -39,6 +39,7 @@
 import React, { useMemo, useState } from 'react';
 import { Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
+import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS, normalizeGradeLevel, canTeachSection } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
@@ -47,7 +48,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const SchedulesTab = () => {
   const {
-    schoolYear, teachers, subjects, sections, sectionsError, teachingLoad,
+    schoolYear, teachers, subjects, sections, sectionsError, sectionsLoading, fetchSections, teachingLoad,
     schedules, schedulesLoading, schedulesError, fetchSchedules,
     scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
     schedTeacher, setSchedTeacher, schedSubject,
@@ -55,6 +56,10 @@ const SchedulesTab = () => {
     schedStart, setSchedStart, schedEnd, setSchedEnd,
     schedRoom, setSchedRoom, schedSaving,
   } = useAdminContext();
+
+  // Rule: the skeleton only appears once the wait is long enough to notice.
+  const slowSections = useDelayedFlag(sectionsLoading);
+  const slowSchedules = useDelayedFlag(schedulesLoading);
 
   const [grade, setGrade] = useState(GRADE_LEVELS[0]);
   const [openSectionId, setOpenSectionId] = useState(null);
@@ -155,12 +160,24 @@ const SchedulesTab = () => {
         <GradeTabs value={grade} onChange={(g) => { setGrade(g); setOpenSectionId(null); }}
           counts={countsByGrade} />
 
-        {schedulesError || sectionsError ? (
+        {sectionsError ? (
           <div className="table-card" style={{ padding: 24, textAlign: 'center' }}>
-            Could not load. Check your connection and try again.
+            Could not load sections. Check your connection and try again.
             <div style={{ marginTop: 10 }}>
-              <button className="btn btn-ghost" onClick={() => fetchSchedules()}>Retry</button>
+              <button className="btn btn-ghost" onClick={() => fetchSections()}>Retry sections</button>
             </div>
+          </div>
+        ) : schedulesError ? (
+          <div className="table-card" style={{ padding: 24, textAlign: 'center' }}>
+            Could not load schedules. The sections below are fine; it is the
+            timetable that did not arrive.
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-ghost" onClick={() => fetchSchedules()}>Retry schedules</button>
+            </div>
+          </div>
+        ) : sectionsLoading ? (
+          <div className="table-card" style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+            {slowSections ? 'Loading sections…' : ''}
           </div>
         ) : gradeSections.length === 0 ? (
           <div className="table-card" style={{ padding: 24, textAlign: 'center' }}>
@@ -196,7 +213,14 @@ const SchedulesTab = () => {
                 </thead>
                 <tbody>
                   {schedulesLoading ? (
-                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 24 }}>Loading schedules…</td></tr>
+                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 24 }}>
+                      {slowSchedules ? 'Loading schedules…' : ''}
+                    </td></tr>
+                  ) : activeSubjects.length === 0 ? (
+                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
+                      No active subjects yet — a timetable needs subjects to
+                      schedule. Add them in Subjects first.
+                    </td></tr>
                   ) : activeSubjects.map(subject => {
                     const rows = rowsBySubject.get(subject.id) || [];
                     return (

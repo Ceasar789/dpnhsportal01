@@ -277,3 +277,64 @@ test.describe('the dirty check sees prefilled fields', () => {
     });
   }
 });
+
+// Values that arrive AFTER the dialog opens.
+//
+// The snapshot is taken in the open effect, one tick after mount. If a
+// form's values or a select's options settle later — an edit form filled
+// from a fetch, a teacher list still loading — the snapshot captures the
+// empty state and everything after it reads as an edit the user made.
+test.describe('the snapshot survives data arriving late', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('an edit form, opened and closed untouched, asks nothing', async ({ page }) => {
+    await openAdminTab(page, 'Subjects');
+    const edit = page.getByRole('button', { name: /^Edit / }).first();
+    test.skip(await edit.count() === 0, 'no subject to edit');
+    await edit.click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    // The fields must actually hold the record before this proves anything.
+    await expect(dialog.locator('.form-input').first()).not.toHaveValue('');
+    await page.waitForTimeout(1200);
+
+    let asked = false;
+    page.on('dialog', (d) => { asked = true; d.dismiss(); });
+    await page.keyboard.press('Escape');
+
+    expect(asked, 'an untouched edit form prompted to discard').toBe(false);
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test('a form whose select options load late asks nothing', async ({ page }) => {
+    // The Add Section form carries an Adviser select populated from the
+    // teachers fetch — the async-options case, reachable in one click.
+    // (Schedules has the same shape but its Add sits inside an expanded
+    // section, which makes the path depend on what data exists.)
+    await openAdminTab(page, 'Sections');
+    const add = page.getByRole('button', { name: /add section/i }).first();
+    test.skip(await add.count() === 0, 'no way to open the section form');
+    await add.click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    // Not a bare timeout: wait until the adviser list really has teachers
+    // in it, or this proves nothing about late-arriving options.
+    await expect.poll(async () => dialog.locator('select option').count(),
+      { message: 'adviser options never loaded', timeout: 10000 }).toBeGreaterThan(3);
+    await page.waitForTimeout(500);
+
+    let asked = false;
+    page.on('dialog', (d) => { asked = true; d.dismiss(); });
+    await page.keyboard.press('Escape');
+
+    expect(asked, 'a form with late-loading options prompted to discard').toBe(false);
+    await expect(dialog).toHaveCount(0);
+  });
+});

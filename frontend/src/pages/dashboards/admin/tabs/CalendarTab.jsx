@@ -8,17 +8,19 @@ import React from 'react';
 import { Sun } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
+import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { MONTHS, EVENT_TYPES } from '../shared/helpers';
 
 const CalendarTab = () => {
   const {
-    calEvents, calFilter, calGrid, calMonth, calYear, closeModal,
+    calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     deleteEvent, editEvent, evDate, evDesc, evEnd, evSaving, evTitle,
     evCustomType, evType, handleOverlayClick, modal, nextMonth, openCreateEvent,
     openEditEvent, prevMonth, saveEvent, setCalFilter, setEvCustomType, setEvDate,
     setCalYear, setEvDesc, setEvEnd, setEvTitle, setEvType, today, typeClass,
     typeColor, upcomingEvents
   } = useAdminContext();
+  const slowCal = useDelayedFlag(calLoading);
 
   return (
     <>
@@ -84,7 +86,11 @@ const CalendarTab = () => {
                 </div>
                 <div className="cal-sidebar">
                   <div style={{ fontSize:13, fontWeight:600, marginBottom:12, color:'var(--text-muted)' }}>Upcoming</div>
-                  {upcomingEvents.length === 0
+                  {/* UX-047: the grid and this list both rendered as a
+                      fully-populated empty month for the whole fetch. */}
+                  {calLoading
+                    ? <div style={{ fontSize:12, color:'var(--text-dim)' }}>{slowCal ? 'Loading events…' : ''}</div>
+                    : upcomingEvents.length === 0
                     ? <div style={{ fontSize:12, color:'var(--text-dim)' }}>No upcoming events</div>
                     : upcomingEvents.map((e, i) => (
                       <div key={i} className="upcoming-item" style={{ borderColor: typeColor(e.event_type) }}>

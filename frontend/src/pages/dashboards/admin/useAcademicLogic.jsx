@@ -110,8 +110,12 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const [teachingLoadError, setTeachingLoadError] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [teachersError, setTeachersError] = useState(false);
+  // UX-047: without this the picker's empty state was what rendered during
+  // the fetch, telling the admin to go and create teachers that exist.
+  const [teachersLoading, setTeachersLoading] = useState(true);
 
   const fetchTeachers = useCallback(async () => {
+    setTeachersLoading(true);
     const { data, error } = await withRetry(
       // `department` is read so the picker can show and search on it. With a
       // department per teacher, "math" narrows 48 teachers to 6 — without it
@@ -123,10 +127,12 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     if (error) {
       console.warn('Teachers fetch failed —', error.message);
       setTeachersError(true);
+      setTeachersLoading(false);
       return;
     }
     setTeachersError(false);
     setTeachers(data || []);
+    setTeachersLoading(false);
   }, []);
 
   const fetchTeachingLoad = useCallback(async () => {
@@ -564,7 +570,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
     schoolYear, setSchoolYear,
     teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad,
-    teachers, teachersError, fetchTeachers, addLoadEntries, removeLoad, copyLoadFromYear,
+    teachers, teachersError, teachersLoading, fetchTeachers, addLoadEntries, removeLoad, copyLoadFromYear,
     sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,

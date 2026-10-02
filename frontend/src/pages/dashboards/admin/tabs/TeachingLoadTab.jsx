@@ -45,6 +45,7 @@ import React, { useMemo, useState } from 'react';
 import { Plus, X, Copy, Search, ArrowRight } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
+import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
 
@@ -61,10 +62,14 @@ const matchesQuery = (teacher, query) => {
 
 const TeachingLoadTab = () => {
   const {
-    schoolYear, setSchoolYear, teachers, teachersError, subjects,
+    schoolYear, setSchoolYear, teachers, teachersError, teachersLoading, subjects,
+    subjectsError, fetchSubjects,
     teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad, fetchTeachers,
     addLoadEntries, removeLoad, copyLoadFromYear, showToast,
   } = useAdminContext();
+
+  // Only paint a loading line once the wait is worth mentioning.
+  const slowTeachers = useDelayedFlag(teachersLoading);
 
   const [grade, setGrade] = useState(GRADE_LEVELS[0]);
   const [pickQuery, setPickQuery] = useState('');
@@ -232,7 +237,12 @@ const TeachingLoadTab = () => {
 
             <div className={`picker-panel${missingTeacher ? ' is-invalid' : ''}`}>
               {teachersError ? (
-                <div className="picker-empty">Could not load teachers.</div>
+                <div className="picker-empty">
+                  Could not load teachers.{' '}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchTeachers()}>Retry</button>
+                </div>
+              ) : teachersLoading ? (
+                <div className="picker-empty">{slowTeachers ? 'Loading teachers…' : ''}</div>
               ) : teachers.length === 0 ? (
                 <div className="picker-empty">No teachers yet. Create them in User Management first.</div>
               ) : shownTeachers.length === 0 ? (
@@ -266,6 +276,16 @@ const TeachingLoadTab = () => {
 
           <div>
             <div className="bulk-label">Subject for {grade}</div>
+            {/* UX-048: the hook sets subjectsError and nothing read it, so a
+                failed subjects read rendered an empty dropdown with no
+                explanation — while the teachers failure right above it was
+                reported. */}
+            {subjectsError && (
+              <div className="picker-empty" style={{ marginBottom: 8 }}>
+                Could not load subjects.{' '}
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchSubjects()}>Retry</button>
+              </div>
+            )}
             <select className={`form-input${missingSubject ? ' is-invalid' : ''}`}
               value={rowSubject} onChange={e => setRowSubject(e.target.value)}>
               <option value="">Select subject…</option>

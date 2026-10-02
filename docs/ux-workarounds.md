@@ -212,3 +212,45 @@ so the idle-logout timer in `AuthContext.jsx:107` would find nothing and
 silently fall back to 30 minutes — and the Settings save would fail on an
 unknown column again, exactly the way it did before this phase. This is
 the one of the three with a real failure mode behind it.
+
+## Phase 5: dark-mode bugs
+
+Found during Phase 4 while deciding which colour literals could be
+replaced by a token. None of them is a token problem — each is a colour
+that was picked for one theme and is being shown in both. Phase 4 gave
+them names at their current values and changed nothing; Phase 5 is where
+the second value gets chosen.
+
+| # | Where | What is wrong |
+|---|---|---|
+| 1 | `AdminDashboard.jsx:40-90` — the session-loading and access-denied screens | A fixed dark panel that ignores the theme entirely: `#1a1d23` background, `#f1f5f9` text, `#8b92a5` muted. A light-mode admin whose session is loading, or who lands on access-denied, gets a dark screen with no warning. Now `--gate-*`. |
+| 2 | `AdminDashboard.jsx:67, 78, 79` | `#f1f5f9` used as a **text** colour. It is `--card2`'s light value — a surface — so the distance metric reports a perfect match while the role is wrong. Any future tool will keep offering that substitution; it would make the text invisible on its own panel. |
+| 3 | `AdminDashboard.jsx:228` — `.nav-logout-btn:hover` | `#dc2626` text on a hardcoded `#fee2e2` pink. Both are light-mode values, so in dark mode the logout button flashes a pale pink panel out of nowhere. The pair has to move together or neither should. |
+| 4 | `AdminDashboard.jsx:278-286` — the six badge variants | One definition each, used in both themes, and the values are dark-tuned: `#4ade80` on `rgba(34,197,94,0.1)`. On a white card in light mode that is a pale green on near-white. Now `--badge-{hue}-{fg,border,bg}`, identical in both themes, so light can be given its own set in one place. |
+| 5 | `AdminDashboard.jsx:461-478` — the calendar | `.cal-head` is `#f8fafc` and `.cal-cell:hover` is `#f1f5f9`, both hardcoded light surfaces. In dark mode the calendar keeps a light header strip. The event chips (`.ev-blue` and friends) are the same story. |
+| 6 | `AdminDashboard.jsx:241` — `.sidebar-item.active` | `background: #eef0f5`, a light grey, on a sidebar that is `#1e2128` in dark mode. The active item is a bright block in a dark rail. |
+
+**Not in this list, and not a bug:** `--on-accent`, `--brand-gold`,
+`--brand-cyan` and the white-on-navy header colours are white in both
+themes **on purpose**. What they sit on is the accent or the brand navy,
+neither of which follows the theme.
+
+## Colour literals Phase 4b did not name
+
+Left as literals, with the reason, so the next pass does not re-derive it:
+
+- **The JS colour palettes** — `shared/helpers.js:11` (avatar colours) and
+  `tabs/OverviewTab.jsx:15` (role colours) are arrays of hex strings used
+  as data, not styling. A CSS variable cannot be indexed, so these need a
+  palette exported beside the tokens, not `var()`.
+- **`<Icon color="#ffffff">`** (`OverviewTab.jsx:70`) — lucide passes
+  `color` straight to the SVG's `stroke` **attribute**, and a `var()` does
+  not resolve in a presentation attribute. It would render unstroked.
+- **One-off tints** — `rgba(99,102,241,.12)`, `rgba(148,163,184,0.12)`,
+  `rgba(59,130,246,0.08)` and about twenty more, each used once or twice
+  for a single hover or highlight. Naming each one produces a token nobody
+  reuses. They want grouping into a small set of interaction tints, which
+  is a design decision.
+- **The white-on-navy header family** — `rgba(255,255,255,.12/.22/.3/.5/
+  .72/.85)` and `#ffffff` across the nav. A coherent `--on-brand-*` set,
+  but it was not in Phase 4b's agreed list.

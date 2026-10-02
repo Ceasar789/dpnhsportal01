@@ -90,6 +90,70 @@ PURPOSE: Global styles + Tailwind directives
 
 
 /* ============================================
+   Role tokens — Phase 4b.
+
+   These name colours the codebase was already using as literals. Every
+   value is IDENTICAL IN BOTH THEMES, which is deliberate and is what makes
+   this commit a pure rename: substituting them cannot change a pixel.
+
+   Some of them should differ by theme — the badge triplets are tuned for a
+   dark surface and are being used on a light one too. That is a design
+   decision and it belongs to Phase 5, which can now make it in one place
+   instead of across 122 literals. The dark-mode bugs this exposed are
+   written up in docs/ux-workarounds.md.
+   ============================================ */
+:root {
+  /* Foreground on a FILLED COLOURED surface — an accent button, a toast, a
+     today-marker. White in both themes because what it sits on is the
+     accent, not the page. This is the token the audit's 17 #fff literals
+     were reaching for: they match --card-bg's light value by coincidence,
+     and substituting that would turn every primary button's label dark. */
+  --on-accent: #fff;
+
+  /* Status badges: foreground, border and tint per hue. Today's values. */
+  --badge-blue-fg: #60a5fa;
+  --badge-blue-border: #1d4ed8;
+  --badge-blue-bg: rgba(59,130,246,0.1);
+  --badge-green-fg: #4ade80;
+  --badge-green-border: #15803d;
+  --badge-green-bg: rgba(34,197,94,0.1);
+  --badge-teal-fg: #5eead4;
+  --badge-teal-border: #0f766e;
+  --badge-teal-bg: rgba(45,212,191,0.1);
+  --badge-yellow-fg: #fbbf24;
+  --badge-yellow-border: #b45309;
+  --badge-yellow-bg: rgba(245,158,11,0.1);
+  --badge-red-fg: #f87171;
+  --badge-red-border: #b91c1c;
+  --badge-red-bg: rgba(239,68,68,0.1);
+  --badge-purple-fg: #c4b5fd;
+  --badge-purple-border: #6d28d9;
+  --badge-purple-bg: rgba(167,139,250,0.1);
+
+  /* Scrims and drop shadows, by weight. */
+  --overlay-nav: rgba(8,20,45,.2);
+  --overlay-sm: rgba(0,0,0,.12);
+  --overlay-md: rgba(0,0,0,.18);
+  --overlay-lg: rgba(0,0,0,.22);
+  --overlay-accent-glow: rgba(25,8,223,.18);
+
+  /* The brand marks in the navy header. Fixed by the brand, not the theme. */
+  --brand-gold: #FEB300;
+  --brand-gold-bright: #FFC542;
+  --brand-cyan: #00D4FF;
+
+  /* The two screens shown BEFORE the dashboard exists — session loading and
+     access denied. They are deliberately a fixed dark panel and do not
+     follow the theme; that they do not is logged as a Phase 5 question. */
+  --gate-bg: #1a1d23;
+  --gate-panel: #23272f;
+  --gate-border: #2e3340;
+  --gate-text: #f1f5f9;
+  --gate-muted: #8b92a5;
+  --gate-action: #3b82f6;
+}
+
+/* ============================================
    Scale tokens — Rule T1.
    DEFINED HERE, NOT YET APPLIED. Phase 4 replaces the raw px and ms values
    across the dashboards with these; until then nothing reads them except

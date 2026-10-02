@@ -212,6 +212,14 @@ test.describe('admin settings', () => {
 
     // It is a device preference, so it survives a reload with no save.
     await dropdown.selectOption('light');
+    // Wait for the preference to actually reach localStorage before
+    // reloading. The class is applied in a layout effect and the write
+    // happens in a separate effect, so reloading immediately can race the
+    // write and the page comes back on the old preference.
+    await expect.poll(
+      () => page.evaluate(() => localStorage.getItem('smartedu-theme')),
+      { message: 'the theme preference never reached localStorage' },
+    ).toBe('light');
     await page.reload();
     await openAdminTab(page, 'System Settings');
     expect(await isDark()).toBe(false);

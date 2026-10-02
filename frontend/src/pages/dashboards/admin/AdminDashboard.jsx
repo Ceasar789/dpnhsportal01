@@ -40,15 +40,15 @@ const AdminDashboard = () => {
     return (
       <div style={{
         minHeight: '100vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', background: '#1a1d23', flexDirection: 'column', gap: 16
+        justifyContent: 'center', background: 'var(--gate-bg)', flexDirection: 'column', gap: 16
       }}>
         <div style={{
-          width: 40, height: 40, border: '3px solid #2e3340',
-          borderTopColor: '#3b82f6', borderRadius: '50%',
+          width: 40, height: 40, border: '3px solid var(--gate-border)',
+          borderTopColor: 'var(--gate-action)', borderRadius: '50%',
           animation: 'spin .7s linear infinite'
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: '#8b92a5', fontSize: 14 }}>Loading session…</span>
+        <span style={{ color: 'var(--gate-muted)', fontSize: 14 }}>Loading session…</span>
       </div>
     );
   }
@@ -61,29 +61,29 @@ const AdminDashboard = () => {
     return (
       <div style={{
         minHeight: '100vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', background: '#1a1d23', flexDirection: 'column',
+        justifyContent: 'center', background: 'var(--gate-bg)', flexDirection: 'column',
         gap: 12, padding: 24, textAlign: 'center'
       }}>
-        <h1 style={{ color: '#f1f5f9', fontSize: 20, fontWeight: 700 }}>
+        <h1 style={{ color: 'var(--gate-text)', fontSize: 20, fontWeight: 700 }}>
           Administrator access required
         </h1>
-        <p style={{ color: '#8b92a5', fontSize: 14, maxWidth: 420 }}>
+        <p style={{ color: 'var(--gate-muted)', fontSize: 14, maxWidth: 420 }}>
           This account is not registered as an administrator, so the admin
           dashboard cannot be opened.
         </p>
         <div style={{
-          background: '#23272f', border: '1px solid #2e3340', borderRadius: 8,
-          padding: '12px 16px', color: '#8b92a5', fontSize: 13, textAlign: 'left'
+          background: 'var(--gate-panel)', border: '1px solid var(--gate-border)', borderRadius: 8,
+          padding: '12px 16px', color: 'var(--gate-muted)', fontSize: 13, textAlign: 'left'
         }}>
-          <div>Signed in as: <strong style={{ color: '#f1f5f9' }}>{userData?.email || '— not signed in —'}</strong></div>
-          <div>Detected role: <strong style={{ color: '#f1f5f9' }}>{userData?.role || '— none —'}</strong></div>
+          <div>Signed in as: <strong style={{ color: 'var(--gate-text)' }}>{userData?.email || '— not signed in —'}</strong></div>
+          <div>Detected role: <strong style={{ color: 'var(--gate-text)' }}>{userData?.role || '— none —'}</strong></div>
         </div>
         <Link
           to="/faculty-login"
           replace
           style={{
             marginTop: 8, padding: '10px 20px', borderRadius: 8, border: 'none',
-            background: '#3b82f6', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            background: 'var(--gate-action)', color: 'var(--on-accent)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
             // A <button> centres its own text and an <a> does not; these two
             // keep the control looking exactly as it did.
             display: 'inline-block', textAlign: 'center', textDecoration: 'none'
@@ -137,7 +137,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           padding: 0 28px;
           gap: 0;
           border-bottom: none;
-          box-shadow: 0 2px 10px rgba(8,20,45,.2);
+          box-shadow: 0 2px 10px var(--overlay-nav);
           position: sticky;
           top: 0;
           z-index: 100;
@@ -166,8 +166,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           color: #1908DF; flex-shrink: 0;
         }
         .nav-logo-text { display: flex; flex-direction: column; line-height: 1.2; font-family: 'Work Sans', sans-serif; }
-        .nav-logo-text span:first-child { font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: #FEB300; }
-        .nav-logo-text span:first-child i { color: #00D4FF; font-style: normal; }
+        .nav-logo-text span:first-child { font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: var(--brand-gold); }
+        .nav-logo-text span:first-child i { color: var(--brand-cyan); font-style: normal; }
         .nav-logo-text span:last-child { font-size: 14px; color: rgba(255,255,255,.85); font-weight: 500; }
 
         .nav-links { display: flex; gap: 2px; flex: 1; }
@@ -190,7 +190,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           bottom: -6px; left: 50%;
           transform: translateX(-50%);
           width: 20px; height: 2px;
-          background: #FFC542;
+          background: var(--brand-gold-bright);
           border-radius: 2px;
         }
 
@@ -211,7 +211,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .nav-toggle-btn:hover { background: rgba(255,255,255,.22); }
         .nav-avatar {
           width: 40px; height: 40px; border-radius: 50%;
-          background: #FFC542;
+          background: var(--brand-gold-bright);
           display: flex; align-items: center; justify-content: center;
           font-size: 11px; font-weight: 700; color: #12069f;
           cursor: pointer; border: 2px solid rgba(255,255,255,.5);
@@ -238,14 +238,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar.collapsed .sidebar-item { justify-content: center; padding-left: 8px; padding-right: 8px; }
         .sidebar-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .3s ease; }
         .sidebar-item:not(.active) .sidebar-icon { border: 1px solid var(--border); }
-        .sidebar-item.active .sidebar-icon { background: #ffffff; box-shadow: 0 2px 6px rgba(25,8,223,.18); }
+        .sidebar-item.active .sidebar-icon { background: #ffffff; box-shadow: 0 2px 6px var(--overlay-accent-glow); }
         .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
         .sidebar-item.active { color: var(--accent); background: #eef0f5; border-left-color: transparent; }
         .sidebar-section { padding: 16px 12px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
         .sidebar-sub { padding: 7px 20px 7px 28px; cursor: pointer; color: var(--text-dim); font-size: 12px; transition: all .15s; }
         .sidebar-sub:hover { color: var(--text-muted); }
         .sidebar-sub.active { color: var(--accent); }
-        .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+        .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px var(--overlay-sm); }
         .sidebar-logout { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--border); }
         .main { flex: 1; padding: 24px 32px; overflow-y: auto; }
 
@@ -255,7 +255,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .page-header-bar .page-title { color: var(--banner-text); }
         .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }
         .btn { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
-        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary { background: var(--accent); color: var(--on-accent); }
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
         .btn-danger { background: transparent; color: var(--red); border: none; cursor: pointer; }
@@ -273,17 +273,17 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         input:focus, select:focus, textarea:focus { border-color: var(--accent); }
         select { appearance: none; cursor: pointer; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; }
-        .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; color: #fff; }
+        .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; color: var(--on-accent); }
         .badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; white-space: nowrap; }
-        .badge-blue    { color: #60a5fa; border-color: #1d4ed8; background: rgba(59,130,246,0.1); }
-        .badge-green   { color: #4ade80; border-color: #15803d; background: rgba(34,197,94,0.1); }
-        .badge-teal    { color: #5eead4; border-color: #0f766e; background: rgba(45,212,191,0.1); }
-        .badge-yellow  { color: #fbbf24; border-color: #b45309; background: rgba(245,158,11,0.1); }
-        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; color: #60a5fa; border: 1px solid #1d4ed8; background: rgba(59,130,246,0.1); }
+        .badge-blue    { color: var(--badge-blue-fg); border-color: var(--badge-blue-border); background: var(--badge-blue-bg); }
+        .badge-green   { color: var(--badge-green-fg); border-color: var(--badge-green-border); background: var(--badge-green-bg); }
+        .badge-teal    { color: var(--badge-teal-fg); border-color: var(--badge-teal-border); background: var(--badge-teal-bg); }
+        .badge-yellow  { color: var(--badge-yellow-fg); border-color: var(--badge-yellow-border); background: var(--badge-yellow-bg); }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--badge-blue-fg); border: 1px solid var(--badge-blue-border); background: var(--badge-blue-bg); }
         .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: 6px; margin: -6px; opacity: .7; }
         .chip-x:hover { opacity: 1; }
-        .badge-red     { color: #f87171; border-color: #b91c1c; background: rgba(239,68,68,0.1); }
-        .badge-purple  { color: #c4b5fd; border-color: #6d28d9; background: rgba(167,139,250,0.1); }
+        .badge-red     { color: var(--badge-red-fg); border-color: var(--badge-red-border); background: var(--badge-red-bg); }
+        .badge-purple  { color: var(--badge-purple-fg); border-color: var(--badge-purple-border); background: var(--badge-purple-bg); }
         /* For "not available" — the one state that must not read as healthy. */
         .badge-grey    { color: var(--text-muted); border-color: var(--border); background: transparent; }
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -368,7 +368,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .grade-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
         .grade-toggle { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
         .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
-        .grade-toggle.active { border-color: var(--accent); color: #fff; background: var(--accent); }
+        .grade-toggle.active { border-color: var(--accent); color: var(--on-accent); background: var(--accent); }
         /* The draft: entries staged but not yet written. Dashed border and
            an accent tint so it never reads as saved data at a glance. */
         .draft-card { padding: 16px; margin-bottom: 20px; border-style: dashed; border-color: var(--accent); background: rgba(99,102,241,.05); }
@@ -392,7 +392,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 184px; }
         .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform .15s, border-color .15s, box-shadow .15s; }
-        .clickable-stat:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+        .clickable-stat:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px var(--overlay-md); }
         .clickable-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .stat-icon-block { height: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .stat-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 18px; }
@@ -431,7 +431,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .pagination { display: flex; align-items: center; gap: 6px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
         .page-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
-        .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .page-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
         .assign-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; }
         .assign-label { font-size: 13px; font-weight: 600; }
         .assign-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
@@ -465,7 +465,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-cell.holiday { background: rgba(254,226,226,.8); }
         .cal-cell:hover { background: #f1f5f9; }
         .cal-day { font-size: 13px; color: #475569; margin-bottom: 4px; }
-        .cal-cell.today .cal-day { background: #2563eb; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+        .cal-cell.today .cal-day { background: #2563eb; color: var(--on-accent); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
         .cal-cell.other-month .cal-day { color: #94a3b8; }
         .cal-event { font-size: 11px; font-weight: 600; padding: 3px 6px; border-radius: 4px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .cal-event:hover { opacity: 0.8; }
@@ -529,7 +529,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         /* UX-028: one bar for the page, not a button inside one card. It
            sticks to the bottom so it is reachable from any card without
            scrolling back to General. */
-        .settings-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 20px; background: var(--card-bg); border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 -6px 18px rgba(0,0,0,.22); z-index: 5; }
+        .settings-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 20px; background: var(--card-bg); border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 -6px 18px var(--overlay-lg); z-index: 5; }
         .settings-savebar-count { font-size: 13px; font-weight: 700; }
         .settings-savebar-actions { margin-left: auto; display: flex; gap: 8px; }
         /* A setting the system does not act on is a sentence, not a control. */
@@ -553,8 +553,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
         .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 2000; animation: slideUp .3s ease; }
-        .toast.success { background: var(--green); color: #fff; }
-        .toast.error   { background: var(--red); color: #fff; }
+        .toast.success { background: var(--green); color: var(--on-accent); }
+        .toast.error   { background: var(--red); color: var(--on-accent); }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         .spin { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }

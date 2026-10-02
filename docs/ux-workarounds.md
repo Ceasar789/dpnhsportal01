@@ -25,25 +25,40 @@ decision; if a row survives Phase 5, it has become one by accident.
   Applying it changes how every date on the dashboard reads, which is again
   a visual change. **Phase 5**.
 
-## Found in Phase 3a, not fixed in it
+## UX-054 — fixed, with two things it did not reach
 
-**`withRetry` has no `try`/`catch`.** `src/lib/supabaseRetry.js` does
-`let result = await queryFn()` and reads `result.error`. supabase-js returns
-`{ error }` for an HTTP failure, which every fetcher handles — but a
-*network-level* failure (connection dropped, request aborted) **throws**
-instead. The rejection escapes `withRetry`, escapes the fetcher, and the
-error flag is never set: the screen sits on its empty state with no message
-and no retry.
+`withRetry` now catches. A thrown error becomes the same `{ data, error }`
+an HTTP failure produces, retried the same number of times, and every
+caller reports it without being changed. Ten unit tests;
+five of them fail with the `try`/`catch` removed.
 
-Found because `route.abort('failed')` in the e2e suite reproduced it exactly
-and three state tests hung for minutes. The specs now use an HTTP 500, which
-is what the findings describe and what supabase-js reports as `{ error }`.
+Two things that fix does **not** cover, both found while testing it:
 
-This predates Phase 3a and is wider than the admin dashboard — every
-dashboard's fetchers go through this helper. It is also **UX-054**
-(losing the connection reported as a server error), which the audit
-screened and did not file. One `try`/`catch` in `withRetry` closes it for
-every screen at once.
+**1. Some aborted queries never settle at all.** A probe inside `attempt_`
+showed `PROBE_ENTER Sections fetch` four times and `PROBE_CAUGHT` zero
+times: on `route.abort()` the supabase promise sometimes neither resolves
+nor rejects, so there is nothing to catch and the screen stays on its
+loading state forever while the fetch is re-issued. It is also
+non-deterministic — the same abort test passed on one run and hung on the
+next, which is why every UI test in `e2e/network-failure.spec.js` uses an
+HTTP 500 and the mechanism is proven in unit tests instead.
+
+The remedy is a **timeout** in `withRetry` — race `queryFn()` against a
+deadline and treat the deadline as an error. That changes behaviour for
+genuinely slow-but-working connections, so it is a decision rather than a
+repair. **Not done; needs a call on the deadline.**
+
+**2. The teacher dashboard still swallows a failed read.** With
+`/rest/v1/worksheets` returning 500, WorksheetsTab renders "No worksheets
+found" — its empty state — with no message and no retry. That is UX-048 in
+a dashboard this overhaul has not reached. `e2e/network-failure.spec.js`
+asserts the current behaviour so the suite stays a signal; the assertion
+inverts when the teacher dashboard is done.
+
+**Registrar and faculty are untested.** `e2e/helpers.js` has a student, a
+teacher and an admin. Their fetchers use the same `withRetry`, so the fix
+reaches them — but that is reasoning, not measurement. `E2E_REGISTRAR_*`
+and `E2E_FACULTY_*` in `.env` would close it.
 
 ## Not a workaround, but owed
 

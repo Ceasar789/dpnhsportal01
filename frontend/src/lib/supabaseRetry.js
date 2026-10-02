@@ -18,6 +18,35 @@ function jitteredDelay(delayMs) {
   return delayMs * (0.5 + Math.random());
 }
 
+// UX-054. supabase-js reports an HTTP failure as { data, error } — which
+// every caller in this project handles — but a NETWORK failure throws
+// instead: a dropped connection, a blocked request, DNS gone. That
+// rejection used to escape withRetry, escape the fetcher that called it,
+// and leave the error flag unset, so the screen sat on its empty state
+// with no message and no retry. The user is told there is no data when
+// what is actually true is that there is no network.
+//
+// Normalising it to the same { data, error } shape means the retry loop
+// treats both the same way — a thrown error is retried exactly as many
+// times as a returned one — and every existing caller reports it without
+// being changed.
+//
+// Not swallowed: the error is logged and handed back. The `offline` flag is
+// there so a caller that wants to say "check your connection" rather than
+// "something went wrong" can tell the two apart.
+async function attempt_(queryFn, label) {
+  try {
+    return await queryFn();
+  } catch (thrown) {
+    const message = thrown?.message || String(thrown);
+    console.warn(`${label} threw rather than returning an error:`, message);
+    return {
+      data: null,
+      error: { message, offline: true, cause: thrown },
+    };
+  }
+}
+
 /**
  * Runs `queryFn` (a function returning a Supabase query promise that
  * resolves to `{ data, error }`), retrying once after a short pause if
@@ -34,13 +63,13 @@ export async function withRetry(queryFn, opts = {}) {
     sleep = (ms) => new Promise(r => setTimeout(r, ms)),
   } = opts;
 
-  let result = await queryFn();
+  let result = await attempt_(queryFn, label);
   let attempt = 0;
 
   while (result.error && attempt < retries) {
     console.warn(`${label} failed, retrying (${attempt + 1}/${retries}):`, result.error.message);
     await sleep(jitteredDelay(delayMs));
-    result = await queryFn();
+    result = await attempt_(queryFn, label);
     attempt += 1;
   }
 

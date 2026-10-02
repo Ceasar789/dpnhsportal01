@@ -117,54 +117,8 @@ later, the statement becomes a control again.
 | Login attempt limiting | Nothing counts or limits failed sign-ins. The only rate limiter in the repo is `express-rate-limit` on the AI route (`backend/src/routes/ai.js:34`). | An auth hook or edge function that counts failures per identifier and locks out, plus an unlock path. |
 | Activity log retention | Nothing deletes old rows. Logs accumulate forever regardless of the 30 days / 90 days / 1 year that used to be selectable. | A scheduled job (pg_cron or an edge function) reading the retention setting and deleting past it. |
 | Configurable backup schedule | `.github/workflows/supabase-backup.yml` runs on a hardcoded `30 16 * * *` (00:30 Manila) and never reads `auto_backup`, `backup_frequency` or `backup_time`. | Either a workflow that reads the setting before deciding to run, or moving the schedule into pg_cron where the setting lives. |
+| One source of truth for the school year | Settings has an Academic Year field. The academic tabs ignore it and compute the year from the clock in `currentSchoolYear()` (`frontend/src/lib/academicRules.js:27`), rolling over every June. Two answers to one question, and only the computed one is load-bearing. | Decide which wins. If Settings wins, the academic queries read it and the June rollover becomes a default rather than the rule; if the calendar wins, the Settings field is a banner caption and should be named as one. The hints on both rows say which it is today. |
 | Email notifications | The portal sends no email of its own — no nodemailer, Resend, SendGrid or SMTP client in the repo. | A sender, templates, and a decision about what is worth emailing. |
-
-## Blocked — `school_settings` does not have the columns the page writes
-
-Found while building the UX-028 save bar, by watching the actual
-request rather than reading the code. **No setting on the admin
-Settings page has ever saved**, including Session Timeout, which is the
-one setting the app genuinely enforces.
-
-The live row returns:
-
-```
-id, school_name, school_year, current_semester, address, phone, email,
-website, logo_url, description, established_year, region, division,
-created_at, updated_at, two_factor_auth, session_timeout,
-login_attempt_limit, email_notifications, auto_backup,
-backup_frequency, backup_time, activity_logs_retention
-```
-
-`saveSettings` writes `academic_year`, `semester`, `portal_name`,
-`theme`, `language` and `auto_save`, **none of which exist**. PostgREST
-rejects the whole PATCH:
-
-```
-PATCH /rest/v1/school_settings?id=eq.1  →  400
-{"code":"PGRST204","message":"Could not find the 'academic_year' column
- of 'school_settings' in the schema cache"}
-```
-
-`saveSettings` never destructures the returned error, so it falls
-through to `showToast('Settings saved!')` every time. That is why this
-went unnoticed: the page has always said it worked.
-
-Two consequences already repaired, because they are UI and were making
-the save bar misbehave:
-
-- `setSettings({ ...data, … })` spread the row over an empty object, so
-  the absent `academic_year` became `undefined` and React flipped the
-  Academic Year input from controlled to uncontrolled mid-session. It
-  now merges onto the defaults, so every field stays a string.
-- The save-bar baseline is taken from what the page loaded rather than
-  from the raw row, so Discard restores what the admin actually saw.
-
-**What is still blocked, and needs a decision:** which columns the page
-should write. Changing that is a data-layer change, not UI.
-
-`e2e/admin-settings.spec.js` asserts the current 400 so the suite stays
-a signal; that assertion inverts when this is settled.
 
 ## Test infrastructure — `networkidle` is not reliable here
 
@@ -182,3 +136,79 @@ machine is enough load. It is a flaky wait, not a flaky application.
 Replace those waits with a wait for the thing the test actually needs
 (an element, a response) rather than for the network to go quiet.
 Not done here: it touches specs this phase did not otherwise open.
+
+## Schema drift — `school_settings`
+
+Found while building the UX-028 save bar, by watching the request rather
+than reading the code. **No setting on the admin Settings page had ever
+saved**, including Session Timeout, which is the one setting the app
+genuinely enforces.
+
+`saveSettings` spread the whole fetched row back into its `update`, which
+carried `academic_year`, `semester` and `portal_name` — none of which are
+columns — plus `theme`, `language` and `auto_save`, which are not either.
+PostgREST rejects a PATCH naming an unknown column outright:
+
+```
+PATCH /rest/v1/school_settings?id=eq.1  →  400
+{"code":"PGRST204","message":"Could not find the 'academic_year' column
+ of 'school_settings' in the schema cache"}
+```
+
+`saveSettings` never destructured the returned error, so it fell through
+to `showToast('Settings saved!')` every time. That is why a page which had
+never once written a row looked like it worked.
+
+**Fixed** by writing the columns that exist (`school_year`,
+`current_semester`) and reporting a failed write. What remains is the
+drift itself, which is not fixed:
+
+| Name | Where it exists | Where it does not |
+|---|---|---|
+| `academic_year` | nowhere | the UI read and wrote it for the life of this page |
+| `semester` | nowhere | same |
+| `portal_name` | nowhere | same; the UI also hardcodes its value |
+| `theme` | nowhere | written on every save; now a localStorage preference instead |
+| `language` | nowhere | written on every save; now a read-only row |
+| `auto_save` | nowhere | written on every save; the toggle is gone |
+| `school_year` | the live row, `database-schema.sql`, `COMPLETE_DATABASE_SCHEMA_v2.sql`, `setup-database.js` | the UI, until now |
+| `current_semester` | same four | the UI, until now |
+| `two_factor_auth`, `session_timeout`, `login_attempt_limit`, `email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`, `activity_logs_retention` | the live row and `legacy/add-settings-backup-history.sql` | **none of the three canonical schema files.** They exist only because that legacy ALTER was run by hand. |
+
+So the drift runs both ways: the UI invented six columns that were never
+created, and a legacy migration created eight that the canonical schema
+does not describe. A fresh database built from
+`backend/database/schema/database-schema.sql` would **not** have
+`session_timeout`, and the idle-logout timer would silently fall back to
+its 30-minute default.
+
+**Two follow-ups, neither taken here.** Fold the legacy ALTER into the
+canonical schema so a fresh database matches production. And
+`current_semester` is an INT holding a quarter number 1-4 — nothing reads
+it and there is no CHECK constraint, so it works, but the name now lies.
+Renaming it is a migration.
+
+## Migrations owed — not part of this overhaul
+
+Both came out of the `school_settings` work. Neither is urgent, and
+neither is UI, so neither was taken here.
+
+**Rename `current_semester`.** It is an `INT` that now holds a quarter
+number, 1-4. Nothing reads it, there is no CHECK constraint, and the
+round trip is tested — so it works. The name is what is wrong:
+`current_quarter` is what it holds. A rename is a migration plus the two
+helpers in `useAdminLogic.jsx` that translate it.
+
+**Move the legacy settings columns into the canonical schema.**
+`session_timeout`, `two_factor_auth`, `login_attempt_limit`,
+`email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`
+and `activity_logs_retention` exist in the live database only because
+`backend/database/legacy/add-settings-backup-history.sql` was run by
+hand. They appear in none of `database-schema.sql`,
+`COMPLETE_DATABASE_SCHEMA_v2.sql` or `backend/scripts/setup-database.js`.
+
+A database built fresh from those files would have no `session_timeout`,
+so the idle-logout timer in `AuthContext.jsx:107` would find nothing and
+silently fall back to 30 minutes — and the Settings save would fail on an
+unknown column again, exactly the way it did before this phase. This is
+the one of the three with a real failure mode behind it.

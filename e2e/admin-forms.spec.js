@@ -133,7 +133,7 @@ test.describe('admin forms', () => {
     const portal = page.locator('#settings-portal-name');
     await expect(portal).toBeDisabled();
     expect(await portal.getAttribute('aria-describedby')).toBe('settings-portal-name-hint');
-    await expect(page.locator('#settings-portal-name-hint')).toContainText(/installation/i);
+    await expect(page.locator('#settings-portal-name-hint')).toContainText(/Set by the developer/i);
   });
 
   // UX-049: four page buttons with no handler, no page state, over a table

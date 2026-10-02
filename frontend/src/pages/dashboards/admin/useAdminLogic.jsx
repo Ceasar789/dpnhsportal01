@@ -17,6 +17,19 @@ import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../.
 
 // The three General-card values the UI assumes it has. They are also the
 // fallback when the row does not carry them, which today it does not.
+// school_settings.current_semester is an INT. The UI has always offered
+// quarters, so 1-4 is what goes in it. Nothing in the codebase reads this
+// column — not one query outside useAdminLogic — and there is no CHECK
+// constraint on it, so 3 and 4 are accepted. The column NAME is the only
+// thing that still says "semester"; renaming it is a migration, and the
+// drift is logged in docs/ux-workarounds.md rather than fixed here.
+const QUARTERS = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
+const quarterToNumber = (label) => {
+  const i = QUARTERS.indexOf(label);
+  return i === -1 ? 1 : i + 1;
+};
+const quarterFromNumber = (n) => QUARTERS[(Number(n) || 1) - 1] || QUARTERS[0];
+
 const SETTINGS_DEFAULTS = {
   portal_name: 'EduScribe Portal',
   academic_year: '2025-2026',
@@ -914,20 +927,17 @@ export const useAdminLogic = (userData) => {
         { label: 'School settings fetch' }
       );
       if (!error && data) {
-        const quarterMap = {
-          '1st Semester': '1st Quarter',
-          '2nd Semester': '2nd Quarter',
-          Summer: '4th Quarter',
-        };
-        // prev FIRST, then data. The live school_settings row does not
-        // carry academic_year or semester at all (see the note on
-        // saveSettings), so spreading data over an empty object dropped
-        // them to undefined — which flipped the Academic Year input from
-        // controlled to uncontrolled, and left Discard unable to put a
-        // value back. Merging onto the defaults keeps every field a string
-        // whether or not the column exists.
-        const academicYear = data.academic_year ?? SETTINGS_DEFAULTS.academic_year;
-        const quarter = quarterMap[data.semester] || data.semester || SETTINGS_DEFAULTS.semester;
+        // The page's two General fields come from the columns that
+        // actually exist: school_year and current_semester. They were read
+        // as academic_year and semester for as long as this page has
+        // existed, which is why neither ever showed a stored value.
+        //
+        // prev FIRST, then data, so a column that is missing or null keeps
+        // its default rather than becoming undefined — an undefined value
+        // on a controlled input flips it to uncontrolled mid-session, and
+        // then Discard has nothing to put back.
+        const academicYear = data.school_year || SETTINGS_DEFAULTS.academic_year;
+        const quarter = quarterFromNumber(data.current_semester);
         setSettings(prev => ({
           ...prev,
           ...data,
@@ -981,37 +991,44 @@ export const useAdminLogic = (userData) => {
     savingSettingsRef.current = true;
     setSS(true);
     try {
-      // The payload is unchanged. Every column that is no longer editable
-      // — auto_save, two_factor_auth, login_attempt_limit, email_notifications,
-      // the three backup columns, activity_logs_retention, theme, language —
-      // still sends the value fetchSettings loaded, so the row is written
-      // back exactly as it was found.
-      const { error: saveError } = await supabase.from('school_settings').update({ 
-        ...settings, 
-        portal_name: 'EduScribe Portal',
-        theme,
-        language,
-        auto_save: autoSave,
-        two_factor_auth: true,
+      // Explicit keys, no `...settings` spread. The spread was the whole
+      // bug: it carried academic_year, semester and portal_name — none of
+      // which are columns on this table — so PostgREST rejected the entire
+      // PATCH with PGRST204 and nothing was ever written, including
+      // session_timeout, the one setting the app actually enforces.
+      //
+      // theme, language and auto_save have no column either and are gone
+      // from the payload; theme is a per-device preference in localStorage
+      // now. The rows that are no longer editable still send the value
+      // fetchSettings loaded, so the database is left as it was found.
+      const { error: saveError } = await supabase.from('school_settings').update({
+        school_year: settings.academic_year,
+        current_semester: quarterToNumber(settings.semester),
         session_timeout: sessionTimeout,
-        login_attempt_limit: true,
+        two_factor_auth: twoFactorAuth,
+        login_attempt_limit: loginAttemptLimit,
         email_notifications: emailNotifications,
         auto_backup: autoBackup,
         backup_frequency: backupFrequency,
         backup_time: backupTime,
         activity_logs_retention: activityLogsDays,
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString(),
       }).eq('id', 1);
-      // Only adopt a new baseline on a write that landed. Adopting it on a
-      // failure would hide the save bar and tell the admin their unsaved
-      // changes were saved.
-      if (!saveError) {
-        setSettingsBaseline({
-          academic_year: settings.academic_year,
-          semester: settings.semester,
-          session_timeout: sessionTimeout,
-        });
+      // A failed write used to fall straight through to "Settings saved!",
+      // because the returned error was never destructured. That is how a
+      // page which had never once saved anything went on looking like it
+      // worked. On a failure the bar stays up and the edits stay in the
+      // fields, so nothing the admin typed is lost.
+      if (saveError) {
+        console.warn('Settings save failed:', saveError.message);
+        showToast(`Could not save settings: ${saveError.message}`, 'error');
+        return;
       }
+      setSettingsBaseline({
+        academic_year: settings.academic_year,
+        semester: settings.semester,
+        session_timeout: sessionTimeout,
+      });
       await logActivity('Updated settings');
       showToast('Settings saved!');
     } catch (e) { showToast('Error saving settings', 'error'); }

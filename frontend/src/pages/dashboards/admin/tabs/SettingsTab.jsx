@@ -64,18 +64,28 @@ const SettingsTab = () => {
               <input id="settings-portal-name" value="EduScribe Portal" readOnly disabled style={{ width: '100%' }} aria-describedby="settings-portal-name-hint" />
               {/* UX-058: disabled next to editable siblings, with nothing
                   saying why or what would change it. */}
-              <div className="form-hint" id="settings-portal-name-hint">Fixed at installation. Changing it renames the portal everywhere, so it is not an in-app setting.</div>
+              <div className="form-hint" id="settings-portal-name-hint">Set by the developer. Not editable here.</div>
             </div>
           </div>
           <div className="settings-input-row">
             <label className="settings-input-label" htmlFor="settings-academic-year">Academic Year</label>
-            <input id="settings-academic-year" value={settings.academic_year} onChange={e => setSettings({ ...settings, academic_year: e.target.value })} style={{ flex: 1 }} />
+            <div style={{ flex: 1 }}>
+              <input id="settings-academic-year" value={settings.academic_year} onChange={e => setSettings({ ...settings, academic_year: e.target.value })} style={{ width: '100%' }} aria-describedby="settings-academic-year-hint" />
+              {/* Narrower than the label suggests. The academic tabs take
+                  their year from currentSchoolYear() in academicRules.js,
+                  not from this row. Backlogged as a one-source-of-truth
+                  question in docs/ux-workarounds.md. */}
+              <div className="form-hint" id="settings-academic-year-hint">Shown on the Overview banner. Subjects, sections, schedules and grades use the school year from the calendar, which rolls over every June.</div>
+            </div>
           </div>
           <div className="settings-input-row">
             <label className="settings-input-label" htmlFor="settings-quarter">Quarter</label>
-            <select id="settings-quarter" value={settings.semester} onChange={e => setSettings({ ...settings, semester: e.target.value })} style={{ flex: 1 }}>
-              <option>1st Quarter</option><option>2nd Quarter</option><option>3rd Quarter</option><option>4th Quarter</option>
-            </select>
+            <div style={{ flex: 1 }}>
+              <select id="settings-quarter" value={settings.semester} onChange={e => setSettings({ ...settings, semester: e.target.value })} style={{ width: '100%' }} aria-describedby="settings-quarter-hint">
+                <option>1st Quarter</option><option>2nd Quarter</option><option>3rd Quarter</option><option>4th Quarter</option>
+              </select>
+              <div className="form-hint" id="settings-quarter-hint">Shown on the Overview banner.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -111,7 +121,7 @@ const SettingsTab = () => {
           <div className="settings-row">
             <div>
               <div className="settings-label">Login Attempt Limit</div>
-              <div className="settings-hint">Not configured. Failed sign-ins are not counted or limited.</div>
+              <div className="settings-hint">Failed sign-ins are not counted or limited.</div>
             </div>
             <span className="badge badge-grey">Not configured</span>
           </div>

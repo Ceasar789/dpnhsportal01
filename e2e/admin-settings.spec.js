@@ -15,27 +15,14 @@ const timeout = (page) => page.getByLabel('Session Timeout');
 test.describe('admin settings', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
 
-  // Half of this test is the finding. The save bar works; the save does
-  // not, and it never has — the live school_settings row has no
-  // academic_year column, so the PATCH is rejected whole with PGRST204 and
-  // nothing is written. saveSettings discards the returned error and says
-  // "Settings saved!" regardless.
-  //
-  // So this asserts what the page DOES today, the way
-  // e2e/network-failure.spec.js does for the teacher's swallowed read: the
-  // bar appears on a change in a card far from the old button, Save sends
-  // one PATCH, and that PATCH comes back 400. When the column question is
-  // settled, the status assertion flips to 2xx and the persistence check
-  // below it turns back on.
-  test('a change in the Security card raises the bar, and Save is attempted', async ({ page }) => {
-    const patches = [];
-    await page.route('**/rest/v1/school_settings**', async (route) => {
-      if (route.request().method() !== 'PATCH') return route.continue();
-      const response = await route.fetch();
-      patches.push({ status: response.status(), body: await response.text() });
-      await route.fulfill({ response });
-    });
-
+  // This used to assert a 400. The page wrote academic_year, semester,
+  // portal_name, theme, language and auto_save — six keys that are not
+  // columns on school_settings — so PostgREST rejected the whole PATCH and
+  // nothing had ever saved, including session_timeout, the one setting the
+  // app enforces. The payload now writes the columns that exist, so the
+  // test asserts the thing it always wanted to: the value comes back after
+  // a reload.
+  test('a change in the Security card raises the bar, and Save persists it', async ({ page }) => {
     await loginAsAdmin(page);
     await openAdminTab(page, 'System Settings');
 
@@ -45,22 +32,110 @@ test.describe('admin settings', () => {
     const original = await timeout(page).inputValue();
     const next = TIMEOUTS.find((t) => t !== original);
 
-    // Session Timeout lives in Security; the old Save button was in General.
-    // That distance is what UX-028 was about.
+    // Session Timeout lives in Security; the old Save button was in
+    // General, four cards away. That distance is what UX-028 was about.
     await timeout(page).selectOption(next);
     await expect(bar(page)).toBeVisible();
     await expect(bar(page)).toContainText('1 unsaved change');
 
     await bar(page).getByRole('button', { name: /Save Changes/ }).click();
-    await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
+    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
 
-    expect(patches[0].status, 'if this is now 2xx, the column was added — invert this test').toBe(400);
-    expect(patches[0].body).toContain('academic_year');
+    // Persisted means it survives a reload, not that a toast appeared.
+    await page.reload();
+    await openAdminTab(page, 'System Settings');
+    await expect(timeout(page)).toHaveValue(next);
 
-    // And because the write failed, the bar correctly stays up rather than
-    // telling the admin their change was kept. That part is not a known
-    // failure; it is the behaviour being asserted.
+    // Put the row back the way it was found — this one is enforced, and
+    // leaving the suite's choice behind would change how the real portal
+    // behaves.
+    await timeout(page).selectOption(original);
+    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+  });
+
+  // Academic Year and Quarter read and write school_year and
+  // current_semester, which are the columns that actually exist. Quarter
+  // is the interesting one: the column is an INT and the UI offers four
+  // quarters, so the round trip goes through a number and back.
+  test('Academic Year and Quarter round-trip through the real columns', async ({ page }) => {
+    const sent = [];
+    await page.route('**/rest/v1/school_settings**', async (route) => {
+      if (route.request().method() === 'PATCH') sent.push(route.request().postDataJSON());
+      await route.continue();
+    });
+
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+
+    const quarter = page.locator('#settings-quarter');
+    const loaded = await quarter.inputValue();
+    const next = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].find((q) => q !== loaded);
+
+    await quarter.selectOption(next);
+    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+
+    // The write names the real columns, and none of the six that are not.
+    expect(Object.keys(sent[0]).sort()).toEqual([
+      'activity_logs_retention', 'auto_backup', 'backup_frequency', 'backup_time',
+      'current_semester', 'email_notifications', 'login_attempt_limit',
+      'school_year', 'session_timeout', 'two_factor_auth', 'updated_at',
+    ]);
+    expect(sent[0].current_semester).toBe(['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].indexOf(next) + 1);
+
+    await page.reload();
+    await openAdminTab(page, 'System Settings');
+    await expect(page.locator('#settings-quarter')).toHaveValue(next);
+
+    await page.locator('#settings-quarter').selectOption(loaded);
+    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+  });
+
+  // The Overview banner reads settings.academic_year and settings.semester,
+  // the same two fields the Settings page edits — so it has been showing
+  // the hardcoded defaults too, not the row. Both now come from
+  // school_year and current_semester, and this is what proves they agree.
+  test('the Overview banner shows the same values the Settings page does', async ({ page }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+    const year = await page.locator('#settings-academic-year').inputValue();
+    const quarter = await page.locator('#settings-quarter').inputValue();
+
+    await openAdminTab(page, 'Overview');
+    await expect(page.getByText(`${year} · ${quarter}`).first()).toBeVisible();
+  });
+
+  // The failure this page hid for its whole life: the returned error was
+  // never destructured, so a rejected write still said "Settings saved!".
+  test('a rejected write says so, keeps the bar up, and keeps the edits', async ({ page }) => {
+    await page.route('**/rest/v1/school_settings**', async (route) => {
+      if (route.request().method() !== 'PATCH') return route.continue();
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'PGRST204', message: 'intercepted by the e2e suite' }),
+      });
+    });
+
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+
+    const original = await timeout(page).inputValue();
+    const next = TIMEOUTS.find((t) => t !== original);
+    await timeout(page).selectOption(next);
     await expect(bar(page)).toBeVisible();
+
+    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+
+    await expect(page.locator('.toast.error')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Could not save settings/i)).toBeVisible();
+    await expect(page.getByText('Settings saved!')).toHaveCount(0);
+
+    // The work is still there, and the bar still says so.
+    await expect(bar(page)).toBeVisible();
+    await expect(timeout(page)).toHaveValue(next);
   });
 
   test('the count counts, and Discard restores what was loaded', async ({ page }) => {
@@ -181,7 +256,7 @@ test.describe('admin settings', () => {
 
     for (const said of [
       /Sign-in: email and password. Forgotten passwords are reset through a link sent to the user.s email./,
-      'Not configured. Failed sign-ins are not counted or limited.',
+      'Failed sign-ins are not counted or limited.',
       'Backups run automatically every day at 12:30 AM (Manila time). The schedule is not configurable here.',
       'Activity logs are currently kept indefinitely. Automatic cleanup is not available yet.',
     ]) {

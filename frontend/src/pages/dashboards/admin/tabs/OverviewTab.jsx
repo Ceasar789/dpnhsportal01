@@ -27,7 +27,7 @@ const OverviewTab = () => {
             <div>
               <div
                 style={{
-                  borderRadius: 16, padding: 'var(--space-24) var(--space-24)', marginBottom: 'var(--space-24)', display: 'flex', alignItems: 'center', gap: 'var(--space-16)',
+                  borderRadius: 'var(--radius-lg)', padding: 'var(--space-24) var(--space-24)', marginBottom: 'var(--space-24)', display: 'flex', alignItems: 'center', gap: 'var(--space-16)',
                   background: 'var(--banner-bg)', border: '1px solid var(--banner-border)',
                   boxShadow: '0 4px 16px rgba(25,8,223,.10)'
                 }}
@@ -46,7 +46,7 @@ const OverviewTab = () => {
                     Dela Paz National High School
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', borderRadius: 12, padding: 'var(--space-12) var(--space-24)', backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', borderRadius: 'var(--radius-lg)', padding: 'var(--space-12) var(--space-24)', backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)', flexShrink: 0 }}>
                   <div>
                     <div style={{ fontSize: 'var(--font-size-12)', fontWeight: 700, letterSpacing: 1, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>Academic Year</div>
                     <div style={{ fontSize: 'var(--font-size-20)', fontWeight: 800, color: 'var(--banner-text)' }}>{settings.academic_year} · {settings.semester}</div>

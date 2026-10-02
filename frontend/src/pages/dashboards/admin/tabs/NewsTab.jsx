@@ -162,7 +162,7 @@ const NewsTab = () => {
           <div className="form-row">
             <label className="form-label" htmlFor="news-attach-image">Attach Image</label>
             <input id="news-attach-image" className="form-input" type="file" accept="image/*" onChange={e => setNImageFile(e.target.files?.[0] || null)} disabled={newsReadOnly} />
-            {nImageUrl && <img src={nImageUrl} alt="Attached news" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginTop: 'var(--space-8)' }} />}
+            {nImageUrl && <img src={nImageUrl} alt="Attached news" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-8)' }} />}
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="news-status">Status</label>

@@ -72,7 +72,7 @@ const AdminDashboard = () => {
           dashboard cannot be opened.
         </p>
         <div style={{
-          background: 'var(--gate-panel)', border: '1px solid var(--gate-border)', borderRadius: 8,
+          background: 'var(--gate-panel)', border: '1px solid var(--gate-border)', borderRadius: 'var(--radius-md)',
           padding: 'var(--space-12) var(--space-16)', color: 'var(--gate-muted)', fontSize: 'var(--font-size-13)', textAlign: 'left'
         }}>
           <div>Signed in as: <strong style={{ color: 'var(--gate-text)' }}>{userData?.email || '— not signed in —'}</strong></div>
@@ -82,7 +82,7 @@ const AdminDashboard = () => {
           to="/faculty-login"
           replace
           style={{
-            marginTop: 'var(--space-8)', padding: 'var(--space-12) var(--space-24)', borderRadius: 8, border: 'none',
+            marginTop: 'var(--space-8)', padding: 'var(--space-12) var(--space-24)', borderRadius: 'var(--radius-md)', border: 'none',
             background: 'var(--gate-action)', color: 'var(--on-accent)', fontSize: 'var(--font-size-14)', fontWeight: 600, cursor: 'pointer',
             // A <button> centres its own text and an <a> does not; these two
             // keep the control looking exactly as it did.
@@ -179,7 +179,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           letter-spacing: 0.03em;
           transition: all .15s;
           border: none; background: none;
-          border-radius: 6px;
+          border-radius: var(--radius-sm);
           position: relative;
         }
         .nav-link:hover { color: #ffffff; background: rgba(255,255,255,.12); }
@@ -191,7 +191,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           transform: translateX(-50%);
           width: 20px; height: 2px;
           background: var(--brand-gold-bright);
-          border-radius: 2px;
+          border-radius: var(--radius-xs);
         }
 
         .nav-actions { display: flex; align-items: center; gap: var(--space-8); margin-left: auto; }
@@ -219,7 +219,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         }
         .nav-logout-btn {
           display: flex; align-items: center; gap: var(--space-8);
-          padding: var(--space-8) var(--space-16); border-radius: 7px;
+          padding: var(--space-8) var(--space-16); border-radius: var(--radius-md);
           border: 1px solid rgba(255,255,255,.3);
           background: transparent; cursor: pointer;
           color: rgba(255,255,255,.85); font-size: var(--font-size-13); font-weight: 600;
@@ -233,10 +233,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar-user { min-height: 76px; padding: var(--space-24) var(--space-8); border-bottom: 1px solid var(--border); display: flex !important; align-items: center; gap: var(--space-12); margin-bottom: 0; visibility: visible; }
         .admin-profile-row { min-height: 76px; width: 100%; display: flex !important; align-items: center; visibility: visible; }
         .sidebar.collapsed .sidebar-user { justify-content: center; }
-        .sidebar-item { padding: var(--space-12) var(--space-12); margin-bottom: var(--space-4); border-radius: 12px; cursor: pointer; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; transition: all .3s ease; display: flex; align-items: center; gap: var(--space-12); border-left: 3px solid transparent; }
+        .sidebar-item { padding: var(--space-12) var(--space-12); margin-bottom: var(--space-4); border-radius: var(--radius-lg); cursor: pointer; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; transition: all .3s ease; display: flex; align-items: center; gap: var(--space-12); border-left: 3px solid transparent; }
         .sidebar-user + .sidebar-item { margin-top: var(--space-16); }
         .sidebar.collapsed .sidebar-item { justify-content: center; padding-left: var(--space-8); padding-right: var(--space-8); }
-        .sidebar-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .3s ease; }
+        .sidebar-icon { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .3s ease; }
         .sidebar-item:not(.active) .sidebar-icon { border: 1px solid var(--border); }
         .sidebar-item.active .sidebar-icon { background: #ffffff; box-shadow: 0 2px 6px var(--overlay-accent-glow); }
         .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
@@ -251,35 +251,35 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .page-title { font-size: var(--font-size-24); font-weight: 700; color: var(--text); }
         .page-sub { color: var(--text-muted); font-size: var(--font-size-13); margin-top: var(--space-4); margin-bottom: var(--space-24); }
-        .page-header-bar { border-radius: 10px; padding: var(--space-16) var(--space-16); margin-bottom: var(--space-24); background: var(--banner-bg); border: 1px solid var(--banner-border); }
+        .page-header-bar { border-radius: var(--radius-lg); padding: var(--space-16) var(--space-16); margin-bottom: var(--space-24); background: var(--banner-bg); border: 1px solid var(--banner-border); }
         .page-header-bar .page-title { color: var(--banner-text); }
         .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }
-        .btn { padding: var(--space-8) var(--space-16); border-radius: 7px; border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: var(--space-8); }
+        .btn { padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: var(--space-8); }
         .btn-primary { background: var(--accent); color: var(--on-accent); }
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
         .btn-danger { background: transparent; color: var(--red); border: none; cursor: pointer; }
-        .icon-action { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 7px; background: transparent; cursor: pointer; transition: transform .15s, background-color .15s, color .15s; }
+        .icon-action { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; cursor: pointer; transition: transform .15s, background-color .15s, color .15s; }
         .edit-action { color: var(--accent); }
         .edit-action:hover { background: rgba(99,102,241,.12); transform: scale(1.08); }
         .archive-action { color: var(--red); }
         .archive-action:hover { background: rgba(239,68,68,.12); transform: scale(1.08) rotate(-8deg); }
-        .archive-toggle { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--card-bg); border: 1px solid var(--border); border-radius: 7px; cursor: pointer; }
+        .archive-toggle { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; }
         .archive-toggle:hover, .archive-toggle.active { color: var(--accent); border-color: var(--accent); background: rgba(99,102,241,.12); }
         .archive-status-badge { display: inline-flex; align-items: center; gap: var(--space-4); white-space: nowrap; line-height: 1; }
         .archive-news-action { display: inline-flex; align-items: center; gap: var(--space-4); }
         .btn-sm { padding: var(--space-4) var(--space-12); font-size: var(--font-size-12); }
-        input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: var(--space-8) var(--space-12); font-size: var(--font-size-13); outline: none; }
+        input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-md); padding: var(--space-8) var(--space-12); font-size: var(--font-size-13); outline: none; }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); }
         select { appearance: none; cursor: pointer; }
-        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; }
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); }
         .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-12); font-weight: 700; flex-shrink: 0; color: var(--on-accent); }
-        .badge { padding: var(--space-2) var(--space-12); border-radius: 20px; font-size: var(--font-size-12); font-weight: 600; border: 1px solid; white-space: nowrap; }
+        .badge { padding: var(--space-2) var(--space-12); border-radius: var(--radius-full); font-size: var(--font-size-12); font-weight: 600; border: 1px solid; white-space: nowrap; }
         .badge-blue    { color: var(--badge-blue-fg); border-color: var(--badge-blue-border); background: var(--badge-blue-bg); }
         .badge-green   { color: var(--badge-green-fg); border-color: var(--badge-green-border); background: var(--badge-green-bg); }
         .badge-teal    { color: var(--badge-teal-fg); border-color: var(--badge-teal-border); background: var(--badge-teal-bg); }
         .badge-yellow  { color: var(--badge-yellow-fg); border-color: var(--badge-yellow-border); background: var(--badge-yellow-bg); }
-        .chip { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-2) var(--space-12); margin: var(--space-2) var(--space-4) var(--space-2) 0; border-radius: 20px; font-size: var(--font-size-12); font-weight: 600; white-space: nowrap; color: var(--badge-blue-fg); border: 1px solid var(--badge-blue-border); background: var(--badge-blue-bg); }
+        .chip { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-2) var(--space-12); margin: var(--space-2) var(--space-4) var(--space-2) 0; border-radius: var(--radius-full); font-size: var(--font-size-12); font-weight: 600; white-space: nowrap; color: var(--badge-blue-fg); border: 1px solid var(--badge-blue-border); background: var(--badge-blue-bg); }
         .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: var(--space-8); margin: -8px; opacity: .7; }
         .chip-x:hover { opacity: 1; }
         .badge-red     { color: var(--badge-red-fg); border-color: var(--badge-red-border); background: var(--badge-red-bg); }
@@ -297,7 +297,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         tr:hover td { background: rgba(255,255,255,0.02); }
         .toolbar { display: flex; gap: var(--space-12); margin-bottom: var(--space-16); align-items: center; flex-wrap: wrap; }
         .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
-        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
 
         /* Teaching Load — bulk assignment form and the grade-grouped list.
            Everything here is built from the same vars as the rest of the
@@ -307,13 +307,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .bulk-label { font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); margin-bottom: var(--space-8); display: flex; align-items: center; }
         .bulk-submit { display: flex; align-items: center; gap: var(--space-12); margin-top: var(--space-16); flex-wrap: wrap; }
         .bulk-hint { font-size: var(--font-size-12); color: var(--text-muted); flex: 1; min-width: 180px; line-height: 1.45; }
-        .picker-search { display: flex; align-items: center; gap: var(--space-8); padding: 0 var(--space-12); border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text-muted); margin-bottom: var(--space-8); }
+        .picker-search { display: flex; align-items: center; gap: var(--space-8); padding: 0 var(--space-12); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); color: var(--text-muted); margin-bottom: var(--space-8); }
         .picker-search:focus-within { border-color: var(--accent); }
         .picker-search input { border: none; background: transparent; padding: var(--space-8) 0; flex: 1; min-width: 0; }
         .picker-search input:focus { border: none; }
         /* Capped and scrollable: 48 teachers would otherwise push the Add
            button and the whole list far below the fold. */
-        .picker-panel { max-height: 230px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); }
+        .picker-panel { max-height: 230px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); }
         .picker-row { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-8) var(--space-12); cursor: pointer; border-bottom: 1px solid var(--border); font-size: var(--font-size-13); color: var(--text); }
         .picker-row:last-child { border-bottom: none; }
         .picker-row:hover { background: rgba(255,255,255,0.03); }
@@ -322,10 +322,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-dept { font-size: var(--font-size-12); color: var(--text-muted); white-space: nowrap; }
         .picker-empty { padding: var(--space-16) var(--space-12); text-align: center; font-size: var(--font-size-12); color: var(--text-muted); }
         .grade-tabs { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-16); border-bottom: 1px solid var(--border); padding-bottom: 0; }
-        .grade-tab { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
+        .grade-tab { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border: 1px solid transparent; border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
         .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
         .grade-tab.active { color: var(--accent); background: var(--card-bg); border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
-        .grade-tab-count { font-size: var(--font-size-12); font-weight: 700; min-width: 20px; text-align: center; padding: 1px var(--space-8); border-radius: 20px; color: #60a5fa; background: rgba(59,130,246,0.12); }
+        .grade-tab-count { font-size: var(--font-size-12); font-weight: 700; min-width: 20px; text-align: center; padding: 1px var(--space-8); border-radius: var(--radius-full); color: #60a5fa; background: rgba(59,130,246,0.12); }
         .grade-tab-count.empty { color: var(--text-muted); background: rgba(148,163,184,0.12); }
 
         /* Shown only after someone presses the button. A form that is red
@@ -346,7 +346,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .form-with-action .form-input { flex: 1; }
 
         .section-picker { display: flex; gap: var(--space-8); flex-wrap: wrap; margin-bottom: var(--space-16); }
-        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-8) var(--space-16); border: 1px solid var(--border); border-radius: 9px; background: var(--card-bg); cursor: pointer; transition: all .15s; }
+        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-8) var(--space-16); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); cursor: pointer; transition: all .15s; }
         .section-chip:hover { border-color: var(--accent); }
         .section-chip.active { border-color: var(--accent); background: rgba(99,102,241,.12); }
         .section-chip-name { font-size: var(--font-size-13); font-weight: 600; color: var(--text); }
@@ -361,12 +361,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-row input[type="radio"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
         .picker-actions { display: flex; gap: var(--space-8); margin-top: var(--space-8); }
         .picker-actions .btn:disabled { opacity: .45; cursor: default; }
-        .picker-tag { font-size: var(--font-size-12); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px var(--space-8); white-space: nowrap; }
+        .picker-tag { font-size: var(--font-size-12); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-full); padding: 1px var(--space-8); white-space: nowrap; }
         .picker-toggle { display: flex; align-items: center; gap: var(--space-8); margin-top: var(--space-12); font-size: var(--font-size-12); color: var(--text-muted); cursor: pointer; }
         .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
-        .picker-warning { margin-top: var(--space-8); font-size: var(--font-size-12); line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: 7px; padding: var(--space-8) var(--space-12); }
+        .picker-warning { margin-top: var(--space-8); font-size: var(--font-size-12); line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: var(--radius-md); padding: var(--space-8) var(--space-12); }
         .grade-picker { display: flex; flex-wrap: wrap; gap: var(--space-8); align-items: center; }
-        .grade-toggle { padding: var(--space-8) var(--space-12); border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: all .15s; }
+        .grade-toggle { padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: all .15s; }
         .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
         .grade-toggle.active { border-color: var(--accent); color: var(--on-accent); background: var(--accent); }
         /* The draft: entries staged but not yet written. Dashed border and
@@ -390,7 +390,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .row-sub { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
 
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-16); margin-bottom: var(--space-24); }
-        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 184px; }
+        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; height: 184px; }
         .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform .15s, border-color .15s, box-shadow .15s; }
         .clickable-stat:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px var(--overlay-md); }
         .clickable-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -402,12 +402,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .stat-change.up   { color: var(--green); }
         .stat-change.down { color: var(--red); }
         .overview-grid { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-16); }
-        .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: var(--space-24); }
+        .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-24); }
         .chart-title { font-size: var(--font-size-14); font-weight: 600; margin-bottom: var(--space-4); }
         .chart-sub   { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: var(--space-16); }
         .bars { display: flex; align-items: flex-end; gap: var(--space-8); height: 120px; }
         .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); flex: 1; }
-        .bar { background: var(--accent); border-radius: 4px 4px 0 0; width: 100%; transition: opacity .15s; }
+        .bar { background: var(--accent); border-radius: var(--radius-xs) var(--radius-xs) 0 0; width: 100%; transition: opacity .15s; }
         .bar:hover { opacity: .8; }
         .bar-label { font-size: var(--font-size-12); color: var(--text-dim); }
         .recent-item { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) 0; border-bottom: 1px solid var(--border); }
@@ -418,8 +418,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .recent-time  { font-size: var(--font-size-12); color: var(--text-dim); }
         .role-bar { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--space-12); }
         .role-row { display: flex; align-items: center; gap: var(--space-12); }
-        .role-track { flex: 1; height: 10px; background: var(--border); border-radius: 10px; overflow: hidden; }
-        .role-fill  { height: 100%; border-radius: 10px; }
+        .role-track { flex: 1; height: 10px; background: var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        .role-fill  { height: 100%; border-radius: var(--radius-lg); }
         .role-label { font-size: var(--font-size-12); color: var(--text-muted); width: 110px; flex-shrink: 0; }
         .role-overview { display: flex; align-items: center; gap: var(--space-16); margin: var(--space-12) 0 var(--space-16); }
         .role-pie { width: 118px; height: 118px; border-radius: 50%; flex-shrink: 0; position: relative; }
@@ -430,14 +430,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .role-legend-item strong { color: var(--text); font-size: var(--font-size-12); }
 
         .pagination { display: flex; align-items: center; gap: var(--space-8); padding: var(--space-16) var(--space-16); border-top: 1px solid var(--border); font-size: var(--font-size-13); color: var(--text-muted); }
-        .page-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-13); }
+        .page-btn { width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-13); }
         .page-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-        .assign-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: var(--space-16) var(--space-16); margin-top: var(--space-16); display: flex; align-items: center; justify-content: space-between; }
+        .assign-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-16) var(--space-16); margin-top: var(--space-16); display: flex; align-items: center; justify-content: space-between; }
         .assign-label { font-size: var(--font-size-13); font-weight: 600; }
         .assign-hint { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
 
         .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); }
-        .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
         .news-card-top { height: 4px; }
         .news-card-top.pub  { background: var(--accent); }
         .news-card-top.draft { background: var(--yellow); }
@@ -456,9 +456,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .cal-toolbar { display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-16); flex-wrap: wrap; }
         .cal-title   { font-size: var(--font-size-16); font-weight: 600; }
-        .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); padding: var(--space-4) var(--space-8); border-radius: 5px; }
+        .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); }
         .cal-nav:hover { background: rgba(255,255,255,0.06); color: var(--text); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: 10px; overflow: hidden; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: var(--radius-lg); overflow: hidden; }
         .cal-head { background: #f8fafc; padding: var(--space-12); text-align: center; font-size: var(--font-size-12); font-weight: 600; color: #64748b; }
         .cal-cell { background: var(--card-bg); min-height: 80px; padding: var(--space-8); position: relative; }
         .cal-cell.weekend { background: rgba(254,226,226,.55); }
@@ -467,7 +467,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-day { font-size: var(--font-size-13); color: #475569; margin-bottom: var(--space-4); }
         .cal-cell.today .cal-day { background: #2563eb; color: var(--on-accent); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
         .cal-cell.other-month .cal-day { color: #94a3b8; }
-        .cal-event { font-size: var(--font-size-12); font-weight: 600; padding: var(--space-4) var(--space-8); border-radius: 4px; margin-bottom: var(--space-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        .cal-event { font-size: var(--font-size-12); font-weight: 600; padding: var(--space-4) var(--space-8); border-radius: var(--radius-xs); margin-bottom: var(--space-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .cal-event:hover { opacity: 0.8; }
         .ev-blue   { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
         .ev-yellow { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
@@ -493,7 +493,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .upcoming-item { padding: var(--space-12) 0; border-left: 3px solid; padding-left: var(--space-12); margin-bottom: var(--space-12); }
         .legend { display: flex; gap: var(--space-16); margin-top: var(--space-12); flex-wrap: wrap; }
         .legend-item { display: flex; align-items: center; gap: var(--space-8); font-size: var(--font-size-12); color: var(--text-muted); }
-        .legend-dot  { width: 12px; height: 12px; border-radius: 2px; }
+        .legend-dot  { width: 12px; height: 12px; border-radius: var(--radius-xs); }
 
         .memo-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: var(--space-16); }
         .memo-list-item { padding: var(--space-12) var(--space-16); cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s; }
@@ -502,7 +502,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .memo-title-item { font-size: var(--font-size-13); font-weight: 600; margin-bottom: var(--space-4); }
         .memo-meta    { font-size: var(--font-size-12); color: var(--text-muted); display: flex; align-items: center; gap: var(--space-8); flex-wrap: wrap; }
         .memo-snippet { font-size: var(--font-size-12); color: var(--text-dim); margin-top: var(--space-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .memo-preview { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: var(--space-24); }
+        .memo-preview { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-24); }
         .memo-field       { display: flex; gap: var(--space-8); margin-bottom: var(--space-8); font-size: var(--font-size-13); }
         .memo-field-label { color: var(--text-muted); width: 50px; flex-shrink: 0; }
         .memo-field-val   { color: var(--text); font-weight: 500; }
@@ -513,7 +513,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .settings-section { margin-bottom: var(--space-24); }
         .settings-section-title { font-size: var(--font-size-16); font-weight: 700; margin-bottom: var(--space-16); padding-bottom: var(--space-8); border-bottom: 1px solid var(--border); }
-        .settings-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: var(--space-16); }
+        .settings-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-16); }
         .settings-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-12) 0; border-bottom: 1px solid var(--border); }
         .settings-row:last-child { border-bottom: none; }
         .settings-label { font-size: var(--font-size-13); font-weight: 600; }
@@ -529,14 +529,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         /* UX-028: one bar for the page, not a button inside one card. It
            sticks to the bottom so it is reachable from any card without
            scrolling back to General. */
-        .settings-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) var(--space-16); margin-top: var(--space-24); background: var(--card-bg); border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 -6px 18px var(--overlay-lg); z-index: 5; }
+        .settings-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) var(--space-16); margin-top: var(--space-24); background: var(--card-bg); border: 1px solid var(--accent); border-radius: var(--radius-lg); box-shadow: 0 -6px 18px var(--overlay-lg); z-index: 5; }
         .settings-savebar-count { font-size: var(--font-size-13); font-weight: 700; }
         .settings-savebar-actions { margin-left: auto; display: flex; gap: var(--space-8); }
         /* A setting the system does not act on is a sentence, not a control. */
         .settings-readonly { font-size: var(--font-size-13); color: var(--text-muted); max-width: 42ch; text-align: right; }
         .settings-note { font-size: var(--font-size-13); color: var(--text-muted); line-height: 1.5; }
 
-        .toggle { width: 44px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
+        .toggle { width: 44px; height: 24px; border-radius: var(--radius-lg); position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
         .toggle.on  { background: var(--accent); }
         .toggle.off { background: var(--text-dim); }
         .toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 3px; transition: left .2s; }
@@ -545,14 +545,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-overlay.open { display: flex; }
-        .modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: var(--space-24); width: 440px; max-height: 90vh; overflow-y: auto; }
+        .modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-24); width: 440px; max-height: 90vh; overflow-y: auto; }
         .modal-title { font-size: var(--font-size-16); font-weight: 700; margin-bottom: var(--space-16); }
         .form-row   { margin-bottom: var(--space-16); }
         .form-label { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: var(--space-4); display: block; }
         .form-input { width: 100%; }
         .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-12); margin-top: var(--space-24); }
 
-        .toast { position: fixed; bottom: 24px; right: 24px; padding: var(--space-12) var(--space-24); border-radius: 8px; font-size: var(--font-size-13); font-weight: 600; z-index: 2000; animation: slideUp .3s ease; }
+        .toast { position: fixed; bottom: 24px; right: 24px; padding: var(--space-12) var(--space-24); border-radius: var(--radius-md); font-size: var(--font-size-13); font-weight: 600; z-index: 2000; animation: slideUp .3s ease; }
         .toast.success { background: var(--green); color: var(--on-accent); }
         .toast.error   { background: var(--red); color: var(--on-accent); }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -651,7 +651,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             {profileOpen && !sidebarCollapsed && (
               <button
                 onClick={() => leaveSettings(() => { setPage('profile'); setProfileOpen(false); })}
-                style={{ width: '100%', marginTop: 'var(--space-12)', padding: 'var(--space-8) var(--space-12)', display: 'flex', alignItems: 'center', gap: 'var(--space-8)', borderRadius: 8, color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 'var(--font-size-13)', fontWeight: 600 }}
+                style={{ width: '100%', marginTop: 'var(--space-12)', padding: 'var(--space-8) var(--space-12)', display: 'flex', alignItems: 'center', gap: 'var(--space-8)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 'var(--font-size-13)', fontWeight: 600 }}
               >
                 <Settings size={15} />
                 <span>Profile Settings</span>

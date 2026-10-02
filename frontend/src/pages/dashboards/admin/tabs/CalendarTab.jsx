@@ -16,7 +16,7 @@ const CalendarTab = () => {
   const {
     calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     deleteEvent, editEvent, evDate, evDesc, evEnd, evSaving, evTitle,
-    evCustomType, evType, handleOverlayClick, modal, nextMonth, openCreateEvent,
+    evCustomType, evType, modal, nextMonth, openCreateEvent,
     openEditEvent, prevMonth, saveEvent, setCalFilter, setEvCustomType, setEvDate,
     setCalYear, setEvDesc, setEvEnd, setEvTitle, setEvType, today, typeClass,
     typeColor, upcomingEvents

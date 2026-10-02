@@ -101,3 +101,84 @@ standing instruction it is recorded here and left alone.
   destructured by some tabs, but every overlay is now a `<Modal>` and
   nothing calls it. Dead; delete it in **Phase 3** when those files are open
   anyway.
+
+## Feature backlog — NOT part of this overhaul
+
+The Settings page used to offer these as switches. Every column was
+grepped across the frontend, the backend, the SQL and the GitHub
+workflow: nothing reads them. UX-028 replaced each one with a read-only
+statement of what the system actually does, because a switch that does
+nothing is a worse lie than an absent feature. If any of these is built
+later, the statement becomes a control again.
+
+| Feature | What exists today | What building it would take |
+|---|---|---|
+| Two-factor authentication | Nothing. No `mfa`, `factor` or `otp` call anywhere. Sign-in is email + password; the password-reset email is a link, sent by SMTP configured in the Supabase dashboard. | Supabase MFA enrolment and challenge, plus a per-role policy for who must use it. |
+| Login attempt limiting | Nothing counts or limits failed sign-ins. The only rate limiter in the repo is `express-rate-limit` on the AI route (`backend/src/routes/ai.js:34`). | An auth hook or edge function that counts failures per identifier and locks out, plus an unlock path. |
+| Activity log retention | Nothing deletes old rows. Logs accumulate forever regardless of the 30 days / 90 days / 1 year that used to be selectable. | A scheduled job (pg_cron or an edge function) reading the retention setting and deleting past it. |
+| Configurable backup schedule | `.github/workflows/supabase-backup.yml` runs on a hardcoded `30 16 * * *` (00:30 Manila) and never reads `auto_backup`, `backup_frequency` or `backup_time`. | Either a workflow that reads the setting before deciding to run, or moving the schedule into pg_cron where the setting lives. |
+| Email notifications | The portal sends no email of its own — no nodemailer, Resend, SendGrid or SMTP client in the repo. | A sender, templates, and a decision about what is worth emailing. |
+
+## Blocked — `school_settings` does not have the columns the page writes
+
+Found while building the UX-028 save bar, by watching the actual
+request rather than reading the code. **No setting on the admin
+Settings page has ever saved**, including Session Timeout, which is the
+one setting the app genuinely enforces.
+
+The live row returns:
+
+```
+id, school_name, school_year, current_semester, address, phone, email,
+website, logo_url, description, established_year, region, division,
+created_at, updated_at, two_factor_auth, session_timeout,
+login_attempt_limit, email_notifications, auto_backup,
+backup_frequency, backup_time, activity_logs_retention
+```
+
+`saveSettings` writes `academic_year`, `semester`, `portal_name`,
+`theme`, `language` and `auto_save`, **none of which exist**. PostgREST
+rejects the whole PATCH:
+
+```
+PATCH /rest/v1/school_settings?id=eq.1  →  400
+{"code":"PGRST204","message":"Could not find the 'academic_year' column
+ of 'school_settings' in the schema cache"}
+```
+
+`saveSettings` never destructures the returned error, so it falls
+through to `showToast('Settings saved!')` every time. That is why this
+went unnoticed: the page has always said it worked.
+
+Two consequences already repaired, because they are UI and were making
+the save bar misbehave:
+
+- `setSettings({ ...data, … })` spread the row over an empty object, so
+  the absent `academic_year` became `undefined` and React flipped the
+  Academic Year input from controlled to uncontrolled mid-session. It
+  now merges onto the defaults, so every field stays a string.
+- The save-bar baseline is taken from what the page loaded rather than
+  from the raw row, so Discard restores what the admin actually saw.
+
+**What is still blocked, and needs a decision:** which columns the page
+should write. Changing that is a data-layer change, not UI.
+
+`e2e/admin-settings.spec.js` asserts the current 400 so the suite stays
+a signal; that assertion inverts when this is settled.
+
+## Test infrastructure — `networkidle` is not reliable here
+
+Two specs have now failed a full-suite run on
+`page.waitForLoadState('networkidle')` and passed on their own:
+`polish.spec.js` (`/`) and `admin-a11y.spec.js` (its `beforeEach`).
+Nothing in either spec relates to the change that was running at the
+time.
+
+The cause is that the app holds Supabase realtime websockets open, so
+"no network activity for 500ms" is a condition the page does not
+reliably reach under load — and a second Playwright process on the same
+machine is enough load. It is a flaky wait, not a flaky application.
+
+Replace those waits with a wait for the thing the test actually needs
+(an element, a response) rather than for the network to go quiet.
+Not done here: it touches specs this phase did not otherwise open.

@@ -110,7 +110,17 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const { darkMode, page, setDarkMode, setPage, toast,
-    activeSettingsSub, scrollToSection, settings, deleteConfirm, setDeleteConfirm } = useAdminContext();
+    activeSettingsSub, scrollToSection, settings, deleteConfirm, setDeleteConfirm,
+    settingsDirty } = useAdminContext();
+
+  // UX-028 — leaving System Settings with the save bar up throws the work
+  // away, and a sidebar click is one keystroke. Same prompt the dialogs
+  // use, for the same reason: an untouched page never sees it.
+  const leaveSettings = (go) => {
+    if (page === 'settings' && settingsDirty
+      && !window.confirm('You have unsaved settings. Discard them?')) return;
+    go();
+  };
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
 
   return (
@@ -274,6 +284,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .chip-x:hover { opacity: 1; }
         .badge-red     { color: #f87171; border-color: #b91c1c; background: rgba(239,68,68,0.1); }
         .badge-purple  { color: #c4b5fd; border-color: #6d28d9; background: rgba(167,139,250,0.1); }
+        /* For "not available" — the one state that must not read as healthy. */
+        .badge-grey    { color: var(--text-muted); border-color: var(--border); background: transparent; }
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
         .dot-green { background: var(--green); }
         .dot-red { background: var(--red); }
@@ -514,6 +526,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .settings-input-row:last-child { border-bottom: none; }
         .settings-input-label { font-size: 13px; color: var(--text-muted); width: 120px; flex-shrink: 0; }
         .settings-save { display: flex; justify-content: flex-end; margin-top: 16px; }
+        /* UX-028: one bar for the page, not a button inside one card. It
+           sticks to the bottom so it is reachable from any card without
+           scrolling back to General. */
+        .settings-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 20px; background: var(--card-bg); border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 -6px 18px rgba(0,0,0,.22); z-index: 5; }
+        .settings-savebar-count { font-size: 13px; font-weight: 700; }
+        .settings-savebar-actions { margin-left: auto; display: flex; gap: 8px; }
+        /* A setting the system does not act on is a sentence, not a control. */
+        .settings-readonly { font-size: 13px; color: var(--text-muted); max-width: 42ch; text-align: right; }
+        .settings-note { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 
         .toggle { width: 44px; height: 24px; border-radius: 12px; position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
         .toggle.on  { background: var(--accent); }
@@ -629,7 +650,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             </button>
             {profileOpen && !sidebarCollapsed && (
               <button
-                onClick={() => { setPage('profile'); setProfileOpen(false); }}
+                onClick={() => leaveSettings(() => { setPage('profile'); setProfileOpen(false); })}
                 style={{ width: '100%', marginTop: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8, color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 13, fontWeight: 600 }}
               >
                 <Settings size={15} />
@@ -659,7 +680,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               // carries the destination on its own.
               aria-label={sidebarCollapsed ? v : undefined}
               title={sidebarCollapsed ? v : undefined}
-              onClick={() => { setPage(k); setSidebarOpen(false); }}
+              onClick={() => leaveSettings(() => { setPage(k); setSidebarOpen(false); })}
             >
               <span className="sidebar-icon"><Icon size={16} aria-hidden="true" /></span>
               {!sidebarCollapsed && <span>{v}</span>}

@@ -39,20 +39,14 @@ test.describe('admin keyboard access', () => {
     }
   });
 
-  // UX-093, the shared Toggle. role=switch rather than a plain button: a
-  // button announces the press, a switch announces the state.
-  test('the settings toggles are switches that say which way they are set', async ({ page }) => {
-    await openAdminTab(page, 'System Settings');
-    const switches = page.getByRole('switch');
-    await expect(switches).not.toHaveCount(0);
-
-    const first = switches.first();
-    await expect(first).toHaveAccessibleName(/.+/);
-    const before = await first.getAttribute('aria-checked');
-    await first.focus();
-    await page.keyboard.press('Enter');
-    await expect(first).not.toHaveAttribute('aria-checked', before);
-  });
+  // UX-093's shared Toggle is gone, and so is this test's subject. The
+  // three switches it covered - Auto-Save, Email Notifications and
+  // Auto-Backup - controlled settings nothing in the system reads, so
+  // UX-028 replaced them with read-only statements of what actually
+  // happens. e2e/admin-settings.spec.js asserts that, including that no
+  // role=switch survives on the page. Removing the control is a stronger
+  // outcome than making it accessible, so the test goes with it rather
+  // than being rewritten to assert a weaker thing.
 
   // UX-096 across every form the admin can open.
   test('no form control anywhere is left without a name', async ({ page }) => {

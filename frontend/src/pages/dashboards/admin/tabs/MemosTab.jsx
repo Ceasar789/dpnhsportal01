@@ -12,8 +12,7 @@ import Button from '../../../../components/ui/Button';
 
 const MemosTab = () => {
   const {
-    closeModal, deleteMemo, editMemo, filteredMemos, handleOverlayClick,
-    mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos,
+    closeModal, deleteMemo, editMemo, filteredMemos, mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos,
     memosLoading, modal, openCompose, openEditMemo, saveMemo, selMemo,
     setMBody, setMFrom, setMSubj, setMTo, setMemoFilter, setMemoSearch,
     setSelMemo, stats, users

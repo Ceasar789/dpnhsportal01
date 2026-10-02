@@ -13,8 +13,7 @@ import Button from '../../../../components/ui/Button';
 
 const NewsTab = () => {
   const {
-    closeModal, deleteNewsItem, editNews, filteredNews, handleOverlayClick,
-    modal, nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
+    closeModal, deleteNewsItem, editNews, filteredNews, modal, nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
     newsCatF, newsItems, newsLoading, newsSearch, newsStatF, openEditNews,
     openNewPost, saveNews, saveNewsExpiry, setNAuthor, setNCat, setNContent, setNExpiresDate, setNStatus,
     setNCustomTarget, setNImageFile, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus

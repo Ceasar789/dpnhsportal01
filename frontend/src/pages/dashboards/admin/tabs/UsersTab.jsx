@@ -23,8 +23,7 @@ const UserAvatarCell = ({ user }) => {
 
 const UsersTab = () => {
   const {
-    closeModal, deleteUser, editUser, filteredUsers, handleOverlayClick,
-    modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
+    closeModal, deleteUser, editUser, filteredUsers, modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
     setStatusFilter, setShowArchived, setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
     showArchived, statusFilter, uDept, setUDept, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, onlineUsers
   } = useAdminContext();

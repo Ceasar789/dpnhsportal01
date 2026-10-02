@@ -15,9 +15,17 @@ import { publishedAtPatch } from '../../../lib/newsRules';
 import { validatePassword } from '../../../lib/passwordPolicy';
 import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
 
+// The three General-card values the UI assumes it has. They are also the
+// fallback when the row does not carry them, which today it does not.
+const SETTINGS_DEFAULTS = {
+  portal_name: 'EduScribe Portal',
+  academic_year: '2025-2026',
+  semester: '2nd Quarter',
+};
+
 export const useAdminLogic = (userData) => {
   const { onlineUserIds } = useAuth();
-  const { darkMode, setDarkMode } = useDashboardTheme();
+  const { darkMode, setDarkMode, themePref, setThemePref } = useDashboardTheme();
 
   // ❌ DELETE THIS USEEFFECT (removed):
   // useEffect(() => {
@@ -40,7 +48,6 @@ export const useAdminLogic = (userData) => {
   };
   const openModal  = (id) => setModal(id);
   const closeModal = ()   => setModal(null);
-  const handleOverlayClick = (e) => { if (e.target === e.currentTarget) closeModal(); };
 
   const scrollToSection = (id) => {
     setActiveSettingsSub(id);
@@ -873,10 +880,9 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   //  SETTINGS — Supabase + Auto-save option
   // ═══════════════════════════════════════════
-  const [settings, setSettings] = useState({
-    portal_name: 'EduScribe Portal', academic_year: '2025-2026', semester: '2nd Quarter',
-  });
+  const [settings, setSettings] = useState(SETTINGS_DEFAULTS);
   const [settingsSaving, setSS] = useState(false);
+  const savingSettingsRef = useRef(false);
   const [autoSave, setAutoSave] = useState(false); // NEW
   const [twoFactorAuth,       setTwoFactorAuth]       = useState(true);
   const [sessionTimeout,      setSessionTimeout]      = useState('30 min');
@@ -890,6 +896,17 @@ export const useAdminLogic = (userData) => {
   const [theme,               setTheme]               = useState('Dark');
   const [language,            setLanguage]            = useState('English');
 
+  // UX-028. Three settings are editable — Academic Year, Quarter and
+  // Session Timeout — and the save bar appears only when one of them
+  // differs from what was loaded. Everything else on that page is either a
+  // read-only statement of fact or, in Theme's case, a per-device
+  // preference that saves itself, so neither belongs in this comparison.
+  //
+  // Null until the first read lands: before that there is nothing to differ
+  // from, and a bar that appears while the page is still loading would be
+  // claiming unsaved work that does not exist.
+  const [settingsBaseline, setSettingsBaseline] = useState(null);
+
   const fetchSettings = useCallback(async () => {
     try {
       const { data, error } = await withRetry(
@@ -902,11 +919,22 @@ export const useAdminLogic = (userData) => {
           '2nd Semester': '2nd Quarter',
           Summer: '4th Quarter',
         };
-        setSettings({
+        // prev FIRST, then data. The live school_settings row does not
+        // carry academic_year or semester at all (see the note on
+        // saveSettings), so spreading data over an empty object dropped
+        // them to undefined — which flipped the Academic Year input from
+        // controlled to uncontrolled, and left Discard unable to put a
+        // value back. Merging onto the defaults keeps every field a string
+        // whether or not the column exists.
+        const academicYear = data.academic_year ?? SETTINGS_DEFAULTS.academic_year;
+        const quarter = quarterMap[data.semester] || data.semester || SETTINGS_DEFAULTS.semester;
+        setSettings(prev => ({
+          ...prev,
           ...data,
           portal_name: 'EduScribe Portal',
-          semester: quarterMap[data.semester] || data.semester || '1st Quarter',
-        });
+          academic_year: academicYear,
+          semester: quarter,
+        }));
         setTheme(data.theme || 'Dark');
         setLanguage(data.language || 'English');
         setAutoSave(data.auto_save || false);
@@ -918,6 +946,13 @@ export const useAdminLogic = (userData) => {
         setBackupFrequency(data.backup_frequency || 'daily');
         setBackupTime(data.backup_time || '00:00');
         setActivityLogsDays(data.activity_logs_retention || '90 days');
+        // The baseline is what the PAGE loaded, not what the row held, so
+        // Discard restores what the admin actually saw.
+        setSettingsBaseline({
+          academic_year: academicYear,
+          semester: quarter,
+          session_timeout: data.session_timeout || '30 min',
+        });
         const { data: backups } = await withRetry(
           () => supabase.from('backup_history').select('*').order('started_at', { ascending: false }).limit(10),
           { label: 'Backup history fetch' }
@@ -929,6 +964,7 @@ export const useAdminLogic = (userData) => {
         setTheme('Dark');
         setLanguage('English');
         setAutoSave(false);
+        setSettingsBaseline({ ...SETTINGS_DEFAULTS, session_timeout: '30 min' });
       }
     } catch (err) {
       console.warn('Settings fetch error (using defaults):', err.message);
@@ -936,13 +972,21 @@ export const useAdminLogic = (userData) => {
       setTheme('Dark');
       setLanguage('English');
       setAutoSave(false);
+      setSettingsBaseline({ ...SETTINGS_DEFAULTS, session_timeout: '30 min' });
     }
   }, []);
 
   const saveSettings = async () => {
+    if (savingSettingsRef.current) return;   // the second of a double click
+    savingSettingsRef.current = true;
     setSS(true);
     try {
-      await supabase.from('school_settings').update({ 
+      // The payload is unchanged. Every column that is no longer editable
+      // — auto_save, two_factor_auth, login_attempt_limit, email_notifications,
+      // the three backup columns, activity_logs_retention, theme, language —
+      // still sends the value fetchSettings loaded, so the row is written
+      // back exactly as it was found.
+      const { error: saveError } = await supabase.from('school_settings').update({ 
         ...settings, 
         portal_name: 'EduScribe Portal',
         theme,
@@ -958,18 +1002,52 @@ export const useAdminLogic = (userData) => {
         activity_logs_retention: activityLogsDays,
         updated_at: new Date().toISOString() 
       }).eq('id', 1);
+      // Only adopt a new baseline on a write that landed. Adopting it on a
+      // failure would hide the save bar and tell the admin their unsaved
+      // changes were saved.
+      if (!saveError) {
+        setSettingsBaseline({
+          academic_year: settings.academic_year,
+          semester: settings.semester,
+          session_timeout: sessionTimeout,
+        });
+      }
       await logActivity('Updated settings');
       showToast('Settings saved!');
     } catch (e) { showToast('Error saving settings', 'error'); }
-    finally { setSS(false); }
+    finally { savingSettingsRef.current = false; setSS(false); }
   };
 
-  // Auto-save effect
-  useEffect(() => {
-    if (!autoSave) return;
-    const timer = setTimeout(() => saveSettings(), 2000);
-    return () => clearTimeout(timer);
-  }, [settings, theme, language, autoSave]);
+  // The auto-save effect that used to sit here is gone (UX-028). It watched
+  // [settings, theme, language, autoSave] and therefore could not see six of
+  // the settings at all, so changing Email Notifications or any backup field
+  // saved nothing until you later edited something unrelated. It also raised
+  // a toast and wrote an activity_logs row every two seconds of idle typing.
+  // One explicit save bar replaces it. `autoSave` is still read and still
+  // sent in the payload, so the auto_save column is untouched.
+
+  // What the save bar is for: the editable settings, against what loaded.
+  const settingsDirty = Boolean(settingsBaseline) && (
+    settings.academic_year !== settingsBaseline.academic_year
+    || settings.semester !== settingsBaseline.semester
+    || sessionTimeout !== settingsBaseline.session_timeout
+  );
+
+  const settingsChangeCount = !settingsBaseline ? 0 : (
+    (settings.academic_year !== settingsBaseline.academic_year ? 1 : 0)
+    + (settings.semester !== settingsBaseline.semester ? 1 : 0)
+    + (sessionTimeout !== settingsBaseline.session_timeout ? 1 : 0)
+  );
+
+  const discardSettings = () => {
+    if (!settingsBaseline) return;
+    setSettings(s => ({
+      ...s,
+      academic_year: settingsBaseline.academic_year,
+      semester: settingsBaseline.semester,
+    }));
+    setSessionTimeout(settingsBaseline.session_timeout);
+  };
 
   // ═══════════════════════════════════════════
   //  DEBOUNCED FETCH FUNCTIONS — Prevent race conditions
@@ -1028,28 +1106,21 @@ export const useAdminLogic = (userData) => {
     timeout(fetchSettings());
   }, [fetchStats, fetchLogs, fetchRoleDist, fetchUsers, fetchNews, fetchCalEvents, fetchMemos, fetchSettings]);
 
-  const Toggle = ({ on, onClick, label }) => (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      className={`ux-unbutton toggle ${on ? 'on' : 'off'}`}
-      onClick={onClick}
-    >
-      <span className="toggle-knob" />
-    </button>
-  );
+  // The shared Toggle that used to live here is gone with its last call
+  // site. It was UX-093's fix — a click-only div turned into a real
+  // role="switch" — and it worked; the three settings it switched
+  // (Auto-Save, Email Notifications, Auto-Backup) are what turned out to be
+  // inert. The fix outlived the thing it fixed.
 
   return {
-    Toggle, activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime,
+    activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime,
     calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     darkMode, debounceTimersRef, debouncedFetchRoleDist, debouncedFetchStats, debouncedFetchUsers, deleteConfirm,
     deleteEvent, deleteMemo, deleteNewsItem, deleteUser, editEvent, editMemo,
     editNews, editUser, emailNotifications, evDate, evDesc, evEnd,
     evCustomType, evSaving, evTitle, evType, fetchCalEvents, fetchLogs, fetchMemos,
     fetchNews, fetchRoleDist, fetchSettings, fetchStats, fetchUsers, filteredMemos,
-    filteredNews, filteredUsers, handleOverlayClick, language, logActivity,
+    filteredNews, filteredUsers, language, logActivity,
     loginAttemptLimit, mBody, mFrom, mSaving, mSubj,
     mTo, memoFilter, memoSearch, memos, memosLoading, modal,
     nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nSaving, nStatus, nTarget,
@@ -1071,6 +1142,7 @@ export const useAdminLogic = (userData) => {
     setUDept, setUEmail, setUL, setUName, setUPass, setURole,
     setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
     stats, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
+    themePref, setThemePref, settingsDirty, settingsChangeCount, discardSettings,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading,

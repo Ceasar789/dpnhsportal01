@@ -30,7 +30,12 @@ const SettingsTab = () => {
                 <div className="settings-card">
                   <div className="settings-input-row">
                     <label className="settings-input-label" htmlFor="settings-portal-name">Portal Name</label>
-                    <input id="settings-portal-name" value="EduScribe Portal" readOnly disabled style={{ flex:1 }} />
+                    <div style={{ flex:1 }}>
+                      <input id="settings-portal-name" value="EduScribe Portal" readOnly disabled style={{ width:'100%' }} aria-describedby="settings-portal-name-hint" />
+                      {/* UX-058: disabled next to editable siblings, with
+                          nothing saying why or what would change it. */}
+                      <div className="form-hint" id="settings-portal-name-hint">Fixed at installation. Changing it renames the portal everywhere, so it is not an in-app setting.</div>
+                    </div>
                   </div>
                   <div className="settings-input-row">
                     <label className="settings-input-label" htmlFor="settings-academic-year">Academic Year</label>
@@ -165,9 +170,9 @@ const SettingsTab = () => {
                   <div className="settings-row">
                     <div>
                       <div className="settings-label">Language</div>
-                      <div className="settings-hint">Portal display language</div>
+                      <div className="settings-hint" id="settings-language-hint">Portal display language. English is the only language the portal is translated into, so there is nothing else to choose yet.</div>
                     </div>
-                    <select value="English" disabled style={{ width:'auto' }}><option>English</option></select>
+                    <select value="English" disabled style={{ width:'auto' }} aria-describedby="settings-language-hint"><option>English</option></select>
                   </div>
                 </div>
               </div>

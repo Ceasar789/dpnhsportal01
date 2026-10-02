@@ -323,6 +323,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            complaint this answers. */
         .is-invalid, .form-input.is-invalid, .picker-panel.is-invalid { border-color: var(--red); }
         .field-error { font-size: 12px; color: var(--red); margin-top: 6px; line-height: 1.4; }
+        /* UX-062: which fields are required, said in the label rather than
+           discovered by submitting and reading a toast. */
+        .form-req { color: var(--red); margin-left: 2px; }
+        .form-legend { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+        /* UX-058: a disabled field says why it is disabled. */
+        .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        /* UX-075: the password field and its reveal share a row. */
+        .form-with-action { display: flex; gap: 8px; align-items: center; }
+        .form-with-action .form-input { flex: 1; }
 
         .section-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
         .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--card-bg); cursor: pointer; transition: all .15s; }

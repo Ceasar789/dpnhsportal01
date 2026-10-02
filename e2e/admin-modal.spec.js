@@ -121,8 +121,11 @@ test.describe('admin user modal', () => {
     const unique = `e2e-double-${Date.now()}@example.com`;
     await page.getByRole('dialog').locator('.form-input').nth(0).fill('E2E Double Click');
     await page.getByRole('dialog').locator('.form-input').nth(1).fill(unique);
-    // Password is the last field on the create form.
-    await page.getByRole('dialog').locator('input[type="password"]').fill('Str0ng!Passw0rd#9');
+    // UX-075 added a confirm field, so there are now two password inputs
+    // and both must be filled — a mismatch is rejected on the field and
+    // never reaches signup, which would make this test measure nothing.
+    await page.locator('#users-password').fill('Str0ng!Passw0rd#9');
+    await page.locator('#users-password-confirm').fill('Str0ng!Passw0rd#9');
 
     // Two clicks in ONE tick, dispatched on the element itself. Calling
     // Playwright's click() twice does not test a double click here: the

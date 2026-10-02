@@ -4,7 +4,7 @@
 // Includes the USER MODAL, which only this tab opens.
 // ============================================
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { initials, avatarColor, roleBadge, roleLabel } from '../shared/helpers';
@@ -28,6 +28,24 @@ const UsersTab = () => {
     setStatusFilter, setShowArchived, setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
     showArchived, statusFilter, uDept, setUDept, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, onlineUsers
   } = useAdminContext();
+
+  // UX-062: the form mixed required and optional fields and distinguished
+  // them nowhere, so the only way to learn which was which was to submit.
+  // UX-075: the admin sets another person's password through one masked
+  // field they can neither reveal nor re-enter. A typo becomes that
+  // person's stored credential, and nobody finds out until they cannot log
+  // in. The rules themselves are unchanged and still live in saveUser.
+  const [tried, setTried] = useState(false);
+  const [uPass2, setUPass2] = useState('');
+  const [revealPass, setRevealPass] = useState(false);
+  // Reset on CLOSE, not on open. Modal is a child, so its snapshot
+  // effect runs before this one — clearing a stale confirm value on open
+  // would change a field after the snapshot was taken and the modal would
+  // report a form the admin has not touched as dirty.
+  useEffect(() => { if (modal !== 'user') { setTried(false); setUPass2(''); setRevealPass(false); } }, [modal]);
+  const missingName = tried && !uName.trim();
+  const missingEmail = tried && !uEmail.trim();
+  const passMismatch = tried && !editUser && !!uPass && uPass !== uPass2;
 
   return (
     <>
@@ -104,14 +122,15 @@ const UsersTab = () => {
                     </tbody>
                   </table>
                 }
+                {/* UX-049: the four page buttons that used to sit here were
+                    decoration - no handler, no page state, and the table
+                    rendered every row regardless. A control that looks like
+                    it works and does not is worse than no control, so they
+                    are gone and the honest count stays.
+                    TODO: a real roster outgrows one scroll. Add paging (or a
+                    virtualised list) here when the row count justifies it. */}
                 <div className="pagination">
                   <span>Showing {filteredUsers.length} of {users.length} users</span>
-                  <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
-                    <button className="page-btn">‹</button>
-                    <button className="page-btn active">1</button>
-                    <button className="page-btn">2</button>
-                    <button className="page-btn">›</button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -127,7 +146,13 @@ const UsersTab = () => {
           <>
             <Button variant="ghost" onClick={requestClose}>Cancel</Button>
             <Button
-              onClick={saveUser}
+              onClick={() => {
+                setTried(true);
+                // The mismatch is reported on the field, so returning here
+                // is not a silent failure. saveUser keeps its own checks.
+                if (!editUser && uPass && uPass !== uPass2) return;
+                saveUser();
+              }}
               busy={uSaving}
               busyLabel={editUser ? 'Updating…' : 'Creating…'}
             >
@@ -136,13 +161,22 @@ const UsersTab = () => {
           </>
         )}
       >
+          <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
           <div className="form-row">
-            <label className="form-label" htmlFor="users-full-name">Full Name</label>
-            <input id="users-full-name" className="form-input" value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz" />
+            <label className="form-label" htmlFor="users-full-name">Full Name<span className="form-req" aria-hidden="true">*</span></label>
+            <input id="users-full-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz"
+              aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'users-full-name-error' : undefined} />
+            {missingName && <div className="field-error" id="users-full-name-error">Full name is required.</div>}
           </div>
           <div className="form-row">
-            <label className="form-label" htmlFor="users-email">Email</label>
-            <input id="users-email" className="form-input" value={uEmail} onChange={e => setUEmail(e.target.value)} placeholder="user@school.edu" disabled={!!editUser} />
+            <label className="form-label" htmlFor="users-email">Email{!editUser && <span className="form-req" aria-hidden="true">*</span>}</label>
+            <input id="users-email" className={`form-input${missingEmail ? ' is-invalid' : ''}`} value={uEmail} onChange={e => setUEmail(e.target.value)} placeholder="user@school.edu" disabled={!!editUser}
+              aria-required={editUser ? undefined : 'true'} aria-invalid={missingEmail || undefined}
+              aria-describedby={editUser ? 'users-email-hint' : missingEmail ? 'users-email-error' : undefined} />
+            {/* UX-058: disabled with nothing saying why, or what would make
+                it editable. */}
+            {editUser && <div className="form-hint" id="users-email-hint">An account's email address is its login and cannot be changed here. Archive the account and create a new one to move someone to a different address.</div>}
+            {missingEmail && <div className="field-error" id="users-email-error">Email is required.</div>}
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="users-role">Role</label>
@@ -168,10 +202,28 @@ const UsersTab = () => {
             </select>
           </div>}
           {!editUser && (
-            <div className="form-row">
-              <label className="form-label" htmlFor="users-password">Password</label>
-              <input id="users-password" className="form-input" type="password" value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char" />
-            </div>
+            <>
+              <div className="form-row">
+                <label className="form-label" htmlFor="users-password">Password<span className="form-req" aria-hidden="true">*</span></label>
+                <div className="form-with-action">
+                  <input id="users-password" className="form-input" type={revealPass ? 'text' : 'password'} value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char"
+                    aria-required="true" aria-describedby="users-password-hint" />
+                  {/* Reveal, not a permanent unmask: the admin is typing
+                      someone else's credential and may be on a shared
+                      screen, so it starts hidden. */}
+                  <button type="button" className="btn btn-ghost btn-sm" aria-pressed={revealPass} onClick={() => setRevealPass(!revealPass)}>
+                    {revealPass ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <div className="form-hint" id="users-password-hint">This is the password the account holder will sign in with. Tell it to them, and ask them to change it.</div>
+              </div>
+              <div className="form-row">
+                <label className="form-label" htmlFor="users-password-confirm">Confirm Password<span className="form-req" aria-hidden="true">*</span></label>
+                <input id="users-password-confirm" className={`form-input${passMismatch ? ' is-invalid' : ''}`} type={revealPass ? 'text' : 'password'} value={uPass2} onChange={e => setUPass2(e.target.value)} placeholder="Type it again"
+                  aria-required="true" aria-invalid={passMismatch || undefined} aria-describedby={passMismatch ? 'users-password-confirm-error' : undefined} />
+                {passMismatch && <div className="field-error" id="users-password-confirm-error">The two passwords do not match.</div>}
+              </div>
+            </>
           )}
       </Modal>
 

@@ -4,7 +4,7 @@
 // what makes a teacher's My Students screen show anything.
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
@@ -28,6 +28,14 @@ const SectionsTab = () => {
   // UX-052: adding a student is two round trips. Without this the press
   // produces no visible change at all until the roster reloads.
   const [adding, setAdding] = useState(false);
+
+  // UX-062: two of these four fields are required and nothing said which.
+  // The rules are unchanged and still live in saveSection; this is where
+  // the answer is shown.
+  const [tried, setTried] = useState(false);
+  useEffect(() => { setTried(false); }, [sectionModal]);
+  const missingName = tried && !secName.trim();
+  const missingGrade = tried && !secGrade;
   const adviserName = (id) => teachers.find(t => t.id === id)?.name || '—';
   const closeSectionOverlay = (e) => { if (e.target === e.currentTarget) closeSectionModal(); };
   const closeClassListOverlay = (e) => { if (e.target === e.currentTarget) closeClassList(); };
@@ -88,24 +96,30 @@ const SectionsTab = () => {
           footer={(requestClose) => (
             <>
               <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-              <Button onClick={saveSection} busy={secSaving} busyLabel={editingSection ? 'Updating…' : 'Creating…'}>
+              <Button onClick={() => { setTried(true); saveSection(); }} busy={secSaving} busyLabel={editingSection ? 'Updating…' : 'Creating…'}>
                 {editingSection ? 'Update' : 'Create'}
               </Button>
             </>
           )}
         >
 
+            <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
+
             <div className="form-row">
-              <label className="form-label" htmlFor="sections-section-name">Section Name</label>
-              <input id="sections-section-name" className="form-input" value={secName} onChange={e => setSecName(e.target.value)} placeholder="e.g. 7-Rizal" />
+              <label className="form-label" htmlFor="sections-section-name">Section Name<span className="form-req" aria-hidden="true">*</span></label>
+              <input id="sections-section-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={secName} onChange={e => setSecName(e.target.value)} placeholder="e.g. 7-Rizal"
+                aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'sections-section-name-error' : undefined} />
+              {missingName && <div className="field-error" id="sections-section-name-error">Section name is required.</div>}
             </div>
 
             <div className="form-row">
-              <label className="form-label" htmlFor="sections-grade-level">Grade Level</label>
-              <select id="sections-grade-level" className="form-input" value={secGrade} onChange={e => setSecGrade(e.target.value)}>
+              <label className="form-label" htmlFor="sections-grade-level">Grade Level<span className="form-req" aria-hidden="true">*</span></label>
+              <select id="sections-grade-level" className={`form-input${missingGrade ? ' is-invalid' : ''}`} value={secGrade} onChange={e => setSecGrade(e.target.value)}
+                aria-required="true" aria-invalid={missingGrade || undefined} aria-describedby={missingGrade ? 'sections-grade-level-error' : undefined}>
                 <option value="">Select…</option>
                 {GRADE_LEVELS.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
+              {missingGrade && <div className="field-error" id="sections-grade-level-error">Grade level is required.</div>}
             </div>
 
             <div className="form-row">

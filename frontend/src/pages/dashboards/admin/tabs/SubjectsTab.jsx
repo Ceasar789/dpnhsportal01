@@ -3,7 +3,7 @@
 // The subject registry every schedule, lesson plan and worksheet refers to.
 // ============================================
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { useAdminContext } from '../AdminContext';
@@ -17,6 +17,15 @@ const SubjectsTab = () => {
   } = useAdminContext();
 
   const closeSubjectOverlay = (e) => { if (e.target === e.currentTarget) closeSubjectModal(); };
+
+  // UX-061: the required-field rules ran only on press and surfaced as a
+  // toast that disappears, never on the field that caused them. The rules
+  // themselves are unchanged and still live in saveSubject - what is added
+  // here is where the answer is shown. Same shape as TeachingLoadTab.
+  const [tried, setTried] = useState(false);
+  useEffect(() => { setTried(false); }, [subjectModal]);
+  const missingName = tried && !sName.trim();
+  const missingCode = tried && !sCode.trim();
 
   return (
     <>
@@ -72,21 +81,27 @@ const SubjectsTab = () => {
           footer={(requestClose) => (
             <>
               <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-              <Button onClick={saveSubject} busy={sSaving} busyLabel={editingSubject ? 'Updating…' : 'Creating…'}>
+              <Button onClick={() => { setTried(true); saveSubject(); }} busy={sSaving} busyLabel={editingSubject ? 'Updating…' : 'Creating…'}>
                 {editingSubject ? 'Update' : 'Create'}
               </Button>
             </>
           )}
         >
 
+            <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
+
             <div className="form-row">
-              <label className="form-label" htmlFor="subjects-subject-name">Subject Name</label>
-              <input id="subjects-subject-name" className="form-input" value={sName} onChange={e => setSName(e.target.value)} placeholder="e.g. Mathematics" />
+              <label className="form-label" htmlFor="subjects-subject-name">Subject Name<span className="form-req" aria-hidden="true">*</span></label>
+              <input id="subjects-subject-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={sName} onChange={e => setSName(e.target.value)} placeholder="e.g. Mathematics"
+                aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'subjects-subject-name-error' : undefined} />
+              {missingName && <div className="field-error" id="subjects-subject-name-error">Subject name is required.</div>}
             </div>
 
             <div className="form-row">
-              <label className="form-label" htmlFor="subjects-code">Code</label>
-              <input id="subjects-code" className="form-input" value={sCode} onChange={e => setSCode(e.target.value)} placeholder="e.g. MATH" />
+              <label className="form-label" htmlFor="subjects-code">Code<span className="form-req" aria-hidden="true">*</span></label>
+              <input id="subjects-code" className={`form-input${missingCode ? ' is-invalid' : ''}`} value={sCode} onChange={e => setSCode(e.target.value)} placeholder="e.g. MATH"
+                aria-required="true" aria-invalid={missingCode || undefined} aria-describedby={missingCode ? 'subjects-code-error' : undefined} />
+              {missingCode && <div className="field-error" id="subjects-code-error">Subject code is required.</div>}
             </div>
 
             <div className="form-row">

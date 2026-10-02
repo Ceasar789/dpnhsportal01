@@ -254,3 +254,69 @@ Left as literals, with the reason, so the next pass does not re-derive it:
 - **The white-on-navy header family** — `rgba(255,255,255,.12/.22/.3/.5/
   .72/.85)` and `#ffffff` across the nav. A coherent `--on-brand-*` set,
   but it was not in Phase 4b's agreed list.
+
+## Phase 6: responsive bugs
+
+Found by review of the Phase 4c before/after screenshots. All of them are
+present in BOTH sides, so none was introduced by the token work.
+
+| Pri | Where | What |
+|---|---|---|
+| **High** | Overview banner at 360 | The title and school name wrap one word per line, and the Academic Year box overlaps the title and overflows past the right edge — "1st Quarter" is cut off. The banner has to stack vertically below the drawer breakpoint. |
+| **High** | Every tab at 360 | The sidebar collapse `<` button sticks out of the left edge. `.sidebar-collapse` is absolutely positioned at `right: -14px` and is never hidden on mobile. Hide it below the breakpoint — there is no sidebar to collapse when it is a drawer. |
+| **High** | System Settings at 360 | `.settings-input-row` keeps label and control side by side, which squeezes the hints into a narrow column — the Academic Year hint runs to six lines. Rule X4: stack label above control on mobile. |
+| **High** | User Management at 360 | The full 123-row table renders at mobile width with tiny text. Rules R1/R2: the two-line row treatment. |
+| Medium | Overview at 360 | The four stat cards stack as four tall cards. A 2×2 grid would halve the scroll. |
+
+## Phase 5: restyle items from the 4c review
+
+- **Gradient stat-card headers** on Overview — the blue, green, orange and
+  red gradient blocks.
+- **Lavender gradient** on the System Settings page header in light mode.
+
+Both are Rule D-series "remove the AI look" judgements, not token work,
+and Phase 4 deliberately left them alone.
+
+## activity_logs — why both panels are empty
+
+Asked during Phase 4: is `activity_logs` empty, or is the read failing or
+filtered by RLS? Measured rather than reasoned, by watching the requests.
+
+**Neither. The read works and the table is genuinely empty, because every
+write has always been rejected.**
+
+```
+GET  /rest/v1/activity_logs?...  →  200  []
+POST /rest/v1/activity_logs      →  400
+{"code":"PGRST204","message":"Could not find the 'details' column of
+ 'activity_logs' in the schema cache"}
+```
+
+RLS is not involved: a policy denial returns `200 []` on a read but a
+`401`/`403` on a write, and this is a `400` naming a missing column.
+
+The cause is the same drift that broke `school_settings`, and the two
+schema files disagree:
+
+| Column | `database-schema.sql` | `COMPLETE_DATABASE_SCHEMA_v2.sql` | Live |
+|---|---|---|---|
+| `details JSONB` | yes | **no** | **no** |
+| `description TEXT` | no | yes | ? |
+| `entity_name`, `old_values`, `new_values`, `status`, `error_message` | no | yes | ? |
+
+`logActivity` writes `details`, so it was written against
+`database-schema.sql` while the live database matches v2. Every call has
+failed since the feature was built.
+
+It is invisible because `logActivity` is deliberately forgiving: it writes
+a copy to `localStorage` first, `console.warn`s the failure, and returns.
+So the Overview's "Recent Activity" and Settings' "Activity Log History"
+show the local cache — which is empty in a browser that has not performed
+an admin action, and never contains anything another admin did.
+
+**Not fixed here.** It is a data-layer change, and the fix is a decision
+between two options: write `description` instead of `details`, or add
+`details` to the live table. It also belongs with the other two schema
+items above — one reconciliation of the canonical schema files against
+production would settle `school_settings`, `activity_logs` and the
+`session_timeout` gap together.

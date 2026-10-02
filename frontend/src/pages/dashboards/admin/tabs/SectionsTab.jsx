@@ -50,7 +50,7 @@ const SectionsTab = () => {
 
         <div className="toolbar">
           <button className="btn btn-primary" onClick={openCreateSection}>
-            <Plus size={15} style={{ marginRight: 6 }} />
+            <Plus size={15} style={{ marginRight: 'var(--space-8)' }} />
             Add Section
           </button>
         </div>
@@ -61,16 +61,16 @@ const SectionsTab = () => {
           </thead>
           <tbody>
             {sectionsLoading ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>Loading sections…</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>Loading sections…</td></tr>
             ) : sectionsError ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
                 Could not load sections. Check your connection and try again.
-                <div style={{ marginTop: 10 }}>
+                <div style={{ marginTop: 'var(--space-12)' }}>
                   <button className="btn btn-ghost" onClick={() => fetchSections()}>Retry</button>
                 </div>
               </td></tr>
             ) : sections.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>No sections for {schoolYear} yet.</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>No sections for {schoolYear} yet.</td></tr>
             ) : sections.map(s => (
               <tr key={s.id}>
                 <td><strong>{s.name}</strong></td>
@@ -149,7 +149,7 @@ const SectionsTab = () => {
           )}
         >
 
-            <div className="form-row" style={{ display: 'flex', gap: 8 }}>
+            <div className="form-row" style={{ display: 'flex', gap: 'var(--space-8)' }}>
               <select className="form-input" value={pick} onChange={e => setPick(e.target.value)}>
                 <option value="">Add a student…</option>
                 {unassignedStudents.map(s => <option key={s.id} value={s.id}>{s.name || s.email}</option>)}
@@ -175,16 +175,16 @@ const SectionsTab = () => {
               <thead><tr><th>#</th><th>Student</th><th>Email</th><th style={{ width: 60 }}></th></tr></thead>
               <tbody>
                 {classListLoading ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 16 }}>Loading class list…</td></tr>
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-16)' }}>Loading class list…</td></tr>
                 ) : classListError ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 16 }}>
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-16)' }}>
                     Could not load. Check your connection and try again.
-                    <div style={{ marginTop: 10 }}>
+                    <div style={{ marginTop: 'var(--space-12)' }}>
                       <button className="btn btn-ghost" onClick={() => openClassList(activeSection)}>Retry</button>
                     </div>
                   </td></tr>
                 ) : classList.length === 0 ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 16 }}>No students in this section yet.</td></tr>
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-16)' }}>No students in this section yet.</td></tr>
                 ) : classList.map((c, i) => (
                   <tr key={c.id}>
                     <td>{i + 1}</td>

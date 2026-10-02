@@ -30,7 +30,7 @@ const CalendarTab = () => {
                 <div className="page-title">Calendar Management</div>
                 <div className="page-sub">Manage academic events, deadlines, and announcements</div>
               </div>
-              <div style={{ display:'flex', gap:16 }}>
+              <div style={{ display:'flex', gap: 'var(--space-16)' }}>
                 <div style={{ flex:1 }}>
                   <div className="cal-toolbar">
                     <button className="cal-nav" onClick={prevMonth}>‹</button>
@@ -39,7 +39,7 @@ const CalendarTab = () => {
                       {[...Array(11)].map((_, i) => { const year = new Date().getFullYear() - 5 + i; return <option key={year} value={year}>{year}</option>; })}
                     </select>
                     <button className="cal-nav" onClick={nextMonth}>›</button>
-                    <select style={{ marginLeft:8, width:'auto' }}><option>Month</option><option>Week</option></select>
+                    <select style={{ marginLeft: 'var(--space-8)', width:'auto' }}><option>Month</option><option>Week</option></select>
                     <button className="btn btn-primary" style={{ marginLeft:'auto' }} onClick={openCreateEvent}>+ Add Event</button>
                     <select value={calFilter} onChange={e => setCalFilter(e.target.value)} style={{ width:'auto' }}>
                       <option value="">Filter type</option>
@@ -86,7 +86,7 @@ const CalendarTab = () => {
                   </div>
                 </div>
                 <div className="cal-sidebar">
-                  <div style={{ fontSize: 'var(--font-size-13)', fontWeight:600, marginBottom:12, color:'var(--text-muted)' }}>Upcoming</div>
+                  <div style={{ fontSize: 'var(--font-size-13)', fontWeight:600, marginBottom: 'var(--space-12)', color:'var(--text-muted)' }}>Upcoming</div>
                   {/* UX-047: the grid and this list both rendered as a
                       fully-populated empty month for the whole fetch. */}
                   {calLoading
@@ -97,7 +97,7 @@ const CalendarTab = () => {
                       <div key={i} className="upcoming-item" style={{ borderColor: typeColor(e.event_type) }}>
                         <div style={{ fontSize: 'var(--font-size-13)', fontWeight:600 }}>{e.title}</div>
                         <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-muted)' }}>{new Date(e.event_date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
-                        <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                        <div style={{ display:'flex', gap: 'var(--space-8)', marginTop: 'var(--space-4)' }}>
                           <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => openEditEvent(e)}>Edit</button>
                           <button className="news-action red" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => deleteEvent(e.id)}>Remove</button>
                         </div>

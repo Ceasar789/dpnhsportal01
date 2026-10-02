@@ -266,6 +266,7 @@ present in BOTH sides, so none was introduced by the token work.
 | **High** | Every tab at 360 | The sidebar collapse `<` button sticks out of the left edge. `.sidebar-collapse` is absolutely positioned at `right: -14px` and is never hidden on mobile. Hide it below the breakpoint — there is no sidebar to collapse when it is a drawer. |
 | **High** | System Settings at 360 | `.settings-input-row` keeps label and control side by side, which squeezes the hints into a narrow column — the Academic Year hint runs to six lines. Rule X4: stack label above control on mobile. |
 | **High** | User Management at 360 | The full 123-row table renders at mobile width with tiny text. Rules R1/R2: the two-line row treatment. |
+| **High** | Subjects and Sections at 360 | Both tables overflow their card. Measured either side of Phase 4d: 57 elements already painted past the right edge at 360 before the spacing scale, and rounding widened two of them - Subjects now clips by 17px where it did not, and the Sections delete icon pokes 5-12px out of a table that was already 48px too wide. The rounding was kept: un-rounding table cell padding alone would leave 10px inside tables and 12px everywhere else, and would not help a table 332px too wide. Same R1/R2 treatment as User Management. |
 | Medium | Overview at 360 | The four stat cards stack as four tall cards. A 2×2 grid would halve the scroll. |
 
 ## Phase 5: restyle items from the 4c review

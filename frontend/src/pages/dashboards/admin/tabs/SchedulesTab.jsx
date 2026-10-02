@@ -162,26 +162,26 @@ const SchedulesTab = () => {
           counts={countsByGrade} />
 
         {sectionsError ? (
-          <div className="table-card" style={{ padding: 24, textAlign: 'center' }}>
+          <div className="table-card" style={{ padding: 'var(--space-24)', textAlign: 'center' }}>
             Could not load sections. Check your connection and try again.
-            <div style={{ marginTop: 10 }}>
+            <div style={{ marginTop: 'var(--space-12)' }}>
               <button className="btn btn-ghost" onClick={() => fetchSections()}>Retry sections</button>
             </div>
           </div>
         ) : schedulesError ? (
-          <div className="table-card" style={{ padding: 24, textAlign: 'center' }}>
+          <div className="table-card" style={{ padding: 'var(--space-24)', textAlign: 'center' }}>
             Could not load schedules. The sections below are fine; it is the
             timetable that did not arrive.
-            <div style={{ marginTop: 10 }}>
+            <div style={{ marginTop: 'var(--space-12)' }}>
               <button className="btn btn-ghost" onClick={() => fetchSchedules()}>Retry schedules</button>
             </div>
           </div>
         ) : sectionsLoading ? (
-          <div className="table-card" style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div className="table-card" style={{ padding: 'var(--space-24)', textAlign: 'center', color: 'var(--text-muted)' }}>
             {slowSections ? 'Loading sections…' : ''}
           </div>
         ) : gradeSections.length === 0 ? (
-          <div className="table-card" style={{ padding: 24, textAlign: 'center' }}>
+          <div className="table-card" style={{ padding: 'var(--space-24)', textAlign: 'center' }}>
             No {grade} sections for {schoolYear}. Create them in Sections first.
           </div>
         ) : (
@@ -200,7 +200,7 @@ const SchedulesTab = () => {
             </div>
 
             {!openSection ? (
-              <div className="table-card" style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div className="table-card" style={{ padding: 'var(--space-24)', textAlign: 'center', color: 'var(--text-muted)' }}>
                 Pick a section above to set its schedule.
               </div>
             ) : (
@@ -214,11 +214,11 @@ const SchedulesTab = () => {
                 </thead>
                 <tbody>
                   {schedulesLoading ? (
-                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 24 }}>
+                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
                       {slowSchedules ? 'Loading schedules…' : ''}
                     </td></tr>
                   ) : activeSubjects.length === 0 ? (
-                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
+                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 'var(--space-24)', color: 'var(--text-muted)' }}>
                       No active subjects yet — a timetable needs subjects to
                       schedule. Add them in Subjects first.
                     </td></tr>
@@ -291,7 +291,7 @@ const SchedulesTab = () => {
                 <div className="field-error">Select a teacher.</div>
               )}
               {eligibleTeachers.length === 0 && (
-                <div className="row-sub" style={{ marginTop: 6 }}>
+                <div className="row-sub" style={{ marginTop: 'var(--space-8)' }}>
                   Assign someone this subject for {grade} in Teaching Load first.
                 </div>
               )}
@@ -304,7 +304,7 @@ const SchedulesTab = () => {
               </select>
             </div>
 
-            <div className="form-row" style={{ display: 'flex', gap: 8 }}>
+            <div className="form-row" style={{ display: 'flex', gap: 'var(--space-8)' }}>
               <div style={{ flex: 1 }}>
                 <label className="form-label" htmlFor="schedules-start">Start</label>
                 <input id="schedules-start" className={`form-input${missingTime ? ' is-invalid' : ''}`}
@@ -317,7 +317,7 @@ const SchedulesTab = () => {
               </div>
             </div>
             {missingTime && (
-              <div className="field-error" style={{ marginTop: -8, marginBottom: 12 }}>
+              <div className="field-error" style={{ marginTop: -8, marginBottom: 'var(--space-12)' }}>
                 End time must be after the start time.
               </div>
             )}

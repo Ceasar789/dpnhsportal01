@@ -62,7 +62,7 @@ const MemosTab = () => {
                     ))
                   }
                   {filteredMemos.length === 0 && !memosLoading && (
-                    <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)' }}>No memos found</div>
+                    <div style={{ textAlign:'center', padding: 'var(--space-32)', color:'var(--text-muted)' }}>No memos found</div>
                   )}
                 </div>
                 <div>
@@ -80,14 +80,14 @@ const MemosTab = () => {
                         <span className="memo-field-label">Date</span>
                         <span className="memo-field-val">{new Date(selMemo.created_at).toLocaleString()}</span>
                       </div>
-                      <div style={{ marginTop:16, lineHeight:1.6, fontSize: 'var(--font-size-13)', whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
+                      <div style={{ marginTop: 'var(--space-16)', lineHeight:1.6, fontSize: 'var(--font-size-13)', whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
                       <div className="memo-actions">
                         <button className="btn btn-ghost" onClick={() => openEditMemo(selMemo)}>Edit</button>
                         <button className="btn btn-danger" onClick={() => deleteMemo(selMemo.id)}>Delete</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="memo-preview" style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>
+                    <div className="memo-preview" style={{ textAlign:'center', color:'var(--text-muted)', padding: 'var(--space-48)' }}>
                       Select a memo to view
                     </div>
                   )}

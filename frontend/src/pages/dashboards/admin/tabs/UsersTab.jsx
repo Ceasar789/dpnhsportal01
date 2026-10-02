@@ -82,7 +82,7 @@ const UsersTab = () => {
                       {filteredUsers.map(u => (
                         <tr key={u.id}>
                           <td>
-                            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap: 'var(--space-12)' }}>
                               <UserAvatarCell user={u} />
                               <div>
                                 <div style={{ fontWeight:600 }}>{u.name || '—'}</div>
@@ -94,7 +94,7 @@ const UsersTab = () => {
                           <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
                           <td>{showArchived
                             ? <span className="badge badge-yellow archive-status-badge"><Archive size={12} />Archived</span>
-                            : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-red'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`} style={{ marginRight: 5 }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
+                            : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-red'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-red'}`} style={{ marginRight: 'var(--space-4)' }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
                           </td>
                           <td>
                             <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={() => openEditUser(u)}><Pencil size={16} /></button>
@@ -116,7 +116,7 @@ const UsersTab = () => {
                         </tr>
                       ))}
                       {filteredUsers.length === 0 && (
-                        <tr><td colSpan={5} style={{ textAlign:'center', color:'var(--text-muted)', padding:30 }}>No users found</td></tr>
+                        <tr><td colSpan={5} style={{ textAlign:'center', color:'var(--text-muted)', padding: 'var(--space-32)' }}>No users found</td></tr>
                       )}
                     </tbody>
                   </table>

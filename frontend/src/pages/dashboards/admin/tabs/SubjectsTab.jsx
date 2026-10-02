@@ -37,7 +37,7 @@ const SubjectsTab = () => {
 
         <div className="toolbar">
           <button className="btn btn-primary" onClick={openCreateSubject}>
-            <Plus size={15} style={{ marginRight: 6 }} />
+            <Plus size={15} style={{ marginRight: 'var(--space-8)' }} />
             Add Subject
           </button>
         </div>
@@ -48,16 +48,16 @@ const SubjectsTab = () => {
           </thead>
           <tbody>
             {subjectsLoading ? (
-              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>Loading subjects…</td></tr>
+              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>Loading subjects…</td></tr>
             ) : subjectsError ? (
-              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>
+              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
                 Could not load subjects. Check your connection and try again.
-                <div style={{ marginTop: 10 }}>
+                <div style={{ marginTop: 'var(--space-12)' }}>
                   <button className="btn btn-ghost" onClick={() => fetchSubjects()}>Retry</button>
                 </div>
               </td></tr>
             ) : subjects.length === 0 ? (
-              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>No subjects yet. Add the first one.</td></tr>
+              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>No subjects yet. Add the first one.</td></tr>
             ) : subjects.map(s => (
               <tr key={s.id}>
                 <td><strong>{s.code}</strong></td>

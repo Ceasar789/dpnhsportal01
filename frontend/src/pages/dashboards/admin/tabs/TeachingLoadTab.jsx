@@ -215,7 +215,7 @@ const TeachingLoadTab = () => {
       </div>
 
       <div className="toolbar">
-        <label className="form-label" style={{ marginRight: 8 }}>School Year</label>
+        <label className="form-label" style={{ marginRight: 'var(--space-8)' }}>School Year</label>
         <input className="form-input" style={{ width: 140, flex: 'none' }} value={schoolYear}
           onChange={e => setSchoolYear(e.target.value)} placeholder="2025-2026" />
         {prevYear && (
@@ -228,7 +228,7 @@ const TeachingLoadTab = () => {
               try { await copyLoadFromYear(prevYear); } finally { setCopying(false); }
             }}
           >
-            <Copy size={15} style={{ marginRight: 6 }} />
+            <Copy size={15} style={{ marginRight: 'var(--space-8)' }} />
             Copy from {prevYear}
           </Button>
         )}
@@ -237,12 +237,12 @@ const TeachingLoadTab = () => {
       <GradeTabs value={grade} onChange={setGrade} counts={countsByGrade} />
 
       {/* ── Builder ───────────────────────────────────────────────────── */}
-      <div className="card" style={{ padding: 16, marginBottom: 20 }}>
+      <div className="card" style={{ padding: 'var(--space-16)', marginBottom: 'var(--space-24)' }}>
         <div className="bulk-grid">
           <div>
             <div className="bulk-label">
               Teachers
-              <span className="picker-dept" style={{ marginLeft: 8 }}>
+              <span className="picker-dept" style={{ marginLeft: 'var(--space-8)' }}>
                 {takenTeachers.size} of {teachers.length} already hold {grade}
               </span>
             </div>
@@ -299,7 +299,7 @@ const TeachingLoadTab = () => {
                 explanation — while the teachers failure right above it was
                 reported. */}
             {subjectsError && (
-              <div className="picker-empty" style={{ marginBottom: 8 }}>
+              <div className="picker-empty" style={{ marginBottom: 'var(--space-8)' }}>
                 Could not load subjects.{' '}
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchSubjects()}>Retry</button>
               </div>
@@ -351,7 +351,7 @@ const TeachingLoadTab = () => {
                   && ` · ${gradeStaged.length} for ${grade}, the rest for other grades`}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
               <button className="btn btn-ghost btn-sm" onClick={() => setStaged([])} disabled={saving}>
                 Discard
               </button>
@@ -402,11 +402,11 @@ const TeachingLoadTab = () => {
         <thead><tr><th style={{ width: '40%' }}>Teacher</th><th>Holds for {grade}</th></tr></thead>
         <tbody>
           {teachingLoadLoading ? (
-            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>Loading teaching load…</td></tr>
+            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>Loading teaching load…</td></tr>
           ) : loadFailed ? (
-            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>
+            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
               Could not load. Check your connection and try again.
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 'var(--space-12)' }}>
                 <button className="btn btn-ghost" onClick={() => {
                   if (teachersError) fetchTeachers();
                   if (teachingLoadError) fetchTeachingLoad();
@@ -414,7 +414,7 @@ const TeachingLoadTab = () => {
               </div>
             </td></tr>
           ) : savedRows.length === 0 ? (
-            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 24 }}>
+            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
               Nothing assigned for {grade} yet.
             </td></tr>
           ) : savedRows.map(({ teacher, rows }) => (

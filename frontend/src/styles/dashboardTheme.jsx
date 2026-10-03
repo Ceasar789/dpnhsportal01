@@ -101,9 +101,13 @@ export const DashboardThemeStyles = () => (
     .dashboard-shell .sidebar {
       transition: width .3s ease, transform .3s ease;
     }
+    /* Named properties, not the all keyword. These two animated their own
+       padding and border width, which is why a sidebar entry was never
+       "stable" for Playwright and needed force: true for three phases.
+       Nothing here needs layout to animate. */
     .dashboard-shell .sidebar-item,
     .dashboard-shell .sidebar-icon {
-      transition: all .3s ease;
+      transition: background-color .15s ease, color .15s ease, border-color .15s ease;
     }
     .dashboard-shell .icon-action {
       transition: transform .15s, background-color .15s, color .15s;

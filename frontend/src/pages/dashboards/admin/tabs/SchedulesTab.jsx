@@ -158,8 +158,9 @@ const SchedulesTab = () => {
           <div className="page-sub">Who teaches what, to which section, and when — for {schoolYear}.</div>
         </div>
 
+        <div className="grade-tabs-caption">Numbers show scheduled periods per grade.</div>
         <GradeTabs value={grade} onChange={(g) => { setGrade(g); setOpenSectionId(null); }}
-          counts={countsByGrade} />
+          counts={countsByGrade} unit="scheduled period" />
 
         {sectionsError ? (
           <div className="table-card" style={{ padding: 'var(--space-24)', textAlign: 'center' }}>

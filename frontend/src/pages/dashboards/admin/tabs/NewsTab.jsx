@@ -10,6 +10,7 @@ import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import { TARGET_ROLES } from '../shared/helpers';
 import Button from '../../../../components/ui/Button';
+import { formatDate } from '../../../../lib/formatDate';
 
 const NewsTab = () => {
   const {
@@ -70,7 +71,7 @@ const NewsTab = () => {
                             <span className="badge badge-blue">{targetLabel}</span>
                           </div>
                           <div className="news-title">{n.title}</div>
-                          <div className="news-author">{n.author_id ? 'Admin' : '—'} · {new Date(n.created_at).toLocaleDateString()}</div>
+                          <div className="news-author">{n.author_id ? 'Admin' : '—'} · {formatDate(n.created_at)}</div>
                         </div>
                         <div className="news-actions">
                           {n.status === 'Published' && (

@@ -9,6 +9,7 @@ import { Search } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import Button from '../../../../components/ui/Button';
+import { formatDate, formatDateTime } from '../../../../lib/formatDate';
 
 const MemosTab = () => {
   const {
@@ -55,7 +56,7 @@ const MemosTab = () => {
                           <span>{m.from_office || '—'}</span>
                           <span>→</span>
                           <span>{m.recipient || 'All'}</span>
-                          <span style={{ color:'var(--text-dim)' }}>{new Date(m.created_at).toLocaleDateString()}</span>
+                          <span style={{ color:'var(--text-dim)' }}>{formatDate(m.created_at)}</span>
                         </div>
                         <div className="memo-snippet">{m.content?.slice(0,60)}...</div>
                       </button>
@@ -78,7 +79,7 @@ const MemosTab = () => {
                       </div>
                       <div className="memo-field">
                         <span className="memo-field-label">Date</span>
-                        <span className="memo-field-val">{new Date(selMemo.created_at).toLocaleString()}</span>
+                        <span className="memo-field-val">{formatDateTime(selMemo.created_at)}</span>
                       </div>
                       <div style={{ marginTop: 'var(--space-16)', lineHeight:1.6, fontSize: 'var(--font-size-13)', whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
                       <div className="memo-actions">

@@ -65,7 +65,7 @@ const SubjectsTab = () => {
                 <td>{s.is_active === false ? 'Inactive' : 'Active'}</td>
                 <td>
                   <button className="icon-action" aria-label={`Edit ${s.code}`} title="Edit" onClick={() => openEditSubject(s)}><Pencil size={15} aria-hidden="true" /></button>
-                  <button className="icon-action" aria-label={`Delete ${s.code}`} title="Delete" onClick={() => deleteSubject(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
+                  <button className="icon-action archive-action" aria-label={`Delete ${s.code}`} title="Delete" onClick={() => deleteSubject(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
                 </td>
               </tr>
             ))}

@@ -234,7 +234,8 @@ const TeachingLoadTab = () => {
         )}
       </div>
 
-      <GradeTabs value={grade} onChange={setGrade} counts={countsByGrade} />
+      <div className="grade-tabs-caption">Numbers show teaching assignments per grade.</div>
+      <GradeTabs value={grade} onChange={setGrade} counts={countsByGrade} unit="teaching assignment" />
 
       {/* ── Builder ───────────────────────────────────────────────────── */}
       <div className="card" style={{ padding: 'var(--space-16)', marginBottom: 'var(--space-24)' }}>

@@ -80,7 +80,7 @@ const SectionsTab = () => {
                 <td>
                   <button className="icon-action" aria-label={`Class list for ${s.name}`} title="Class list" onClick={() => openClassList(s)}><Users size={15} aria-hidden="true" /></button>
                   <button className="icon-action" aria-label={`Edit ${s.name}`} title="Edit" onClick={() => openEditSection(s)}><Pencil size={15} aria-hidden="true" /></button>
-                  <button className="icon-action" aria-label={`Delete ${s.name}`} title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
+                  <button className="icon-action archive-action" aria-label={`Delete ${s.name}`} title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
                 </td>
               </tr>
             ))}

@@ -110,7 +110,14 @@ PURPOSE: Global styles + Tailwind directives
      and substituting that would turn every primary button's label dark. */
   --on-accent: #fff;
 
-  /* Status badges: foreground, border and tint per hue. Today's values. */
+  /* Status badges, per hue: foreground, border, tint.
+
+     Phase 4b defined these identical in both themes on purpose, so naming
+     them could not change a pixel. Phase 5 gives light its own set. The
+     values below are the DARK ones - a pale mint on a 10% wash, which is
+     right on a dark card and washed out on a white one - and :root
+     overrides them further down with the light palette the .ev-* calendar
+     chips already use, so a green badge and a green event chip agree. */
   --badge-blue-fg: #60a5fa;
   --badge-blue-border: #1d4ed8;
   --badge-blue-bg: rgba(59,130,246,0.1);
@@ -152,6 +159,23 @@ PURPOSE: Global styles + Tailwind directives
   --gate-muted: #8b92a5;
   --gate-action: #3b82f6;
 }
+/* The light half of the badge triplets. Dark keeps the values above; this
+   block only runs when .dark is absent from <html>. */
+:root:not(.dark) {
+  --badge-blue-fg: #1d4ed8;
+  --badge-blue-border: #93c5fd;
+  --badge-green-fg: #15803d;
+  --badge-green-border: #86efac;
+  --badge-teal-fg: #0f766e;
+  --badge-teal-border: #5eead4;
+  --badge-yellow-fg: #b45309;
+  --badge-yellow-border: #fcd34d;
+  --badge-red-fg: #b91c1c;
+  --badge-red-border: #fca5a5;
+  --badge-purple-fg: #6d28d9;
+  --badge-purple-border: #c4b5fd;
+}
+
 
 /* ============================================
    Scale tokens — Rule T1.
@@ -299,14 +323,8 @@ PURPOSE: Global styles + Tailwind directives
      shrinks. display:block alone is not enough — two of these sit in flex
      parents and shrank to their text — so the width is restored too. */
   display: block;
-  cursor: pointer;
-}
-
-/* ...except where the element declares a width of its own. The toggle is a
-   fixed 44px pill, and a blanket width:100% flattened all three of them to
-   0px. Excluded here rather than repeating the 44 in a second place. */
-.ux-unbutton:not(.toggle) {
   width: 100%;
+  cursor: pointer;
 }
 
 /* Base styles */

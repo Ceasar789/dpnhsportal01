@@ -30,6 +30,7 @@
 import React, { useEffect } from 'react';
 import Button from '../../../../components/ui/Button';
 import { useAdminContext } from '../AdminContext';
+import { formatDateTime } from '../../../../lib/formatDate';
 
 const SettingsTab = () => {
   const {
@@ -164,13 +165,13 @@ const SettingsTab = () => {
             <div className="settings-label">Backup History</div>
             <div className="settings-hint">Scheduled backup records will appear here with date and time.</div>
             {backupHistory.length === 0 && <div className="settings-history-empty">No backup history yet.</div>}
-            {backupHistory.map(backup => <div className="settings-history-item" key={backup.id}>{new Date(backup.started_at).toLocaleString()} · {backup.status}</div>)}
+            {backupHistory.map(backup => <div className="settings-history-item" key={backup.id}>{formatDateTime(backup.started_at)} · {backup.status}</div>)}
           </div>
           <div className="settings-history">
             <div className="settings-label">Activity Log History</div>
             <div className="settings-hint">Recent admin activity.</div>
             {activityLogs.length === 0 && <div className="settings-history-empty">No activity logs yet.</div>}
-            {activityLogs.map(log => <div className="settings-history-item" key={log.id}>{log.action} · {new Date(log.created_at).toLocaleString()}</div>)}
+            {activityLogs.map(log => <div className="settings-history-item" key={log.id}>{log.action} · {formatDateTime(log.created_at)}</div>)}
           </div>
         </div>
       </div>

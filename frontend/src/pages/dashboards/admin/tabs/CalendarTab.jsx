@@ -11,6 +11,7 @@ import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { MONTHS, EVENT_TYPES } from '../shared/helpers';
 import Button from '../../../../components/ui/Button';
+import { formatDateLong } from '../../../../lib/formatDate';
 
 const CalendarTab = () => {
   const {
@@ -96,7 +97,7 @@ const CalendarTab = () => {
                     : upcomingEvents.map((e, i) => (
                       <div key={i} className="upcoming-item" style={{ borderColor: typeColor(e.event_type) }}>
                         <div style={{ fontSize: 'var(--font-size-13)', fontWeight:600 }}>{e.title}</div>
-                        <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-muted)' }}>{new Date(e.event_date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+                        <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-muted)' }}>{formatDateLong(e.event_date)}</div>
                         <div style={{ display:'flex', gap: 'var(--space-8)', marginTop: 'var(--space-4)' }}>
                           <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => openEditEvent(e)}>Edit</button>
                           <button className="news-action red" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => deleteEvent(e.id)}>Remove</button>

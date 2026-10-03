@@ -177,7 +177,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           color: rgba(255,255,255,.72);
           font-size: var(--font-size-13); font-weight: 600;
           letter-spacing: 0.03em;
-          transition: all var(--motion-base);
+          transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base);
           border: none; background: none;
           border-radius: var(--radius-sm);
           position: relative;
@@ -206,7 +206,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           width: 40px; height: 40px; border-radius: 50%;
           border: none; background: rgba(255,255,255,.12); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          color: #ffffff; transition: all var(--motion-base);
+          color: #ffffff; transition: background-color var(--motion-base), color var(--motion-base);
         }
         .nav-toggle-btn:hover { background: rgba(255,255,255,.22); }
         .nav-avatar {
@@ -217,15 +217,22 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           cursor: pointer; border: 2px solid rgba(255,255,255,.5);
           flex-shrink: 0;
         }
+        /* In the sidebar rather than on the navy header: ordinary surface
+           colours, so it reads as a control rather than a warning. */
+        .nav-logout-btn--sidebar { color: var(--text-muted); border-color: var(--border); background: var(--card-bg); }
         .nav-logout-btn {
           display: flex; align-items: center; gap: var(--space-8);
           padding: var(--space-8) var(--space-16); border-radius: var(--radius-md);
           border: 1px solid rgba(255,255,255,.3);
           background: transparent; cursor: pointer;
           color: rgba(255,255,255,.85); font-size: var(--font-size-13); font-weight: 600;
-          transition: all var(--motion-base);
+          transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base);
         }
-        .nav-logout-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+        /* Hover was #fee2e2 on #dc2626 - a light pink pair that only ever
+           worked on a light page. Both sides of the pair move together now,
+           which is the point: the earlier attempt to fix this changed only
+           the text colour and left the pink behind it. */
+        .nav-logout-btn:hover { background: var(--card2); color: var(--text); border-color: var(--text-muted); }
 
         .layout { display: flex; flex: 1; min-height: calc(100vh - 76px); }
         .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 var(--space-12) var(--space-16); flex-shrink: 0; display: flex; flex-direction: column; transition: width var(--motion-base) ease, transform var(--motion-base) ease; position: relative; }
@@ -233,16 +240,24 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar-user { min-height: 76px; padding: var(--space-24) var(--space-8); border-bottom: 1px solid var(--border); display: flex !important; align-items: center; gap: var(--space-12); margin-bottom: 0; visibility: visible; }
         .admin-profile-row { min-height: 76px; width: 100%; display: flex !important; align-items: center; visibility: visible; }
         .sidebar.collapsed .sidebar-user { justify-content: center; }
-        .sidebar-item { padding: var(--space-12) var(--space-12); margin-bottom: var(--space-4); border-radius: var(--radius-lg); cursor: pointer; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; transition: all var(--motion-base) ease; display: flex; align-items: center; gap: var(--space-12); border-left: 3px solid transparent; }
+        .sidebar-item { padding: var(--space-12) var(--space-12); margin-bottom: var(--space-4); border-radius: var(--radius-lg); cursor: pointer; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); display: flex; align-items: center; gap: var(--space-12); border-left: 3px solid transparent; }
         .sidebar-user + .sidebar-item { margin-top: var(--space-16); }
         .sidebar.collapsed .sidebar-item { justify-content: center; padding-left: var(--space-8); padding-right: var(--space-8); }
-        .sidebar-icon { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all var(--motion-base) ease; }
+        .sidebar-icon { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
         .sidebar-item:not(.active) .sidebar-icon { border: 1px solid var(--border); }
-        .sidebar-item.active .sidebar-icon { background: #ffffff; box-shadow: 0 2px 6px var(--overlay-accent-glow); }
-        .sidebar-item:hover { color: var(--text); background: rgba(128,128,128,0.08); }
-        .sidebar-item.active { color: var(--accent); background: #eef0f5; border-left-color: transparent; }
+        /* Was #ffffff with a coloured glow: a white tile on a dark rail in
+           dark mode, and a shadow tinted with the accent for no reason the
+           reader can use. The active item is already named by its colour and
+           its surface. */
+        .sidebar-item.active .sidebar-icon { background: var(--card-bg); border: 1px solid var(--accent); }
+        .sidebar-item:hover { color: var(--text); background: var(--card2); }
+        /* Was #eef0f5 - a light grey, hardcoded, so in dark mode the current
+           page was a pale block sitting in a dark rail. --card2 is the
+           surface token that already means "raised a step from the
+           background" and follows the theme. */
+        .sidebar-item.active { color: var(--accent); background: var(--card2); border-left-color: transparent; }
         .sidebar-section { padding: var(--space-16) var(--space-12) var(--space-8); font-size: var(--font-size-12); text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
-        .sidebar-sub { padding: var(--space-8) var(--space-24) var(--space-8) var(--space-32); cursor: pointer; color: var(--text-dim); font-size: var(--font-size-12); transition: all var(--motion-base); }
+        .sidebar-sub { padding: var(--space-8) var(--space-24) var(--space-8) var(--space-32); cursor: pointer; color: var(--text-dim); font-size: var(--font-size-12); transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
         .sidebar-sub:hover { color: var(--text-muted); }
         .sidebar-sub.active { color: var(--accent); }
         .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px var(--overlay-sm); }
@@ -268,7 +283,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            heading. */
         .page-header-bar { margin-bottom: var(--space-24); }
         .page-header-bar .page-sub { margin-bottom: 0; }
-        .btn { padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: all var(--motion-base); display: inline-flex; align-items: center; gap: var(--space-8); }
+        .btn { padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); display: inline-flex; align-items: center; gap: var(--space-8); }
         .btn-primary { background: var(--accent); color: var(--on-accent); }
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
@@ -348,9 +363,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-dept { font-size: var(--font-size-12); color: var(--text-muted); white-space: nowrap; }
         .picker-empty { padding: var(--space-16) var(--space-12); text-align: center; font-size: var(--font-size-12); color: var(--text-muted); }
         .grade-tabs { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-16); border-bottom: 1px solid var(--border); padding-bottom: 0; }
-        .grade-tab { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border: 1px solid transparent; border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: all var(--motion-base); }
+        .grade-tab { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border: 1px solid transparent; border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
         .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
         .grade-tab.active { color: var(--accent); background: var(--card-bg); border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
+        .grade-tabs-caption { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: var(--space-8); }
         .grade-tab-count { font-size: var(--font-size-12); font-weight: 700; min-width: 20px; text-align: center; padding: 1px var(--space-8); border-radius: var(--radius-full); color: #60a5fa; background: rgba(59,130,246,0.12); }
         .grade-tab-count.empty { color: var(--text-muted); background: rgba(148,163,184,0.12); }
 
@@ -372,7 +388,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .form-with-action .form-input { flex: 1; }
 
         .section-picker { display: flex; gap: var(--space-8); flex-wrap: wrap; margin-bottom: var(--space-16); }
-        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-8) var(--space-16); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); cursor: pointer; transition: all var(--motion-base); }
+        .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-8) var(--space-16); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); cursor: pointer; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
         .section-chip:hover { border-color: var(--accent); }
         .section-chip.active { border-color: var(--accent); background: rgba(99,102,241,.12); }
         .section-chip-name { font-size: var(--font-size-13); font-weight: 600; color: var(--text); }
@@ -392,7 +408,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
         .picker-warning { margin-top: var(--space-8); font-size: var(--font-size-12); line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: var(--radius-md); padding: var(--space-8) var(--space-12); }
         .grade-picker { display: flex; flex-wrap: wrap; gap: var(--space-8); align-items: center; }
-        .grade-toggle { padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: all var(--motion-base); }
+        .grade-toggle { padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
         .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
         .grade-toggle.active { border-color: var(--accent); color: var(--on-accent); background: var(--accent); }
         /* The draft: entries staged but not yet written. Dashed border and
@@ -503,8 +519,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-title   { font-size: var(--font-size-16); font-weight: 600; }
         .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); }
         .cal-nav:hover { background: var(--card2); color: var(--text); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
-        .cal-head { background: #f8fafc; padding: var(--space-12); text-align: center; font-size: var(--font-size-12); font-weight: 600; color: #64748b; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
+        .cal-head { background: var(--sidebar-bg); padding: var(--space-12); text-align: center; font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); }
         .cal-cell { background: var(--card-bg); min-height: 80px; padding: var(--space-8); position: relative; }
         /* A weekend is not an alert. This was a pink tint one step lighter
            than .holiday, so Saturdays and Sundays read as warnings AND were
@@ -512,10 +528,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            still says "not a school day" without borrowing the holiday colour. */
         .cal-cell.weekend { background: var(--card2); }
         .cal-cell.holiday { background: rgba(254,226,226,.8); }
-        .cal-cell:hover { background: #f1f5f9; }
-        .cal-day { font-size: var(--font-size-13); color: #475569; margin-bottom: var(--space-4); }
+        .cal-cell:hover { background: var(--card2); }
+        .cal-day { font-size: var(--font-size-13); color: var(--text); margin-bottom: var(--space-4); }
         .cal-cell.today .cal-day { background: #2563eb; color: var(--on-accent); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-        .cal-cell.other-month .cal-day { color: #94a3b8; }
+        .cal-cell.other-month .cal-day { color: var(--text-dim); }
         .cal-event { font-size: var(--font-size-12); font-weight: 600; padding: var(--space-4) var(--space-8); border-radius: var(--radius-xs); margin-bottom: var(--space-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .cal-event:hover { opacity: 0.8; }
         .ev-blue   { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
@@ -533,13 +549,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            dashboard is what the Calendar tab has looked like in light mode
            for as long as these rules have existed. They now use the class
            the theme actually sets. */
-        :root.dark .cal-grid { background: #303642; border-color: #303642; }
-        :root.dark .cal-head { background: #252a33; color: #aeb8c9; }
         :root.dark .cal-cell { background: #20252d; }
-        :root.dark .cal-cell:hover { background: #292f39; }
         :root.dark .cal-cell.holiday { background: #32282d; }
-        :root.dark .cal-day { color: #b6c0d0; }
-        :root.dark .cal-cell.other-month .cal-day { color: #687386; }
         :root.dark .ev-blue { background: #263b56; color: #bfdbfe; border-color: #41658f; }
         :root.dark .ev-yellow { background: #413721; color: #fde68a; border-color: #806b31; }
         :root.dark .ev-green { background: #203b2d; color: #bbf7d0; border-color: #3c7655; }
@@ -579,7 +590,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .settings-history-empty { color: var(--text-dim); font-size: var(--font-size-12); margin-top: var(--space-12); }
         .settings-history-item { color: var(--text-muted); font-size: var(--font-size-12); padding: var(--space-8) 0; border-bottom: 1px solid var(--border); }
         .settings-hint a { color: var(--accent); text-decoration: none; }
-        .settings-input-row { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) 0; border-bottom: 1px solid var(--border); }
+        .settings-input-row { display: flex; align-items: flex-start; gap: var(--space-12); padding: var(--space-12) 0; border-bottom: 1px solid var(--border); }
+        /* The field and its hint share a column, capped. These inputs held
+           a school year and a quarter and stretched the full width of the
+           card for it; a control that wide reads as "type a lot here". */
+        .settings-input-row > div { flex: 1; max-width: 420px; }
+        .settings-input-row > input, .settings-input-row > select { max-width: 420px; }
         .settings-input-row:last-child { border-bottom: none; }
         .settings-input-label { font-size: var(--font-size-13); color: var(--text-muted); width: 120px; flex-shrink: 0; }
         .settings-save { display: flex; justify-content: flex-end; margin-top: var(--space-16); }
@@ -769,7 +785,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           )}
 
           <div className="sidebar-logout">
-            <button className="nav-logout-btn" aria-label="Logout" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', color:'#dc2626', borderColor:'#f3b9ba', background:'#fdf1f1' }} onClick={() => { logout(); navigate('/login'); }}>
+            {/* .nav-logout-btn was written for the navy header - white-alpha
+                text on a white-alpha border - and then reused in the sidebar
+                with three hardcoded light-pink values layered on top. That
+                pink is what shows on the dark rail.
+                No colour overrides now, and no red: red is reserved for
+                destructive actions (Rule B4), and signing out is reversible
+                by signing back in. The button says what it does. */}
+            <button className="nav-logout-btn nav-logout-btn--sidebar" aria-label="Logout" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }} onClick={() => { logout(); navigate('/login'); }}>
               <LogOut size={15} />
               {!sidebarCollapsed && 'Logout'}
             </button>

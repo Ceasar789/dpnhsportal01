@@ -18,9 +18,9 @@ decision; if a row survives Phase 5, it has become one by accident.
 | 2 | `components/ui/Modal.jsx` | Reuses `.modal-overlay`, `.modal`, `.modal-title`, `.modal-actions` | Those classes live inside `AdminDashboard.jsx`'s injected `<style>`, so `<Modal>` currently renders correctly **only inside the admin shell**. Reusing them was deliberate: migrating a tab is then a behaviour diff a reviewer can read, with no visual change to eyeball. | **Phase 5**, when the modal's styling moves to `index.css` and stops depending on where it is mounted. Until then, do not use `<Modal>` in the student, teacher, registrar or faculty dashboards. |
 | 3 | `styles/index.css` · `.ux-modal*` | A second set of classes layered over `.modal` | Adds the structure the originals never had — a body that scrolls on its own, a footer that stays put, the mobile sheet — without touching the originals. | **Phase 5** merges the two into one rule set. |
 | 4 | `e2e/helpers.js` · `openAdminTab` | Reopens the drawer before every tab click | Not a workaround for a defect — clicking a tab calls `setSidebarOpen(false)`, so the drawer genuinely has to be reopened. It stays. | — |
-| 5 | `e2e/admin.spec.js` · `FLOOR = 11` | The text-size floor is 11px, not 12px | Writing 12 before Phase 4 raises the type scale would make the suite red before any work started. | **Phase 4**, together with `e2e/text-size.spec.js`. |
+| ~~5~~ | ~~`e2e/admin.spec.js` · `FLOOR = 11`~~ **DONE (4c)** — the floor is 12. `text-size.spec.js` stays at 11 and says why: it covers the public pages and the student and teacher dashboards, which the overhaul has not reached. Old text: `e2e/admin.spec.js` · `FLOOR = 11` | The text-size floor is 11px, not 12px | Writing 12 before Phase 4 raises the type scale would make the suite red before any work started. | **Phase 4**, together with `e2e/text-size.spec.js`. |
 
-| 6 | `styles/index.css` · `.ux-unbutton` | A reset that strips a button back to looking like a div | Phase 2 turned five click-only divs into real buttons, and a button brings its own background, border, font and centred text. Condition 1 said Phase 2 must not move anything. `:not(.toggle)` is part of it: a blanket `width: 100%` beat `.toggle`'s own `width: 44px` and flattened all three switches to 0px. | **Phase 5**, when these controls get real styling and stop needing to impersonate a div. |
+| ~~6~~ | `styles/index.css` · `.ux-unbutton` **RECLASSIFIED (5)** — not a workaround. The four controls it serves (sidebar item, settings jump link, memo row, calendar event) all carry real styling now, and what the reset removes is what a `<button>` brings of its own: a background, a border, a centred text alignment. That is an ordinary reset and it stays. The `:not(.toggle)` exception IS gone — the shared Toggle was deleted in Phase 3b along with the three inert settings it switched, so nothing carries the class and `width: 100%` folds back into the base rule. Old text | A reset that strips a button back to looking like a div | Phase 2 turned five click-only divs into real buttons, and a button brings its own background, border, font and centred text. Condition 1 said Phase 2 must not move anything. `:not(.toggle)` is part of it: a blanket `width: 100%` beat `.toggle`'s own `width: 44px` and flattened all three switches to 0px. | **Phase 5**, when these controls get real styling and stop needing to impersonate a div. |
 
 ## Deferred out of Phase 2 by condition 1
 
@@ -478,3 +478,20 @@ Nothing to fix here. Kept rather than deleted because the failure mode
 is worth recognising: when a screenshot and a probe disagree, the
 cheapest explanation is usually that they are describing different
 moments.
+
+## Moved out of Phase 5: the modal's CSS lives in the wrong file
+
+Workarounds 2 and 3 were booked for Phase 5 and are **moved to a pass of
+their own after Phase 6**, with the reason rather than a shrug.
+
+| # | What | Why it is not a Phase 5 job |
+|---|---|---|
+| 2 | `components/ui/Modal.jsx` reuses `.modal-overlay`, `.modal`, `.modal-title` and `.modal-actions`, which live inside `AdminDashboard.jsx`'s injected `<style>` — so `<Modal>` renders correctly **only inside the admin shell**. | Moving them is a change of *where the CSS lives*, not of how anything looks. Phase 5 is a visual phase, and this one has no visual output to review: done right, every screenshot is identical. |
+| 3 | `styles/index.css` · `.ux-modal*` is a second rule set layered over `.modal`, adding the scrolling body, the fixed footer and the mobile sheet the originals never had. | Merging the two into one set touches every dialog on the dashboard at once. The nine modals are the most-tested surface in the suite, and the risk is concentrated entirely in a refactor whose benefit is reuse by *other* dashboards — none of which this overhaul has reached. |
+
+Both are worth doing, and both are cheaper and safer once Phase 6 has
+settled the responsive rules the mobile sheet depends on. Doing them now
+would mean rewriting the same rules twice.
+
+**The condition for picking them up:** `<Modal>` is needed outside the
+admin dashboard. Until then the coupling costs nothing but a comment.

@@ -772,3 +772,139 @@ The teacher and registrar tabs hold most of what is left: 23 problems in
 `LessonPlansTab.jsx` alone, and 124 across 71 files outside the worst 18.
 None of it is in the admin dashboard and none of it is this overhaul's.
 A separate task.
+
+## Data integrity findings
+
+Four values that lint reported as unused, investigated rather than
+deleted, because an unused value is sometimes the symptom of a UI showing
+something fixed where it should be showing something real. Read-only: no
+code was changed for any of these.
+
+### 1. Who created this? — and why both activity panels are empty
+
+**Two separate questions that look like one.** They are not connected,
+and treating them as one would hide the simpler of the two.
+
+**Does the app record who made a thing?** Two out of three:
+
+| Insert | Records the author | Column |
+| --- | --- | --- |
+| `news` | yes | `author_id: userData?.uid` |
+| `memos` | yes | `sender_id: userData?.uid` |
+| `calendar_events` | **no** | — |
+
+`calendar_events.created_by UUID REFERENCES profiles(id)` exists in
+**both** schema files — `database-schema.sql:53` and
+`COMPLETE_DATABASE_SCHEMA_v2.sql:447` — and `saveEvent` never writes it.
+Every event in the system is anonymous, and the column is sitting there
+waiting for it. This is a one-key payload addition, not a migration.
+
+**And `adminUid`?** A false alarm, and the opposite of a dropped
+intention. `saveUser` captures `adminUid` from the admin's own session,
+but the two things that need the admin's identity already use
+`userData?.uid` — the `logActivity('Created user', …)` call at the end of
+the same function, and the news and memo payloads above. It is a
+duplicate of a value already in scope. Safe to delete; held back only
+because it was on the list.
+
+**Why Overview says "No recent activity" while reporting 4 news and 3
+memos.** Not a contradiction, and not the same bug as the above. Those
+counts are read from the `news` and `memos` tables, which work. The
+activity panel reads `activity_logs`, which is empty because **every
+write to it has always been rejected** — measured in Phase 4 and already
+recorded above under "activity_logs — why both panels are empty":
+
+```
+POST /rest/v1/activity_logs  ->  400
+{"code":"PGRST204","message":"Could not find the 'details' column of
+ 'activity_logs' in the schema cache"}
+```
+
+`logActivity` is called from 14 places and already sends
+`user_id: userData?.uid`, so the "who" is not what is missing. The whole
+row is rejected on a different column. Settings' "No activity logs yet"
+is the same table and the same cause.
+
+So: **Overview's empty activity and Settings' empty activity are the same
+bug. Neither is connected to the missing `created_by` on events.** The
+first is schema drift on `activity_logs.details`; the second is a payload
+that omits a column that exists.
+
+### 2. MemosTab — where the recipient list should come from
+
+The same six options are hardcoded **twice**: in the compose form
+(`MemosTab.jsx:123-128`) and in the filter above the list (`:31-37`).
+
+```
+All Faculty · All Students · All · Registrar Office · Science Dept · Math Dept
+```
+
+That is three different vocabularies in one list:
+
+| Kind | Options | Where it should come from |
+| --- | --- | --- |
+| Role groups | `All Faculty`, `All Students`, `All` | Legitimately fixed. Roles are a closed set the app defines. |
+| An office | `Registrar Office` | Fixed is defensible; it is a role in this school, not a department. |
+| **Departments** | `Science Dept`, `Math Dept` | **`profiles.department`.** A real column, written by `saveUser` and already read elsewhere — `useAcademicLogic.jsx:132` selects it so the teacher picker can search on it. |
+
+Nothing guarantees a department named "Science Dept" exists, and nothing
+stops an admin typing "Science Department" into a profile.
+`memos.recipient` is a plain `VARCHAR` with no CHECK constraint, so the
+two can drift silently and a memo can be addressed to a department with
+no members.
+
+**The filter has a second problem the compose form does not.** A filter
+should offer what is *there*, not what is *possible* — the distinct
+`recipient` values actually present in `memos`. As written it can filter
+to a guaranteed-empty list.
+
+`users` is destructured in `MemosTab` and never read, two lines above all
+of this.
+
+### 3. NewsTab — what you see after choosing an image
+
+Today, on edit, you see the **wrong image**.
+
+```jsx
+<input type="file" onChange={e => setNImageFile(e.target.files?.[0] || null)} />
+{nImageUrl && <img src={nImageUrl} … />}
+```
+
+The input is uncontrolled and the preview renders `nImageUrl`, the
+**already-saved** image. Pick a replacement and the preview keeps showing
+the old one; the only feedback is the browser's own filename text beside
+the button. On a new post there is no preview at all, so nothing confirms
+the file was accepted. `nImageFile` holds the answer and is never read.
+
+A staged-file indicator needs three things, none of them large:
+
+1. A preview of the staged file — `URL.createObjectURL(nImageFile)`,
+   shown in place of `nImageUrl` whenever a file is staged.
+2. `URL.revokeObjectURL` when the file changes or the modal closes;
+   without it every pick leaks a blob for the page's lifetime.
+3. A way back — choosing a file should be undoable without reopening the
+   form, since right now there is no route back to the saved image.
+
+### 4. The shell's "Admin Portal" — not the same bug
+
+Checked because it has the shape of the hardcoded-school-name bug. It is
+not one.
+
+`AdminDashboard.jsx:1118-1119` renders `EduScribe` over `Admin Portal`:
+the product name and the name of this dashboard. Neither is school data.
+The Settings page's **Portal Name** is a separate thing, shown as a
+disabled field reading "Set by the developer. Not editable here." — so
+the portal name is deliberately a constant, and the shell agreeing with
+that is correct.
+
+**What the shell should show instead: nothing different.** The `settings`
+value is unused there because the welcome banner that used it was removed
+in Phase 5, not because anything is hardcoded in its place. It is safe to
+delete whenever the next lint pass runs.
+
+### 5. `diagnose-login-issue.js` — an undeclared variable
+
+`backend/scripts/diagnose-login-issue.js:55-56` reference a `user` that is
+never declared. These are the two surviving `no-undef` errors in the lint
+baseline. A real bug in a backend script, logged only — not UI, and not
+this overhaul's.

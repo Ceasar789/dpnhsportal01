@@ -64,6 +64,34 @@ export const allowWrites = process.env.E2E_ALLOW_WRITES === '1';
 export const WRITE_SKIP_REASON =
   'writes to the live database — set E2E_ALLOW_WRITES=1 to run it';
 
+/**
+ * Resolves once the Settings page has the SERVER's row, not its defaults.
+ *
+ * Call this BEFORE loginAsAdmin — the fetch goes out while the dashboard
+ * mounts, so a listener attached after the tab opens can miss it.
+ *
+ *   const loaded = settingsLoaded(page);
+ *   await loginAsAdmin(page);
+ *   await openAdminTab(page, 'System Settings');
+ *   await loaded;
+ *
+ * Waiting on the field's VALUE instead does not work, and failed about
+ * one full-suite run in three before this existed: the default
+ * academic_year is currentSchoolYear(), which is the same YYYY-YYYY shape
+ * as the stored one and usually the same string. A test that edits the
+ * field before the response lands has its edit overwritten, the form goes
+ * clean, and the save bar it was about to assert on never appears.
+ *
+ * AuthContext reads session_timeout on its own, so that request is
+ * filtered out — it is not the full-row read.
+ */
+export const settingsLoaded = (page) => page.waitForResponse(
+  (r) => r.url().includes('/rest/v1/school_settings')
+    && r.request().method() === 'GET'
+    && !r.url().includes('session_timeout'),
+  { timeout: 30_000 },
+);
+
 // The two login screens are separate routes with separate forms: students go
 // through /student-login, everybody else through /faculty-login.
 export const STUDENT_LOGIN = '/student-login';

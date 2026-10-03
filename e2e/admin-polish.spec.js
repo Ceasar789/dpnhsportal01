@@ -4,7 +4,7 @@
 // thing that quietly comes back, so each gets the smallest check that
 // would notice.
 import { test, expect } from '@playwright/test';
-import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
+import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab, settingsLoaded } from './helpers.js';
 
 // P1 — an unset dropdown is showing a prompt, not a value.
 test.describe('placeholder dropdowns', () => {
@@ -493,19 +493,31 @@ test.describe('the save bar covers what is behind it', () => {
     test(`${width}: no page content shows below or beside it`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+
+      // Wait for the SERVER's row before editing. Waiting on the field's
+      // value does not work: the default academic_year is
+      // currentSchoolYear(), the same shape and usually the same string
+      // as the stored one, so the wait passes on the default and the
+      // late response then wipes the edit — form clean, no save bar.
+      const loaded = settingsLoaded(page);
       await loginAsAdmin(page);
       await openAdminTab(page, 'System Settings');
+      await loaded;
 
-      // Wait for the loaded row before editing. The field shows a default
-      // until fetchSettings lands, and an edit made before that is
-      // overwritten by the response — the form goes clean again and no
-      // save bar ever appears. A real flake in this test, not the app.
       const year = page.locator('#settings-academic-year');
-      await expect(year).toHaveValue(/^\d{4}-\d{4}$/, { timeout: 20_000 });
       const original = await year.inputValue();
 
-      await year.fill('2099-2100');
+      // Dirty, and STILL dirty. Awaiting the login-time read is not
+      // enough: opening the tab fires its own fetch, and if that lands
+      // after the edit it resets the form and the bar disappears
+      // between the assertion and the measurement. Re-edit until the
+      // bar sticks, rather than assuming the first edit survived.
       const bar = page.locator('.settings-savebar');
+      await expect.poll(async () => {
+        if (await bar.count() === 0) await year.fill('2099-2100');
+        await page.waitForTimeout(400);
+        return bar.count();
+      }, { message: 'the form never stayed dirty', timeout: 20_000 }).toBeGreaterThan(0);
       await expect(bar).toBeVisible();
 
       // Mid-scroll is the state that showed the leak: at the top or the
@@ -515,6 +527,7 @@ test.describe('the save bar covers what is behind it', () => {
 
       const leaks = await page.evaluate(() => {
         const bar = document.querySelector('.settings-savebar');
+        if (!bar) return ['the save bar vanished before it could be measured'];
         const r = bar.getBoundingClientRect();
         const found = [];
         // Just below the bar, and in the strips either side of it, which

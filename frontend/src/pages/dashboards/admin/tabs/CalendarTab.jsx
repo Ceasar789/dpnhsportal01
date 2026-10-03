@@ -84,7 +84,11 @@ const CalendarTab = () => {
                               className={`ux-unbutton cal-event ${typeClass(e.event_type)}`}
                               onClick={() => openEditEvent(e)}
                               aria-label={`Edit ${e.title}`}
-                              title="Click to edit"
+                              /* V2: the title said "Click to edit", which
+                                 is the one thing a pointer already knows.
+                                 It carries the full name now, for the
+                                 chips the two-line clamp still cuts. */
+                              title={e.title}
                             >
                               {e.title}
                             </button>

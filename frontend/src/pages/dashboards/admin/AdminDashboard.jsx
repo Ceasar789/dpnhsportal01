@@ -790,7 +790,22 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-day { font-size: var(--font-size-13); color: var(--text); margin-bottom: var(--space-4); }
         .cal-cell.today .cal-day { background: #2563eb; color: var(--on-accent); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
         .cal-cell.other-month .cal-day { color: var(--text-dim); }
-        .cal-event { font-size: var(--font-size-12); font-weight: 600; padding: var(--space-4) var(--space-8); border-radius: var(--radius-xs); margin-bottom: var(--space-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        /* V2: one nowrap line turned every name into "Midterm E..." the
+           moment a column was under about 160px, which is every column at
+           768 and most at 1440. Two wrapped lines fit "Midterm
+           Examinations" whole in a 128px cell, so truncation becomes the
+           exception rather than the rule. The cells in a row still match
+           height: grid stretches them, and the clamp caps how far any one
+           chip can push. */
+        .cal-event {
+          font-size: var(--font-size-12); font-weight: 600;
+          padding: var(--space-4) var(--space-8);
+          border-radius: var(--radius-xs); margin-bottom: var(--space-4);
+          cursor: pointer;
+          display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+          white-space: normal; overflow: hidden; overflow-wrap: anywhere;
+          text-align: left;
+        }
         .cal-event:hover { opacity: 0.8; }
         .ev-blue   { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
         .ev-yellow { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }

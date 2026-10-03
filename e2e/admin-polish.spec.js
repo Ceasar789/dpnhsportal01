@@ -381,3 +381,48 @@ test.describe('select chevrons', () => {
     expect(result.changed, 'disabled looks identical to enabled').toBe(true);
   });
 });
+
+// V2 — an event chip should say which event it is.
+test.describe('calendar event chips', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  for (const width of [768, 1024, 1440]) {
+    test(`${width}: names wrap before they truncate, and rows stay level`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+      await loginAsAdmin(page);
+      await openAdminTab(page, 'Calendar');
+      await expect(page.locator('.cal-grid')).toBeVisible();
+
+      const r = await page.evaluate(() => {
+        const chips = [...document.querySelectorAll('.cal-event')];
+        // Two lines, not one: a single nowrap line made every name
+        // "Midterm E..." the moment a column was under ~160px.
+        const oneLiners = chips.filter((c) => getComputedStyle(c).whiteSpace === 'nowrap').length;
+
+        // Whatever is still cut off has to be recoverable.
+        const silent = chips
+          .filter((c) => c.scrollHeight > c.clientHeight + 1)
+          .filter((c) => (c.getAttribute('title') || '') !== c.textContent.trim())
+          .map((c) => c.textContent.trim().slice(0, 20));
+
+        // Cells sharing a top edge are one week, and a week is a straight line.
+        const rows = {};
+        for (const cell of document.querySelectorAll('.cal-cell')) {
+          const b = cell.getBoundingClientRect();
+          (rows[Math.round(b.top)] ||= []).push(Math.round(b.height));
+        }
+        const ragged = Object.entries(rows)
+          .filter(([, hs]) => new Set(hs).size > 1)
+          .map(([top, hs]) => `row at ${top}: ${[...new Set(hs)].join('/')}`);
+
+        return { chips: chips.length, oneLiners, silent, ragged };
+      });
+
+      expect(r.chips, 'no events this month to measure').toBeGreaterThan(0);
+      expect(r.oneLiners, 'a chip is still a single nowrap line').toBe(0);
+      expect(r.silent, 'a clipped name with no title to recover it').toEqual([]);
+      expect(r.ragged, 'cells in one week are different heights').toEqual([]);
+    });
+  }
+});

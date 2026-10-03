@@ -23,4 +23,21 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  // Everything above assumes a browser, which is right for frontend/src
+  // and wrong for the code that never ships to one. 27 of the baseline's
+  // errors were "'process' is not defined" in files where process is
+  // simply there — the backend server, its scripts, the Playwright
+  // config and the e2e helpers. That is a gap in what the config was
+  // told, not 27 defects.
+  {
+    files: [
+      'backend/**/*.js',
+      'e2e/**/*.js',
+      '*.config.js',
+      'tools/**/*.mjs',
+    ],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ])

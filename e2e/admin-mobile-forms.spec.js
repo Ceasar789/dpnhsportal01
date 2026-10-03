@@ -157,3 +157,55 @@ test.describe('settings and long text on a phone', () => {
     expect(clipped.filter((c) => !c.title), 'text clipped with no title to reveal it').toEqual([]);
   });
 });
+
+// D3 — the app behind a sheet is not just hidden, it is gone.
+//
+// At 360 the section form is a bottom sheet with a scrim over the rest of
+// the page. Sampling the pixels proved the scrim really does cover and dim
+// the app header (navy #003b7a became #001831, exactly 40% of it), so this
+// was never a paint-order bug. It was an interaction bug: the header sits
+// in its own stacking context, so `elementFromPoint` over it returned the
+// header's own button, and a tap there went to the app, not the scrim.
+//
+// `inert` is what removes a subtree from hit-testing, from focus and from
+// the accessibility tree at once — a focus trap alone only covers Tab.
+test.describe('the page behind a modal', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('is inert while the sheet is open, and live again after', async ({ page }) => {
+    await loginAsAdmin(page);
+    await phone(page);
+    await openAdminTab(page, 'Sections');
+
+    const header = page.locator('.dashboard-shell nav').first();
+    expect(await header.evaluate((el) => el.inert), 'inert before anything opened').toBeFalsy();
+
+    await page.getByRole('button', { name: /Add Section/ }).first().click();
+    await expect(page.locator('.ux-modal').first()).toBeVisible();
+
+    // The shell around the dialog is out of reach.
+    expect(await header.evaluate((el) => el.inert), 'the header is still live').toBe(true);
+    expect(await page.locator('.sidebar').evaluate((el) => el.inert)).toBe(true);
+
+    // Including to the pointer: a tap on the header lands on the scrim.
+    const hb = await header.boundingBox();
+    const hit = await page.evaluate(([x, y]) => {
+      const el = document.elementFromPoint(x, y);
+      return el?.closest('.modal-overlay') ? 'overlay' : `${el?.tagName}.${String(el?.className || '').slice(0, 30)}`;
+    }, [hb.x + hb.width / 2, hb.y + hb.height / 2]);
+    expect(hit, 'a tap over the header reaches the app behind the sheet').toBe('overlay');
+
+    // And nothing outside the dialog can be tabbed to.
+    const outside = await page.evaluate(() => {
+      const dialog = document.querySelector('[role=dialog]');
+      return [...document.querySelectorAll('button, a[href], input, select, textarea')]
+        .filter((el) => !dialog.contains(el) && el.offsetParent !== null)
+        .filter((el) => !el.closest('[inert]')).length;
+    });
+    expect(outside, 'focusable controls are still reachable behind the sheet').toBe(0);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.ux-modal')).toHaveCount(0);
+    expect(await header.evaluate((el) => el.inert), 'the page stayed inert after closing').toBeFalsy();
+  });
+});

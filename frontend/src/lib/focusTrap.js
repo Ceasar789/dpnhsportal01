@@ -90,3 +90,36 @@ export function lockScroll() {
     window.scrollTo(0, y);
   };
 }
+
+/**
+ * Make everything outside `node` inert for as long as the overlay is up,
+ * and put the page back the way it was. Returns the restore function.
+ *
+ * A focus trap only governs the keyboard. The rest of the page is still
+ * there for a pointer and still there for a screen reader's own cursor,
+ * which is how the app header stayed tappable underneath a bottom sheet at
+ * 360px: the backdrop covers it visually, but the header sits in its own
+ * stacking context and `elementFromPoint` returns the header, not the
+ * scrim. `inert` is the one thing that removes a subtree from focus, from
+ * hit-testing and from the accessibility tree at once.
+ *
+ * The overlay is rendered in place rather than through a portal, so the
+ * subtree to keep live is the chain of ancestors up to <body>. Everything
+ * hanging off that chain gets marked.
+ */
+export function inertOutside(node) {
+  if (!node || !node.parentElement) return () => {};
+  const marked = [];
+
+  for (let el = node; el && el !== document.body; el = el.parentElement) {
+    for (const sibling of el.parentElement?.children ?? []) {
+      // Already inert for its own reasons — leave it, and leave it inert
+      // on the way out too.
+      if (sibling === el || sibling.inert) continue;
+      sibling.inert = true;
+      marked.push(sibling);
+    }
+  }
+
+  return () => { for (const el of marked) el.inert = false; };
+}

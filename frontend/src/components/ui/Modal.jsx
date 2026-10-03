@@ -23,7 +23,7 @@
 // ============================================
 
 import { useCallback, useEffect, useId, useRef } from 'react';
-import { FOCUSABLE, cycleTab } from '../../lib/focusTrap';
+import { FOCUSABLE, cycleTab, inertOutside } from '../../lib/focusTrap';
 
 // Every field the dialog holds, as one comparable string.
 //
@@ -69,6 +69,7 @@ const stack = [];
  * @param {function} [footer]   (requestClose) => ReactNode, so Cancel shares the guard
  */
 export default function Modal({ open, title, onClose, isDirty, footer, children }) {
+  const overlay = useRef(null);
   const card = useRef(null);
   const returnTo = useRef(null);
   const openedWith = useRef(null);
@@ -86,6 +87,18 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
     if (dirty() && !window.confirm('Discard changes?')) return;
     onClose();
   }, [dirty, onClose]);
+
+  // Nothing behind the dialog is clickable, focusable or readable while it
+  // is up — the keyboard trap below only covers Tab.
+  //
+  // This is declared BEFORE the focus effect on purpose. React runs cleanups
+  // in declaration order, and focus cannot return to a control that is still
+  // inside an inert subtree: with the two the other way round the dialog
+  // closed and focus fell to <body> on every tab.
+  useEffect(() => {
+    if (!open) return undefined;
+    return inertOutside(overlay.current);
+  }, [open]);
 
   // Remember the invoking control while it still exists, and move focus in.
   useEffect(() => {
@@ -125,6 +138,7 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
 
   return (
     <div
+      ref={overlay}
       className="modal-overlay open"
       // Only a click that starts AND ends on the backdrop counts: dragging a
       // text selection out of a field and releasing here would otherwise

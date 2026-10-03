@@ -583,3 +583,192 @@ currently unused. Only `validateDepEdFormat` from this module is imported
 anywhere.
 
 Not scheduled: it belongs to whoever owns the DepEd forms, not to Phase 6.
+
+## Lint baseline
+
+ESLint had a config in this repo and no ESLint: no dependency, no script,
+nothing installed. **No phase of this overhaul ever ran it**, and no phase
+report claimed to — every commit message and this file were searched for
+the word before that sentence was written. What each phase actually ran
+was Playwright, Vitest and `npm run build`.
+
+Installed at the root, which is where `eslint.config.js` lives, with a
+`lint` script. Two config corrections came with it, neither of which
+touches a finding:
+
+* `globalIgnores(['dist'])` matches a `dist` at the repo **root**, and
+  there is none — the build output is `frontend/dist`, which was being
+  linted as source. One minified bundle accounted for 196 of the first
+  run's 526 problems. Widened to `**/dist/**`, plus `node_modules`, the
+  archives, and the `zz-*` scratch cameras.
+* Everything was linted as browser code, including the backend server,
+  its scripts, the Playwright config and the e2e helpers. That is where
+  27 `'process' is not defined` errors came from. A `globals.node` block
+  for those paths cleared 25 of them.
+
+### Where it stands
+
+| | errors | warnings | files |
+| --- | ---: | ---: | ---: |
+| First run, config as found | 507 | 19 | 101 |
+| After the two config corrections | 311 → 263 | 19 | 89 |
+| **Files this overhaul touched** | **14** | **4** | **11** |
+
+From here, every phase report carries the touched-file count, and it does
+not go up.
+
+### By rule
+
+| Count | Rule | |
+| ---: | --- | --- |
+| 159 | `no-unused-vars` | error |
+| 46 | `react-hooks/set-state-in-effect` | error |
+| 19 | `react-hooks/exhaustive-deps` | **warning** |
+| 10 | `react-refresh/only-export-components` | error |
+| 6 | `react-hooks/static-components` | error |
+| 6 | `react-hooks/preserve-manual-memoization` | error |
+| 3 | `preserve-caught-error` | error |
+| 3 | `react-hooks/immutability` | error |
+| 2 | `no-undef` | error |
+| 2 | `no-useless-assignment` | error |
+| 1 each | `react-hooks/refs`, `use-memo`, `purity` | error |
+
+The two remaining `no-undef` are not config noise and should keep
+failing: `backend/scripts/diagnose-login-issue.js:55-56` reference a
+`user` that is never declared. A real bug in a script, left alone because
+it is backend, not UI.
+
+### By file — the worst 18
+
+| File | Problems | Rules |
+| --- | ---: | --- |
+| `frontend/src/pages/dashboards/teacher/tabs/LessonPlansTab.jsx` | 23 | no-unused-vars ×19, preserve-caught-error ×2, react-hooks/preserve-manual-memoization ×1, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/AnnouncementsTab.jsx` | 12 | no-unused-vars ×11, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/WorksheetsTab.jsx` | 12 | no-unused-vars ×11, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/AnalyticsTab.jsx` | 11 | no-unused-vars ×9, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/DocumentsTab.jsx` | 10 | no-unused-vars ×8, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/PreEnrollmentTab.jsx` | 10 | no-unused-vars ×7, react-hooks/exhaustive-deps ×2, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/context/AuthContext.jsx` | 8 | no-unused-vars ×4, react-hooks/set-state-in-effect ×1, react-hooks/immutability ×1, react-hooks/exhaustive-deps ×1, react-refresh/only-export-components ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/DashboardTab.jsx` | 8 | no-unused-vars ×6, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/GradesTab.jsx` | 8 | no-unused-vars ×7, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/teacher/worksheets/useWorksheetAssessment.jsx` | 8 | react-hooks/set-state-in-effect ×4, react-hooks/preserve-manual-memoization ×3, no-useless-assignment ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/OverviewTab.jsx` | 7 | no-unused-vars ×5, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/StudentsTab.jsx` | 7 | no-unused-vars ×5, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/AttendanceTab.jsx` | 7 | no-unused-vars ×6, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/components/PublicHeader.jsx` | 6 | react-hooks/static-components ×4, no-unused-vars ×1, react-refresh/only-export-components ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/SchedulingTab.jsx` | 6 | no-unused-vars ×5, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/admin/useAcademicLogic.jsx` | 5 | react-hooks/set-state-in-effect ×5 |
+| `frontend/src/pages/dashboards/admin/useAdminLogic.jsx` | 5 | react-hooks/exhaustive-deps ×3, no-unused-vars ×1, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/student/tabs/AnnouncementsTab.jsx` | 5 | no-unused-vars ×3, react-hooks/exhaustive-deps ×1, react-hooks/set-state-in-effect ×1 |
+
+The remaining 71 files hold 124 problems between them.
+
+### Fixed
+
+23 unused bindings in files this overhaul touched, by hand, no `--fix`:
+12 unused default `React` imports, 6 unused imports (`Sun`, `Search` ×2,
+`initials` ×2, `avatarColor`), the 4 `close*Overlay` backdrop handlers the
+Modal migration left behind, and 1 unused `catch` binding.
+
+### Held back — five unused values that may be a symptom
+
+These are the ones that look like the bug that produced the hardcoded
+school name and year: a real value sitting unused next to a UI that
+hardcodes what it should be showing. **Not deleted.**
+
+| Where | Unused | Why it is suspicious |
+| --- | --- | --- |
+| `tabs/MemosTab.jsx:19` | `users` | The recipient filter is a hardcoded list of seven options — `All Faculty`, `All Students`, `Registrar Office`, `Science Dept`, `Math Dept`. Real user data is destructured right there and never read. Whether those departments exist in the data at all is unknown. |
+| `tabs/MemosTab.jsx:19` | `stats` | Related: the memo counters filter on the same hardcoded strings (`m.recipient === 'All Faculty'`). They are computed from real memos, so this is not itself a fake number, but it shares the hardcoded vocabulary above. |
+| `AdminDashboard.jsx:159` | `settings` | The shell prints `Admin Portal` as fixed text while `school_settings` carries a portal name the Settings page displays as a real field. Probably deliberate product branding, but it is the same shape as the bug. |
+| `tabs/NewsTab.jsx:17` | `nImageFile` | The file input is uncontrolled and the preview renders `nImageUrl`, the *saved* image. So after choosing a file, nothing on screen confirms which file is staged — the value exists and the UI does not show it. |
+| `useAdminLogic.jsx:342` | `adminUid` | Captured from the admin's session inside `saveUser` and never used. The access and refresh tokens beside it are both used. This looks like a dropped intention — an unrecorded `created_by` — rather than an accident, and deleting it would erase the evidence. |
+
+### Investigated, not fixed
+
+**`Modal.jsx:164` — `react-hooks/refs`, "Cannot access refs during render"**
+
+Column 75 is `footer(requestClose)`: a render prop, called during render,
+handed a callback that transitively reads `card.current` and
+`openedWith.current` through its dirty check.
+
+*Actual risk: none today.* Nothing reads a ref during render. The ref is
+read when `requestClose` RUNS, and it only runs from an event handler —
+Escape, the backdrop, or Cancel. The rule cannot see that a function
+passed during render is not called during render, so it assumes the worst.
+
+*The fix I would make:* none to the behaviour. The honest options are to
+leave it, or to silence it with a scoped
+`// eslint-disable-next-line react-hooks/refs` naming the reason. I would
+not restructure working focus-trap code to satisfy a rule that is wrong
+about it. **No dependency array changes.**
+
+**`useMediaQuery.js:29` — `set-state-in-effect`**
+
+```js
+setMatches(mq.matches);   // on mount, inside the effect
+```
+
+*Actual risk: low but real.* Every component using the hook renders
+twice on mount. The line is deliberate — a resize between the first
+render and the effect would otherwise be missed, which is exactly what a
+test does when it sets the viewport right after load — so it cannot
+simply be deleted.
+
+*The fix I would make:* `useSyncExternalStore`, which is the API built
+for this.
+
+```js
+export function useMediaQuery(query) {
+  const subscribe = useCallback((notify) => {
+    let mq;
+    try { mq = window.matchMedia(query); } catch { return () => {}; }
+    mq.addEventListener('change', notify);
+    return () => mq.removeEventListener('change', notify);
+  }, [query]);
+  return useSyncExternalStore(subscribe, () => read(query), () => false);
+}
+```
+
+The effect goes away, so the double render goes with it, and the snapshot
+is re-read on every render — strictly better than the mount-time catch-up
+it replaces, and tear-free under concurrent rendering.
+
+**Dependency arrays:** this does not change one, but it does ADD a new
+`useCallback([query])`. Flagging it rather than assuming it is covered.
+
+**`useAdminLogic.jsx:1118` — ref read in effect cleanup**
+
+```js
+useEffect(() => () => {
+  Object.values(debounceTimersRef.current).forEach(clearTimeout);
+}, []);
+```
+
+*Actual risk: none today, and a timer leak the day someone changes one
+line.* `debounceTimersRef` is `useRef({})` and `.current` is never
+reassigned anywhere — only its properties are set. So reading it at
+cleanup gets the same object and the latest timers, which is what the
+cleanup wants. But the ref is exported through the admin context, so a
+future `debounceTimersRef.current = {}` anywhere would make the cleanup
+clear an object that no longer holds the live timers, and they would
+survive unmount.
+
+*The fix I would make:* capture it where the effect runs.
+
+```js
+useEffect(() => {
+  const timers = debounceTimersRef.current;
+  return () => Object.values(timers).forEach(clearTimeout);
+}, []);
+```
+
+Identical behaviour today, and it stops depending on a promise the
+codebase does not enforce. **The dependency array stays `[]`.**
+
+### Not scheduled
+
+The teacher and registrar tabs hold most of what is left: 23 problems in
+`LessonPlansTab.jsx` alone, and 124 across 71 files outside the worst 18.
+None of it is in the admin dashboard and none of it is this overhaul's.
+A separate task.

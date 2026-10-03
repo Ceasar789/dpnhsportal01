@@ -398,6 +398,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           opacity: 1;
         }
         select { appearance: none; cursor: pointer; }
+        /* P1: a select showing its placeholder is showing a prompt, not an
+           answer, and should read like the one a text input gives. The
+           option list stays full strength - only the closed control is
+           muted. */
+        select:has(option[value=""]:checked) { color: var(--text-muted); }
+        select option { color: var(--text); }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); }
         .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-12); font-weight: 700; flex-shrink: 0; color: var(--on-accent); }
         .badge { padding: var(--space-2) var(--space-12); border-radius: var(--radius-full); font-size: var(--font-size-12); font-weight: 600; border: 1px solid; white-space: nowrap; }

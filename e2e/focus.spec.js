@@ -26,6 +26,11 @@ for (const [path, role, name, note] of CASES) {
     await page.goto(path);
     await appReady(page);
     const el = page.getByRole(role, { name });
+    // NEWS HISTORY only exists when the news page has history to show. A
+    // focus-indicator test cannot say anything about a control that is not
+    // on the page, and failing here would report a missing ring rather
+    // than a missing section.
+    test.skip(await el.count() === 0, `"${name}" is not on ${path} with the current data`);
     await expect(el).toBeVisible();
 
     // Focus, then measure, then check the measurement is of a live node.

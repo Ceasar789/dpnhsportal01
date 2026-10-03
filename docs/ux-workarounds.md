@@ -539,3 +539,47 @@ Affected: every `<select>` in the admin, not only this row.
 single-test run, then passed unchanged on the third, and has passed every
 run since. No assertion failed; the worker process itself died. Logged, not
 chased, per the standing rule.
+
+## Reverted: the DepEd lesson plan's dates
+
+Item 4 routed every bare `toLocaleDateString()` through the shared
+`formatDate` helper so that one date does not read two ways on two
+devices. Four of those call sites were in
+`frontend/src/components/ilaw/utils/depedFormatter.js`, and they have
+been **reverted**.
+
+Where each one ends up — all four are inside `formatDepEdLessonPlan`,
+which builds a DepEd lesson plan:
+
+| Line | Field | Appears as |
+| --- | --- | --- |
+| 26 | `formatHeader().date` | the date on the lesson plan's header block |
+| 122 | `formatFooter().preparedBy.date` | date beside the teacher's signature |
+| 127 | `formatFooter().checkedBy.date` | date beside the master teacher's signature |
+| 132 | `formatFooter().approvedBy.date` | date beside the principal's signature |
+
+That is an official form with a signature block, not UI chrome.
+
+The output did change, for the same date (3 October 2026):
+
+```
+before   new Date().toLocaleDateString()   ->  "10/3/2026"
+after    formatDate(new Date())            ->  "Oct 3, 2026"
+```
+
+Numeric to month-name is not a cosmetic difference on a document someone
+signs, and the required format is DepEd's to specify, not this overhaul's.
+Reverted all four.
+
+**What is still wrong, and whose call it is.** The reverted code takes the
+*device's* locale, so the same lesson plan prints `10/3/2026` on one
+laptop and `03/10/2026` on another — on an official form, where those two
+strings mean different days. The fix is to pin whatever format DepEd
+actually requires, which needs someone who knows the requirement.
+
+`formatDepEdLessonPlan` has no call site in the app today; it is exported
+from `components/ilaw/index.js` as public API, so it is reachable but
+currently unused. Only `validateDepEdFormat` from this module is imported
+anywhere.
+
+Not scheduled: it belongs to whoever owns the DepEd forms, not to Phase 6.

@@ -395,6 +395,12 @@ test.describe('calendar event chips', () => {
       await loginAsAdmin(page);
       await openAdminTab(page, 'Calendar');
       await expect(page.locator('.cal-grid')).toBeVisible();
+      // The grid paints its 35 empty cells as soon as the month is known,
+      // which is before the events arrive — so a measurement taken on
+      // "the grid is visible" alone finds zero chips about one run in
+      // three. Wait for a chip, not for the grid.
+      await expect(page.locator('.cal-event').first())
+        .toBeVisible({ timeout: 15_000 });
 
       const r = await page.evaluate(() => {
         const chips = [...document.querySelectorAll('.cal-event')];

@@ -765,7 +765,20 @@ export const useAdminLogic = (userData) => {
         await logActivity('Updated event', evTitle);
         showToast('Event updated!');
       } else {
-        const { error } = await supabase.from('calendar_events').insert([{ ...payload, created_at: new Date().toISOString() }]);
+        // 7B. created_by was never written, so every event in the system
+        // was anonymous — while the column has existed in both schema
+        // files all along. News records author_id and memos record
+        // sender_id; this was the one that did not.
+        //
+        // Only on INSERT. An edit records who edited it in activity_logs;
+        // overwriting created_by on update would turn "who made this"
+        // into "who touched it last", which is a different fact and the
+        // less useful one.
+        const { error } = await supabase.from('calendar_events').insert([{
+          ...payload,
+          created_by: userData?.uid || null,
+          created_at: new Date().toISOString(),
+        }]);
         if (error) throw error;
         await logActivity('Created event', evTitle);
         showToast('Event added!');

@@ -200,3 +200,67 @@ test.describe('Role Distribution', () => {
     expect(stops, `pie: ${stops}`).toContain('100%');
   });
 });
+
+// D1/D2 again — the month grid must actually show a month.
+//
+// The first pass at this was wrong, and the content-overflow test agreed
+// with it: .cal-grid is overflow-x: auto, so a grid 1109px wide inside a
+// 562px column is a scrollable box, not a clipped one, and the test lets
+// scrollable boxes hold more than they show. It was 1109px at EVERY width,
+// so Thursday to Saturday were off screen on a 1440px monitor too.
+//
+// The cause was `repeat(7, 1fr)`, which is minmax(auto, 1fr): the tracks
+// could not shrink below their content. A month view has nowhere to scroll
+// to — all seven days have to be on screen — so this asserts that, rather
+// than asserting that scrolling works.
+test.describe('the month grid', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  for (const width of [768, 1024, 1280, 1440]) {
+    test(`${width}: all seven days are on screen`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+      await loginAsAdmin(page);
+      await openAdminTab(page, 'Calendar');
+      await expect(page.locator('.cal-grid')).toBeVisible();
+
+      const geom = await page.evaluate(() => {
+        const grid = document.querySelector('.cal-grid');
+        const heads = [...document.querySelectorAll('.cal-head')];
+        const right = grid.getBoundingClientRect().right;
+        return {
+          overflow: grid.scrollWidth - grid.clientWidth,
+          headings: heads.length,
+          offScreen: heads.filter((h) => h.getBoundingClientRect().right > right + 1).map((h) => h.textContent),
+          narrowest: Math.min(...heads.map((h) => h.getBoundingClientRect().width)),
+        };
+      });
+
+      expect(geom.headings, 'a week is seven days').toBe(7);
+      expect(geom.overflow, 'the grid is wider than the space it has').toBeLessThanOrEqual(1);
+      expect(geom.offScreen, 'days past the right edge of the grid').toEqual([]);
+      // Narrow enough and a column cannot hold a date, which is the point
+      // at which the agenda should have taken over instead.
+      expect(geom.narrowest, 'a day column is too narrow to read').toBeGreaterThanOrEqual(60);
+    });
+  }
+
+  // D2: the rail sits beside the grid only where there is room for both,
+  // measured from the content area rather than the window — at 1024 the
+  // nav sidebar returns and the area is narrower than it is at 768.
+  for (const [width, beside] of [[768, false], [1024, false], [1440, true]]) {
+    test(`${width}: the Upcoming rail is ${beside ? 'beside' : 'below'} the month`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+      await loginAsAdmin(page);
+      await openAdminTab(page, 'Calendar');
+
+      const side = await page.evaluate(() => {
+        const main = document.querySelector('.cal-main').getBoundingClientRect();
+        const rail = document.querySelector('.cal-sidebar').getBoundingClientRect();
+        return rail.left >= main.right - 1;
+      });
+      expect(side).toBe(beside);
+    });
+  }
+});

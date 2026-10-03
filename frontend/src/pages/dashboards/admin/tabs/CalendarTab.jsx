@@ -44,7 +44,9 @@ const CalendarTab = () => {
 
   return (
     <>
-            <div>
+            {/* D2: the rail/grid decision is made from the width of this
+                box, not the window — see .cal-page in AdminDashboard. */}
+            <div className="cal-page">
               <div className="page-header-bar">
                 <div className="page-title">Calendar Management</div>
                 <div className="page-sub">Manage academic events, deadlines, and announcements</div>

@@ -743,7 +743,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           min-width: 44px; min-height: 44px; padding: 0;
           display: inline-flex; align-items: center; justify-content: center; }
         .cal-nav:hover { background: var(--card2); color: var(--text); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
         .cal-head { background: var(--sidebar-bg); padding: var(--space-12); text-align: center; font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); }
         .cal-cell { background: var(--card-bg); min-height: 80px; padding: var(--space-8); position: relative; }
         /* A weekend is not an alert. This was a pink tint one step lighter
@@ -781,15 +781,31 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         :root.dark .ev-red { background: #422a30; color: #fecaca; border-color: #874852; }
         :root.dark .ev-purple { background: #352d4d; color: #ddd6fe; border-color: #665497; }
         :root.dark .ev-teal { background: #1e3c3b; color: #b9f5ec; border-color: #3d7772; }
+        /* D2/R6. Where the Upcoming rail goes is a question about the
+           width of the CONTENT AREA, and a viewport query cannot see that
+           one: at 1024 the nav sidebar comes back as a fixed column, so
+           the calendar gets 704px to work with — LESS than the 736px it
+           has at 768, where the sidebar is a drawer. A media query would
+           have put the rail beside the grid at exactly the width where
+           there is least room for it.
+
+           The threshold is 845px because the rail is 200px plus a 16px
+           gap, and seven columns need about 630px before a day stops
+           being able to hold a date and an event name. Below that the
+           rail goes under the month and the grid takes the full width.
+           Measured: 360 and 768 and 1024 stack, 1280 and 1440 sit side
+           by side, and no day cell is narrower than ~100px at any of
+           them. */
+        .cal-page { container-type: inline-size; }
         .cal-layout { display: flex; gap: var(--space-16); align-items: flex-start; }
         .cal-main { flex: 1; min-width: 0; }
         .cal-sidebar { width: 200px; flex-shrink: 0; }
-        /* The Upcoming rail goes under the month on a phone. Beside it, a
-           fixed 200px rail left the agenda ~140px and pushed its own
-           event names off the right edge. */
-        @media (max-width: 767.98px) {
+        @container (max-width: 845px) {
           .cal-layout { flex-direction: column; }
-          .cal-sidebar { width: 100%; }
+          /* align-items: flex-start means a stacked child is as wide as
+             its content unless it is told otherwise, and flex: 1 only
+             governs the main axis. Both get the full width by name. */
+          .cal-main, .cal-sidebar { width: 100%; }
         }
 
         /* CAL4. Seven columns give a day 43px on a 360px screen, which is
@@ -951,7 +967,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .overview-grid { grid-template-columns: 1fr; }
           .news-grid { grid-template-columns: 1fr; }
           .memo-layout { grid-template-columns: 1fr; }
-          .cal-sidebar { width: auto; }
           .assign-bar { flex-direction: column; align-items: flex-start; gap: var(--space-12); }
           .news-actions { flex-wrap: wrap; }
           /* :not(.ux-modal) — this block is injected after index.css and

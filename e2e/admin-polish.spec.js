@@ -28,8 +28,16 @@ test.describe('placeholder dropdowns', () => {
       'the placeholder looks like a chosen value').toBe(asRgb);
 
     // Choosing something makes it a value, and it reads like one.
+    //
+    // Polled, not read once: the dashboard transitions `color`, so a
+    // computed read on the same frame as the change still returns the
+    // old value. Failed one full-suite run in ten that way.
     await select.selectOption({ index: 1 });
-    expect(await select.evaluate((el) => getComputedStyle(el).color)).not.toBe(asRgb);
+    await expect(select).not.toHaveValue('');
+    await expect.poll(
+      () => select.evaluate((el) => getComputedStyle(el).color),
+      { message: 'a chosen value still reads as a placeholder', timeout: 5_000 },
+    ).not.toBe(asRgb);
   });
 });
 

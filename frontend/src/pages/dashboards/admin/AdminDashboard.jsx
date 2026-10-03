@@ -342,6 +342,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            button reads as two controls. */
         .ux-modal-footer { display: flex; flex-wrap: wrap; gap: var(--space-8); justify-content: flex-end; }
         .ux-modal-footer .btn { white-space: nowrap; }
+        /* On a sheet the actions stack full width, in DOM order, so every
+           sheet looks the same whatever its labels measure. Sections wrapped
+           Close onto a line of its own while Users fitted on one - the
+           layout was being decided by the length of the words. */
+        @media (max-width: 600px) {
+          .ux-modal-footer { flex-direction: column; align-items: stretch; }
+          .ux-modal-footer .btn { width: 100%; }
+        }
         /* D1. This was a tinted, bordered panel - a lavender-to-blue
            gradient in light mode - wrapped around nothing but a heading and
            one line of text, on nine of the ten tabs. Overview never used it,
@@ -390,6 +398,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .badge-yellow  { color: var(--badge-yellow-fg); border-color: var(--badge-yellow-border); background: var(--badge-yellow-bg); }
         .chip { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-2) var(--space-12); margin: var(--space-2) var(--space-4) var(--space-2) 0; border-radius: var(--radius-full); font-size: var(--font-size-12); font-weight: 600; white-space: nowrap; color: var(--badge-blue-fg); border: 1px solid var(--badge-blue-border); background: var(--badge-blue-bg); }
         .chip-x { background: none; border: none; cursor: pointer; color: inherit; display: flex; padding: var(--space-8); margin: -8px; opacity: .7; }
+        /* The hit area grows, the BOX does not. Giving .chip-x a 44px
+           min-height put a 44px control inside a 24px chip and it escaped
+           to the top-right corner, half outside the border. An absolutely
+           positioned ::after takes no space and still answers the thumb. */
+        .chip-x { position: relative; align-self: center; }
+        .chip-x::after { content: ''; position: absolute; inset: -11px; }
         .chip-x:hover { opacity: 1; }
         .badge-red     { color: var(--badge-red-fg); border-color: var(--badge-red-border); background: var(--badge-red-bg); }
         .badge-purple  { color: var(--badge-purple-fg); border-color: var(--badge-purple-border); background: var(--badge-purple-bg); }
@@ -513,7 +527,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            rather than widening the page, and keeps a visible edge so it is
            obvious there is more. */
         @media (max-width: 1023.98px) {
-          .grade-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+          .grade-tabs {
+            overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+            background:
+              linear-gradient(to right, var(--bg), transparent) 0 0 / 28px 100% no-repeat local,
+              linear-gradient(to left, var(--bg), transparent) 100% 0 / 28px 100% no-repeat local,
+              radial-gradient(farthest-side at 0 50%, var(--overlay-sm), transparent) 0 0 / 14px 100% no-repeat scroll,
+              radial-gradient(farthest-side at 100% 50%, var(--overlay-sm), transparent) 100% 0 / 14px 100% no-repeat scroll;
+          }
           .grade-tab { flex: 0 0 auto; }
           .section-picker { flex-wrap: wrap; }
           .section-chip { flex: 1 1 auto; min-width: 0; }
@@ -810,7 +831,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
              every width; a thumb wants 44. Applied only below the drawer
              breakpoint so the desktop density stays as Phase 5 left it. */
           .icon-action, .nav-menu-btn, .nav-toggle-btn, .cal-nav,
-          .archive-toggle, .page-btn, .chip-x { min-width: 44px; min-height: 44px; }
+          .archive-toggle, .page-btn { min-width: 44px; min-height: 44px; }
           .sidebar-item, .sidebar-sub { min-height: 44px; }
           .btn, .nav-logout-btn { min-height: 44px; }
           .stat-grid { grid-template-columns: 1fr 1fr; }

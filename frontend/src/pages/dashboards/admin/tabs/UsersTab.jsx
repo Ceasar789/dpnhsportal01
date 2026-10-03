@@ -154,7 +154,6 @@ const UsersTab = () => {
       <RowSheet
         open={Boolean(sheetUser)}
         title={sheetUser?.name || sheetUser?.email || ''}
-        subtitle={sheetUser ? roleLabel(sheetUser.role) : ''}
         details={[
           ['Email', sheetUser?.email],
           ['Role', sheetUser ? roleLabel(sheetUser.role) : ''],

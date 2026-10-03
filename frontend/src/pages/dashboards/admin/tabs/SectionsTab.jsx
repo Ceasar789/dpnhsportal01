@@ -107,7 +107,6 @@ const SectionsTab = () => {
       <RowSheet
         open={Boolean(sheetSection)}
         title={sheetSection?.name || ''}
-        subtitle={sheetSection?.grade_level}
         details={[
           ['Grade level', sheetSection?.grade_level],
           ['Adviser', sheetSection ? adviserName(sheetSection.adviser_id) : ''],

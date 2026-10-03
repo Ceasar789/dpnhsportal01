@@ -17,7 +17,11 @@
 
 import Modal from './Modal';
 
-export default function RowSheet({ open, title, subtitle, details = [], actions, onClose }) {
+// No subtitle. It carried a value that the detail list carried again -
+// "Grade 10" above "Grade level: Grade 10" - and of the two the labelled
+// one is the one that explains itself. One rule for every sheet: the title
+// identifies the record, and every other value is labelled exactly once.
+export default function RowSheet({ open, title, details = [], actions, onClose }) {
   return (
     <Modal
       open={open}
@@ -35,7 +39,6 @@ export default function RowSheet({ open, title, subtitle, details = [], actions,
         </>
       )}
     >
-      {subtitle && <div className="row-sheet-subtitle">{subtitle}</div>}
       <dl className="row-sheet">
         {details.filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => (
           <div className="row-sheet-pair" key={label}>

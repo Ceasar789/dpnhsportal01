@@ -96,9 +96,9 @@ const SubjectsTab = () => {
       <RowSheet
         open={Boolean(sheetSubject)}
         title={sheetSubject?.code || ''}
-        subtitle={sheetSubject?.name}
         details={[
           ['Name', sheetSubject?.name],
+          ['Code', sheetSubject?.code],
           ['Status', sheetSubject?.is_active === false ? 'Inactive' : 'Active'],
         ]}
         actions={sheetSubject && (

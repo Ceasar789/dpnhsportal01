@@ -908,3 +908,18 @@ delete whenever the next lint pass runs.
 never declared. These are the two surviving `no-undef` errors in the lint
 baseline. A real bug in a backend script, logged only — not UI, and not
 this overhaul's.
+
+## Phase 6 leftovers
+
+Found in the review of the 86 batch D shots at `7d0543b`, after Phase 6
+closed. Logged, not fixed.
+
+| # | What | Where | First guess at the cause |
+| --- | --- | --- | --- |
+| L1 | A thin accent line above the save bar, under the Security heading, at 360 in both themes | `AdminDashboard.jsx`, `.settings-savebar` | Probably the bar's own `border: 1px solid var(--accent)`. V4 removed `border-bottom` and squared the bottom corners, but the top border now reads as a stray rule across the page because the bar is full width against the `::before` backing. Check whether the top border is wanted at all now that the backing and the shadow already separate it. |
+| L2 | Chips still truncate after two lines at 768 — "Midterm Examinati..." | `AdminDashboard.jsx`, `.cal-event` | V2 fixed 1440 (nothing truncates) and improved 768, but a 99–104px column cannot hold "Midterm Examinations" in two lines at `--font-size-12`. Options: a third line at this width, a smaller chip font below 1024, or accept it since the title and the agenda both carry the full name. |
+| L3 | The agenda lost its Today marker | `CalendarTab.jsx` + `lib/agenda.js` | A real consequence of V1, not a separate bug. The Today marker hangs off the day heading, and V1 made each event appear once on its FIRST day. Today (3 Oct) falls inside the 3–4 Oct Faculty Meeting, which is listed on 3 Oct — but if today had fallen on the 4th, no heading for today would exist at all and nothing would mark it. The marker needs to stop depending on an event happening to start today. |
+| L4 | The Filter type select wraps to its own row at 360, making the calendar toolbar three rows | `AdminDashboard.jsx`, `.cal-toolbar` | The mobile `.toolbar > *` full-width rule does not cover `.cal-toolbar`, which has its own layout. Three rows of controls above a month is a lot of a 780px screen. |
+
+None of these blocks anything. L3 is the one with a real behavioural
+edge: on a day when nothing starts, the agenda has no way to say "today".

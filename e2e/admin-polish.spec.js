@@ -108,3 +108,31 @@ test.describe('calendar controls', () => {
     });
   }
 });
+
+// P5 — on a phone a search field uses the row it is given.
+test.describe('the News toolbar', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('360: search fills the row', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'News Management');
+
+    const search = page.getByPlaceholder('Search articles...');
+    const row = await page.locator('.toolbar').first().boundingBox();
+    const box = await search.boundingBox();
+    expect(Math.round(box.width), 'search is still capped on a phone')
+      .toBeGreaterThanOrEqual(Math.round(row.width) - 2);
+  });
+
+  test('1440: search is still capped, not stretched across the page', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(1440);
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'News Management');
+
+    const box = await page.getByPlaceholder('Search articles...').boundingBox();
+    expect(box.width).toBeLessThanOrEqual(281);
+  });
+});

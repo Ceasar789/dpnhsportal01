@@ -445,6 +445,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: rgba(255,255,255,0.02); }
         .toolbar { display: flex; gap: var(--space-12); margin-bottom: var(--space-16); align-items: center; flex-wrap: wrap; }
+        .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
         /* A search box with flex:1 and a 280px max sat beside three
            controls that would not shrink, so at 360 the row was wider than
            the screen and the + New Post button fell off the end. Full
@@ -452,8 +453,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         @media (max-width: 1023.98px) {
           .toolbar > * { flex: 1 1 100%; max-width: 100%; min-width: 0; }
           .toolbar > .btn { flex: 1 1 auto; }
+          /* P5: the .toolbar input rule above is 0,1,1 and would otherwise
+             keep its 280px cap inside this block, leaving the News search
+             two-thirds of a 360px row with nothing beside it. */
+          .toolbar > input { max-width: 100%; }
         }
-        .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
         /* overflow-x: auto, not hidden. Hidden clipped every table wider
            than the screen, and a clipped table is not a cosmetic problem:
            at 360 the Actions column sat entirely outside the card, so Edit

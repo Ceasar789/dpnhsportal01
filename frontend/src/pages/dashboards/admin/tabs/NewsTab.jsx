@@ -40,7 +40,7 @@ const NewsTab = () => {
                 <div className="page-sub">Create, edit, archive, and publish portal announcements</div>
               </div>
               <div className="toolbar">
-                <input placeholder="Search articles..." value={newsSearch} onChange={e => setNewsSearch(e.target.value)} style={{ flex:1, maxWidth:260 }} />
+                <input placeholder="Search articles..." value={newsSearch} onChange={e => setNewsSearch(e.target.value)} />
                 <select value={newsCatF} onChange={e => setNewsCatF(e.target.value)} style={{ width:'auto' }}>
                   <option value="">Category</option>
                   {['Academics','Events','Scholarships','Announcements','Sports'].map(c => <option key={c}>{c}</option>)}

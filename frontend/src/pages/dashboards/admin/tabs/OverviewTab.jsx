@@ -25,55 +25,42 @@ const OverviewTab = () => {
 
   return (
             <div>
-              <div
-                style={{
-                  borderRadius: 'var(--radius-lg)', padding: 'var(--space-24) var(--space-24)', marginBottom: 'var(--space-24)', display: 'flex', alignItems: 'center', gap: 'var(--space-16)',
-                  background: 'var(--banner-bg)', border: '1px solid var(--banner-border)',
-                  boxShadow: '0 4px 16px rgba(25,8,223,.10)'
-                }}
-              >
-                <img
-                  src="/capstonelogo.png"
-                  alt="School Logo"
-                  style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 'var(--font-size-20)', fontWeight: 800, color: 'var(--banner-text)', marginBottom: 'var(--space-2)' }}>
-                    Welcome to <span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span>
-                  </div>
-                  <div style={{ fontSize: 'var(--font-size-12)', fontWeight: 700, letterSpacing: 1.5, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>
-                    Dela Paz National High School
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', borderRadius: 'var(--radius-lg)', padding: 'var(--space-12) var(--space-24)', backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)', flexShrink: 0 }}>
-                  <div>
-                    <div style={{ fontSize: 'var(--font-size-12)', fontWeight: 700, letterSpacing: 1, color: 'var(--banner-subtext)', textTransform: 'uppercase' }}>Academic Year</div>
-                    <div style={{ fontSize: 'var(--font-size-20)', fontWeight: 800, color: 'var(--banner-text)' }}>{settings.academic_year} · {settings.semester}</div>
-                  </div>
-                </div>
-              </div>
-
+              {/* D4. The welcome banner that used to sit here said "Welcome to
+                  EduScribe" over the school's name, on a tinted panel with a
+                  coloured drop shadow, beside a pill reading the academic
+                  year. The greeting is filler — nobody opens an admin
+                  dashboard to be welcomed — and the pill duplicated the page
+                  subtitle immediately below it, word for word. Removing it
+                  costs no information and returns a screen's worth of height
+                  to the content. The logo stays in the header, where it
+                  belongs. */}
               <div className="page-title">Dashboard Overview</div>
               <div className="page-sub">Academic Year {settings.academic_year} · {settings.semester}</div>
               <div className="stat-grid">
+                {/* The per-card colour is gone with the tile it filled. It
+                    was decorative: one fixed hue each, carrying nothing a
+                    reader could act on. */}
                 {[
-                  { label:'Total Users',    value: stats.users,  color:'#2563eb',  icon: Users,    note:'Live from Portal', page:'users' },
-                  { label:'Published News', value: stats.news,   color:'#16a34a',  icon: Newspaper, note:'Published only', page:'news' },
-                  { label:'Calendar Events',value: stats.events, color:'#d97706',  icon: Calendar,  note:'All events', page:'calendar' },
-                  { label:'Memos Sent',     value: stats.memos,  color:'#dc2626',  icon: FileText,  note:'All memos', page:'memos' },
+                  { label:'Total Users',    value: stats.users,  icon: Users,     note:'Live from Portal', page:'users', primary: true },
+                  { label:'Published News', value: stats.news,   icon: Newspaper, note:'Published only',   page:'news' },
+                  { label:'Calendar Events',value: stats.events, icon: Calendar,  note:'All events',       page:'calendar' },
+                  { label:'Memos Sent',     value: stats.memos,  icon: FileText,  note:'All memos',        page:'memos' },
                 ].map(s => {
                   const Icon = s.icon;
                   return (
-                    <button key={s.label} type="button" className="stat-card clickable-stat" onClick={() => setPage(s.page)} aria-label={`Open ${s.label}`}>
-                      <div className="stat-icon-block" style={{ background: `linear-gradient(180deg, ${s.color} 0%, ${s.color} 55%, var(--card-bg) 100%)` }}>
-                        <Icon size={34} color="#ffffff" strokeWidth={2.1} />
+                    <button
+                      key={s.label}
+                      type="button"
+                      className={`stat-card clickable-stat${s.primary ? ' primary' : ''}`}
+                      onClick={() => setPage(s.page)}
+                      aria-label={`Open ${s.label}`}
+                    >
+                      <div className="stat-head">
+                        <Icon size={16} aria-hidden="true" strokeWidth={2} />
+                        <span className="stat-label">{s.label}</span>
                       </div>
-                      <div className="stat-body">
-                        <div className="stat-value" style={{ color: 'var(--text)' }}>{s.value}</div>
-                        <div className="stat-label">{s.label}</div>
-                        <div className="stat-change up">{s.note}</div>
-                      </div>
+                      <div className="stat-value">{s.value}</div>
+                      <div className="stat-change">{s.note}</div>
                     </button>
                   );
                 })}

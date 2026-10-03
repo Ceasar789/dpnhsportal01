@@ -376,3 +376,13 @@ the next person does not have to rediscover them.
 
 Neither is in place. If a flake returns, start with the first: it removes
 a cause, where the second only masks one.
+
+### Flake log
+
+Tests that have failed once inside a full or multi-spec run and passed
+on repeat in isolation. Logged rather than chased, per the Phase 5 rule.
+If one of these starts failing *reproducibly*, it is no longer a flake.
+
+| Date | Test | Seen |
+|---|---|---|
+| Phase 5, step 1 | `admin-modal.spec.js` · "the destructive confirm button uses the named variant" | Failed once in an 8-spec admin run; passed alone and twice more across the whole spec (21/21 each). |

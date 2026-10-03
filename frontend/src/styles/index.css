@@ -192,6 +192,9 @@ PURPOSE: Global styles + Tailwind directives
   --font-size-16: 16px;
   --font-size-20: 20px;
   --font-size-24: 24px;
+  /* Added in Phase 5 for D5: the dashboard's primary metric has to outrank
+     the other three, and the scale had no step above 24 to do it with. */
+  --font-size-32: 32px;
 
   /* motion — fast is hover only, base is everything else */
   --motion-fast: 80ms;

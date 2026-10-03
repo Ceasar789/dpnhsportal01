@@ -113,10 +113,11 @@ export const DashboardThemeStyles = () => (
     .dashboard-shell .clickable-stat {
       transition: transform .15s, border-color .15s, box-shadow .15s;
     }
+    /* D3: the 3px lift and the dark drop shadow were decoration on a
+       control whose only job is to navigate. The border colour already says
+       it is interactive, and it does not move the page under the pointer. */
     .dashboard-shell .clickable-stat:hover {
-      transform: translateY(-3px);
       border-color: var(--accent);
-      box-shadow: 0 8px 20px rgba(0,0,0,.18);
     }
 
     .dashboard-shell .toast {

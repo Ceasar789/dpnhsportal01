@@ -397,17 +397,28 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .row-sub { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
 
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-16); margin-bottom: var(--space-24); }
-        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; height: 184px; }
+        /* D1-D3. This card used to be half coloured gradient: a 92px block
+           holding a 34px white glyph, over a 92px body. The colour carried no
+           information — it was one hue per card, fixed in the source — and the
+           gradient faded into the card background, which is the "AI look" the
+           brief names. What is left is the same surface as every other card,
+           sized by its content. */
+        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-16); text-align: left; }
         .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform var(--motion-base), border-color var(--motion-base), box-shadow var(--motion-base); }
         .clickable-stat:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px var(--overlay-md); }
         .clickable-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .stat-icon-block { height: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-        .stat-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--space-12) var(--space-16); }
-        .stat-label { font-size: var(--font-size-12); font-weight: 700; color: var(--text); margin-top: var(--space-2); }
-        .stat-value { font-size: var(--font-size-24); font-weight: 700; }
-        .stat-change { font-size: var(--font-size-12); margin-top: var(--space-2); display: flex; align-items: center; gap: var(--space-4); }
-        .stat-change.up   { color: var(--green); }
-        .stat-change.down { color: var(--red); }
+        /* The icon is now a label-sized mark beside the label, in the muted
+           text colour, rather than a tile. It identifies the card; it is not
+           the card. */
+        .stat-head { display: flex; align-items: center; gap: var(--space-8); color: var(--text-muted); }
+        .stat-label { font-size: var(--font-size-13); font-weight: 600; color: var(--text-muted); }
+        .stat-value { font-size: var(--font-size-24); font-weight: 700; color: var(--text); line-height: 1.1; }
+        /* D5: one metric reads first. Total Users is the one the other three
+           are a breakdown of, so it is the one that gets the display size. */
+        .stat-card.primary .stat-value { font-size: var(--font-size-32); }
+        /* "Live from Portal" is a provenance note, not a rise. It was green,
+           which claimed a direction no number here has. */
+        .stat-change { font-size: var(--font-size-12); color: var(--text-dim); }
         .overview-grid { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-16); }
         .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-24); }
         .chart-title { font-size: var(--font-size-14); font-weight: 600; margin-bottom: var(--space-4); }

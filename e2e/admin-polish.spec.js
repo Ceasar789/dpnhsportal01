@@ -53,3 +53,36 @@ test.describe('focused fields', () => {
     expect(parseFloat(ring.width), 'the ring went away entirely').toBeGreaterThan(0);
   });
 });
+
+// P3 — a multi-day event says which span it belongs to.
+test.describe('the agenda', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('names the span on every day a multi-day event covers', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.setViewportSize({ width: 360, height: 780 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await openAdminTab(page, 'Calendar');
+    await expect(page.locator('.cal-agenda')).toBeVisible();
+
+    const ranges = page.locator('.cal-agenda-range');
+    const n = await ranges.count();
+    test.skip(n === 0, 'no multi-day events this month — nothing to span');
+
+    // Whatever the locale renders, a span is two dates with a dash.
+    for (let i = 0; i < Math.min(n, 4); i++) {
+      await expect(ranges.nth(i)).toContainText('–');
+    }
+
+    // A single-day entry says nothing, because there is nothing to say.
+    const single = await page.locator('.cal-agenda-item').evaluateAll((els) =>
+      els.filter((el) => !el.querySelector('.cal-agenda-range')).length);
+    expect(single + n, 'some entries are neither').toBe(await page.locator('.cal-agenda-item').count());
+
+    // And it never pushes the entry past the edge of the phone.
+    for (let i = 0; i < Math.min(n, 4); i++) {
+      const b = await ranges.nth(i).boundingBox();
+      expect(Math.round(b.x + b.width)).toBeLessThanOrEqual(360);
+    }
+  });
+});

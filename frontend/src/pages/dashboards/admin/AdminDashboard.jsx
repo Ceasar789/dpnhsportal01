@@ -788,6 +788,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-agenda-date .cal-agenda-today { color: var(--accent); }
         .cal-agenda-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8); }
         .cal-agenda-item { width: 100%; text-align: left; display: flex; align-items: center; gap: var(--space-8); min-height: 44px; padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); }
+        /* P3: the span a repeated entry belongs to. It never squeezes the
+           title - the title truncates, this does not. */
+        .cal-agenda-item .truncate-1 { flex: 1; min-width: 0; }
+        .cal-agenda-range { flex-shrink: 0; font-size: var(--font-size-12); color: var(--text-muted); }
         .cal-agenda-empty { color: var(--text-muted); font-size: var(--font-size-13); padding: var(--space-24) 0; }
         @media (max-width: 767.98px) {
           /* The grid goes; the legend stays. Agenda entries carry the

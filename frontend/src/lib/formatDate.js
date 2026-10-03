@@ -42,3 +42,28 @@ export function formatDateTime(value, fallback = '—') {
   if (!d) return fallback;
   return `${formatDate(d)}, ${d.toLocaleTimeString(LOCALE, { hour: 'numeric', minute: '2-digit' })}`;
 }
+
+/**
+ * 5–9 Oct 2026 — a span of days, with the parts both ends share said once.
+ *
+ * The agenda repeats a multi-day event under every day it covers, so each
+ * entry has to say what it is part of; without it a five-day exam week
+ * reads as five unrelated events with the same name.
+ */
+export function formatDateRange(start, end, fallback = '—') {
+  const a = parse(start);
+  const b = parse(end);
+  if (!a) return fallback;
+  if (!b || a.getTime() === b.getTime()) return formatDate(a, fallback);
+  // Hand them back in order, so a row entered end-first still reads forwards.
+  const [from, to] = a <= b ? [a, b] : [b, a];
+
+  const sameYear = from.getFullYear() === to.getFullYear();
+  const sameMonth = sameYear && from.getMonth() === to.getMonth();
+  const head = sameMonth
+    ? from.toLocaleDateString(LOCALE, { day: 'numeric' })
+    : from.toLocaleDateString(LOCALE, sameYear
+      ? { day: 'numeric', month: 'short' }
+      : { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${head}–${formatDate(to)}`;
+}

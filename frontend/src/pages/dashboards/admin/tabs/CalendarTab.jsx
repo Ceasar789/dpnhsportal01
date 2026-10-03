@@ -11,7 +11,7 @@ import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { MONTHS, EVENT_TYPES } from '../shared/helpers';
 import Button from '../../../../components/ui/Button';
-import { formatDateLong } from '../../../../lib/formatDate';
+import { formatDateLong, formatDateRange } from '../../../../lib/formatDate';
 
 const CalendarTab = () => {
   const {
@@ -123,6 +123,14 @@ const CalendarTab = () => {
                                   aria-label={`Edit ${e.title}`}
                                 >
                                   <span className="truncate-1" title={e.title}>{e.title}</span>
+                                  {/* P3: a five-day event appears under all
+                                      five days. Without the span it reads as
+                                      five unrelated events with one name. */}
+                                  {e.end_date && e.end_date !== e.event_date && (
+                                    <span className="cal-agenda-range">
+                                      {formatDateRange(e.event_date, e.end_date)}
+                                    </span>
+                                  )}
                                 </button>
                               </li>
                             ))}

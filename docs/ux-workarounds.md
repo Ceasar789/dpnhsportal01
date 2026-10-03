@@ -278,6 +278,13 @@ present in BOTH sides, so none was introduced by the token work.
 | **High** | Teaching Load at 360 | The whole builder overflows the right edge: the teacher picker and its search box, the department label beside each name, the subject select, the Add-to-list row and the "Nothing is saved until you press Assign below" hint are all cut off. The bulk-grid is two columns down to 860px and never stacks for a phone. |
 | Medium | Overview at 360 | The four stat cards stack as four tall cards. A 2×2 grid would halve the scroll. |
 
+## Phase 6 batch C: small polish
+
+At 768 the Overview’s Role Distribution card stretches too wide: the
+legend percentages sit far from the labels they belong to, and the bars
+run the full width of the card. Cap the legend, or put the donut and the
+bars side by side at tablet widths.
+
 ## Phase 5: restyle items from the 4c review
 
 - **Gradient stat-card headers** on Overview — the blue, green, orange and

@@ -263,9 +263,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           cursor: pointer; border: 2px solid rgba(255,255,255,.5);
           flex-shrink: 0;
         }
-        /* In the sidebar rather than on the navy header: ordinary surface
-           colours, so it reads as a control rather than a warning. */
-        .nav-logout-btn--sidebar { color: var(--text-muted); border-color: var(--border); background: var(--card-bg); }
         .nav-logout-btn {
           display: flex; align-items: center; gap: var(--space-8);
           padding: var(--space-8) var(--space-16); border-radius: var(--radius-md);
@@ -279,6 +276,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            which is the point: the earlier attempt to fix this changed only
            the text colour and left the pink behind it. */
         .nav-logout-btn:hover { background: var(--card2); color: var(--text); border-color: var(--text-muted); }
+
+        /* AFTER the base rule, not before it. Both selectors are (0,1,0),
+           so the one written later wins - and when this sat above
+           .nav-logout-btn the base's white-alpha header colours came
+           straight back. That was invisible in dark mode, where
+           near-white text on a dark rail looks correct, and nearly
+           unreadable in light, where it is white on near-white.
+           --text is used rather than --text-muted so the label clears
+           4.5:1 against the sidebar in both themes; e2e/admin-drawer
+           measures it. */
+        .nav-logout-btn--sidebar { color: var(--text); border-color: var(--border); background: var(--card-bg); }
+        .nav-logout-btn--sidebar:hover { color: var(--text); border-color: var(--text-muted); background: var(--card2); }
 
         .layout { display: flex; flex: 1; min-height: calc(100vh - 76px); }
         .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 var(--space-12) var(--space-16); flex-shrink: 0; display: flex; flex-direction: column; transition: width var(--motion-base) ease, transform var(--motion-base) ease; position: relative; }

@@ -5,6 +5,7 @@
 // ============================================
 
 import { useAdminContext } from '../AdminContext';
+import { composeOptions, filterOptions } from '../../../../lib/memoRecipients';
 import Modal from '../../../../components/ui/Modal';
 import Button from '../../../../components/ui/Button';
 import { formatDate, formatDateTime } from '../../../../lib/formatDate';
@@ -17,6 +18,17 @@ const MemosTab = () => {
     setSelMemo, stats, users
   } = useAdminContext();
 
+  // 7D. Both of these lists used to be hardcoded, twice over, and the
+  // two departments in them — "Science Dept" and "Math Dept" — match
+  // nothing in profiles.department, where the real values are "Science"
+  // and "Mathematics". A memo addressed through that form went to a
+  // department with no members, and nobody found out.
+  const recipientOptions = composeOptions(users);
+  // The filter offers what the memos actually hold, so it can never be
+  // set to a group that matches nothing — and an old memo addressed to a
+  // department since renamed stays findable.
+  const recipientFilters = filterOptions(memos);
+
   return (
     <>
             <div>
@@ -26,14 +38,9 @@ const MemosTab = () => {
               </div>
               <div className="toolbar">
                 <input placeholder="Search memos..." value={memoSearch} onChange={e => setMemoSearch(e.target.value)} style={{ flex:1, maxWidth:240 }} />
-                <select value={memoFilter} onChange={e => setMemoFilter(e.target.value)} style={{ width:'auto' }}>
+                <select value={memoFilter} onChange={e => setMemoFilter(e.target.value)} style={{ width:'auto' }} aria-label="Filter by recipient">
                   <option value="">All Recipients</option>
-                  <option>All Faculty</option>
-                  <option>All Students</option>
-                  <option>All</option>
-                  <option>Registrar Office</option>
-                  <option>Science Dept</option>
-                  <option>Math Dept</option>
+                  {recipientFilters.map(r => <option key={r}>{r}</option>)}
                 </select>
                 <button className="btn btn-primary" onClick={openCompose}>+ Compose</button>
               </div>
@@ -120,12 +127,12 @@ const MemosTab = () => {
           <div className="form-row">
             <label className="form-label" htmlFor="memos-recipient">Recipient</label>
             <select id="memos-recipient" className="form-input" value={mTo} onChange={e => setMTo(e.target.value)}>
-              <option>All Faculty</option>
-              <option>All Students</option>
-              <option>All</option>
-              <option>Registrar Office</option>
-              <option>Science Dept</option>
-              <option>Math Dept</option>
+              {/* A memo being EDITED may be addressed to something no
+                  longer offered — a renamed department, say. Keep its own
+                  value selectable so opening the form does not silently
+                  re-address it. */}
+              {mTo && !recipientOptions.includes(mTo) && <option>{mTo}</option>}
+              {recipientOptions.map(r => <option key={r}>{r}</option>)}
             </select>
           </div>
           <div className="form-row">

@@ -355,3 +355,24 @@ reconcile it against production, fold the legacy ALTER in, and pick
 `details` or `description` for `activity_logs`. Also in scope, because
 it is the same conversation: renaming `current_semester`, which now
 holds a quarter number 1-4.
+
+## If the suite goes flaky again — options not taken
+
+Phase 4's `networkidle` replacement got two consecutive full runs green
+with no reruns, so neither of these was needed. They are written down so
+the next person does not have to rediscover them.
+
+- **One authenticated `storageState` instead of sixty logins.** The suite
+  signs in to Supabase afresh in most specs. Capturing a signed-in state
+  once in a global setup and reusing it would cut both the wall-clock and
+  the dependence on auth latency, which is the most likely cause of the
+  load-dependent failures seen during Phase 4. The cost is that tests
+  stop exercising the login path, so the handful that are *about* logging
+  in must keep doing it for real.
+- **`retries: 1` in `playwright.config.js`.** Currently 0, deliberately —
+  a retry hides a flake rather than reporting it. Worth turning on only
+  with `--fail-on-flaky-tests` or an equivalent report, so a test that
+  passes on retry is still visible rather than silently green.
+
+Neither is in place. If a flake returns, start with the first: it removes
+a cause, where the second only masks one.

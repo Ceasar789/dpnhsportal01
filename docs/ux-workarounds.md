@@ -503,3 +503,39 @@ would mean rewriting the same rules twice.
 
 **The condition for picking them up:** `<Modal>` is needed outside the
 admin dashboard. Until then the coupling costs nothing but a comment.
+
+## Phase 6 batch D: left alone by decision
+
+Three things the batch D review named and explicitly set aside. They are
+design questions, not defects, and none of them is holding anything up.
+
+| What | Where | Why it is here |
+| --- | --- | --- |
+| The blue top bar on news cards | `NewsTab.jsx`, `.news-card` | A 4px accent stripe on every card. It reads as a status indicator and is not one — every card has it. Removing it is a visual decision about the card, so it waits for one. |
+| Role Distribution is drawn three times | `OverviewTab.jsx` | A pie, a legend with percentages, and a stacked bar row, all of the same five numbers. P7 at least made all three agree; which two to drop is a design call. |
+| The year dropdown beside the month title | `CalendarTab.jsx`, `.cal-toolbar` | The toolbar shows "October 2026" next to a year `<select>` holding the same year, plus arrows that already move through years. Two controls and a label for one value. |
+
+## P6, second half: "30 min" is not read-only
+
+Batch D asked that the read-only "30 min" on System Settings stop looking
+editable. It is not read-only. Session Timeout is one of the three settings
+that save, and the one the app actually enforces — `useIdleLogout` reads it,
+and `admin-settings.spec.js` saves it, reloads, and asserts it came back.
+
+What makes it *look* static is the opposite problem: the admin stylesheet
+sets `select { appearance: none }` with no replacement, so no select on the
+page has a dropdown indicator. A `<select>` with no chevron reads as a label.
+
+So the fix pointing the other way — give selects a chevron, so the editable
+ones look editable — is the one the code supports. Not applied: batch D
+asked for the opposite, and reversing the direction of a review item is not
+mine to decide.
+
+Affected: every `<select>` in the admin, not only this row.
+
+## Flake log — a Playwright worker aborting
+
+`e2e/admin-polish.spec.js` exited `code=134` (SIGABRT) twice in a row on a
+single-test run, then passed unchanged on the third, and has passed every
+run since. No assertion failed; the worker process itself died. Logged, not
+chased, per the standing rule.

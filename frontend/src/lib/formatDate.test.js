@@ -7,7 +7,7 @@
 // It is also exactly the assumption that broke the first version of this
 // function, so the tests should not repeat it.
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateRange } from './formatDate';
+import { LOCALE, formatDate, formatDateRange } from './formatDate';
 
 const count = (haystack, needle) => haystack.split(needle).length - 1;
 
@@ -50,5 +50,32 @@ describe('formatDateRange', () => {
   it('falls back rather than printing Invalid Date', () => {
     expect(formatDateRange(null, '2026-10-09')).toBe('—');
     expect(formatDateRange('nonsense', '2026-10-09', 'n/a')).toBe('n/a');
+  });
+});
+
+// The locale is pinned, not inherited.
+//
+// A bare toLocaleDateString() follows whatever the viewer's device is set
+// to, so the same row reads differently on two phones in the same staff
+// room. These assert the helpers go through LOCALE, by comparing against
+// an explicit en-PH formatter rather than against a literal string — the
+// literal would only be testing this runtime's CLDR data.
+describe('the locale is explicit', () => {
+  const when = new Date('2026-10-02T13:00:00');
+
+  it('formatDate matches an explicit en-PH short date', () => {
+    expect(formatDate(when)).toBe(
+      new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(when));
+  });
+
+  it('formatDateRange matches an explicit en-PH range', () => {
+    const to = new Date('2026-10-06T13:00:00');
+    expect(formatDateRange(when, to)).toBe(
+      new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })
+        .formatRange(when, to));
+  });
+
+  it('is the Philippines, because the school is', () => {
+    expect(LOCALE).toBe('en-PH');
   });
 });

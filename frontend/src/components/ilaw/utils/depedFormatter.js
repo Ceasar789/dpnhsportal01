@@ -1,3 +1,4 @@
+import { formatDate } from '../../../lib/formatDate';
 // ============================================
 // DEPED LESSON PLAN FORMATTER
 // ============================================
@@ -23,7 +24,7 @@ const formatHeader = (data) => ({
   subject: data.subject || 'Subject',
   quarter: data.quarter || 'Quarter',
   week: data.week || 'Week',
-  date: data.date || new Date().toLocaleDateString(),
+  date: data.date || formatDate(new Date()),
   section: data.section || 'Section',
   teacher: data.teacherName || 'Teacher Name',
   learningArea: data.learningArea || 'Learning Area'
@@ -119,17 +120,17 @@ const formatFooter = (data) => ({
   preparedBy: {
     name: data.teacherName || 'Teacher Name',
     signature: '_____________________',
-    date: data.date || new Date().toLocaleDateString()
+    date: data.date || formatDate(new Date())
   },
   checkedBy: {
     name: 'Mentor Teacher/Master Teacher',
     signature: '_____________________',
-    date: data.date || new Date().toLocaleDateString()
+    date: data.date || formatDate(new Date())
   },
   approvedBy: {
     name: 'Head Teacher/Principal',
     signature: '_____________________',
-    date: data.date || new Date().toLocaleDateString()
+    date: data.date || formatDate(new Date())
   }
 });
 

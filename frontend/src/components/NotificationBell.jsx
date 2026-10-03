@@ -8,6 +8,7 @@
 // ============================================
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { formatDateTime } from '../lib/formatDate';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
@@ -224,7 +225,7 @@ const NotificationBell = () => {
                         <p className="text-base font-semibold" style={{ color: v('--text', '#1a2b4a') }}>{n.title}</p>
                         <p className="text-sm mt-1" style={{ color: v('--text-muted', '#64748b') }}>{n.message}</p>
                         <p className="text-xs mt-1.5" style={{ color: v('--text-dim', '#94a3b8') }}>
-                          {new Date(n.created_at).toLocaleString()}
+                          {formatDateTime(n.created_at)}
                         </p>
                       </div>
                     </div>

@@ -5,6 +5,7 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { formatDate } from '../../../../lib/formatDate';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import {
@@ -213,7 +214,7 @@ const PreEnrollmentTab = () => {
                 <tr key={enrollment.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <p className="font-semibold text-sm text-[#1a2b4a]">{enrollment.student_name}</p>
-                    <p className="text-xs text-[#94A3B8]">Submitted {new Date(enrollment.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-[#94A3B8]">Submitted {formatDate(enrollment.created_at)}</p>
                   </td>
                   <td className="px-6 py-4 text-sm text-[#64748B]">{enrollment.parent_name}</td>
                   <td className="px-6 py-4 text-sm text-[#64748B]">Grade {enrollment.grade_level}</td>

@@ -345,6 +345,16 @@ code that fails is written to keep going quietly:
 | 2 | **The eight settings columns that DO exist are in no canonical schema file.** `session_timeout`, `two_factor_auth`, `login_attempt_limit`, `email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`, `activity_logs_retention` live in production only because `legacy/add-settings-backup-history.sql` was run by hand. | A database built fresh from `database-schema.sql` has no `session_timeout`, so idle logout silently falls back to 30 minutes **and** the Settings save breaks again exactly as in 1. |
 | 3 | **`activity_logs` has no `details` column**, which is what `logActivity` writes. Every write has failed since the feature was built, so the table is empty and both activity panels show a `localStorage` cache. | `POST → 400 PGRST204`; `GET → 200 []`. Not RLS: a policy denial reads as `200 []` but writes as 401/403. |
 
+**A fourth case, and the clearest one.** The Overview banner hardcoded
+`Dela Paz National High School` while `school_settings.school_name` held
+`Dr. Paulino Ng National High School` and `school_year` held `2025-2026`.
+Both live values were wrong and nobody could tell, because the screen was
+showing a string from the source instead. Phase 5 pointed the subtitle at
+the column, the wrong data became visible immediately, and it was
+corrected in Supabase the same day — to `Delapaz National High School`
+and `2026-2027`. That is the whole argument for this phase: a hardcoded
+UI does not just duplicate data, it hides the data being wrong.
+
 The two schema files disagree with each other as well as with
 production: `database-schema.sql` has `activity_logs.details JSONB`,
 `COMPLETE_DATABASE_SCHEMA_v2.sql` has `description TEXT` and no

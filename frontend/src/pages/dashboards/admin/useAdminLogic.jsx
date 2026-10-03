@@ -14,6 +14,7 @@ import { withRetry } from '../../../lib/supabaseRetry';
 import { publishedAtPatch } from '../../../lib/newsRules';
 import { validatePassword } from '../../../lib/passwordPolicy';
 import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
+import { currentSchoolYear } from '../../../lib/academicRules';
 
 // The three General-card values the UI assumes it has. They are also the
 // fallback when the row does not carry them, which today it does not.
@@ -30,9 +31,14 @@ const quarterToNumber = (label) => {
 };
 const quarterFromNumber = (n) => QUARTERS[(Number(n) || 1) - 1] || QUARTERS[0];
 
+// Reached only when school_settings has no school_year. Computed rather
+// than frozen: a hardcoded year is the thing that hid the wrong live value
+// for as long as the banner carried one, and currentSchoolYear() is the
+// same function the academic tabs already use, so the fallback agrees with
+// them instead of inventing a third answer.
 const SETTINGS_DEFAULTS = {
   portal_name: 'EduScribe Portal',
-  academic_year: '2025-2026',
+  academic_year: currentSchoolYear(),
   semester: '2nd Quarter',
 };
 

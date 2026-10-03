@@ -251,6 +251,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .page-title { font-size: var(--font-size-24); font-weight: 700; color: var(--text); }
         .page-sub { color: var(--text-muted); font-size: var(--font-size-13); margin-top: var(--space-4); margin-bottom: var(--space-24); }
+        /* The seal is the SCHOOL; the logo in the header is the product.
+           They mean different things, so both earn a place - but the seal
+           is a mark beside the name it belongs to, not a picture. */
+        .page-sub.with-seal { display: flex; align-items: center; gap: var(--space-8); }
+        .page-seal { width: 20px; height: 20px; border-radius: 50%; object-fit: contain; flex-shrink: 0; }
         .page-header-bar { border-radius: var(--radius-lg); padding: var(--space-16) var(--space-16); margin-bottom: var(--space-24); background: var(--banner-bg); border: 1px solid var(--banner-border); }
         .page-header-bar .page-title { color: var(--banner-text); }
         .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }
@@ -588,6 +593,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .loading-row { text-align: center; padding: var(--space-48); color: var(--text-muted); }
 
         @media(max-width:900px) {
+          /* The subtitle already wraps at this width; a mark in front of
+             wrapped text reads as clutter rather than identity. */
+          .page-seal { display: none; }
           .nav-menu-btn { display: flex; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; align-items: center; justify-content: center; cursor: pointer; }
           .layout { min-height: calc(100vh - 76px); }
           .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 50; transform: translateX(-100%); width: 256px; }

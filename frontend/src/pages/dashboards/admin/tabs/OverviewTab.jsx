@@ -39,9 +39,20 @@ const OverviewTab = () => {
                   It reads from school_settings.school_name now, so it is
                   one fact from one place; the subtitle simply omits it if
                   the row has none rather than inventing one. */}
-              <div className="page-sub">
-                {settings.school_name ? `${settings.school_name} · ` : ''}
-                Academic Year {settings.academic_year} · {settings.semester}
+              <div className={`page-sub${settings.school_name ? ' with-seal' : ''}`}>
+                {settings.school_name && (
+                  <img
+                    className="page-seal"
+                    src="/capstonelogo.png"
+                    alt=""
+                    aria-hidden="true"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                )}
+                <span>
+                  {settings.school_name ? `${settings.school_name} · ` : ''}
+                  Academic Year {settings.academic_year} · {settings.semester}
+                </span>
               </div>
               <div className="stat-grid">
                 {/* The per-card colour is gone with the tile it filled. It

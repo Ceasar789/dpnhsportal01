@@ -35,7 +35,14 @@ const OverviewTab = () => {
                   to the content. The logo stays in the header, where it
                   belongs. */}
               <div className="page-title">Dashboard Overview</div>
-              <div className="page-sub">Academic Year {settings.academic_year} · {settings.semester}</div>
+              {/* The school's name used to live in the banner, hardcoded.
+                  It reads from school_settings.school_name now, so it is
+                  one fact from one place; the subtitle simply omits it if
+                  the row has none rather than inventing one. */}
+              <div className="page-sub">
+                {settings.school_name ? `${settings.school_name} · ` : ''}
+                Academic Year {settings.academic_year} · {settings.semester}
+              </div>
               <div className="stat-grid">
                 {/* The per-card colour is gone with the tile it filled. It
                     was decorative: one fixed hue each, carrying nothing a

@@ -404,8 +404,16 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            brief names. What is left is the same surface as every other card,
            sized by its content. */
         .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-16); text-align: left; }
-        .clickable-stat { width: 100%; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: transform var(--motion-base), border-color var(--motion-base), box-shadow var(--motion-base); }
-        .clickable-stat:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px var(--overlay-md); }
+        /* No zero-padding here. This is a button reset, and zeroing padding
+           silently beat .stat-card's own padding — same specificity, later in
+           the file — which is why the card content sat flush against its
+           border. A reset should remove what a <button> brings, not what the
+           component sets. */
+        .clickable-stat { width: 100%; color: inherit; text-align: left; cursor: pointer; font: inherit; transition: border-color var(--motion-base); }
+        /* D3: no lift, no drop shadow. The accent border is the whole
+           affordance. (The shared rule in dashboardTheme.jsx dropped these
+           first; this one still declared them, so they were still applying.) */
+        .clickable-stat:hover { border-color: var(--accent); }
         .clickable-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         /* The icon is now a label-sized mark beside the label, in the muted
            text colour, rather than a tile. It identifies the card; it is not

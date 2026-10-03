@@ -104,7 +104,10 @@ test.describe('the calendar on a phone', () => {
     const items = page.locator('.cal-agenda-item');
     for (let i = 0; i < Math.min(await items.count(), 5); i++) {
       const b = await items.nth(i).boundingBox();
-      expect(b.height, 'an agenda entry is too short to tap').toBeGreaterThanOrEqual(44);
+      // Math.round: the box comes back as 43.999969 against a
+      // min-height of 44px. That is the layout engine's float, not a
+      // control that is one pixel too short to tap.
+      expect(Math.round(b.height), 'an agenda entry is too short to tap').toBeGreaterThanOrEqual(44);
       expect(Math.round(b.x + b.width)).toBeLessThanOrEqual(PHONE.width + 1);
       expect(b.x).toBeGreaterThanOrEqual(0);
     }

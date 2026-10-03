@@ -34,29 +34,51 @@ test.describe('nothing is painted outside the content area', () => {
         const found = await page.evaluate(() => {
           const main = document.querySelector('.main');
           if (!main) return ['no .main'];
-          // The right edge of the area content is allowed to occupy,
-          // inside the padding.
-          const cs = getComputedStyle(main);
-          const limit = main.getBoundingClientRect().right - parseFloat(cs.paddingRight);
-          const out = [];
 
+          // The right edge of the area content may occupy, inside the padding.
+          const inner = (el) => {
+            const cs = getComputedStyle(el);
+            return el.getBoundingClientRect().right
+              - parseFloat(cs.paddingRight || 0)
+              - parseFloat(cs.borderRightWidth || 0);
+          };
+          const mainLimit = inner(main);
+
+          // How far right this element is allowed to reach.
+          //
+          // Not the page edge — the edge of whatever actually clips it.
+          // Measuring against the page is the second half of the D1/D2
+          // miss: at 1440 the calendar's Saturday column ended at 1398
+          // with the content area's limit at 1408, so it passed, while
+          // the grid clipped it at 1192 and nobody could see it. An
+          // element hidden by its own container is just as gone as one
+          // hidden by the window.
+          //
+          // null means exempt: an ancestor opted in to scrolling
+          // sideways with --scroll-x: 1, declared in the same CSS rule
+          // as its overflow-x so the two cannot drift apart. A wide
+          // table is the case where scrolling IS the answer; a month
+          // grid has nowhere to scroll to and never gets one.
+          const limitFor = (el) => {
+            let limit = mainLimit;
+            for (let p = el.parentElement; p && p !== main; p = p.parentElement) {
+              const cs = getComputedStyle(p);
+              if (cs.overflowX === 'visible') continue;
+              if (cs.getPropertyValue('--scroll-x').trim() === '1'
+                && p.scrollWidth > p.clientWidth + 1) return null;
+              limit = Math.min(limit, inner(p));
+            }
+            return limit;
+          };
+
+          const out = [];
           for (const el of main.querySelectorAll('*')) {
             if (el.offsetParent === null) continue;
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) continue;
 
-            // A deliberately scrollable box is allowed to hold more than
-            // it shows — that is what scrolling is for. What is NOT
-            // allowed is the box itself sticking out, or a child sticking
-            // out of a box that does not scroll.
-            let scrollableAncestor = false;
-            for (let p = el.parentElement; p && p !== main; p = p.parentElement) {
-              const o = getComputedStyle(p).overflowX;
-              if ((o === 'auto' || o === 'scroll') && p.scrollWidth > p.clientWidth + 1) {
-                scrollableAncestor = true; break;
-              }
-            }
-            if (scrollableAncestor) continue;
+            const limit = limitFor(el);
+            if (limit === null) continue;
 
             if (r.right > limit + 1) {
               const name = el.tagName.toLowerCase()

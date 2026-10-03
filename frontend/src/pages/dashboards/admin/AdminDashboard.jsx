@@ -493,7 +493,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            scrolling still worked, which is why the e2e suite never noticed.
            Phase 6 replaces this with the R1/R2 two-line rows; until then a
            scrollbar is the difference between awkward and impossible. */
-        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; container-type: inline-size; }
+        /* --scroll-x: 1 is the opt-in the overflow test reads. It is
+           declared here, in the same rule as the overflow-x that creates
+           the scroll, so the two cannot drift apart — a marker on the JSX
+           element could be forgotten by whoever adds the overflow later,
+           which is the failure this is meant to stop. A wide table is the
+           case where scrolling IS the answer. */
+        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; container-type: inline-size; --scroll-x: 1; }
 
         /* R1/R2/R6 — two-line rows when the CARD is too narrow for columns.
            A container query, not a viewport one: what decides whether five
@@ -589,7 +595,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            obvious there is more. */
         @media (max-width: 1023.98px) {
           .grade-tabs {
-            overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+            overflow-x: auto; --scroll-x: 1; flex-wrap: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
             background:
               linear-gradient(to right, var(--bg), transparent) 0 0 / 28px 100% no-repeat local,
               linear-gradient(to left, var(--bg), transparent) 100% 0 / 28px 100% no-repeat local,

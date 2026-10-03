@@ -49,9 +49,15 @@ const OverviewTab = () => {
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 )}
+                {/* One flex child, so the seal's gap applies once. The
+                    segments inside it are what must not break. */}
                 <span>
-                  {settings.school_name ? `${settings.school_name} · ` : ''}
-                  Academic Year {settings.academic_year} · {settings.semester}
+                  {settings.school_name && (
+                    <><span className="page-sub-seg">{settings.school_name}</span>{' · '}</>
+                  )}
+                  <span className="page-sub-seg">Academic Year {settings.academic_year}</span>
+                  {' · '}
+                  <span className="page-sub-seg">{settings.semester}</span>
                 </span>
               </div>
               <div className="stat-grid">

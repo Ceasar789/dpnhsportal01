@@ -256,6 +256,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            is a mark beside the name it belongs to, not a picture. */
         .page-sub.with-seal { display: flex; align-items: center; gap: var(--space-8); }
         .page-seal { width: 20px; height: 20px; border-radius: 50%; object-fit: contain; flex-shrink: 0; }
+        /* Each fact in the subtitle wraps as a unit. Without this the year
+           itself broke across lines at 360 - "2026-" on one, "2027" on the
+           next - because the hyphen is a legal break point. */
+        .page-sub-seg { white-space: nowrap; }
         .page-header-bar { border-radius: var(--radius-lg); padding: var(--space-16) var(--space-16); margin-bottom: var(--space-24); background: var(--banner-bg); border: 1px solid var(--banner-border); }
         .page-header-bar .page-title { color: var(--banner-text); }
         .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }

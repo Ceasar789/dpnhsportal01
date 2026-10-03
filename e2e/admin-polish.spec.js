@@ -264,3 +264,113 @@ test.describe('the month grid', () => {
     });
   }
 });
+
+// P6 reversed — a select has to look like a select.
+//
+// The admin sets appearance: none on every select and put nothing back, so
+// a dropdown rendered as a line of text in a box. That is what made the
+// batch D review read an editable Session Timeout as read-only, and it was
+// true of every select on every tab, not that one row.
+//
+// The indicator is two gradients rather than an SVG because a data: URI
+// cannot resolve currentColor, and this has to follow the theme.
+test.describe('select chevrons', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  const TABS = ['System Settings', 'News Management', 'Calendar', 'Sections'];
+
+  for (const theme of ['dark', 'light']) {
+    test(`${theme}: every select shows one, in the theme's muted colour`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await loginAsAdmin(page);
+      await openAdminTab(page, 'System Settings');
+      await page.getByLabel('Theme').selectOption(theme);
+
+      for (const tab of TABS) {
+        await openAdminTab(page, tab);
+        const bad = await page.evaluate(() => {
+          const muted = getComputedStyle(document.documentElement)
+            .getPropertyValue('--text-muted').trim();
+          // Resolve the token to the rgb() form computed styles report.
+          const probe = document.createElement('div');
+          probe.style.color = muted;
+          document.body.appendChild(probe);
+          const rgb = getComputedStyle(probe).color;
+          probe.remove();
+
+          return [...document.querySelectorAll('select')]
+            .filter((el) => el.offsetParent !== null)
+            .filter((el) => {
+              const img = getComputedStyle(el).backgroundImage;
+              return !img.includes('linear-gradient') || !img.includes(rgb);
+            })
+            .map((el) => `${el.getAttribute('aria-label') || el.id || el.name || '?'}: ${getComputedStyle(el).backgroundImage.slice(0, 60)}`);
+        });
+        expect(bad, `${tab}: a select with no indicator, or one off-theme`).toEqual([]);
+      }
+    });
+  }
+
+  test('the longest option never runs under the chevron', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await openAdminTab(page, 'System Settings');
+
+    const bad = await page.evaluate(() => [...document.querySelectorAll('select')]
+      .filter((el) => el.offsetParent !== null)
+      .map((el) => {
+        const cs = getComputedStyle(el);
+        // The indicator is drawn 11px from the right edge and is 5px wide,
+        // so the text has to stop at least 16px short of it.
+        return { el, pad: parseFloat(cs.paddingRight), over: el.scrollWidth > el.clientWidth + 1 };
+      })
+      .filter(({ pad, over }) => pad < 20 || over)
+      .map(({ el, pad }) => `${el.getAttribute('aria-label') || el.id}: padding-right ${pad}px`));
+    expect(bad, 'text can collide with the chevron').toEqual([]);
+  });
+
+  test('360: a dropdown is a 44px target', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await openAdminTab(page, 'System Settings');
+
+    const short = await page.evaluate(() => [...document.querySelectorAll('select')]
+      .filter((el) => el.offsetParent !== null)
+      .filter((el) => el.getBoundingClientRect().height < 44)
+      .map((el) => `${el.getAttribute('aria-label') || el.id}: ${Math.round(el.getBoundingClientRect().height)}px`));
+    expect(short, 'a dropdown too short to tap').toEqual([]);
+  });
+
+  // No select in the admin is disabled today. The rule is here so that the
+  // first one does not arrive wearing the enabled indicator on a disabled
+  // surface, which is the exact confusion this whole item is about.
+  test('a disabled select keeps the indicator, in the disabled colour', async ({ page }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('select');
+      const before = getComputedStyle(el).backgroundImage;
+      el.disabled = true;
+      const after = getComputedStyle(el).backgroundImage;
+      const bg = getComputedStyle(el).backgroundColor;
+      el.disabled = false;
+
+      const resolve = (name) => {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        const p = document.createElement('div');
+        p.style.color = v; document.body.appendChild(p);
+        const rgb = getComputedStyle(p).color; p.remove();
+        return rgb;
+      };
+      return { after, hasDim: after.includes(resolve('--text-dim')), changed: before !== after, bg };
+    });
+
+    expect(result.after, 'the chevron vanished when the select was disabled')
+      .toContain('linear-gradient');
+    expect(result.hasDim, `disabled chevron is not the dim token: ${result.after.slice(0, 80)}`).toBe(true);
+    expect(result.changed, 'disabled looks identical to enabled').toBe(true);
+  });
+});

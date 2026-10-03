@@ -397,13 +397,41 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            not-allowed cursor say it before the click does. */
         input:disabled, select:disabled, textarea:disabled,
         input[readonly], textarea[readonly] {
-          background: var(--card2);
+          /* background-color, not the shorthand: the background shorthand
+             resets background-image, and at 0,2,0 it would strip the
+             chevron off every disabled select whatever the rule order. */
+          background-color: var(--card2);
           color: var(--text-muted);
           border-color: var(--border);
           cursor: not-allowed;
           opacity: 1;
         }
-        select { appearance: none; cursor: pointer; }
+        /* Every select is appearance: none, which removes the native
+           dropdown arrow and puts nothing back — so a <select> read as a
+           label, and the batch D review took an editable Session Timeout
+           for a read-only one. The indicator is drawn with two gradients
+           rather than an SVG so the colour is a token and follows the
+           theme; a data: URI cannot resolve currentColor.
+
+           padding-right reserves the space, so the longest option can
+           never run underneath it. */
+        select {
+          appearance: none;
+          cursor: pointer;
+          padding-right: var(--space-32);
+          background-image:
+            linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+            linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+          background-position: right 15px center, right 11px center;
+          background-size: 5px 5px, 5px 5px;
+          background-repeat: no-repeat;
+        }
+        select:disabled {
+          background-image:
+            linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
+            linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+          cursor: not-allowed;
+        }
         /* P1: a select showing its placeholder is showing a prompt, not an
            answer, and should read like the one a text input gives. The
            option list stays full strength - only the closed control is
@@ -961,6 +989,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
              breakpoint so the desktop density stays as Phase 5 left it. */
           .icon-action, .nav-menu-btn, .nav-toggle-btn, .cal-nav,
           .archive-toggle, .page-btn { min-width: 44px; min-height: 44px; }
+          select { min-height: 44px; }
           .sidebar-item, .sidebar-sub { min-height: 44px; }
           .btn, .nav-logout-btn { min-height: 44px; }
           .stat-grid { grid-template-columns: 1fr 1fr; }

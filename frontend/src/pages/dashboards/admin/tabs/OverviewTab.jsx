@@ -106,11 +106,15 @@ const OverviewTab = () => {
                     : activityLogs.length === 0
                     ? <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>No recent activity</div>
                     : activityLogs.map((l, i) => (
-                      <div key={i} className="recent-item">
+                      <div key={l.id} className="recent-item">
                         <span className="recent-dot" style={{ background: ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#2dd4bf'][i % 5] }}></span>
                         <div className="recent-info">
                           <div className="recent-title">{l.action}</div>
-                          <div className="recent-time">{l.details?.actor_name || 'Portal Admin'}{l.details?.message ? ` · ${l.details.message}` : ''} · {formatDateTime(l.created_at)}</div>
+                          {/* 7A: actorName comes from the row's user_id
+                              through profiles, so a rename is reflected
+                              and a deleted or archived actor reads
+                              "Former user" rather than blank. */}
+                          <div className="recent-time">{l.actorName}{l.message ? ` · ${l.message}` : ''} · {formatDateTime(l.created_at)}</div>
                         </div>
                       </div>
                     ))

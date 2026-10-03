@@ -11,6 +11,7 @@ import { supabase } from '../../../config/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useDashboardTheme } from '../../../styles/dashboardTheme';
 import { withRetry } from '../../../lib/supabaseRetry';
+import { ACTIVITY_SELECT, toActivityRow } from '../../../lib/activityLog';
 import { publishedAtPatch } from '../../../lib/newsRules';
 import { validatePassword } from '../../../lib/passwordPolicy';
 import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
@@ -76,23 +77,27 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   //  ACTIVITY LOGGING HELPER
   // ═══════════════════════════════════════════
+  // 7A. There used to be a localStorage mirror of the activity log here,
+  // written on every action and merged into whatever the server returned.
+  // It existed because the server write had ALWAYS failed — every insert
+  // was rejected for naming a column the live table does not have — so
+  // the cache was the only thing making the panel look alive. It made a
+  // real bug look like a working feature for the whole of Phase 4 and 5,
+  // and it was per-browser, so two admins never saw the same history.
+  //
+  // The write is fixed now, so the mirror is deleted rather than kept as
+  // a fallback: a fallback that silently replaces an audit trail with
+  // this one browser's guess is worse than an empty panel.
   const activityStorageKey = 'smartedu-admin-activity-logs';
   const [activityLogs, setActivityLogs] = useState([]);
-  const readLocalActivityLogs = () => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(activityStorageKey) || '[]');
-      return Array.isArray(stored) ? stored : [];
-    } catch {
-      return [];
-    }
-  };
-  const saveLocalActivityLogs = (logs) => {
-    try {
-      localStorage.setItem(activityStorageKey, JSON.stringify(logs.slice(0, 25)));
-    } catch (e) {
-      console.warn('Local activity cache unavailable:', e);
-    }
-  };
+
+  // Clear what previous versions left behind, once. Those rows were never
+  // on the server and cannot be recovered to it: they have local- ids and
+  // no user_id, and the insert policy would reject them anyway.
+  useEffect(() => {
+    try { localStorage.removeItem(activityStorageKey); } catch { /* private mode */ }
+  }, []);
+
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [calLoading, setCalLoading] = useState(true);
   // Declared up here, above fetchLogs, deliberately: a useCallback's
@@ -114,56 +119,51 @@ export const useAdminLogic = (userData) => {
 
   const fetchLogs = useCallback(async () => {
     overviewStarted();
-    const localLogs = readLocalActivityLogs();
     try {
       const { data, error } = await withRetry(
-        () => supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5),
+        () => supabase.from('activity_logs').select(ACTIVITY_SELECT)
+          .order('created_at', { ascending: false }).limit(5),
         { label: 'Activity logs fetch' }
       );
       if (error) {
-        console.warn('Activity logs unavailable; using local activity cache:', error.message);
-        setActivityLogs(localLogs.slice(0, 5));
-      } else {
-        const serverLogs = (data || []).map(log => ({
-          ...log,
-          details: typeof log.details === 'string' ? { message: log.details } : log.details,
-        }));
-        const mergedLogs = [...serverLogs, ...localLogs]
-          .filter((log, index, logs) => logs.findIndex(item => item.id && item.id === log.id) === index)
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        setActivityLogs(mergedLogs.slice(0, 5));
+        // Say nothing rather than show something invented. The panels
+        // have an empty state and it is honest.
+        console.warn('Activity logs unavailable:', error.message);
+        setActivityLogs([]);
+        return;
       }
+      setActivityLogs((data || []).map(toActivityRow));
     } catch (e) {
-      console.warn('Activity logs fetch error; using local activity cache:', e.message);
-      setActivityLogs(localLogs.slice(0, 5));
+      console.warn('Activity logs fetch error:', e.message);
+      setActivityLogs([]);
     } finally {
       overviewSettled();
     }
   }, [overviewStarted, overviewSettled]);
 
   const logActivity = useCallback(async (action, details = '') => {
-    const localLog = {
-      id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      action,
-      details: { message: details, actor_name: userData?.name || 'Admin' },
-      created_at: new Date().toISOString(),
-    };
-    const localLogs = [localLog, ...readLocalActivityLogs()].slice(0, 25);
-    saveLocalActivityLogs(localLogs);
-    setActivityLogs(localLogs.slice(0, 5));
-
+    // user_id must be the AUTH uid: the insert policy checks
+    // `auth.uid() = user_id`, so anything else is rejected. userData.uid
+    // is built from the Supabase auth user's id in AuthContext, and
+    // profiles.id is that same id, so the two cannot drift.
+    const uid = userData?.uid;
+    if (!uid) {
+      console.warn('Activity log skipped: no signed-in user to attribute it to');
+      return;
+    }
     try {
+      // `description`, not `details`. The live table has description TEXT
+      // and has never had a details column — every insert this app made
+      // for two phases was rejected with PGRST204 and the failure was
+      // hidden by a localStorage mirror.
       const { error } = await supabase.from('activity_logs').insert([{
         action,
-        user_id: userData?.uid || null,
-        details: {
-          message: details,
-          actor_name: userData?.name || 'Admin',
-        },
+        user_id: uid,
+        description: details || null,
         created_at: new Date().toISOString(),
       }]);
       if (error) {
-        console.warn('Activity log insert failed; local activity retained:', error.message);
+        console.warn('Activity log insert failed:', error.message);
         return;
       }
       await fetchLogs();

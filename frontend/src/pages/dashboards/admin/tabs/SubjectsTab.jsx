@@ -3,7 +3,7 @@
 // The subject registry every schedule, lesson plan and worksheet refers to.
 // ============================================
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import RowSheet from '../../../../components/ui/RowSheet';
 import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus } from 'lucide-react';
@@ -18,7 +18,6 @@ const SubjectsTab = () => {
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
   } = useAdminContext();
 
-  const closeSubjectOverlay = (e) => { if (e.target === e.currentTarget) closeSubjectModal(); };
 
   // UX-061: the required-field rules ran only on press and surfaced as a
   // toast that disappears, never on the field that caused them. The rules

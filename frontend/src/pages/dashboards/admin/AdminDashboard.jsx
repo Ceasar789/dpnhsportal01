@@ -4,7 +4,7 @@
 // Split from the original monolithic AdminDashboard.jsx (1,980 lines)
 // ============================================
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
@@ -13,7 +13,7 @@ import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
 import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
-import { initials, avatarColor, roleBadge, roleLabel } from './shared/helpers';
+import { roleBadge, roleLabel } from './shared/helpers';
 import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { cycleTab, focusableWithin, lockScroll } from '../../../lib/focusTrap';

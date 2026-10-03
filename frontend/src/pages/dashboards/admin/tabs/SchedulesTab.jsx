@@ -36,7 +36,7 @@
 // screen's job, and it is why an unfilled subject row matters.
 // ============================================
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
@@ -70,7 +70,6 @@ const SchedulesTab = () => {
 
   const nameOf = (list, id, field = 'name') => list.find(x => x.id === id)?.[field] || '—';
   const dismiss = () => { setTried(false); closeScheduleModal(); };
-  const closeScheduleOverlay = (e) => { if (e.target === e.currentTarget) dismiss(); };
 
   const badTime = schedEnd <= schedStart;
   const missingTeacher = tried && !schedTeacher;

@@ -27,7 +27,7 @@
 // column it always sent, carrying the value fetchSettings loaded.
 // ============================================
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import Button from '../../../../components/ui/Button';
 import { useAdminContext } from '../AdminContext';

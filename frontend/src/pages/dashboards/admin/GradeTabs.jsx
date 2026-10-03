@@ -7,7 +7,6 @@
 // costs a tab switch. With it, the whole year is readable at a glance.
 // ============================================
 
-import React from 'react';
 import { GRADE_LEVELS } from '../../../lib/academicRules';
 
 // counts: { 'Grade 7': 8, … }. A grade missing from the map shows no badge,

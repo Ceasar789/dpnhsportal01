@@ -1049,7 +1049,7 @@ export const useAdminLogic = (userData) => {
       });
       await logActivity('Updated settings');
       showToast('Settings saved!');
-    } catch (e) { showToast('Error saving settings', 'error'); }
+    } catch { showToast('Error saving settings', 'error'); }
     finally { savingSettingsRef.current = false; setSS(false); }
   };
 

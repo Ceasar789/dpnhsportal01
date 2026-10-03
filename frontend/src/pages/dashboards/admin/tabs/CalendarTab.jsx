@@ -4,8 +4,6 @@
 // Includes the EVENT MODAL, which only this tab opens.
 // ============================================
 
-import React from 'react';
-import { Sun } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';

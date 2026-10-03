@@ -41,7 +41,7 @@
 //    have to be entered at different grades or by hand.
 // ============================================
 
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Plus, X, Copy, Search, ArrowRight } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';

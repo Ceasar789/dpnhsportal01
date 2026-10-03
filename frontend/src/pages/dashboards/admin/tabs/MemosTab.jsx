@@ -4,8 +4,6 @@
 // Includes the MEMO MODAL, which only this tab opens.
 // ============================================
 
-import React from 'react';
-import { Search } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import Button from '../../../../components/ui/Button';

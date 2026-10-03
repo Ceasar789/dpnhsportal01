@@ -4,8 +4,8 @@
 // Includes the NEWS MODAL, which only this tab opens.
 // ============================================
 
-import React, { useState } from 'react';
-import { Archive, ArchiveRestore, Search } from 'lucide-react';
+import { useState } from 'react';
+import { Archive, ArchiveRestore } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import { TARGET_ROLES } from '../shared/helpers';

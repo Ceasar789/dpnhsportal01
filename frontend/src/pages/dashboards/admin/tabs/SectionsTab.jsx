@@ -4,7 +4,7 @@
 // what makes a teacher's My Students screen show anything.
 // ============================================
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import RowSheet from '../../../../components/ui/RowSheet';
 import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
@@ -42,8 +42,6 @@ const SectionsTab = () => {
   const missingName = tried && !secName.trim();
   const missingGrade = tried && !secGrade;
   const adviserName = (id) => teachers.find(t => t.id === id)?.name || '—';
-  const closeSectionOverlay = (e) => { if (e.target === e.currentTarget) closeSectionModal(); };
-  const closeClassListOverlay = (e) => { if (e.target === e.currentTarget) closeClassList(); };
 
   return (
     <>

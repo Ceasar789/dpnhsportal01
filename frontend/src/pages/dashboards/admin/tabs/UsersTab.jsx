@@ -4,10 +4,10 @@
 // Includes the USER MODAL, which only this tab opens.
 // ============================================
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
-import { initials, avatarColor, roleBadge, roleLabel } from '../shared/helpers';
+import { avatarColor, roleBadge, roleLabel } from '../shared/helpers';
 import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import Button from '../../../../components/ui/Button';

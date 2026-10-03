@@ -3,7 +3,6 @@
 // Split from the original monolithic AdminDashboard.jsx (1,980 lines)
 // ============================================
 
-import React from 'react';
 import { useAdminContext } from '../AdminContext';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { roleLabel } from '../shared/helpers';

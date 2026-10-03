@@ -429,8 +429,18 @@ body {
 :focus-visible {
   outline: 3px solid var(--accent, #1908DF);
   outline-offset: 2px;
-  border-radius: 2px;
 }
+
+/* V3: `border-radius: 2px` used to be part of the rule above, which meant
+   focusing anything RESHAPED it — an 8px input snapped to square corners
+   the moment it took focus, and relaxed again when it lost it. It read as
+   "the ring in this modal is a different shape from the fields outside
+   it"; measured settled, a focused field in a modal and a focused field
+   on System Settings are identical, and both were square.
+
+   It is not needed. An outline follows the element's own border-radius in
+   every browser this targets, so the ring is the shape of the thing it is
+   ringing. */
 
 /* ===== Respect a reduced-motion preference, everywhere =====
    This used to cover the flip logo alone: one animation out of sixty-four.

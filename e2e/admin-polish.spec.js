@@ -426,3 +426,53 @@ test.describe('calendar event chips', () => {
     });
   }
 });
+
+// V3 — a focused field looks the same wherever it is.
+test.describe('the focus ring', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  // Settled, not immediately: the border-color transitions, and reading
+  // it mid-flight reports two different blends and invents a difference
+  // that is not there.
+  const ring = async (page, locator) => {
+    await locator.focus();
+    await page.waitForTimeout(500);
+    return locator.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        radius: cs.borderRadius, borderWidth: cs.borderWidth, borderColor: cs.borderColor,
+        outline: cs.outline, offset: cs.outlineOffset,
+      };
+    });
+  };
+
+  test('a field in a modal rings exactly like one outside it', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await loginAsAdmin(page);
+
+    await openAdminTab(page, 'System Settings');
+    const outside = await ring(page, page.locator('#settings-academic-year'));
+
+    await openAdminTab(page, 'Sections');
+    await page.getByRole('button', { name: /Add Section/ }).first().click();
+    await expect(page.locator('.ux-modal').first()).toBeVisible();
+    const inside = await ring(page, page.locator('[role=dialog] input').first());
+
+    expect(inside).toEqual(outside);
+  });
+
+  test('focusing a field does not reshape it', async ({ page }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+
+    const field = page.locator('#settings-academic-year');
+    const resting = await field.evaluate((el) => getComputedStyle(el).borderRadius);
+    const focused = (await ring(page, field)).radius;
+
+    // The app-wide :focus-visible rule used to force border-radius: 2px,
+    // so an 8px input snapped square on focus and relaxed on blur.
+    expect(focused, 'the field changed shape when it took focus').toBe(resting);
+    expect(parseFloat(focused), 'a rounded field went square').toBeGreaterThan(2);
+  });
+});

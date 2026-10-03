@@ -384,6 +384,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .btn-sm { padding: var(--space-4) var(--space-12); font-size: var(--font-size-12); }
         input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-md); padding: var(--space-8) var(--space-12); font-size: var(--font-size-13); outline: none; }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+        /* P2: the field already has an accent border on focus, and the
+           global :focus-visible ring is offset 2px outside it, so a focused
+           input wore two concentric accent rings with a gap between them.
+           Pulling the offset in makes the two read as one thicker ring. The
+           ring itself stays - it is the part a keyboard user needs. */
+        input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
         /* A field nobody can edit must not look like one that can. These
            carried the same white surface and square border as every live
            input, so Portal Name read as editable and simply refused to

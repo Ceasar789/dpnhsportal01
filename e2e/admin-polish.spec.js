@@ -32,3 +32,24 @@ test.describe('placeholder dropdowns', () => {
     expect(await select.evaluate((el) => getComputedStyle(el).color)).not.toBe(asRgb);
   });
 });
+
+// P2 — one focus ring per field, not two concentric ones.
+test.describe('focused fields', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('wear a single ring', async ({ page }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'Sections');
+    await page.getByRole('button', { name: /Add Section/ }).first().click();
+
+    const field = page.locator('[role=dialog] input').first();
+    await field.focus();
+    const ring = await field.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { offset: cs.outlineOffset, width: cs.outlineWidth, border: cs.borderTopColor };
+    });
+    // The offset is what separated the outline from the accent border.
+    expect(ring.offset, 'the ring is still floating off the field').toBe('0px');
+    expect(parseFloat(ring.width), 'the ring went away entirely').toBeGreaterThan(0);
+  });
+});

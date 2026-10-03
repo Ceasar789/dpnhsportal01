@@ -13,6 +13,8 @@ import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import Button from '../../../../components/ui/Button';
 import { useSignedPhotoUrl } from '../../../../hooks/useSignedPhotoUrl';
 import Avatar from '../../../../components/Avatar';
+import RowSheet from '../../../../components/ui/RowSheet';
+import { useIsNarrow } from '../../../../lib/useMediaQuery';
 
 // One per row so each user's photo path resolves to its own signed URL
 // without breaking the rules of hooks inside .map().
@@ -34,6 +36,10 @@ const UsersTab = () => {
   // field they can neither reveal nor re-enter. A typo becomes that
   // person's stored credential, and nobody finds out until they cannot log
   // in. The rules themselves are unchanged and still live in saveUser.
+  // R5. 123 rows of five columns is the worst table here on a phone.
+  const narrow = useIsNarrow();
+  const [sheetUser, setSheetUser] = useState(null);
+
   const [tried, setTried] = useState(false);
   const [uPass2, setUPass2] = useState('');
   const [revealPass, setRevealPass] = useState(false);
@@ -80,8 +86,19 @@ const UsersTab = () => {
                     <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                       {filteredUsers.map(u => (
-                        <tr key={u.id}>
-                          <td>
+                        <tr
+                          key={u.id}
+                          {...(narrow ? {
+                            role: 'button',
+                            tabIndex: 0,
+                            'aria-label': `Open ${u.name || u.email}`,
+                            onClick: () => setSheetUser(u),
+                            onKeyDown: (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSheetUser(u); }
+                            },
+                          } : {})}
+                        >
+                          <td data-cell="identity">
                             <div style={{ display:'flex', alignItems:'center', gap: 'var(--space-12)' }}>
                               <UserAvatarCell user={u} />
                               <div>
@@ -90,13 +107,13 @@ const UsersTab = () => {
                               </div>
                             </div>
                           </td>
-                          <td style={{ color:'var(--text-muted)' }}>{u.email}</td>
-                          <td><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
-                          <td>{showArchived
+                          <td data-cell="detail" style={{ color:'var(--text-muted)' }}>{u.email}</td>
+                          <td data-cell="value"><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
+                          <td data-cell="state">{showArchived
                             ? <span className="badge badge-yellow archive-status-badge"><Archive size={12} />Archived</span>
                             : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-grey'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-neutral'}`} style={{ marginRight: 'var(--space-4)' }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
                           </td>
-                          <td>
+                          <td data-cell="actions">
                             <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={() => openEditUser(u)}><Pencil size={16} /></button>
                             <button
                               className="icon-action archive-action"
@@ -133,6 +150,27 @@ const UsersTab = () => {
                 </div>
               </div>
             </div>
+
+      <RowSheet
+        open={Boolean(sheetUser)}
+        title={sheetUser?.name || sheetUser?.email || ''}
+        subtitle={sheetUser ? roleLabel(sheetUser.role) : ''}
+        details={[
+          ['Email', sheetUser?.email],
+          ['Role', sheetUser ? roleLabel(sheetUser.role) : ''],
+          ['Department', sheetUser?.department],
+          ['Status', sheetUser
+            ? (showArchived ? 'Archived' : (onlineUsers.has(sheetUser.id) ? 'Online' : 'Offline'))
+            : ''],
+        ]}
+        actions={sheetUser && (
+          <>
+            <Button variant="ghost" onClick={() => { const u = sheetUser; setSheetUser(null); openEditUser(u); }}>Edit</Button>
+            <Button variant="danger" onClick={() => { const u = sheetUser; setSheetUser(null); deleteUser(u.id); }}>Archive</Button>
+          </>
+        )}
+        onClose={() => setSheetUser(null)}
+      />
 
       {/* USER MODAL — first migration to <Modal>. Fixes UX-098 (no focus
           contract) and UX-026 (every close path discarded the form). The

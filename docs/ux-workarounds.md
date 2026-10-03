@@ -404,6 +404,7 @@ If one of these starts failing *reproducibly*, it is no longer a flake.
 | Date | Test | Seen |
 |---|---|---|
 | Phase 5, step 1 | `admin-modal.spec.js` · "the destructive confirm button uses the named variant" | Failed once in an 8-spec admin run; passed alone and twice more across the whole spec (21/21 each). |
+| Phase 6, batch B | `admin-drawer.spec.js` · "collapsed/expanded persists across a reload" | Failed once in an 11-spec admin run; passed 3/3 on its own spec immediately after. Writes localStorage then reloads, so a slow reload under load is the likely cause. |
 
 ## The grade-tab badge counts two different things
 

@@ -5,6 +5,8 @@
 // ============================================
 
 import React, { useEffect, useState } from 'react';
+import RowSheet from '../../../../components/ui/RowSheet';
+import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
@@ -27,6 +29,9 @@ const SectionsTab = () => {
   const [pick, setPick] = useState('');
   // UX-052: adding a student is two round trips. Without this the press
   // produces no visible change at all until the roster reloads.
+  const narrow = useIsNarrow();
+  const [sheetSection, setSheetSection] = useState(null);
+
   const [adding, setAdding] = useState(false);
 
   // UX-062: two of these four fields are required and nothing said which.
@@ -72,12 +77,23 @@ const SectionsTab = () => {
             ) : sections.length === 0 ? (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>No sections for {schoolYear} yet.</td></tr>
             ) : sections.map(s => (
-              <tr key={s.id}>
-                <td><strong>{s.name}</strong></td>
-                <td>{s.grade_level}</td>
-                <td>{adviserName(s.adviser_id)}</td>
-                <td>{s.capacity}</td>
-                <td>
+              <tr
+                key={s.id}
+                {...(narrow ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-label': `Open ${s.name}`,
+                  onClick: () => setSheetSection(s),
+                  onKeyDown: (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSheetSection(s); }
+                  },
+                } : {})}
+              >
+                <td data-cell="identity"><strong>{s.name}</strong></td>
+                <td data-cell="value">{s.grade_level}</td>
+                <td data-cell="detail">{adviserName(s.adviser_id)}</td>
+                <td data-cell="detail">{s.capacity}</td>
+                <td data-cell="actions">
                   <button className="icon-action" aria-label={`Class list for ${s.name}`} title="Class list" onClick={() => openClassList(s)}><Users size={15} aria-hidden="true" /></button>
                   <button className="icon-action" aria-label={`Edit ${s.name}`} title="Edit" onClick={() => openEditSection(s)}><Pencil size={15} aria-hidden="true" /></button>
                   <button className="icon-action archive-action" aria-label={`Delete ${s.name}`} title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
@@ -87,6 +103,25 @@ const SectionsTab = () => {
           </tbody>
         </table></div>
       </div>
+
+      <RowSheet
+        open={Boolean(sheetSection)}
+        title={sheetSection?.name || ''}
+        subtitle={sheetSection?.grade_level}
+        details={[
+          ['Grade level', sheetSection?.grade_level],
+          ['Adviser', sheetSection ? adviserName(sheetSection.adviser_id) : ''],
+          ['Capacity', sheetSection?.capacity],
+        ]}
+        actions={sheetSection && (
+          <>
+            <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); openClassList(s); }}>Class list</Button>
+            <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); openEditSection(s); }}>Edit</Button>
+            <Button variant="danger" onClick={() => { const s = sheetSection; setSheetSection(null); deleteSection(s.id); }}>Delete</Button>
+          </>
+        )}
+        onClose={() => setSheetSection(null)}
+      />
 
       {sectionModal && (
         <Modal
@@ -186,11 +221,16 @@ const SectionsTab = () => {
                 ) : classList.length === 0 ? (
                   <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-16)' }}>No students in this section yet.</td></tr>
                 ) : classList.map((c, i) => (
+                  /* No sheet here, deliberately. This table is already
+                     inside a dialog, and opening a second overlay on top
+                     of the first to reveal one action is worse than
+                     keeping that action on the row. Two lines, actions
+                     inline. */
                   <tr key={c.id}>
-                    <td>{i + 1}</td>
-                    <td>{c.name}</td>
-                    <td>{c.email}</td>
-                    <td><button
+                    <td data-cell="detail">{i + 1}</td>
+                    <td data-cell="identity">{c.name}</td>
+                    <td data-cell="value">{c.email}</td>
+                    <td data-cell="actions-inline"><button
                       className="icon-action"
                       aria-label={`Remove ${c.name} from this section`}
                       title="Remove"

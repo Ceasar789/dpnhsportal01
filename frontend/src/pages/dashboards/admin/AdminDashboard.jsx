@@ -332,6 +332,16 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            itself broke across lines at 360 - "2026-" on one, "2027" on the
            next - because the hyphen is a legal break point. */
         .page-sub-seg { white-space: nowrap; }
+        .row-sheet { display: grid; gap: var(--space-12); margin: 0; }
+        .row-sheet-pair { display: grid; grid-template-columns: minmax(0, 7rem) minmax(0, 1fr); gap: var(--space-12); align-items: baseline; }
+        .row-sheet-pair dt { color: var(--text-muted); font-size: var(--font-size-12); }
+        .row-sheet-pair dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+        .row-sheet-subtitle { color: var(--text-muted); font-size: var(--font-size-13); margin-bottom: var(--space-16); }
+        /* The sheet's actions wrap as a group rather than breaking a label
+           down the middle: "Class list" split over two lines inside one
+           button reads as two controls. */
+        .ux-modal-footer { display: flex; flex-wrap: wrap; gap: var(--space-8); justify-content: flex-end; }
+        .ux-modal-footer .btn { white-space: nowrap; }
         /* D1. This was a tinted, bordered panel - a lavender-to-blue
            gradient in light mode - wrapped around nothing but a heading and
            one line of text, on nine of the ten tabs. Overview never used it,
@@ -408,13 +418,75 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            scrolling still worked, which is why the e2e suite never noticed.
            Phase 6 replaces this with the R1/R2 two-line rows; until then a
            scrollbar is the difference between awkward and impossible. */
-        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
+        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; container-type: inline-size; }
+
+        /* R1/R2/R6 — two-line rows when the CARD is too narrow for columns.
+           A container query, not a viewport one: what decides whether five
+           columns fit is the width of the card, and that changes with the
+           sidebar as well as with the window.
+
+           The horizontal scroll above stays as a fallback for anything that
+           still will not fit (a long email, a wide class list), but it is no
+           longer the mobile layout. It was: at 360 the Actions column sat
+           entirely outside the card. */
+        @container (max-width: 560px) {
+          .table-card table, .table-card tbody, .table-card tr, .table-card td { display: block; width: 100%; }
+          .table-card thead { display: none; }
+          .table-card tr {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: baseline;
+            gap: var(--space-2) var(--space-12);
+            padding: var(--space-12) var(--space-16);
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            width: 100%;
+            background: none;
+            font: inherit;
+            color: inherit;
+          }
+          .table-card tr:last-child { border-bottom: none; }
+          .table-card td { padding: 0; border: none; }
+
+          /* Line 1: who or what this row is, and its headline value. */
+          .table-card td[data-cell="identity"] { grid-column: 1; font-weight: 600; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+          .table-card td[data-cell="value"] { grid-column: 2; justify-self: end; color: var(--text-muted); font-size: var(--font-size-12); white-space: nowrap; }
+          /* Line 2: the state. */
+          .table-card td[data-cell="state"] { grid-column: 1 / -1; margin-top: var(--space-4); }
+          /* Everything else lives in the sheet the row opens. */
+          .table-card td[data-cell="detail"], .table-card td[data-cell="actions"] { display: none; }
+          /* ...except where there is no sheet to open. The class list is
+             already inside a dialog, so its one action stays on the row
+             rather than opening a second overlay over the first. */
+          .table-card td[data-cell="actions-inline"] { grid-column: 2; grid-row: 1 / span 2; justify-self: end; align-self: center; }
+
+          /* A row that opens a sheet is a control and says so. */
+          .table-card tr[role="button"] { cursor: pointer; }
+          .table-card tr[role="button"]:hover { background: var(--card2); }
+          .table-card tr[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+          /* The loading / empty / error rows span everything and must not
+             be squeezed into the identity column. */
+          .table-card td[colspan] { grid-column: 1 / -1; text-align: center; }
+        }
 
         /* Teaching Load — bulk assignment form and the grade-grouped list.
            Everything here is built from the same vars as the rest of the
            dashboard, so it follows the light/dark theme without branching. */
         .bulk-grid { display: grid; grid-template-columns: minmax(280px, 1.3fr) minmax(240px, 1fr); gap: var(--space-24); }
-        @media (max-width: 860px) { .bulk-grid { grid-template-columns: 1fr; } }
+        /* Was 860px, which left the two columns in place for every phone.
+           The builder stacks at the drawer breakpoint now, and its children
+           are allowed to shrink: a grid child defaults to min-width:auto and
+           refuses to go below its content, which is what pushed the picker
+           past the right edge however narrow the screen got. */
+        @media (max-width: 1023.98px) {
+          .bulk-grid { grid-template-columns: 1fr; }
+          .bulk-grid > * { min-width: 0; }
+          .picker-panel, .picker-search, .bulk-submit { max-width: 100%; }
+          .picker-row { gap: var(--space-8); }
+          .picker-name { min-width: 0; overflow-wrap: anywhere; }
+          .bulk-submit { flex-wrap: wrap; }
+        }
         .bulk-label { font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); margin-bottom: var(--space-8); display: flex; align-items: center; }
         .bulk-submit { display: flex; align-items: center; gap: var(--space-12); margin-top: var(--space-16); flex-wrap: wrap; }
         .bulk-hint { font-size: var(--font-size-12); color: var(--text-muted); flex: 1; min-width: 180px; line-height: 1.45; }
@@ -437,6 +509,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
         .grade-tab.active { color: var(--accent); background: var(--card-bg); border-color: var(--border); border-bottom: 1px solid var(--card-bg); }
         .grade-tabs-caption { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: var(--space-8); }
+        /* Six grades never fit on a phone. The strip scrolls on its own
+           rather than widening the page, and keeps a visible edge so it is
+           obvious there is more. */
+        @media (max-width: 1023.98px) {
+          .grade-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+          .grade-tab { flex: 0 0 auto; }
+          .section-picker { flex-wrap: wrap; }
+          .section-chip { flex: 1 1 auto; min-width: 0; }
+        }
         .grade-tab-count { font-size: var(--font-size-12); font-weight: 700; min-width: 20px; text-align: center; padding: 1px var(--space-8); border-radius: var(--radius-full); color: #60a5fa; background: rgba(59,130,246,0.12); }
         .grade-tab-count.empty { color: var(--text-muted); background: rgba(148,163,184,0.12); }
 

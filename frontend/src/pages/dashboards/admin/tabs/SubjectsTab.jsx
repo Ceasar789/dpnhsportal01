@@ -4,6 +4,8 @@
 // ============================================
 
 import React, { useEffect, useState } from 'react';
+import RowSheet from '../../../../components/ui/RowSheet';
+import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { useAdminContext } from '../AdminContext';
@@ -22,6 +24,12 @@ const SubjectsTab = () => {
   // toast that disappears, never on the field that caused them. The rules
   // themselves are unchanged and still live in saveSubject - what is added
   // here is where the answer is shown. Same shape as TeachingLoadTab.
+  // R5. Below the drawer breakpoint the row shows two lines and the rest
+  // of the record — and its actions, whose cell is hidden — live in a
+  // sheet the row opens.
+  const narrow = useIsNarrow();
+  const [sheetSubject, setSheetSubject] = useState(null);
+
   const [tried, setTried] = useState(false);
   useEffect(() => { setTried(false); }, [subjectModal]);
   const missingName = tried && !sName.trim();
@@ -59,11 +67,23 @@ const SubjectsTab = () => {
             ) : subjects.length === 0 ? (
               <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>No subjects yet. Add the first one.</td></tr>
             ) : subjects.map(s => (
-              <tr key={s.id}>
-                <td><strong>{s.code}</strong></td>
-                <td>{s.name}</td>
-                <td>{s.is_active === false ? 'Inactive' : 'Active'}</td>
-                <td>
+              <tr
+                key={s.id}
+                {...(narrow ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-label': `Open ${s.code}`,
+                  onClick: () => setSheetSubject(s),
+                  // A row that answers a tap must answer the keyboard too.
+                  onKeyDown: (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSheetSubject(s); }
+                  },
+                } : {})}
+              >
+                <td data-cell="identity"><strong>{s.code}</strong></td>
+                <td data-cell="value">{s.name}</td>
+                <td data-cell="state">{s.is_active === false ? 'Inactive' : 'Active'}</td>
+                <td data-cell="actions">
                   <button className="icon-action" aria-label={`Edit ${s.code}`} title="Edit" onClick={() => openEditSubject(s)}><Pencil size={15} aria-hidden="true" /></button>
                   <button className="icon-action archive-action" aria-label={`Delete ${s.code}`} title="Delete" onClick={() => deleteSubject(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
                 </td>
@@ -72,6 +92,23 @@ const SubjectsTab = () => {
           </tbody>
         </table></div>
       </div>
+
+      <RowSheet
+        open={Boolean(sheetSubject)}
+        title={sheetSubject?.code || ''}
+        subtitle={sheetSubject?.name}
+        details={[
+          ['Name', sheetSubject?.name],
+          ['Status', sheetSubject?.is_active === false ? 'Inactive' : 'Active'],
+        ]}
+        actions={sheetSubject && (
+          <>
+            <Button variant="ghost" onClick={() => { const s = sheetSubject; setSheetSubject(null); openEditSubject(s); }}>Edit</Button>
+            <Button variant="danger" onClick={() => { const s = sheetSubject; setSheetSubject(null); deleteSubject(s.id); }}>Delete</Button>
+          </>
+        )}
+        onClose={() => setSheetSubject(null)}
+      />
 
       {subjectModal && (
         <Modal

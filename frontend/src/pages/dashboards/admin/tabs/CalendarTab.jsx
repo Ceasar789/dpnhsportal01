@@ -12,6 +12,7 @@ import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { MONTHS, EVENT_TYPES } from '../shared/helpers';
 import Button from '../../../../components/ui/Button';
 import { formatDateLong, formatDateRange } from '../../../../lib/formatDate';
+import { agendaGroups } from '../../../../lib/agenda';
 
 const CalendarTab = () => {
   const {
@@ -32,15 +33,12 @@ const CalendarTab = () => {
     return e.event_date === ds;
   });
 
-  // Only days that have something. An agenda of 31 empty headings is a
-  // worse month view than the grid it replaced.
-  const agendaDays = calGrid
-    .filter(cell => cell.cur)
-    .map(cell => {
-      const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(cell.d).padStart(2, '0')}`;
-      return { ds, day: cell.d, events: eventsOn(ds) };
-    })
-    .filter(entry => entry.events.length > 0);
+  // V1. The grid and the agenda answer different questions, so they no
+  // longer share eventsOn. A cell asks "what is on this day" and a five
+  // day exam week belongs in all five cells; the agenda is a list of
+  // what is on this month, and listing that week five times cost nine
+  // rows for two events. See lib/agenda.js.
+  const agendaDays = agendaGroups(calEvents, calYear, calMonth, calFilter);
 
   return (
     <>

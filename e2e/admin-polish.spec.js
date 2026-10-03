@@ -58,7 +58,7 @@ test.describe('focused fields', () => {
 test.describe('the agenda', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
 
-  test('names the span on every day a multi-day event covers', async ({ page }) => {
+  test('lists each event once, with its span', async ({ page }) => {
     await loginAsAdmin(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
@@ -78,6 +78,13 @@ test.describe('the agenda', () => {
     const single = await page.locator('.cal-agenda-item').evaluateAll((els) =>
       els.filter((el) => !el.querySelector('.cal-agenda-range')).length);
     expect(single + n, 'some entries are neither').toBe(await page.locator('.cal-agenda-item').count());
+
+    // V1: once per event, not once per day it covers. The first version
+    // listed a five-day exam week five times and Foundation Day four —
+    // nine rows for two events, with everything else pushed off screen.
+    const titles = await page.locator('.cal-agenda-item .truncate-1').allTextContents();
+    const repeated = titles.filter((t, i) => titles.indexOf(t) !== i);
+    expect(repeated, 'an event is listed on more than one day').toEqual([]);
 
     // And it never pushes the entry past the edge of the phone.
     for (let i = 0; i < Math.min(n, 4); i++) {

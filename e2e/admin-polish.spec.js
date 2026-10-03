@@ -108,7 +108,7 @@ test.describe('calendar controls', () => {
       const small = await page.evaluate(() => [...document.querySelectorAll('.cal-nav, .news-action')]
         .filter((el) => el.offsetParent !== null)
         .map((el) => ({ el, r: el.getBoundingClientRect() }))
-        .filter(({ r }) => r.width < 44 || r.height < 44)
+        .filter(({ r }) => Math.round(r.width) < 44 || Math.round(r.height) < 44)
         .map(({ el, r }) => `${el.className.split(' ')[0]} "${el.textContent.trim().slice(0, 10)}" ${Math.round(r.width)}x${Math.round(r.height)}`));
 
       expect(small, 'a control smaller than a thumb').toEqual([]);
@@ -345,7 +345,9 @@ test.describe('select chevrons', () => {
 
     const short = await page.evaluate(() => [...document.querySelectorAll('select')]
       .filter((el) => el.offsetParent !== null)
-      .filter((el) => el.getBoundingClientRect().height < 44)
+      // Round before comparing: a min-height: 44px control measures
+      // 43.999969, and reporting "44px is too short" helps nobody.
+      .filter((el) => Math.round(el.getBoundingClientRect().height) < 44)
       .map((el) => `${el.getAttribute('aria-label') || el.id}: ${Math.round(el.getBoundingClientRect().height)}px`));
     expect(short, 'a dropdown too short to tap').toEqual([]);
   });

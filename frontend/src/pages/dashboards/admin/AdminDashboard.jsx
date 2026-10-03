@@ -4,7 +4,7 @@
 // Split from the original monolithic AdminDashboard.jsx (1,980 lines)
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
@@ -16,6 +16,7 @@ import Button from '../../../components/ui/Button';
 import { initials, avatarColor, roleBadge, roleLabel } from './shared/helpers';
 import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
+import { cycleTab, focusableWithin, lockScroll } from '../../../lib/focusTrap';
 import OverviewTab from './tabs/OverviewTab';
 import UsersTab from './tabs/UsersTab';
 import SubjectsTab from './tabs/SubjectsTab';
@@ -106,8 +107,53 @@ const AdminDashboard = () => {
 // SHELL: style block, toast, nav, sidebar, page-switch
 // ============================================
 const AdminDashboardShell = ({ navigate, logout, userData }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Collapsed/expanded is a DESKTOP preference and is remembered. Below
+  // the drawer breakpoint it means nothing — the sidebar is off-canvas and
+  // 256px wide either way — so the stored value is only ever applied at
+  // >=1024px and the drawer always opens expanded.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('smartedu-admin-sidebar') === 'collapsed'; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('smartedu-admin-sidebar', sidebarCollapsed ? 'collapsed' : 'expanded');
+    } catch { /* localStorage unavailable */ }
+  }, [sidebarCollapsed]);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarRef = useRef(null);
+  const menuButtonRef = useRef(null);
+
+  // The drawer is an overlay over the page, so it owes the same contract a
+  // dialog does: it takes focus, keeps it, gives it back, and the page
+  // behind it does not scroll. Without the trap, Tab walks straight out of
+  // an open drawer and down a page the user cannot see.
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+
+    const unlock = lockScroll();
+    const opener = menuButtonRef.current;
+
+    // Into the drawer, not merely near it.
+    const first = focusableWithin(sidebarRef.current)[0];
+    (first ?? sidebarRef.current)?.focus();
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); setSidebarOpen(false); return; }
+      cycleTab(sidebarRef.current, e);
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      unlock();
+      // Back to the control that opened it — but only if it is still on
+      // screen. Above the breakpoint the menu button is display:none, and
+      // focusing a hidden element drops focus to the body.
+      if (opener && document.contains(opener) && opener.offsetParent !== null) opener.focus();
+    };
+  }, [sidebarOpen]);
   const [profileOpen, setProfileOpen] = useState(false);
   const { darkMode, page, setDarkMode, setPage, toast,
     activeSettingsSub, scrollToSection, settings, deleteConfirm, setDeleteConfirm,
@@ -647,7 +693,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading-row { text-align: center; padding: var(--space-48); color: var(--text-muted); }
 
-        @media(max-width:900px) {
+        @media(max-width:1023.98px) {
           /* The subtitle already wraps at this width; a mark in front of
              wrapped text reads as clutter rather than identity. */
           .page-seal { display: none; }
@@ -656,10 +702,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 50; transform: translateX(-100%); width: 256px; }
           .sidebar.mobile-open { transform: translateX(0); }
           .sidebar.collapsed { width: 256px; }
+          /* There is nothing to collapse when the sidebar IS the drawer,
+             and the control sat half outside the left edge of every tab. */
+          .sidebar-collapse { display: none; }
           .sidebar.collapsed .sidebar-user { justify-content: flex-start; }
           .sidebar.collapsed .sidebar-item { justify-content: flex-start; padding-left: var(--space-12); padding-right: var(--space-12); }
           .sidebar-mobile-overlay { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; }
           .main { padding: var(--space-24) var(--space-16); }
+          /* Rule X3. 24x24 (WCAG 2.5.8) is the floor the suite enforces at
+             every width; a thumb wants 44. Applied only below the drawer
+             breakpoint so the desktop density stays as Phase 5 left it. */
+          .icon-action, .nav-menu-btn, .nav-toggle-btn, .cal-nav,
+          .archive-toggle, .page-btn, .chip-x { min-width: 44px; min-height: 44px; }
+          .sidebar-item, .sidebar-sub { min-height: 44px; }
+          .btn { min-height: 44px; }
           .stat-grid { grid-template-columns: 1fr 1fr; }
           .overview-grid { grid-template-columns: 1fr; }
           .news-grid { grid-template-columns: 1fr; }
@@ -674,7 +730,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .nav-logo { margin-right: 0; }
           .nav-logo-text span:first-child { font-size: 18px; }
           .sidebar { width: 256px; }
-          .stat-grid { grid-template-columns: 1fr; }
+          /* 2x2, not a single column. Four full-width cards push the
+             Recent Activity panel below two screens of scroll on a phone,
+             and a count does not need 328px to be legible. */
+          .stat-grid { grid-template-columns: 1fr 1fr; }
           .role-overview { gap: var(--space-12); }
           .role-pie { width: 104px; height: 104px; }
           .role-pie::after { inset: 22px; }
@@ -702,7 +761,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         </div>
 
       <nav>
-        <button className="nav-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
+        <button
+          ref={menuButtonRef}
+          className="nav-menu-btn"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open navigation"
+          aria-expanded={sidebarOpen}
+          aria-controls="admin-sidebar"
+        >
           <Menu size={20} />
         </button>
         <div className="nav-logo">
@@ -722,7 +788,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
       <div className="layout">
         {sidebarOpen && <div className="sidebar-mobile-overlay" onClick={() => setSidebarOpen(false)} />}
-        <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${sidebarOpen ? 'mobile-open' : ''}`}>
+        <div
+          id="admin-sidebar"
+          ref={sidebarRef}
+          tabIndex={-1}
+          /* Only a dialog while it IS one. Above the breakpoint this is an
+             ordinary sidebar sitting in the page, and announcing it as a
+             dialog there would be a lie. */
+          role={sidebarOpen ? 'dialog' : undefined}
+          aria-modal={sidebarOpen ? 'true' : undefined}
+          aria-label={sidebarOpen ? 'Navigation' : undefined}
+          className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${sidebarOpen ? 'mobile-open' : ''}`}
+        >
           <button className="sidebar-collapse" onClick={() => setSidebarCollapsed(c => !c)} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>

@@ -23,6 +23,7 @@
 // ============================================
 
 import { useCallback, useEffect, useId, useRef } from 'react';
+import { FOCUSABLE, cycleTab } from '../../lib/focusTrap';
 
 // Every field the dialog holds, as one comparable string.
 //
@@ -44,11 +45,9 @@ const readFields = (root) =>
     })
     .join('\u0000');
 
-// Everything that can hold focus inside the dialog, in document order.
-const FOCUSABLE = [
-  'a[href]', 'button:not([disabled])', 'input:not([disabled])',
-  'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])',
-].join(',');
+// The selector and the Tab-cycling live in lib/focusTrap.js now: the
+// admin's navigation drawer needs the same mechanics, and two copies of a
+// focus trap is two things to get subtly different.
 
 // Nothing in the admin stacks dialogs today — all four delete confirmations
 // are triggered from a table row, never from inside another modal, and the
@@ -112,25 +111,7 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
       // Only the topmost dialog answers the keyboard.
       if (stack[stack.length - 1] !== me) return;
       if (e.key === 'Escape') { e.preventDefault(); requestClose(); return; }
-      if (e.key !== 'Tab') return;
-
-      const items = Array.from(card.current?.querySelectorAll(FOCUSABLE) ?? [])
-        .filter((el) => el.offsetParent !== null);
-      if (items.length === 0) return;
-
-      const first = items[0];
-      const last = items[items.length - 1];
-      const here = document.activeElement;
-
-      // Shift+Tab off the front wraps to the back, and the reverse. The
-      // `!card.contains(here)` case catches focus that has already escaped.
-      if (e.shiftKey && (here === first || !card.current.contains(here))) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && (here === last || !card.current.contains(here))) {
-        e.preventDefault();
-        first.focus();
-      }
+      cycleTab(card.current, e);
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => {

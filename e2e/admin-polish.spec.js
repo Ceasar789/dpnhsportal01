@@ -476,3 +476,60 @@ test.describe('the focus ring', () => {
     expect(parseFloat(focused), 'a rounded field went square').toBeGreaterThan(2);
   });
 });
+
+// V4 — nothing scrolls visibly past the save bar.
+test.describe('the save bar covers what is behind it', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  for (const width of [360, 768, 1440]) {
+    test(`${width}: no page content shows below or beside it`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+      await loginAsAdmin(page);
+      await openAdminTab(page, 'System Settings');
+
+      const year = page.locator('#settings-academic-year');
+      const original = await year.inputValue();
+      await year.fill('2099-2100');
+      const bar = page.locator('.settings-savebar');
+      await expect(bar).toBeVisible();
+
+      // Mid-scroll is the state that showed the leak: at the top or the
+      // bottom of the page there is nothing behind the bar to see.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight / 2));
+      await page.waitForTimeout(300);
+
+      const leaks = await page.evaluate(() => {
+        const bar = document.querySelector('.settings-savebar');
+        const r = bar.getBoundingClientRect();
+        const found = [];
+        // Just below the bar, and in the strips either side of it, which
+        // is where .main's padding leaves the bar short of the edge.
+        const probes = [
+          ['below-left', r.left + 8, Math.min(r.bottom + 4, window.innerHeight - 2)],
+          ['below-right', r.right - 8, Math.min(r.bottom + 4, window.innerHeight - 2)],
+          ['beside-left', Math.max(r.left - 6, 2), r.top + r.height / 2],
+          ['beside-right', Math.min(r.right + 6, window.innerWidth - 2), r.top + r.height / 2],
+        ];
+        for (const [name, x, y] of probes) {
+          const el = document.elementFromPoint(x, y);
+          if (!el) continue;
+          // The bar itself, or its backing, which hit-tests as the bar.
+          if (el === bar || bar.contains(el)) continue;
+          // The page body or the content wrapper is bare background.
+          if (el.classList.contains('main') || el.tagName === 'BODY' || el.id === 'root') continue;
+          found.push(`${name}: ${el.tagName}.${String(el.className).slice(0, 30)} "${(el.textContent || '').trim().slice(0, 20)}"`);
+        }
+        return found;
+      });
+      expect(leaks, 'page content is visible through the save bar').toEqual([]);
+
+      // And it still reaches the bottom of the screen.
+      const gap = await bar.evaluate((el) =>
+        window.innerHeight - el.getBoundingClientRect().bottom);
+      expect(Math.round(gap), 'the bar is floating above the bottom edge').toBeLessThanOrEqual(0);
+
+      await year.fill(original);
+    });
+  }
+});

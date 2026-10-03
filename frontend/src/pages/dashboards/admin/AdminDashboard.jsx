@@ -941,17 +941,41 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            scrolling back to General. */
         .settings-savebar {
           position: sticky;
-          bottom: var(--space-16);
+          /* V4: it used to float 16px up from the bottom, and the page
+             scrolled through that gap — "How people sign in" was legible
+             underneath the bar. Sitting on the edge removes the gap, and
+             the backing below covers the strips either side of it. */
+          bottom: 0;
           display: flex; align-items: center; gap: var(--space-12);
           padding: var(--space-12) var(--space-16);
+          /* Clear of the home indicator, as padding rather than margin:
+             margin would put the transparent gap back. */
+          padding-bottom: calc(var(--space-12) + env(safe-area-inset-bottom, 0px));
           margin-top: var(--space-24);
           background: var(--card-bg);
           border: 1px solid var(--accent);
-          border-radius: var(--radius-lg);
+          border-bottom: none;
+          /* An edge sitting on the screen edge has no radius (RD4). */
+          border-radius: var(--radius-lg) var(--radius-lg) 0 0;
           box-shadow: 0 -6px 18px var(--overlay-lg);
           z-index: 5;
-          /* Clear of the home indicator on a phone. */
-          margin-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        /* The bar is inset by .main's padding, so without this the page
+           still scrolls visibly up the 16-32px strip on either side of it.
+           A pseudo-element rather than negative margins on the bar itself:
+           the bar would then reach .main's border box, which is content
+           painted outside the content area, and the overflow test is
+           right to object to that. This paints the same pixels without
+           moving the element. */
+        .settings-savebar::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+          left: calc(-1 * var(--space-32));
+          right: calc(-1 * var(--space-32));
+          background: var(--bg);
+          z-index: -1;
         }
         .settings-savebar-count { font-size: var(--font-size-13); font-weight: 700; }
         .settings-savebar-actions { margin-left: auto; display: flex; gap: var(--space-8); }
@@ -1005,6 +1029,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .sidebar-mobile-overlay { display: block; position: fixed; inset: 0; background: var(--overlay-lg); z-index: 105; }
           .sidebar-close { display: inline-flex; }
           .main { padding: var(--space-24) var(--space-16); }
+          /* Matches the narrower .main padding above. */
+          .settings-savebar::before { left: calc(-1 * var(--space-16)); right: calc(-1 * var(--space-16)); }
           /* Rule X3. 24x24 (WCAG 2.5.8) is the floor the suite enforces at
              every width; a thumb wants 44. Applied only below the drawer
              breakpoint so the desktop density stays as Phase 5 left it. */

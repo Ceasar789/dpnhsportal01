@@ -502,11 +502,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-toolbar { display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-16); flex-wrap: wrap; }
         .cal-title   { font-size: var(--font-size-16); font-weight: 600; }
         .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); }
-        .cal-nav:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+        .cal-nav:hover { background: var(--card2); color: var(--text); }
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
         .cal-head { background: #f8fafc; padding: var(--space-12); text-align: center; font-size: var(--font-size-12); font-weight: 600; color: #64748b; }
         .cal-cell { background: var(--card-bg); min-height: 80px; padding: var(--space-8); position: relative; }
-        .cal-cell.weekend { background: rgba(254,226,226,.55); }
+        /* A weekend is not an alert. This was a pink tint one step lighter
+           than .holiday, so Saturdays and Sundays read as warnings AND were
+           nearly indistinguishable from actual holidays. Neutral surface: it
+           still says "not a school day" without borrowing the holiday colour. */
+        .cal-cell.weekend { background: var(--card2); }
         .cal-cell.holiday { background: rgba(254,226,226,.8); }
         .cal-cell:hover { background: #f1f5f9; }
         .cal-day { font-size: var(--font-size-13); color: #475569; margin-bottom: var(--space-4); }
@@ -520,20 +524,28 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .ev-red    { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
         .ev-purple { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
         .ev-teal   { background: #ccfbf1; color: #0f766e; border: 1px solid #5eead4; }
-        :root:not(.light) .cal-grid { background: #303642; border-color: #303642; }
-        :root:not(.light) .cal-head { background: #252a33; color: #aeb8c9; }
-        :root:not(.light) .cal-cell { background: #20252d; }
-        :root:not(.light) .cal-cell:hover { background: #292f39; }
-        :root:not(.light) .cal-cell.weekend { background: #2b2931; }
-        :root:not(.light) .cal-cell.holiday { background: #32282d; }
-        :root:not(.light) .cal-day { color: #b6c0d0; }
-        :root:not(.light) .cal-cell.other-month .cal-day { color: #687386; }
-        :root:not(.light) .ev-blue { background: #263b56; color: #bfdbfe; border-color: #41658f; }
-        :root:not(.light) .ev-yellow { background: #413721; color: #fde68a; border-color: #806b31; }
-        :root:not(.light) .ev-green { background: #203b2d; color: #bbf7d0; border-color: #3c7655; }
-        :root:not(.light) .ev-red { background: #422a30; color: #fecaca; border-color: #874852; }
-        :root:not(.light) .ev-purple { background: #352d4d; color: #ddd6fe; border-color: #665497; }
-        :root:not(.light) .ev-teal { background: #1e3c3b; color: #b9f5ec; border-color: #3d7772; }
+        /* These fourteen rules were written against a class that does not
+           exist. The selector was :root:not(.light) — and nothing in this
+           project ever sets "light" on anything. useDashboardTheme adds the
+           "dark" class to <html> and removes it again, and that is the whole
+           mechanism, so :not(.light) was true in BOTH themes and the dark
+           calendar was painted onto the light page. A dark grid on a white
+           dashboard is what the Calendar tab has looked like in light mode
+           for as long as these rules have existed. They now use the class
+           the theme actually sets. */
+        :root.dark .cal-grid { background: #303642; border-color: #303642; }
+        :root.dark .cal-head { background: #252a33; color: #aeb8c9; }
+        :root.dark .cal-cell { background: #20252d; }
+        :root.dark .cal-cell:hover { background: #292f39; }
+        :root.dark .cal-cell.holiday { background: #32282d; }
+        :root.dark .cal-day { color: #b6c0d0; }
+        :root.dark .cal-cell.other-month .cal-day { color: #687386; }
+        :root.dark .ev-blue { background: #263b56; color: #bfdbfe; border-color: #41658f; }
+        :root.dark .ev-yellow { background: #413721; color: #fde68a; border-color: #806b31; }
+        :root.dark .ev-green { background: #203b2d; color: #bbf7d0; border-color: #3c7655; }
+        :root.dark .ev-red { background: #422a30; color: #fecaca; border-color: #874852; }
+        :root.dark .ev-purple { background: #352d4d; color: #ddd6fe; border-color: #665497; }
+        :root.dark .ev-teal { background: #1e3c3b; color: #b9f5ec; border-color: #3d7772; }
         .cal-sidebar { width: 200px; flex-shrink: 0; }
         .upcoming-item { padding: var(--space-12) 0; border-left: 3px solid; padding-left: var(--space-12); margin-bottom: var(--space-12); }
         .legend { display: flex; gap: var(--space-16); margin-top: var(--space-12); flex-wrap: wrap; }

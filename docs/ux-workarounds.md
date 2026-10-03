@@ -435,3 +435,34 @@ scheduled periods"` on Schedules and `"Grade 8, 0 teaching
 assignments"` on Teaching Load — and a visible `title` to match. It is
 text rather than layout, so it fits Phase 5 if wanted; it is listed
 here rather than done because the review said report first.
+
+## Open question: Overview's counts disagree with the tabs
+
+Found while shooting Phase 5 batch 2, not chased further because it is
+a data question inside a visual batch.
+
+| Screen | Says |
+|---|---|
+| Overview stat card | Published News **4** |
+| News Management footer | **0** total posts · 0 published · 0 drafts · 0 archived |
+| Overview stat card | Memos Sent **2** |
+| Memos tab | **0** Total · 0 Faculty · 0 Students |
+
+Not a render race — the News footer still reads 0 after a four-second
+wait. The two requests were captured:
+
+```
+GET /rest/v1/news?select=*&order=created_at.desc            200  []
+GET /rest/v1/news?select=*&status=eq.Published&or=(...)     200  (count response)
+```
+
+The **unfiltered** list returns an empty array. A filtered query cannot
+return more rows than an unfiltered one over the same table under the
+same policy, so the table really is empty and the Overview's 4 is
+coming from somewhere else — most likely a count request whose result
+is being read wrongly, or a stat that is never reset.
+
+Worth settling with the other count/collation work in **Phase 7**: a
+dashboard whose headline number disagrees with the page it links to is
+the same class of problem as a save that reports success without
+writing.

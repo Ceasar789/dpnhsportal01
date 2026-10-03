@@ -49,3 +49,4 @@ backend/.env
 
 # Phase 4 before/after comparison shots — large, local, not history
 screenshots/
+e2e/zz-*.spec.js

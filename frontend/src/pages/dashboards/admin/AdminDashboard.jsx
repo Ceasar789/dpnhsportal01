@@ -758,6 +758,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            2.5.8) let alone a thumb. Fixed on the class rather than on the
            Upcoming rail that the review caught it in — the news cards use
            the same button and had the same problem. */
+        /* 7C: the attached image, and which one it is. */
+        .news-image-preview { margin-top: var(--space-8); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+        .news-image-preview img { display: block; width: 100%; max-height: 160px; object-fit: cover; }
+        .news-image-preview-bar { display: flex; align-items: center; gap: var(--space-8); padding: var(--space-4) var(--space-8); background: var(--card2); }
+        .news-image-preview-label { flex: 1; min-width: 0; font-size: var(--font-size-12); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .news-action { background: none; border: none; cursor: pointer; font-size: var(--font-size-12); color: var(--text-muted);
           min-width: 44px; min-height: 44px; padding: 0 var(--space-8);
           display: inline-flex; align-items: center; justify-content: center; }

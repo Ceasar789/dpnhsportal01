@@ -4,7 +4,7 @@
 // Includes the NEWS MODAL, which only this tab opens.
 // ============================================
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, ArchiveRestore } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
@@ -19,6 +19,30 @@ const NewsTab = () => {
     openNewPost, saveNews, saveNewsExpiry, setNAuthor, setNCat, setNContent, setNExpiresDate, setNStatus,
     setNCustomTarget, setNImageFile, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
   } = useAdminContext();
+
+  // 7C. Until now the preview rendered nImageUrl — the image ALREADY
+  // SAVED on the post — so choosing a replacement left the old one on
+  // screen and the only sign anything had happened was the browser's own
+  // filename text. On a new post there was no preview at all.
+  //
+  // createObjectURL in a memo rather than an effect: an effect would have
+  // to setState to publish the url, and that is the cascading-render
+  // pattern the lint rules flag. The effect below only revokes, which is
+  // the part that genuinely belongs in one — without it every pick leaks
+  // a blob for the lifetime of the page.
+  const stagedUrl = useMemo(
+    () => (nImageFile ? URL.createObjectURL(nImageFile) : ''),
+    [nImageFile],
+  );
+  useEffect(() => () => { if (stagedUrl) URL.revokeObjectURL(stagedUrl); }, [stagedUrl]);
+
+  // The file input is uncontrolled, so clearing the state is not enough:
+  // the element keeps showing the filename until its own value is reset.
+  const imageInputRef = useRef(null);
+  const clearStagedImage = () => {
+    setNImageFile(null);
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  };
 
   const isExpired = (n) => !!n.expires_at && new Date(n.expires_at) < new Date();
 
@@ -162,8 +186,37 @@ const NewsTab = () => {
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="news-attach-image">Attach Image</label>
-            <input id="news-attach-image" className="form-input" type="file" accept="image/*" onChange={e => setNImageFile(e.target.files?.[0] || null)} disabled={newsReadOnly} />
-            {nImageUrl && <img src={nImageUrl} alt="Attached news" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-8)' }} />}
+            <input
+              id="news-attach-image"
+              ref={imageInputRef}
+              className="form-input"
+              type="file"
+              accept="image/*"
+              onChange={e => setNImageFile(e.target.files?.[0] || null)}
+              disabled={newsReadOnly}
+            />
+            {(stagedUrl || nImageUrl) && (
+              <div className="news-image-preview">
+                <img
+                  src={stagedUrl || nImageUrl}
+                  alt={stagedUrl ? `Preview of ${nImageFile?.name || 'the chosen image'}` : 'The image currently on this post'}
+                />
+                <div className="news-image-preview-bar">
+                  {/* Which image this is, said plainly: the old version
+                      showed the saved one and called it the attachment. */}
+                  <span className="news-image-preview-label">
+                    {stagedUrl
+                      ? `${nImageFile?.name || 'New image'} — not saved yet`
+                      : 'Current image'}
+                  </span>
+                  {stagedUrl && !newsReadOnly && (
+                    <button type="button" className="news-action" onClick={clearStagedImage}>
+                      {nImageUrl ? 'Keep current' : 'Remove'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="news-status">Status</label>

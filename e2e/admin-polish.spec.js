@@ -490,8 +490,14 @@ test.describe('the save bar covers what is behind it', () => {
       await loginAsAdmin(page);
       await openAdminTab(page, 'System Settings');
 
+      // Wait for the loaded row before editing. The field shows a default
+      // until fetchSettings lands, and an edit made before that is
+      // overwritten by the response — the form goes clean again and no
+      // save bar ever appears. A real flake in this test, not the app.
       const year = page.locator('#settings-academic-year');
+      await expect(year).toHaveValue(/^\d{4}-\d{4}$/, { timeout: 20_000 });
       const original = await year.inputValue();
+
       await year.fill('2099-2100');
       const bar = page.locator('.settings-savebar');
       await expect(bar).toBeVisible();

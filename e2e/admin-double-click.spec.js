@@ -25,6 +25,24 @@ import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } fr
 // second click would have to land while the first is still in flight.
 function countInserts(page, table, { emptyReads = false } = {}) {
   const seen = { posts: 0 };
+
+  // The save these tests simulate SUCCEEDS, so the handler carries on
+  // and calls logActivity — which writes to a different table that this
+  // route does not cover. Before Phase 7A that insert was rejected for
+  // naming a column the table does not have, so it left nothing behind
+  // and nobody noticed. 7A fixed the insert, and these read-only tests
+  // quietly started appending real rows to the school's audit log: 21 of
+  // them before this was spotted.
+  //
+  // Answered here rather than gating the whole spec: nothing about a
+  // double click needs a real write, and a default run must stay
+  // read-only.
+  page.route('**/rest/v1/activity_logs**', (route) => (
+    route.request().method() === 'POST'
+      ? route.fulfill({ status: 201, contentType: 'application/json', body: '[]' })
+      : route.continue()
+  ));
+
   page.route(`**/rest/v1/${table}**`, async (route) => {
     if (route.request().method() !== 'POST') {
       // emptyReads answers the GET with nothing, which is how a form whose

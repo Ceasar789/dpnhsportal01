@@ -136,3 +136,34 @@ test.describe('the News toolbar', () => {
     expect(box.width).toBeLessThanOrEqual(281);
   });
 });
+
+// P6 — the Settings dropdowns use the row on a phone.
+test.describe('Settings dropdowns', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('360: Theme and Session Timeout fill their row', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+
+    for (const label of ['Theme', 'Session Timeout']) {
+      const select = page.getByLabel(label);
+      const row = await select.evaluate((el) => el.parentElement.getBoundingClientRect().width);
+      const box = await select.boundingBox();
+      expect(Math.round(box.width), `${label} is still shrink-to-fit on a phone`)
+        .toBeGreaterThanOrEqual(Math.round(row) - 2);
+    }
+  });
+
+  test('1440: they stay their own size', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(1440);
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+
+    const box = await page.getByLabel('Theme').boundingBox();
+    const row = await page.getByLabel('Theme').evaluate((el) => el.parentElement.getBoundingClientRect().width);
+    expect(box.width, 'the dropdown stretched across the card').toBeLessThan(row / 2);
+  });
+});

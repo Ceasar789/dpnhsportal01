@@ -121,7 +121,7 @@ const SettingsTab = () => {
               <div className="settings-label">Session Timeout</div>
               <div className="settings-hint">Signs the user out after this long with no mouse, key, scroll or touch activity</div>
             </div>
-            <select value={sessionTimeout} onChange={e => setSessionTimeout(e.target.value)} style={{ width: 'auto' }} aria-label="Session Timeout">
+            <select value={sessionTimeout} onChange={e => setSessionTimeout(e.target.value)} aria-label="Session Timeout">
               <option>15 min</option><option>30 min</option><option>1 hour</option><option>2 hours</option>
             </select>
           </div>
@@ -197,7 +197,7 @@ const SettingsTab = () => {
             {/* One state, shared with the header button through the single
                 useDashboardTheme instance in useAdminLogic — they cannot
                 disagree, because there is nothing to disagree with. */}
-            <select value={themePref} onChange={e => setThemePref(e.target.value)} style={{ width: 'auto' }} aria-label="Theme">
+            <select value={themePref} onChange={e => setThemePref(e.target.value)} aria-label="Theme">
               <option value="dark">Dark</option>
               <option value="light">Light</option>
               <option value="auto">Auto (match my device)</option>

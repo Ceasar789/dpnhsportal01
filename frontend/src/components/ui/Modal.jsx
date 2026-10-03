@@ -161,6 +161,7 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
       >
         <div id={titleId} className="modal-title ux-modal-title">{title}</div>
         <div className="ux-modal-body">{children}</div>
+        {/* eslint-disable-next-line react-hooks/refs -- requestClose is passed here, not called: its refs are read only from event handlers. */}
         {footer && <div className="modal-actions ux-modal-footer">{footer(requestClose)}</div>}
       </div>
     </div>

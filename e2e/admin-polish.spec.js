@@ -86,3 +86,25 @@ test.describe('the agenda', () => {
     }
   });
 });
+
+// P4 — the calendar's own controls are targets you can hit.
+test.describe('calendar controls', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  for (const width of [360, 768, 1440]) {
+    test(`${width}: the month arrows and the Upcoming actions are 44x44`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+      await loginAsAdmin(page);
+      await openAdminTab(page, 'Calendar');
+
+      const small = await page.evaluate(() => [...document.querySelectorAll('.cal-nav, .news-action')]
+        .filter((el) => el.offsetParent !== null)
+        .map((el) => ({ el, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.width < 44 || r.height < 44)
+        .map(({ el, r }) => `${el.className.split(' ')[0]} "${el.textContent.trim().slice(0, 10)}" ${Math.round(r.width)}x${Math.round(r.height)}`));
+
+      expect(small, 'a control smaller than a thumb').toEqual([]);
+    });
+  }
+});

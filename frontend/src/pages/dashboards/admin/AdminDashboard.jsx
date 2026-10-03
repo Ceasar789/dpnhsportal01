@@ -716,7 +716,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .news-title  { font-size: var(--font-size-16); font-weight: 600; margin-bottom: var(--space-8); }
         .news-author { font-size: var(--font-size-12); color: var(--text-muted); }
         .news-actions { padding: var(--space-12) var(--space-16); border-top: 1px solid var(--border); display: flex; gap: var(--space-16); align-items: center; }
-        .news-action { background: none; border: none; cursor: pointer; font-size: var(--font-size-12); color: var(--text-muted); }
+        /* P4: 22x18 at every width, which is under the 24x24 floor (WCAG
+           2.5.8) let alone a thumb. Fixed on the class rather than on the
+           Upcoming rail that the review caught it in — the news cards use
+           the same button and had the same problem. */
+        .news-action { background: none; border: none; cursor: pointer; font-size: var(--font-size-12); color: var(--text-muted);
+          min-width: 44px; min-height: 44px; padding: 0 var(--space-8);
+          display: inline-flex; align-items: center; justify-content: center; }
         .news-action:hover { color: var(--text); }
         .news-action.red   { color: var(--red); }
         .news-action.green { color: var(--green); }
@@ -725,7 +731,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .cal-toolbar { display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-16); flex-wrap: wrap; }
         .cal-title   { font-size: var(--font-size-16); font-weight: 600; }
-        .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); }
+        /* P4: 20x32 on a desktop, so narrower than the 24px floor. The
+           drawer-breakpoint block already sized these for a thumb; there
+           was never a reason for the mouse version to be smaller than a
+           target you can reliably hit. */
+        .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); border-radius: var(--radius-sm);
+          min-width: 44px; min-height: 44px; padding: 0;
+          display: inline-flex; align-items: center; justify-content: center; }
         .cal-nav:hover { background: var(--card2); color: var(--text); }
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
         .cal-head { background: var(--sidebar-bg); padding: var(--space-12); text-align: center; font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); }

@@ -314,3 +314,93 @@ test.describe('admin settings', () => {
     }
   });
 });
+
+// The save bar on a phone.
+//
+// It was position: sticky inside .main, which had overflow-y: auto but no
+// height to scroll within — so .main grew to fit its content, the WINDOW
+// scrolled instead, and sticky had no scrollport to stick to. The bar sat
+// at the end of a 2700px page where nobody editing a field at the top
+// would ever see it. The fix was to stop .main pretending to scroll.
+//
+// This asserts the thing a person cares about: having changed something,
+// can they see how to save it without going looking.
+test.describe('the save bar is reachable', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  for (const width of [360, 768, 1440]) {
+    test(`${width}: Save is on screen as soon as the form is dirty`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
+      await loginAndOpenSettings(page);
+
+      await page.locator('#settings-academic-year').fill('2099-2100');
+      const save = bar(page).getByRole('button', { name: 'Save Changes' });
+      await expect(save).toBeVisible();
+
+      const box = await save.boundingBox();
+      expect(box.y, 'Save is above the top of the screen').toBeGreaterThanOrEqual(0);
+      expect(Math.round(box.y + box.height),
+        'Save is below the fold — the bar is not sticking').toBeLessThanOrEqual(800);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(width);
+
+      // And nothing is on top of it.
+      const at = await page.evaluate(([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        return `${el?.tagName}.${String(el?.className || '').slice(0, 30)}`;
+      }, [box.x + box.width / 2, box.y + box.height / 2]);
+      expect(at, 'something is covering Save').toContain('BUTTON');
+    });
+  }
+
+  test('360: the value survives a save and a reload', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    const row = await loginAndOpenSettings(page);
+    const original = row.school_year;
+
+    try {
+      await page.locator('#settings-academic-year').fill('2099-2100');
+      await bar(page).getByRole('button', { name: 'Save Changes' }).click();
+      await expect(bar(page)).toHaveCount(0);
+
+      const after = await reopenSettings(page);
+      expect(after.school_year, 'the year did not persist').toBe('2099-2100');
+      await expect(page.locator('#settings-academic-year')).toHaveValue('2099-2100');
+    } finally {
+      // Put the school's real year back whatever happened above.
+      await page.locator('#settings-academic-year').fill(original);
+      await bar(page).getByRole('button', { name: 'Save Changes' }).click();
+      await expect(bar(page)).toHaveCount(0);
+    }
+
+    const restored = await reopenSettings(page);
+    expect(restored.school_year, 'the original year was not restored').toBe(original);
+  });
+
+  // The bar floats over the page while scrolling, which is the point. What
+  // it must never do is come to rest on top of the last card: it is in
+  // normal flow, so its own height is already reserved at the end of the
+  // page and no extra padding is needed to keep it clear.
+  test('360: at the bottom of the page it clears the last card', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    const row = await loginAndOpenSettings(page);
+
+    await page.locator('#settings-academic-year').fill('2099-2100');
+    await expect(bar(page)).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(300);
+
+    const geom = await page.evaluate(() => {
+      const b = document.querySelector('.settings-savebar').getBoundingClientRect();
+      const last = [...document.querySelectorAll('.settings-section')].pop().getBoundingClientRect();
+      return { barTop: b.top, lastBottom: last.bottom };
+    });
+    expect(geom.lastBottom, 'the bar is sitting on the last card')
+      .toBeLessThanOrEqual(geom.barTop + 1);
+
+    await page.locator('#settings-academic-year').fill(row.school_year);
+  });
+});

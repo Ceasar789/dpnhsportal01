@@ -319,7 +319,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar-close:hover { color: var(--text); border-color: var(--text-muted); }
         .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px var(--overlay-sm); }
         .sidebar-logout { margin-top: auto; padding: var(--space-12) var(--space-8) 0; border-top: 1px solid var(--border); }
-        .main { flex: 1; padding: var(--space-24) var(--space-32); overflow-y: auto; }
+        .main { flex: 1; min-width: 0; padding: var(--space-24) var(--space-32); }
 
         .page-title { font-size: var(--font-size-24); font-weight: 700; color: var(--text); }
         .page-sub { color: var(--text-muted); font-size: var(--font-size-13); margin-top: var(--space-4); margin-bottom: var(--space-24); }
@@ -842,7 +842,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         /* UX-028: one bar for the page, not a button inside one card. It
            sticks to the bottom so it is reachable from any card without
            scrolling back to General. */
-        .settings-savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) var(--space-16); margin-top: var(--space-24); background: var(--card-bg); border: 1px solid var(--accent); border-radius: var(--radius-lg); box-shadow: 0 -6px 18px var(--overlay-lg); z-index: 5; }
+        .settings-savebar {
+          position: sticky;
+          bottom: var(--space-16);
+          display: flex; align-items: center; gap: var(--space-12);
+          padding: var(--space-12) var(--space-16);
+          margin-top: var(--space-24);
+          background: var(--card-bg);
+          border: 1px solid var(--accent);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 -6px 18px var(--overlay-lg);
+          z-index: 5;
+          /* Clear of the home indicator on a phone. */
+          margin-bottom: env(safe-area-inset-bottom, 0px);
+        }
         .settings-savebar-count { font-size: var(--font-size-13); font-weight: 700; }
         .settings-savebar-actions { margin-left: auto; display: flex; gap: var(--space-8); }
         /* A setting the system does not act on is a sentence, not a control. */

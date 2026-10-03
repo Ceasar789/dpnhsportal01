@@ -574,3 +574,84 @@ test.describe('the Upcoming rail', () => {
     expect(disagree, 'the rail and the agenda date the same event differently').toEqual([]);
   });
 });
+
+// V3, verified the way the review actually saw it: reached by Tab.
+//
+// The first pass compared the two fields after calling .focus() on each,
+// which is not how a person focuses anything. :focus-visible can match
+// for a keyboard-reached field and not for a programmatically focused
+// one, and that difference is the most likely reason one field rendered
+// rounded and the other square with BOTH focused.
+//
+// The fix does not depend on resolving that: border-radius: 2px is gone
+// from the rule, so a field keeps its own shape whether :focus-visible
+// matches or not. These assert exactly that, both ways round.
+test.describe('a keyboard-focused field keeps its shape', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  const tabTo = async (page, locator) => {
+    // Start from the top of the document so Tab walks the real order.
+    await page.locator('body').click({ position: { x: 2, y: 2 } });
+    for (let i = 0; i < 60; i++) {
+      await page.keyboard.press('Tab');
+      if (await locator.evaluate((el) => el === document.activeElement)) return true;
+    }
+    return false;
+  };
+
+  const shape = (locator) => locator.evaluate((el) => ({
+    radius: getComputedStyle(el).borderRadius,
+    focusVisible: el.matches(':focus-visible'),
+    focused: el === document.activeElement,
+  }));
+
+  test('360: Academic Year, reached by Tab, is rounded', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'System Settings');
+
+    const field = page.locator('#settings-academic-year');
+    expect(await tabTo(page, field), 'Tab never reached Academic Year').toBe(true);
+
+    const s = await shape(field);
+    expect(s.focused).toBe(true);
+    expect(parseFloat(s.radius), `square corners when focused (${s.radius})`).toBeGreaterThan(2);
+  });
+
+  test('360: Section Name, reached by Tab inside the sheet, is rounded', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'Sections');
+    await page.getByRole('button', { name: /Add Section/ }).first().click();
+    await expect(page.locator('.ux-modal').first()).toBeVisible();
+
+    const field = page.locator('[role=dialog] input').first();
+    // The dialog takes focus on open and traps it, so one Tab cycles
+    // within the sheet rather than walking the page.
+    for (let i = 0; i < 10; i++) {
+      if (await field.evaluate((el) => el === document.activeElement)) break;
+      await page.keyboard.press('Tab');
+    }
+    const s = await shape(field);
+    expect(s.focused, 'Tab never reached Section Name inside the sheet').toBe(true);
+    expect(parseFloat(s.radius), `square corners when focused (${s.radius})`).toBeGreaterThan(2);
+  });
+
+  test('both fields are the same shape, however focus arrived', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await loginAsAdmin(page);
+
+    await openAdminTab(page, 'System Settings');
+    const year = page.locator('#settings-academic-year');
+    await tabTo(page, year);
+    const byKeyboard = (await shape(year)).radius;
+    await year.focus();
+    const byScript = (await shape(year)).radius;
+
+    expect(byKeyboard, 'the shape depends on how focus arrived').toBe(byScript);
+    expect(parseFloat(byKeyboard)).toBeGreaterThan(2);
+  });
+});

@@ -44,26 +44,25 @@ export function formatDateTime(value, fallback = '—') {
 }
 
 /**
- * 5–9 Oct 2026 — a span of days, with the parts both ends share said once.
+ * A span of days, with the parts both ends share said once — "Oct 19 – 23,
+ * 2026", or "Dec 30, 2026 – Jan 2, 2027".
  *
  * The agenda repeats a multi-day event under every day it covers, so each
  * entry has to say what it is part of; without it a five-day exam week
  * reads as five unrelated events with the same name.
+ *
+ * Intl does the collapsing. The hand-rolled version this replaces decided
+ * which parts to drop by assuming day-month-year order, and rendered
+ * "19–Oct 23, 2026" the moment it met a runtime that orders them the other
+ * way — which is this one.
  */
 export function formatDateRange(start, end, fallback = '—') {
   const a = parse(start);
   const b = parse(end);
   if (!a) return fallback;
   if (!b || a.getTime() === b.getTime()) return formatDate(a, fallback);
-  // Hand them back in order, so a row entered end-first still reads forwards.
+  // In order, so a row stored end-first still reads forwards.
   const [from, to] = a <= b ? [a, b] : [b, a];
-
-  const sameYear = from.getFullYear() === to.getFullYear();
-  const sameMonth = sameYear && from.getMonth() === to.getMonth();
-  const head = sameMonth
-    ? from.toLocaleDateString(LOCALE, { day: 'numeric' })
-    : from.toLocaleDateString(LOCALE, sameYear
-      ? { day: 'numeric', month: 'short' }
-      : { day: 'numeric', month: 'short', year: 'numeric' });
-  return `${head}–${formatDate(to)}`;
+  return new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })
+    .formatRange(from, to);
 }

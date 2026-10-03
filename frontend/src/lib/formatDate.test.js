@@ -1,35 +1,40 @@
 // formatDateRange — the agenda repeats a multi-day event under every day it
 // covers, so each entry has to say what span it belongs to.
 //
-// These assert the SHAPE of the range rather than literal strings. The day,
-// month and year ordering comes from the runtime's locale data — this
-// repo's Node renders en-PH US-style, a browser does not — and pinning one
-// of those spellings would test the ICU build, not this function.
+// These assert what the range SAYS, not how the runtime spells it. Day,
+// month and year ordering comes from the locale data — this repo's Node
+// renders en-PH US-style — and pinning one spelling tests the ICU build.
+// It is also exactly the assumption that broke the first version of this
+// function, so the tests should not repeat it.
 import { describe, expect, it } from 'vitest';
 import { formatDate, formatDateRange } from './formatDate';
 
+const count = (haystack, needle) => haystack.split(needle).length - 1;
+
 describe('formatDateRange', () => {
-  it('ends with the full closing date', () => {
-    expect(formatDateRange('2026-10-05', '2026-10-09'))
-      .toBe(`5–${formatDate('2026-10-09')}`);
+  it('names both ends', () => {
+    const out = formatDateRange('2026-10-05', '2026-10-09');
+    expect(out).toMatch(/\b5\b/);
+    expect(out).toMatch(/\b9\b/);
   });
 
-  it('says a shared month once', () => {
-    // Only the day number survives on the left when both ends share a month.
-    const [head] = formatDateRange('2026-10-05', '2026-10-09').split('–');
-    expect(head).toBe('5');
+  it('says a shared month and year once', () => {
+    const out = formatDateRange('2026-10-05', '2026-10-09');
+    expect(count(out, 'Oct'), out).toBe(1);
+    expect(count(out, '2026'), out).toBe(1);
   });
 
-  it('keeps both months when they differ', () => {
-    const [head] = formatDateRange('2026-09-28', '2026-10-02').split('–');
-    expect(head).toMatch(/Sep/);
-    expect(head, 'the year is repeated inside one year').not.toMatch(/2026/);
+  it('names both months when they differ, and the year once', () => {
+    const out = formatDateRange('2026-09-28', '2026-10-02');
+    expect(count(out, 'Sep'), out).toBe(1);
+    expect(count(out, 'Oct'), out).toBe(1);
+    expect(count(out, '2026'), out).toBe(1);
   });
 
-  it('keeps both years when they differ', () => {
-    const [head] = formatDateRange('2026-12-30', '2027-01-02').split('–');
-    expect(head).toMatch(/Dec/);
-    expect(head).toMatch(/2026/);
+  it('names both years when they differ', () => {
+    const out = formatDateRange('2026-12-30', '2027-01-02');
+    expect(count(out, '2026'), out).toBe(1);
+    expect(count(out, '2027'), out).toBe(1);
   });
 
   it('is a single date when the span is one day', () => {

@@ -156,7 +156,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
   }, [sidebarOpen]);
   const [profileOpen, setProfileOpen] = useState(false);
   const { darkMode, page, setDarkMode, setPage, toast,
-    activeSettingsSub, scrollToSection, settings, deleteConfirm, setDeleteConfirm,
+    activeSettingsSub, scrollToSection, deleteConfirm, setDeleteConfirm,
     settingsDirty } = useAdminContext();
 
   // UX-028 — leaving System Settings with the save bar up throws the work

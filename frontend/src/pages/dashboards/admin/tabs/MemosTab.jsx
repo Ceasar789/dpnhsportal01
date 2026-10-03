@@ -15,7 +15,7 @@ const MemosTab = () => {
     closeModal, deleteMemo, editMemo, filteredMemos, mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos,
     memosLoading, modal, openCompose, openEditMemo, saveMemo, selMemo,
     setMBody, setMFrom, setMSubj, setMTo, setMemoFilter, setMemoSearch,
-    setSelMemo, stats, users
+    setSelMemo, users
   } = useAdminContext();
 
   // 7D. Both of these lists used to be hardcoded, twice over, and the

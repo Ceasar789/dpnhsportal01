@@ -339,7 +339,6 @@ export const useAdminLogic = (userData) => {
       const { data: adminSessionData } = await supabase.auth.getSession();
       const adminAccessToken  = adminSessionData?.session?.access_token;
       const adminRefreshToken = adminSessionData?.session?.refresh_token;
-      const adminUid          = adminSessionData?.session?.user?.id;
 
       if (!adminAccessToken || !adminRefreshToken) {
         throw new Error('Admin session not available - please refresh and try again');

@@ -436,33 +436,45 @@ assignments"` on Teaching Load — and a visible `title` to match. It is
 text rather than layout, so it fits Phase 5 if wanted; it is listed
 here rather than done because the review said report first.
 
-## Open question: Overview's counts disagree with the tabs
+## Withdrawn: Overview's counts did NOT disagree with the tabs
 
-Found while shooting Phase 5 batch 2, not chased further because it is
-a data question inside a visual batch.
+Reported during Phase 5 batch 2 as a real discrepancy — Overview
+showing "Published News 4" and "Memos Sent 2" while both tabs showed
+zero. **That conclusion was wrong, and the way it was reached is the
+lesson.**
 
-| Screen | Says |
-|---|---|
-| Overview stat card | Published News **4** |
-| News Management footer | **0** total posts · 0 published · 0 drafts · 0 archived |
-| Overview stat card | Memos Sent **2** |
-| Memos tab | **0** Total · 0 Faculty · 0 Students |
-
-Not a render race — the News footer still reads 0 after a four-second
-wait. The two requests were captured:
+Re-measured afterwards, with the count header and the list request read
+in the same run:
 
 ```
-GET /rest/v1/news?select=*&order=created_at.desc            200  []
-GET /rest/v1/news?select=*&status=eq.Published&or=(...)     200  (count response)
+HEAD /rest/v1/news?select=*&status=eq.Published&or=(...)   content-range: */0
+GET  /rest/v1/news?select=*&order=created_at.desc          []
+cards: Published News 0 · Memos Sent 0
 ```
 
-The **unfiltered** list returns an empty array. A filtered query cannot
-return more rows than an unfiltered one over the same table under the
-same policy, so the table really is empty and the Overview's 4 is
-coming from somewhere else — most likely a count request whose result
-is being read wrongly, or a stat that is never reset.
+Everything agrees. `fetchStats` reads `count: 'exact', head: true` from
+the same tables the tabs list, `stats` starts at zero, and a failed
+count keeps its previous value rather than inventing one. There was
+never a second source.
 
-Worth settling with the other count/collation work in **Phase 7**: a
-dashboard whose headline number disagrees with the page it links to is
-the same class of problem as a save that reports success without
-writing.
+**What actually happened** is that two observations taken at different
+times were compared as if they were simultaneous:
+
+1. The batch-2 screenshots caught the News and Memos **lists before
+   they had loaded** — the shot harness waits 500ms after opening a
+   tab, while Overview's counts had been fetched much earlier during
+   login. So "Overview 4, tab 0" in one image was a render race, not a
+   contradiction.
+2. The follow-up probe that waited four seconds and still read 0 ran
+   **after the rows had been deleted**, which made the race look
+   confirmed.
+
+The four-second wait felt like it ruled out a race, and it did — for
+the second observation. It said nothing about the first, which is the
+one the claim rested on. Two sound measurements, one unsound
+comparison.
+
+Nothing to fix here. Kept rather than deleted because the failure mode
+is worth recognising: when a screenshot and a probe disagree, the
+cheapest explanation is usually that they are describing different
+moments.

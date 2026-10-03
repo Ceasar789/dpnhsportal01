@@ -260,9 +260,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            itself broke across lines at 360 - "2026-" on one, "2027" on the
            next - because the hyphen is a legal break point. */
         .page-sub-seg { white-space: nowrap; }
-        .page-header-bar { border-radius: var(--radius-lg); padding: var(--space-16) var(--space-16); margin-bottom: var(--space-24); background: var(--banner-bg); border: 1px solid var(--banner-border); }
-        .page-header-bar .page-title { color: var(--banner-text); }
-        .page-header-bar .page-sub { color: var(--banner-subtext); margin-bottom: 0; }
+        /* D1. This was a tinted, bordered panel - a lavender-to-blue
+           gradient in light mode - wrapped around nothing but a heading and
+           one line of text, on nine of the ten tabs. Overview never used it,
+           which is why Overview's header already read correctly and the
+           other nine did not. A heading does not need a container to be a
+           heading. */
+        .page-header-bar { margin-bottom: var(--space-24); }
+        .page-header-bar .page-sub { margin-bottom: 0; }
         .btn { padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); border: none; cursor: pointer; font-size: var(--font-size-13); font-weight: 600; transition: all var(--motion-base); display: inline-flex; align-items: center; gap: var(--space-8); }
         .btn-primary { background: var(--accent); color: var(--on-accent); }
         .btn-primary:hover { background: var(--accent-hover); }
@@ -298,6 +303,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
         .dot-green { background: var(--green); }
         .dot-red { background: var(--red); }
+        /* Offline is not a fault. 123 of 123 users showed a red badge and a
+           red dot for being signed out, which is the normal state of almost
+           everyone almost always - so the one colour reserved for "something
+           is wrong" was carrying no information at all. */
+        .dot-neutral { background: var(--text-dim); }
         .dot-gray  { background: #4b5563; }
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: var(--space-12) var(--space-16); font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }

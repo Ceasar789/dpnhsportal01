@@ -275,6 +275,7 @@ present in BOTH sides, so none was introduced by the token work.
 | **High** | System Settings at 360 | `.settings-input-row` keeps label and control side by side, which squeezes the hints into a narrow column — the Academic Year hint runs to six lines. Rule X4: stack label above control on mobile. |
 | **High** | User Management at 360 | The full 123-row table renders at mobile width with tiny text. Rules R1/R2: the two-line row treatment. |
 | **High** | Subjects and Sections at 360 | Both tables overflow their card. Measured either side of Phase 4d: 57 elements already painted past the right edge at 360 before the spacing scale, and rounding widened two of them - Subjects now clips by 17px where it did not, and the Sections delete icon pokes 5-12px out of a table that was already 48px too wide. The rounding was kept: un-rounding table cell padding alone would leave 10px inside tables and 12px everywhere else, and would not help a table 332px too wide. Same R1/R2 treatment as User Management. |
+| **High** | Teaching Load at 360 | The whole builder overflows the right edge: the teacher picker and its search box, the department label beside each name, the subject select, the Add-to-list row and the "Nothing is saved until you press Assign below" hint are all cut off. The bulk-grid is two columns down to 860px and never stacks for a phone. |
 | Medium | Overview at 360 | The four stat cards stack as four tall cards. A 2×2 grid would halve the scroll. |
 
 ## Phase 5: restyle items from the 4c review
@@ -396,3 +397,41 @@ If one of these starts failing *reproducibly*, it is no longer a flake.
 | Date | Test | Seen |
 |---|---|---|
 | Phase 5, step 1 | `admin-modal.spec.js` · "the destructive confirm button uses the named variant" | Failed once in an 8-spec admin run; passed alone and twice more across the whole spec (21/21 each). |
+
+## The grade-tab badge counts two different things
+
+Asked during Phase 5 batch 1: Schedules shows Grade 7 (8) and Grades
+8-12 (0), while Sections has a section in every grade. Measured, by
+reading the rows the page fetched rather than the code alone:
+
+```
+SCHEDULES badges        Grade 7 8 · Grade 8 0 · 9 0 · 10 0 · 11 0 · 12 0
+sections per grade      one in every grade, six in total
+schedule rows per grade Grade 7: 8 — and nothing anywhere else
+TEACHING LOAD badges    8 in every grade
+teacher_subjects rows   48, eight per grade
+```
+
+**The zeros are correct and not a bug.** The Schedules badge counts
+rows in `schedules` — scheduled periods — not sections. There really
+are eight scheduled periods in Grade 7 and none in any other grade. A
+section existing does not mean a timetable exists for it.
+
+**What is wrong is that the badge never says so.** `GradeTabs` is one
+component used by two tabs, and it counts a different thing in each:
+
+| Tab | What the badge counts | Source |
+|---|---|---|
+| Schedules | scheduled periods | `schedules` rows whose section is in that grade |
+| Teaching Load | teacher-subject assignments | `teacher_subjects` rows for that grade |
+
+Same component, same pill, two meanings, neither stated. An admin who
+has just created a section in every grade reads "Grade 8 0" as "my
+section is missing", which is exactly what happened here.
+
+**Proposed, not done** (reported for a decision): give the pill an
+accessible name that carries the unit — `aria-label="Grade 8, 0
+scheduled periods"` on Schedules and `"Grade 8, 0 teaching
+assignments"` on Teaching Load — and a visible `title` to match. It is
+text rather than layout, so it fits Phase 5 if wanted; it is listed
+here rather than done because the review said report first.

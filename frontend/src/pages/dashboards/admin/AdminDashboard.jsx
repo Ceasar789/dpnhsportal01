@@ -300,6 +300,19 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .btn-sm { padding: var(--space-4) var(--space-12); font-size: var(--font-size-12); }
         input, select, textarea { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-md); padding: var(--space-8) var(--space-12); font-size: var(--font-size-13); outline: none; }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+        /* A field nobody can edit must not look like one that can. These
+           carried the same white surface and square border as every live
+           input, so Portal Name read as editable and simply refused to
+           take a keystroke. The recessed surface, muted text and
+           not-allowed cursor say it before the click does. */
+        input:disabled, select:disabled, textarea:disabled,
+        input[readonly], textarea[readonly] {
+          background: var(--card2);
+          color: var(--text-muted);
+          border-color: var(--border);
+          cursor: not-allowed;
+          opacity: 1;
+        }
         select { appearance: none; cursor: pointer; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); }
         .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-12); font-weight: 700; flex-shrink: 0; color: var(--on-accent); }

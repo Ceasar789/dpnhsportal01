@@ -926,7 +926,17 @@ export const useAdminLogic = (userData) => {
   // claiming unsaved work that does not exist.
   const [settingsBaseline, setSettingsBaseline] = useState(null);
 
+  // UX-047 again, in the one place Phase 3a did not reach. Both history
+  // panels render "No … yet" from an empty array, and the array is empty
+  // until the read lands — so for the ~100ms after the Settings tab first
+  // opens, the page states as fact that there are no backups. Measured:
+  // the empty state is on screen at +2600ms and the response arrives at
+  // +2657ms. That is how a screenshot caught "No backup history yet" on a
+  // database holding ten records.
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
   const fetchSettings = useCallback(async () => {
+    setSettingsLoading(true);
     try {
       const { data, error } = await withRetry(
         () => supabase.from('school_settings').select('*').eq('id', 1).single(),
@@ -989,6 +999,8 @@ export const useAdminLogic = (userData) => {
       setLanguage('English');
       setAutoSave(false);
       setSettingsBaseline({ ...SETTINGS_DEFAULTS, session_timeout: '30 min' });
+    } finally {
+      setSettingsLoading(false);
     }
   }, []);
 
@@ -1166,6 +1178,7 @@ export const useAdminLogic = (userData) => {
     setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
     stats, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     themePref, setThemePref, settingsDirty, settingsChangeCount, discardSettings,
+    settingsLoading,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading,

@@ -28,6 +28,7 @@
 // ============================================
 
 import React, { useEffect } from 'react';
+import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import Button from '../../../../components/ui/Button';
 import { useAdminContext } from '../AdminContext';
 import { formatDateTime } from '../../../../lib/formatDate';
@@ -38,8 +39,13 @@ const SettingsTab = () => {
     saveSettings, sessionTimeout, setSessionTimeout,
     setSettings, settings, settingsSaving,
     settingsDirty, settingsChangeCount, discardSettings,
-    themePref, setThemePref,
+    themePref, setThemePref, settingsLoading,
   } = useAdminContext();
+
+  // The 300ms rule, as everywhere else: a read that returns quickly shows
+  // no spinner at all, and a slow one says it is working rather than
+  // claiming there is nothing to show.
+  const slowSettings = useDelayedFlag(settingsLoading);
 
   // The sidebar guard covers leaving the page. This covers leaving the tab.
   useEffect(() => {
@@ -164,13 +170,17 @@ const SettingsTab = () => {
           <div className="settings-history">
             <div className="settings-label">Backup History</div>
             <div className="settings-hint">Scheduled backup records will appear here with date and time.</div>
-            {backupHistory.length === 0 && <div className="settings-history-empty">No backup history yet.</div>}
+            {settingsLoading
+              ? <div className="settings-history-empty">{slowSettings ? 'Loading backup history…' : ''}</div>
+              : backupHistory.length === 0 && <div className="settings-history-empty">No backup history yet.</div>}
             {backupHistory.map(backup => <div className="settings-history-item" key={backup.id}>{formatDateTime(backup.started_at)} · {backup.status}</div>)}
           </div>
           <div className="settings-history">
             <div className="settings-label">Activity Log History</div>
             <div className="settings-hint">Recent admin activity.</div>
-            {activityLogs.length === 0 && <div className="settings-history-empty">No activity logs yet.</div>}
+            {settingsLoading
+              ? <div className="settings-history-empty">{slowSettings ? 'Loading activity…' : ''}</div>
+              : activityLogs.length === 0 && <div className="settings-history-empty">No activity logs yet.</div>}
             {activityLogs.map(log => <div className="settings-history-item" key={log.id}>{log.action} · {formatDateTime(log.created_at)}</div>)}
           </div>
         </div>

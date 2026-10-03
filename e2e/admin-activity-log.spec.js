@@ -11,7 +11,7 @@
 // render it. Any one of the three on its own would have passed during the
 // whole period the feature was broken.
 import { test, expect } from '@playwright/test';
-import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
+import { ADMIN_SKIP_REASON, WRITE_SKIP_REASON, allowWrites, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
 
 const URL = process.env.VITE_SUPABASE_URL;
 const ANON = process.env.VITE_SUPABASE_ANON_KEY;
@@ -48,11 +48,21 @@ test.describe('the activity log records what happened', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
 
   test('an action reaches the database and both panels', async ({ page, request }) => {
+    // This one cannot be faked: an intercepted insert would test the mock.
+    // It appends to the real audit log, which has no DELETE policy and so
+    // cannot be swept afterwards — correct for an audit table, and the
+    // reason this is opt-in.
+    test.skip(!allowWrites, WRITE_SKIP_REASON);
     test.setTimeout(180_000);
     await loginAsAdmin(page);
     const token = await adminToken(request);
 
+    // Identity, not length: the read is capped at `limit`, so once the
+    // table holds that many rows the count stops growing and a
+    // length comparison can never pass. It cost a false failure the
+    // first time the table reached ten rows.
     const before = await serverRows(request, token);
+    const beforeIds = new Set(before.map((r) => r.id));
 
     // A real action, through the real UI: save Settings. Academic Year is
     // put back at the end, so the only lasting change is the audit row —
@@ -67,15 +77,18 @@ test.describe('the activity log records what happened', () => {
       await page.locator('.settings-savebar').getByRole('button', { name: 'Save Changes' }).click();
       await expect(page.locator('.settings-savebar')).toHaveCount(0, { timeout: 15_000 });
 
-      // 1. The server has a new row, attributed to this user.
-      await expect.poll(async () => (await serverRows(request, token)).length, {
+      // 1. The server has a row that was not there before.
+      await expect.poll(async () => {
+        const rows = await serverRows(request, token);
+        return rows.filter((r) => !beforeIds.has(r.id)).length;
+      }, {
         message: 'no activity row reached the database',
         timeout: 20_000,
-      }).toBeGreaterThan(before.length);
+      }).toBeGreaterThan(0);
 
       const after = await serverRows(request, token);
-      const fresh = after[0];
-      expect(fresh.action, 'the newest row is not the save we just made').toBe('Updated settings');
+      const fresh = after.find((r) => !beforeIds.has(r.id));
+      expect(fresh.action, 'the new row is not the save we just made').toBe('Updated settings');
       expect(fresh.user_id, 'the row is not attributed to the signed-in admin').toBeTruthy();
 
       // 2. Overview renders it, with an actor and a time.

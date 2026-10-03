@@ -17,24 +17,38 @@
 export const ACTIVITY_SELECT =
   'id, action, description, created_at, user_id, profiles(name, status)';
 
-/** What to call an actor whose profile is gone or archived. */
+/** What to call an actor whose profile no longer exists at all. */
 export const FORMER_USER = 'Former user';
 
 /**
  * One row, in the shape the Overview and Settings panels render.
  *
- * Deleting or archiving a person must never delete the record of what
- * they did, so a row with no readable actor keeps everything else and
- * names the actor "Former user" rather than rendering a blank byline.
+ * Removing a person must never remove the record of what they did, so a
+ * row whose actor cannot be named keeps everything else and says so.
+ *
+ * Archived is NOT the same as deleted, and the distinction matters on an
+ * audit trail. An archived profile still has a name, and replacing it
+ * with "Former user" would throw away the one fact the row exists to
+ * record. It is shown, marked, so a reader knows the account is no
+ * longer active: "Jane Cruz (archived)".
+ *
+ * "Former user" is reserved for a profile that is genuinely gone — the
+ * FK is ON DELETE SET NULL, so user_id becomes null and there is nothing
+ * left to read a name from.
  */
 export function toActivityRow(log) {
   const who = log?.profiles;
-  const gone = !who || who.status === 'archived' || !who.name;
+  const name = who?.name;
+  let actorName;
+  if (!name) actorName = FORMER_USER;
+  else if (who.status === 'archived') actorName = `${name} (archived)`;
+  else actorName = name;
+
   return {
     id: log?.id,
     action: log?.action ?? '',
     message: log?.description || '',
-    actorName: gone ? FORMER_USER : who.name,
+    actorName,
     created_at: log?.created_at,
   };
 }

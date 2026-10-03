@@ -23,13 +23,23 @@ describe('toActivityRow', () => {
     expect(toActivityRow(row({ profiles: null })).actorName).toBe(FORMER_USER);
   });
 
-  it('says Former user when the profile is archived', () => {
+  it('keeps an archived actor name, and marks it', () => {
+    // Archived is not deleted. The name is still known, and an audit
+    // trail that forgets who did something is worse than one that says
+    // the account is no longer active.
     expect(toActivityRow(row({ profiles: { name: 'Jane Cruz', status: 'archived' } })).actorName)
-      .toBe(FORMER_USER);
+      .toBe('Jane Cruz (archived)');
+  });
+
+  it('does not mark an active actor', () => {
+    expect(toActivityRow(row()).actorName).not.toMatch(/archived/);
   });
 
   it('says Former user rather than blank when the name is empty', () => {
     expect(toActivityRow(row({ profiles: { name: '', status: 'active' } })).actorName)
+      .toBe(FORMER_USER);
+    // Including an archived profile with no name: there is nothing to mark.
+    expect(toActivityRow(row({ profiles: { name: '', status: 'archived' } })).actorName)
       .toBe(FORMER_USER);
   });
 

@@ -6,7 +6,7 @@
 // honesty: the settings nothing reads are no longer controls, so the page
 // cannot promise behaviour the system does not have.
 import { test, expect } from '@playwright/test';
-import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
+import { ADMIN_SKIP_REASON, WRITE_SKIP_REASON, allowWrites, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
 
 const TIMEOUTS = ['15 min', '30 min', '1 hour', '2 hours'];
 const QUARTERS = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
@@ -71,6 +71,7 @@ test.describe('admin settings', () => {
   // test asserts the thing it always wanted to: the value comes back after
   // a reload.
   test('a change in the Security card raises the bar, and Save persists it', async ({ page }) => {
+    test.skip(!allowWrites, WRITE_SKIP_REASON);
     await loginAndOpenSettings(page);
 
     // Nothing is claimed on a page nobody has touched.
@@ -79,27 +80,33 @@ test.describe('admin settings', () => {
     const original = await timeout(page).inputValue();
     const next = TIMEOUTS.find((t) => t !== original);
 
-    // Session Timeout lives in Security; the old Save button was in
-    // General, four cards away. That distance is what UX-028 was about.
-    await timeout(page).selectOption(next);
-    await expect(bar(page)).toBeVisible();
-    await expect(bar(page)).toContainText('1 unsaved change');
+    try {
+      // Session Timeout lives in Security; the old Save button was in
+      // General, four cards away. That distance is what UX-028 was about.
+      await timeout(page).selectOption(next);
+      await expect(bar(page)).toBeVisible();
+      await expect(bar(page)).toContainText('1 unsaved change');
 
-    await expect(bar(page)).toBeVisible();
-    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
-    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+      await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+      await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
 
-    // Persisted means it survives a reload, not that a toast appeared.
-    await reopenSettings(page);
-    await expect(timeout(page)).toHaveValue(next);
-
-    // Put the row back the way it was found — this one is enforced, and
-    // leaving the suite's choice behind would change how the real portal
-    // behaves.
-    await timeout(page).selectOption(original);
-    await expect(bar(page)).toBeVisible();
-    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
-    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+      // Persisted means it survives a reload, not that a toast appeared.
+      await reopenSettings(page);
+      await expect(timeout(page)).toHaveValue(next);
+    } finally {
+      // In a finally, and back to the value READ AT THE START — not a
+      // hardcoded one. Without this, a failure between the save and the
+      // restore left the suite's choice enforced on the real portal, and
+      // that is very likely how the live value drifted from 30 min to
+      // 15 min during the batch C red run.
+      await openAdminTab(page, 'System Settings');
+      await timeout(page).selectOption(original);
+      if (await bar(page).count()) {
+        await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+        await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+      }
+      await expect(timeout(page)).toHaveValue(original);
+    }
   });
 
   // Academic Year and Quarter read and write school_year and
@@ -107,6 +114,7 @@ test.describe('admin settings', () => {
   // is the interesting one: the column is an INT and the UI offers four
   // quarters, so the round trip goes through a number and back.
   test('Academic Year and Quarter round-trip through the real columns', async ({ page }) => {
+    test.skip(!allowWrites, WRITE_SKIP_REASON);
     const sent = [];
     await page.route('**/rest/v1/school_settings**', async (route) => {
       if (route.request().method() === 'PATCH') sent.push(route.request().postDataJSON());
@@ -119,26 +127,32 @@ test.describe('admin settings', () => {
     const loaded = await quarter.inputValue();
     const next = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].find((q) => q !== loaded);
 
-    await quarter.selectOption(next);
-    await expect(bar(page)).toBeVisible();
-    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
-    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+    try {
+      await quarter.selectOption(next);
+      await expect(bar(page)).toBeVisible();
+      await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+      await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
 
-    // The write names the real columns, and none of the six that are not.
-    expect(Object.keys(sent[0]).sort()).toEqual([
-      'activity_logs_retention', 'auto_backup', 'backup_frequency', 'backup_time',
-      'current_semester', 'email_notifications', 'login_attempt_limit',
-      'school_year', 'session_timeout', 'two_factor_auth', 'updated_at',
-    ]);
-    expect(sent[0].current_semester).toBe(['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].indexOf(next) + 1);
+      // The write names the real columns, and none of the six that are not.
+      expect(Object.keys(sent[0]).sort()).toEqual([
+        'activity_logs_retention', 'auto_backup', 'backup_frequency', 'backup_time',
+        'current_semester', 'email_notifications', 'login_attempt_limit',
+        'school_year', 'session_timeout', 'two_factor_auth', 'updated_at',
+      ]);
+      expect(sent[0].current_semester).toBe(['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].indexOf(next) + 1);
 
-    await reopenSettings(page);
-    await expect(page.locator('#settings-quarter')).toHaveValue(next);
-
-    await page.locator('#settings-quarter').selectOption(loaded);
-    await expect(bar(page)).toBeVisible();
-    await bar(page).getByRole('button', { name: /Save Changes/ }).click();
-    await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+      await reopenSettings(page);
+      await expect(page.locator('#settings-quarter')).toHaveValue(next);
+    } finally {
+      // Back to the quarter that was loaded, whatever happened above.
+      await openAdminTab(page, 'System Settings');
+      await page.locator('#settings-quarter').selectOption(loaded);
+      if (await bar(page).count()) {
+        await bar(page).getByRole('button', { name: /Save Changes/ }).click();
+        await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
+      }
+      await expect(page.locator('#settings-quarter')).toHaveValue(loaded);
+    }
   });
 
   // The Overview banner reads settings.academic_year and settings.semester,
@@ -355,6 +369,7 @@ test.describe('the save bar is reachable', () => {
   }
 
   test('360: the value survives a save and a reload', async ({ page }) => {
+    test.skip(!allowWrites, WRITE_SKIP_REASON);
     await page.setViewportSize({ width: 360, height: 800 });
     await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
     const row = await loginAndOpenSettings(page);

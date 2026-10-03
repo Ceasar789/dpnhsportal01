@@ -6,9 +6,20 @@
 //
 // These run against whatever database your .env points at. There is no test
 // instance, so that is your LIVE one. Every spec under e2e/ is therefore
-// READ-ONLY by design: it logs in, navigates and asserts, and never creates,
-// edits or deletes a row. The moment a spec needs to write, give it its own
-// Supabase project — do not let it write here.
+// READ-ONLY by default: it logs in, navigates and asserts, and never creates,
+// edits or deletes a row.
+//
+// Three tests cannot prove what they prove without a write — that a setting
+// survives a reload, and that an action reaches the audit log. Faking those
+// with an intercepted response tests the mock. They are skipped unless
+// E2E_ALLOW_WRITES=1 is set:
+//
+//   E2E_ALLOW_WRITES=1 npx playwright test
+//
+// Each restores what it changed in a finally. The audit rows cannot be
+// restored — an audit table has no DELETE policy, correctly — so an opted-in
+// run leaves them behind. The fix is a separate Supabase project for e2e;
+// see "Next infrastructure task" in docs/ux-workarounds.md.
 //
 // They need the seeded accounts from archives/phase4-03 and phase4-05, and
 // they need `npx playwright install chromium` once per machine.

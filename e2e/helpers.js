@@ -41,6 +41,29 @@ export const hasAdminCredentials = Boolean(ADMIN.email && ADMIN.password);
 export const ADMIN_SKIP_REASON =
   'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD in .env — the admin dashboard is untested without them';
 
+// ── Specs that write to the database are opt-in ──────────────────────────
+//
+// There is no test instance: these run against the live school database,
+// and playwright.config.js says plainly that every spec is read-only by
+// design. Two specs now need to write to prove what they prove — that a
+// setting persists a reload, and that an action reaches the audit log —
+// and neither can be faked with an intercepted response without testing
+// the mock instead of the feature.
+//
+// So they are gated. A default run touches nothing. A deliberate
+// E2E_ALLOW_WRITES=1 run exercises them, restores what it changed, and
+// appends to the real audit log, which is the one thing that cannot be
+// undone — an audit table has no DELETE policy, correctly.
+//
+//   E2E_ALLOW_WRITES=1 npx playwright test
+//
+// The target is a separate Supabase project for e2e; until that exists
+// this flag is what keeps a routine run off the school's data.
+export const allowWrites = process.env.E2E_ALLOW_WRITES === '1';
+
+export const WRITE_SKIP_REASON =
+  'writes to the live database — set E2E_ALLOW_WRITES=1 to run it';
+
 // The two login screens are separate routes with separate forms: students go
 // through /student-login, everybody else through /faculty-login.
 export const STUDENT_LOGIN = '/student-login';

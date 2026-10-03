@@ -923,3 +923,69 @@ closed. Logged, not fixed.
 
 None of these blocks anything. L3 is the one with a real behavioural
 edge: on a day when nothing starts, the agenda has no way to say "today".
+
+## Next infrastructure task: a separate Supabase project for e2e
+
+`playwright.config.js` has always said it: *"These run against whatever
+database your .env points at. There is no test instance, so that is your
+LIVE one… The moment a spec needs a write, give it its own Supabase
+project — do not let it write here."*
+
+Two specs now need writes to prove what they prove, so that moment has
+arrived. Until the project exists they are gated behind
+`E2E_ALLOW_WRITES=1` (see below), which keeps a routine run off the
+school's data but does not solve the problem — an opted-in run still
+writes to the real database.
+
+### What writes today, and what it touches
+
+| Spec | Test | Writes |
+| --- | --- | --- |
+| `admin-settings.spec.js` | Save persists it | `school_settings.session_timeout`, `.updated_at` |
+| `admin-settings.spec.js` | Year and Quarter round-trip | `school_settings.current_semester`, `.updated_at` |
+| `admin-settings.spec.js` | 360: value survives a save and a reload | `school_settings.school_year`, `.updated_at` |
+| `admin-activity-log.spec.js` | an action reaches the database | `school_settings.school_year`, `.updated_at`, **and appends to `activity_logs`** |
+
+All three `school_settings` values are restored in a `finally`, to the
+value read at the start of the test. The `activity_logs` rows are not
+removed and cannot be: the table has no DELETE policy, which is correct
+for an audit trail.
+
+Every other spec that looks like it writes does not. `admin-double-click`
+intercepts each POST and answers 201; `admin-modal` intercepts signup
+with a 500; `admin-forms` submits deliberately empty forms that fail
+validation before any request, and aborts the one signup it triggers.
+
+### What the separate project needs
+
+1. **The project itself**, on the same Postgres version, with the schema
+   applied from `backend/database/schema/COMPLETE_DATABASE_SCHEMA_v2.sql`
+   — the file the live database actually matches — plus every migration
+   in `backend/database/migrations/` in order, including
+   `phase7-01-activity-logs-rls-record.sql`.
+2. **A seed script.** The suite needs the accounts from
+   `backend/database/seeds/phase4-03-seed-test-students.sql` and
+   `phase4-05-seed-test-teachers-by-grade.sql`, one `main_admin` for
+   `E2E_ADMIN_EMAIL`, a `school_settings` row with id 1, and enough
+   news, memos and calendar events that the data-conditional skips do
+   not fire. Several specs currently skip when a month has no events.
+3. **Env files.** A `.env.e2e` holding `VITE_SUPABASE_URL`,
+   `VITE_SUPABASE_ANON_KEY`, `E2E_ADMIN_EMAIL` and
+   `E2E_ADMIN_PASSWORD` for the test project, gitignored like the rest.
+4. **Config changes.** `playwright.config.js` parses `.env`,
+   `frontend/.env` and `backend/.env` by hand; it would read `.env.e2e`
+   first when present. The dev server it starts (`npm run dev`) reads
+   `frontend/.env` through Vite, so the webServer needs those variables
+   passed through its own `env` block — otherwise the browser talks to
+   the live project while the test's REST calls talk to the test one,
+   which is worse than either.
+5. **Drop the gate.** Once the suite cannot reach the school's data,
+   `E2E_ALLOW_WRITES` and its skips come out, and the config header's
+   rule is true again rather than aspirational.
+
+### Why not just clean up after each run
+
+Considered and rejected for `activity_logs`: a sweep needs a DELETE
+policy on an audit table, or a service-role key in the test environment.
+Adding either to make the tests tidier is a worse trade than keeping a
+handful of honest rows.

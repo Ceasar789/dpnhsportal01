@@ -167,3 +167,36 @@ test.describe('Settings dropdowns', () => {
     expect(box.width, 'the dropdown stretched across the card').toBeLessThan(row / 2);
   });
 });
+
+// P7 — a legend a reader can add up.
+test.describe('Role Distribution', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('the percentages total 100', async ({ page }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'Overview');
+
+    // The pie renders a grey placeholder while the counts are in flight,
+    // and an empty legend adds up to 0 without anything being wrong.
+    await expect(page.locator('.role-legend-item').first()).toBeVisible();
+    const shown = await page.locator('.role-legend-item strong').allTextContents();
+    const total = shown.reduce((sum, t) => sum + Number(t.replace('%', '')), 0);
+    expect(total, `the legend reads ${shown.join(' ')}`).toBe(100);
+  });
+
+  test('the bars and the pie use the same numbers as the legend', async ({ page }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'Overview');
+
+    await expect(page.locator('.role-legend-item').first()).toBeVisible();
+    const legend = (await page.locator('.role-legend-item strong').allTextContents())
+      .map((t) => Number(t.replace('%', '')));
+    const bars = await page.locator('.role-fill').evaluateAll((els) =>
+      els.map((el) => Number(el.style.width.replace('%', ''))));
+    expect(bars).toEqual(legend);
+
+    // The pie's last stop closes the circle rather than stopping at 98%.
+    const stops = await page.locator('.role-pie').evaluate((el) => el.style.background);
+    expect(stops, `pie: ${stops}`).toContain('100%');
+  });
+});

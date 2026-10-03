@@ -9,17 +9,22 @@ import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { roleLabel } from '../shared/helpers';
 import { Users, Newspaper, Calendar, FileText } from 'lucide-react';
 import { formatDateTime } from '../../../../lib/formatDate';
+import { wholePercents } from '../../../../lib/percentages';
 
 const OverviewTab = () => {
   const { activityLogs, overviewLoading, roleDist, setPage, settings, stats } = useAdminContext();
   const slowOverview = useDelayedFlag(overviewLoading);
   const roleColors = { student:'#3b82f6', teacher:'#22c55e', faculty:'#2dd4bf', registrar:'#f59e0b', main_admin:'#ef4444' };
-  const totalRoles = roleDist.reduce((total, { count }) => total + count, 0);
+  // P7: the legend read 58 25 9 5 5, which is 102. Each share was rounded
+  // on its own. One pass of largest-remainder gives the same five numbers
+  // a total of exactly 100, and the pie and the bars read off the same
+  // list so all three agree.
+  const rolePct = wholePercents(roleDist.map(({ count }) => count));
   let roleOffset = 0;
   const pieStops = roleDist.length
-    ? roleDist.map(({ role, count }) => {
+    ? roleDist.map(({ role }, i) => {
         const start = roleOffset;
-        roleOffset += (count / totalRoles) * 100;
+        roleOffset += rolePct[i];
         return `${roleColors[role] || '#94a3b8'} ${start}% ${roleOffset}%`;
       }).join(', ')
     : '#374151 0 100%';
@@ -117,18 +122,18 @@ const OverviewTab = () => {
                   <div className="role-overview">
                     <div className="role-pie" style={{ background: `conic-gradient(${pieStops})` }} aria-label="Role distribution chart" />
                     <div className="role-legend">
-                      {roleDist.map(({ role, count }) => (
+                      {roleDist.map(({ role }, i) => (
                         <div key={role} className="role-legend-item">
                           <span className="role-legend-dot" style={{ background: roleColors[role] || '#94a3b8' }} />
                           <span>{roleLabel(role)}</span>
-                          <strong>{totalRoles ? Math.round((count / totalRoles) * 100) : 0}%</strong>
+                          <strong>{rolePct[i]}%</strong>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div className="role-bar">
-                    {roleDist.map(({ role, count }) => {
-                      const pct   = totalRoles ? Math.round((count / totalRoles) * 100) : 0;
+                    {roleDist.map(({ role, count }, i) => {
+                      const pct   = rolePct[i];
                       const color = roleColors[role] || 'var(--text-muted)';
                       return (
                         <div key={role} className="role-row">

@@ -533,3 +533,44 @@ test.describe('the save bar covers what is behind it', () => {
     });
   }
 });
+
+// V5 — the rail and the agenda describe the same event the same way.
+test.describe('the Upcoming rail', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('gives a multi-day event its range, like the agenda does', async ({ page }) => {
+    await loginAsAdmin(page);
+
+    // The agenda is the phone view; read what it says for each event.
+    await page.setViewportSize({ width: 360, height: 780 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await openAdminTab(page, 'Calendar');
+    await expect(page.locator('.cal-agenda')).toBeVisible();
+    const spans = await page.locator('.cal-agenda-item').evaluateAll((els) => {
+      const out = {};
+      for (const el of els) {
+        const name = el.querySelector('.truncate-1')?.textContent.trim();
+        const range = el.querySelector('.cal-agenda-range')?.textContent.trim();
+        if (name && range) out[name] = range;
+      }
+      return out;
+    });
+    test.skip(Object.keys(spans).length === 0, 'no multi-day events this month');
+
+    // The rail is the desktop view; it must not disagree.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(1440);
+    await openAdminTab(page, 'Calendar');
+    const rail = await page.locator('.upcoming-item').evaluateAll((els) =>
+      els.map((el) => ({
+        name: el.children[0]?.textContent.trim(),
+        date: el.children[1]?.textContent.trim(),
+      })));
+
+    const disagree = rail
+      .filter((r) => spans[r.name])
+      .filter((r) => r.date !== spans[r.name])
+      .map((r) => `${r.name}: rail "${r.date}" vs agenda "${spans[r.name]}"`);
+    expect(disagree, 'the rail and the agenda date the same event differently').toEqual([]);
+  });
+});

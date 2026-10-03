@@ -161,7 +161,15 @@ const CalendarTab = () => {
                     : upcomingEvents.map((e, i) => (
                       <div key={i} className="upcoming-item" style={{ borderColor: typeColor(e.event_type) }}>
                         <div style={{ fontSize: 'var(--font-size-13)', fontWeight:600 }}>{e.title}</div>
-                        <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-muted)' }}>{formatDateLong(e.event_date)}</div>
+                        {/* V5: this said "October 3, 2026" for an event
+                            the agenda listed as "Oct 3 - 4, 2026". Same
+                            event, two different answers to how long it
+                            lasts. One formatter for both. */}
+                        <div style={{ fontSize: 'var(--font-size-12)', color:'var(--text-muted)' }}>
+                          {e.end_date && e.end_date !== e.event_date
+                            ? formatDateRange(e.event_date, e.end_date)
+                            : formatDateLong(e.event_date)}
+                        </div>
                         <div style={{ display:'flex', gap: 'var(--space-8)', marginTop: 'var(--space-4)' }}>
                           <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => openEditEvent(e)}>Edit</button>
                           <button className="news-action red" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => deleteEvent(e.id)}>Remove</button>

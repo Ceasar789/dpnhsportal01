@@ -24,6 +24,24 @@ const CalendarTab = () => {
   } = useAdminContext();
   const slowCal = useDelayedFlag(calLoading);
 
+  // CAL4. One rule for "what is on this day", used by both views, so the
+  // grid and the agenda can never disagree about a month.
+  const eventsOn = (ds) => calEvents.filter(e => {
+    if (calFilter && e.event_type !== calFilter) return false;
+    if (e.end_date) return ds >= e.event_date && ds <= e.end_date;
+    return e.event_date === ds;
+  });
+
+  // Only days that have something. An agenda of 31 empty headings is a
+  // worse month view than the grid it replaced.
+  const agendaDays = calGrid
+    .filter(cell => cell.cur)
+    .map(cell => {
+      const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(cell.d).padStart(2, '0')}`;
+      return { ds, day: cell.d, events: eventsOn(ds) };
+    })
+    .filter(entry => entry.events.length > 0);
+
   return (
     <>
             <div>
@@ -31,8 +49,8 @@ const CalendarTab = () => {
                 <div className="page-title">Calendar Management</div>
                 <div className="page-sub">Manage academic events, deadlines, and announcements</div>
               </div>
-              <div style={{ display:'flex', gap: 'var(--space-16)' }}>
-                <div style={{ flex:1 }}>
+              <div className="cal-layout">
+                <div className="cal-main">
                   <div className="cal-toolbar">
                     <button className="cal-nav" onClick={prevMonth}>‹</button>
                     <span className="cal-title">{MONTHS[calMonth]} {calYear}</span>
@@ -52,12 +70,7 @@ const CalendarTab = () => {
                     {calGrid.map((cell, i) => {
                       const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(cell.d).padStart(2,'0')}`;
                       const isToday = cell.cur && cell.d===today.getDate() && calMonth===today.getMonth() && calYear===today.getFullYear();
-                      const evs = calEvents.filter(e => {
-                        if (!cell.cur) return false;
-                        if (calFilter && e.event_type !== calFilter) return false;
-                        if (e.end_date) return ds >= e.event_date && ds <= e.end_date;
-                        return e.event_date === ds;
-                      });
+                      const evs = cell.cur ? eventsOn(ds) : [];
                       const dayOfWeek = cell.cur ? new Date(calYear, calMonth, cell.d).getDay() : -1;
                       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                       const hasHoliday = evs.some(event => event.event_type === 'Holiday');
@@ -80,6 +93,45 @@ const CalendarTab = () => {
                       );
                     })}
                   </div>
+                  {/* CAL4. Seven columns give a day 43px on a phone,
+                      which cannot hold a date and an event name. Below
+                      768 this list replaces the grid (CSS decides which
+                      one is shown, so neither view can go stale). */}
+                  <div className="cal-agenda">
+                    {calLoading ? (
+                      <div className="cal-agenda-empty">{slowCal ? 'Loading events…' : ''}</div>
+                    ) : agendaDays.length === 0 ? (
+                      <div className="cal-agenda-empty">
+                        {calFilter ? `No ${calFilter} events this month.` : 'No events this month.'}
+                      </div>
+                    ) : agendaDays.map(({ ds, day, events }) => {
+                      const isToday = day === today.getDate()
+                        && calMonth === today.getMonth() && calYear === today.getFullYear();
+                      return (
+                        <section className="cal-agenda-day" key={ds}>
+                          <h3 className="cal-agenda-date">
+                            {formatDateLong(ds)}
+                            {isToday && <span className="cal-agenda-today"> · Today</span>}
+                          </h3>
+                          <ul className="cal-agenda-list">
+                            {events.map((e, j) => (
+                              <li key={j}>
+                                <button
+                                  type="button"
+                                  className={`ux-unbutton cal-agenda-item ${typeClass(e.event_type)}`}
+                                  onClick={() => openEditEvent(e)}
+                                  aria-label={`Edit ${e.title}`}
+                                >
+                                  <span className="truncate-1" title={e.title}>{e.title}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      );
+                    })}
+                  </div>
+
                   <div className="legend">
                     {[['Event','#93c5fd'],['Deadline','#fcd34d'],['Holiday','#fca5a5'],['Other','#99f6e4']].map(([l,c]) => (
                       <div key={l} className="legend-item"><div className="legend-dot" style={{ background:c }}></div>{l}</div>

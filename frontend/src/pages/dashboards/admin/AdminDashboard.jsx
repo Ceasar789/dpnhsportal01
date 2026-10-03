@@ -336,7 +336,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .row-sheet-pair { display: grid; grid-template-columns: minmax(0, 7rem) minmax(0, 1fr); gap: var(--space-12); align-items: baseline; }
         .row-sheet-pair dt { color: var(--text-muted); font-size: var(--font-size-12); }
         .row-sheet-pair dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
-        .row-sheet-subtitle { color: var(--text-muted); font-size: var(--font-size-13); margin-bottom: var(--space-16); }
+        /* X7. Anything that can hold more than it can show is clipped with
+           an ellipsis rather than wrapping a table out of shape, and
+           carries its full value in a title so hover and focus can read
+           it. Applied by class, not globally: a cell that SHOULD wrap
+           (a memo body, a hint) must keep wrapping. */
+        .truncate-1 { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         /* The sheet's actions wrap as a group rather than breaking a label
            down the middle: "Class list" split over two lines inside one
            button reads as two controls. */
@@ -346,9 +351,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            sheet looks the same whatever its labels measure. Sections wrapped
            Close onto a line of its own while Users fitted on one - the
            layout was being decided by the length of the words. */
-        @media (max-width: 600px) {
+        @media (max-width: 767.98px) {
           .ux-modal-footer { flex-direction: column; align-items: stretch; }
           .ux-modal-footer .btn { width: 100%; }
+          /* B4 keeps the destructive action demoted - no border, no fill.
+             In a stack of bordered buttons that reads as a gap unless the
+             space is deliberate, so it gets its own. */
+          .ux-modal-footer .btn-danger { margin-top: var(--space-8); }
         }
         /* D1. This was a tinted, bordered panel - a lavender-to-blue
            gradient in light mode - wrapped around nothing but a heading and
@@ -424,6 +433,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: rgba(255,255,255,0.02); }
         .toolbar { display: flex; gap: var(--space-12); margin-bottom: var(--space-16); align-items: center; flex-wrap: wrap; }
+        /* A search box with flex:1 and a 280px max sat beside three
+           controls that would not shrink, so at 360 the row was wider than
+           the screen and the + New Post button fell off the end. Full
+           width and stacked instead. */
+        @media (max-width: 1023.98px) {
+          .toolbar > * { flex: 1 1 100%; max-width: 100%; min-width: 0; }
+          .toolbar > .btn { flex: 1 1 auto; }
+        }
         .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
         /* overflow-x: auto, not hidden. Hidden clipped every table wider
            than the screen, and a clipped table is not a cosmetic problem:
@@ -655,6 +672,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .role-fill  { height: 100%; border-radius: var(--radius-lg); }
         .role-label { font-size: var(--font-size-12); color: var(--text-muted); width: 110px; flex-shrink: 0; }
         .role-overview { display: flex; align-items: center; gap: var(--space-16); margin: var(--space-12) 0 var(--space-16); }
+        /* At 768 the legend stretched the full card, so the percentages
+           ended up an inch from the labels they belong to. The legend
+           stops growing and the bars stop with it. */
+        @media (min-width: 601px) and (max-width: 1023.98px) {
+          .role-legend { max-width: 22rem; }
+          .role-bar { max-width: 34rem; }
+        }
         .role-pie { width: 118px; height: 118px; border-radius: 50%; flex-shrink: 0; position: relative; }
         .role-pie::after { content: ''; position: absolute; inset: 25px; border-radius: 50%; background: var(--card-bg); }
         .role-legend { display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; flex: 1; }
@@ -729,7 +753,39 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         :root.dark .ev-red { background: #422a30; color: #fecaca; border-color: #874852; }
         :root.dark .ev-purple { background: #352d4d; color: #ddd6fe; border-color: #665497; }
         :root.dark .ev-teal { background: #1e3c3b; color: #b9f5ec; border-color: #3d7772; }
+        .cal-layout { display: flex; gap: var(--space-16); align-items: flex-start; }
+        .cal-main { flex: 1; min-width: 0; }
         .cal-sidebar { width: 200px; flex-shrink: 0; }
+        /* The Upcoming rail goes under the month on a phone. Beside it, a
+           fixed 200px rail left the agenda ~140px and pushed its own
+           event names off the right edge. */
+        @media (max-width: 767.98px) {
+          .cal-layout { flex-direction: column; }
+          .cal-sidebar { width: 100%; }
+        }
+
+        /* CAL4. Seven columns give a day 43px on a 360px screen, which is
+           not enough for a date and an event name. Below 768 the month
+           becomes a list grouped by day: only days that HAVE something are
+           shown, so the scroll is the month's content rather than its
+           empty cells. */
+        .cal-agenda { display: none; }
+        .cal-agenda-day { border-bottom: 1px solid var(--border); padding: var(--space-12) 0; }
+        .cal-agenda-day:last-child { border-bottom: none; }
+        .cal-agenda-date { font-size: var(--font-size-13); font-weight: 700; color: var(--text); margin: 0 0 var(--space-8); }
+        .cal-agenda-date .cal-agenda-today { color: var(--accent); }
+        .cal-agenda-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8); }
+        .cal-agenda-item { width: 100%; text-align: left; display: flex; align-items: center; gap: var(--space-8); min-height: 44px; padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); }
+        .cal-agenda-empty { color: var(--text-muted); font-size: var(--font-size-13); padding: var(--space-24) 0; }
+        @media (max-width: 767.98px) {
+          /* The grid goes; the legend stays. Agenda entries carry the
+             same type colours, so the key is MORE use here than beside a
+             grid. (It was in this hide rule and showing anyway: .legend's
+             own display:flex is declared later and won. Stating the
+             intent instead of leaving a rule that quietly loses.) */
+          .cal-grid { display: none; }
+          .cal-agenda { display: block; }
+        }
         .upcoming-item { padding: var(--space-12) 0; border-left: 3px solid; padding-left: var(--space-12); margin-bottom: var(--space-12); }
         .legend { display: flex; gap: var(--space-16); margin-top: var(--space-12); flex-wrap: wrap; }
         .legend-item { display: flex; align-items: center; gap: var(--space-8); font-size: var(--font-size-12); color: var(--text-muted); }
@@ -768,6 +824,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            card for it; a control that wide reads as "type a lot here". */
         .settings-input-row > div { flex: 1; max-width: 420px; }
         .settings-input-row > input, .settings-input-row > select { max-width: 420px; }
+        /* X4. Label above control below the drawer breakpoint. Side by
+           side, a 120px label column left the field and its hint sharing
+           what was left - the Academic Year hint ran to six lines. */
+        @media (max-width: 1023.98px) {
+          .settings-input-row { flex-direction: column; align-items: stretch; gap: var(--space-4); }
+          .settings-input-row > .settings-input-label { width: auto; }
+          .settings-input-row > div, .settings-input-row > input, .settings-input-row > select { max-width: 100%; }
+          /* The state rows stack too: a badge or a select pinned right of
+             a two-line label reads as belonging to the row below it. */
+          .settings-row { flex-direction: column; align-items: flex-start; gap: var(--space-8); }
+          .settings-row > select, .settings-row > input { width: 100%; }
+        }
         .settings-input-row:last-child { border-bottom: none; }
         .settings-input-label { font-size: var(--font-size-13); color: var(--text-muted); width: 120px; flex-shrink: 0; }
         .settings-save { display: flex; justify-content: flex-end; margin-top: var(--space-16); }
@@ -841,7 +909,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .cal-sidebar { width: auto; }
           .assign-bar { flex-direction: column; align-items: flex-start; gap: var(--space-12); }
           .news-actions { flex-wrap: wrap; }
-          .modal { width: min(440px, calc(100vw - 32px)); }
+          /* :not(.ux-modal) — this block is injected after index.css and
+             so wins at equal specificity, and it was capping the mobile
+             sheet at 100vw-32px: X6 full width, inset 16px on each side.
+             Anything not yet migrated to <Modal> keeps the old centred
+             card. */
+          .modal:not(.ux-modal) { width: min(440px, calc(100vw - 32px)); }
         }
         @media(max-width:600px) {
           nav { padding: 0 var(--space-16); }
@@ -861,6 +934,20 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .cal-head { padding: var(--space-8) var(--space-2); font-size: var(--font-size-12); }
           .cal-event { padding: var(--space-2) var(--space-4); font-size: var(--font-size-12); }
           .modal { padding: var(--space-16); }
+        }
+
+        /* RD4, and the second time this block has had to repeat what
+           index.css already says. index.css gives .ux-modal square bottom
+           corners on a sheet; this <style> is injected afterwards, so its
+           .modal border-radius won at equal specificity and the sheet kept
+           a 12px corner sitting on the screen edge.
+           Fighting specificity across two files for one component is
+           exactly workaround 2/3 in docs/ux-workarounds.md - the modal's
+           CSS living in two places - and this is the second rule that has
+           had to be written twice. Logged there; the fix is the move, not
+           another override. */
+        @media (max-width: 767.98px) {
+          .ux-modal { border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: none; }
         }
       `}</style>
 

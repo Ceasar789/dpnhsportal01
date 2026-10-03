@@ -268,8 +268,11 @@ PURPOSE: Global styles + Tailwind directives
   margin-top: var(--space-16);
 }
 
-/* RD4: an edge touching the screen edge has no radius. */
-@media (max-width: 600px) {
+/* RD4: an edge touching the screen edge has no radius.
+   767.98, not 600: a phone held sideways is 667-844px wide and was
+   getting a centred dialog floating in the middle of the screen. Above
+   this a dialog has room to be a dialog. */
+@media (max-width: 767.98px) {
   .modal-overlay:has(.ux-modal) {
     align-items: flex-end;
   }

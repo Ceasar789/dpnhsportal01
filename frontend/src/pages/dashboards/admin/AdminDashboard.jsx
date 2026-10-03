@@ -7,7 +7,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
+import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
@@ -306,6 +306,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sidebar-sub { padding: var(--space-8) var(--space-24) var(--space-8) var(--space-32); cursor: pointer; color: var(--text-dim); font-size: var(--font-size-12); transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
         .sidebar-sub:hover { color: var(--text-muted); }
         .sidebar-sub.active { color: var(--accent); }
+        .sidebar-close { display: none; align-items: center; justify-content: center; gap: var(--space-8); width: 100%; min-height: 44px; margin: var(--space-12) 0 var(--space-4); padding: var(--space-8) var(--space-12); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; }
+        .sidebar-close:hover { color: var(--text); border-color: var(--text-muted); }
         .sidebar-collapse { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--sidebar-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 2px 6px var(--overlay-sm); }
         .sidebar-logout { margin-top: auto; padding: var(--space-12) var(--space-8) 0; border-top: 1px solid var(--border); }
         .main { flex: 1; padding: var(--space-24) var(--space-32); overflow-y: auto; }
@@ -699,7 +701,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .page-seal { display: none; }
           .nav-menu-btn { display: flex; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; align-items: center; justify-content: center; cursor: pointer; }
           .layout { min-height: calc(100vh - 76px); }
-          .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 50; transform: translateX(-100%); width: 256px; }
+          /* Above the header, not under it. At z-index 50 against the
+             header's 100 the drawer's top 76px - the entire profile row -
+             was painted behind the navbar. Raising it covers the menu
+             button, so the drawer carries its own close control. */
+          .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 110; transform: translateX(-100%); width: 256px; overflow-y: auto; }
           .sidebar.mobile-open { transform: translateX(0); }
           .sidebar.collapsed { width: 256px; }
           /* There is nothing to collapse when the sidebar IS the drawer,
@@ -707,7 +713,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .sidebar-collapse { display: none; }
           .sidebar.collapsed .sidebar-user { justify-content: flex-start; }
           .sidebar.collapsed .sidebar-item { justify-content: flex-start; padding-left: var(--space-12); padding-right: var(--space-12); }
-          .sidebar-mobile-overlay { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; }
+          .sidebar-mobile-overlay { display: block; position: fixed; inset: 0; background: var(--overlay-lg); z-index: 105; }
+          .sidebar-close { display: inline-flex; }
           .main { padding: var(--space-24) var(--space-16); }
           /* Rule X3. 24x24 (WCAG 2.5.8) is the floor the suite enforces at
              every width; a thumb wants 44. Applied only below the drawer
@@ -715,7 +722,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .icon-action, .nav-menu-btn, .nav-toggle-btn, .cal-nav,
           .archive-toggle, .page-btn, .chip-x { min-width: 44px; min-height: 44px; }
           .sidebar-item, .sidebar-sub { min-height: 44px; }
-          .btn { min-height: 44px; }
+          .btn, .nav-logout-btn { min-height: 44px; }
           .stat-grid { grid-template-columns: 1fr 1fr; }
           .overview-grid { grid-template-columns: 1fr; }
           .news-grid { grid-template-columns: 1fr; }
@@ -800,6 +807,13 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           aria-label={sidebarOpen ? 'Navigation' : undefined}
           className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${sidebarOpen ? 'mobile-open' : ''}`}
         >
+          {/* Only rendered as a control below the breakpoint (CSS), and
+              first in the drawer so the focus that moves in lands on the
+              way out. Escape and the backdrop still work. */}
+          <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
+            <X size={16} aria-hidden="true" />
+            <span>Close</span>
+          </button>
           <button className="sidebar-collapse" onClick={() => setSidebarCollapsed(c => !c)} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>

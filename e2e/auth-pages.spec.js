@@ -7,7 +7,7 @@
 // worst of them was the password rule itself at 2.54:1: the line telling you
 // which passwords are accepted was the hardest thing on the page to read.
 import { test, expect } from '@playwright/test';
-import { login, STUDENT, STUDENT_LOGIN } from './helpers.js';
+import { login, STUDENT, STUDENT_LOGIN, appReady } from './helpers.js';
 
 const CONTRAST = `(fg, bg) => {
   const parse = (s) => s.match(/[0-9.]+/g).slice(0, 3).map(Number);
@@ -53,7 +53,7 @@ for (const [path, heading] of [
 ]) {
   test(`${path} has one top-level heading`, async ({ page }) => {
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(heading);
   });
 }
@@ -61,7 +61,7 @@ for (const [path, heading] of [
 test.describe('forgot password', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/forgot-password');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('the email field is labelled and autofillable', async ({ page }) => {
@@ -105,7 +105,7 @@ test.describe('change password', () => {
   test.beforeEach(async ({ page }) => {
     await login(page, STUDENT, STUDENT_LOGIN, '/student-dashboard');
     await page.goto('/change-password');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('both fields are labelled, and named as new passwords', async ({ page }) => {

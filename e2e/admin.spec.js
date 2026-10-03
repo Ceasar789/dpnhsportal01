@@ -10,14 +10,14 @@
 // audit found broken — keyboard-reachable navigation, modal focus contracts,
 // loading states — belong to the phase that fixes them, not here.
 import { test, expect } from '@playwright/test';
-import { ADMIN_TABS, ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
+import { ADMIN_TABS, ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab, appReady } from './helpers.js';
 
 test.describe('admin dashboard', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
 
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('the admin account reaches the admin dashboard', async ({ page }) => {

@@ -5,6 +5,7 @@
 // carousel z-index fix came out of this file: the controls were being
 // swallowed by the hero overlay and no one had noticed.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 const PAGES = [['/', 'Home'], ['/news', 'News'], ['/calendar', 'Calendar'], ['/login', 'Login']];
 
@@ -15,7 +16,7 @@ for (const [path, name] of PAGES) {
     page.on('pageerror', e => errors.push(String(e)));
 
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // The page actually painted something.
     await expect(page.locator('footer')).toBeVisible();

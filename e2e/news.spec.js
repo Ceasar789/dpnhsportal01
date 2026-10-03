@@ -5,12 +5,13 @@
 // all of them. The card also truncated at 160 characters with no control to
 // reach the rest.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 test.describe('public news', () => {
   test('desktop shows every article, not the first three', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     const wide = await page.locator('article').count();
 
@@ -25,7 +26,7 @@ test.describe('public news', () => {
   test('a truncated card can be opened', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     const more = page.getByRole('button', { name: 'Read more' });
     const n = await more.count();
@@ -41,7 +42,7 @@ test.describe('public news', () => {
 
   test('no control on the page is a dead end', async ({ page }) => {
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // The newsletter signup was removed: it had no submit handler and no
     // backend, so "Join Circular" did nothing at all.
@@ -57,7 +58,7 @@ test.describe('public news', () => {
   test('each story is a separate card, and the newest is marked', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // Bare text blocks on a tinted page ran together with nothing to say
     // where one story ended. Every card needs its own surface and edge.
@@ -81,7 +82,7 @@ test.describe('public news', () => {
       try { const j = await r.json(); if (Array.isArray(j)) rows = j; } catch { /* not json */ }
     });
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     test.skip(!rows || rows.length === 0, 'no news returned');
 
     // Postgres sorts NULLs first on DESC, so an undated post used to lead the
@@ -96,7 +97,7 @@ test.describe('public news', () => {
   test('prose is capped rather than stretching with the monitor', async ({ page }) => {
     await page.setViewportSize({ width: 2560, height: 1200 });
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     const widest = await page.locator('article p').evaluateAll(
       els => Math.max(0, ...els.map(e => e.getBoundingClientRect().width)));

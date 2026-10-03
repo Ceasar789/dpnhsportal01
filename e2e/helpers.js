@@ -89,6 +89,37 @@ export const loginAsAdmin = (page, who = ADMIN) =>
   login(page, who, STAFF_LOGIN, '/admin-dashboard', 'Admin');
 
 // The admin's tabs are `page` state inside AdminDashboard, not routes, so a
+// What waitForLoadState('networkidle') was being used for, done in a way
+// that works here.
+//
+// networkidle means "no network request for 500ms". This app holds Supabase
+// realtime websockets open, so that is a condition its pages do not
+// reliably reach — and a second Playwright process on the same machine is
+// enough extra load to tip it over. It timed out intermittently on
+// polish.spec, admin-a11y.spec and tokens.spec during Phase 4, every time
+// on a spec unrelated to the change being made. A flaky wait is worse than
+// no wait: it fails tests that are passing.
+//
+// What every caller actually meant is "React has painted something".
+// That is #root having content, which is a fact about the page rather than
+// a guess about the network. Everything after it is covered by Playwright's
+// own auto-waiting on locators and assertions.
+export async function appReady(page) {
+  // React has mounted something.
+  await expect(page.locator('#root')).not.toBeEmpty();
+
+  // And its first fetch has finished. #root alone was not enough: the
+  // public News and Calendar pages render a spinner while loading, and a
+  // test that measured `article` elements the moment the shell appeared
+  // found none — evaluateAll, count() and innerText do not auto-wait, so
+  // they read an empty page and either failed or skipped themselves.
+  //
+  // Both pages drop the spinner when the data lands, which is the same
+  // moment networkidle used to catch and is a fact about the page rather
+  // than about the network.
+  await expect(page.locator('.animate-spin, .loading-row .spin')).toHaveCount(0);
+}
+
 // spec cannot reach one by URL — it clicks the sidebar entry, exactly as a
 // person does. These are the labels that entry renders.
 export const ADMIN_TABS = [
@@ -98,6 +129,34 @@ export const ADMIN_TABS = [
 
 export async function openAdminTab(page, label) {
   const item = page.locator('.sidebar-item', { hasText: label }).first();
+  const drawerButton = page.getByRole('button', { name: 'Open navigation' });
+
+  // Two separate things have to settle before the entry can be clicked,
+  // and both of them bit this helper in turn.
+  //
+  // 1. setViewportSize() is awaited, but the page's layout lands after it.
+  //    Sampling position inside that window reads the OLD layout. The
+  //    drawer button is not a usable signal — it is in the DOM at every
+  //    width and only hidden by CSS — so the signal is window.innerWidth
+  //    agreeing with the viewport Playwright asked for.
+  await expect.poll(
+    () => page.evaluate(() => window.innerWidth),
+    { message: 'the viewport resize never reached the page' },
+  ).toBe(page.viewportSize().width);
+
+  // 2. The sidebar ANIMATES between the two layouts
+  //    (`transition: width .3s ease, transform .3s ease`). Immediately
+  //    after a resize to 360 the entry is still at x=12, on its way to
+  //    x=-244 — on screen, stable enough for one sample, and gone by the
+  //    time a click lands. Asking "is it on screen?" before it has stopped
+  //    moving gets a true answer to the wrong question.
+  const stopped = async () => {
+    const a = await item.boundingBox();
+    await page.waitForTimeout(80);
+    const b = await item.boundingBox();
+    return Boolean(a && b) && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
+  };
+  await expect.poll(stopped, { message: 'the sidebar never stopped moving' }).toBe(true);
 
   // Below 900px the sidebar is off-canvas (AdminDashboard.jsx:531) and the
   // entry cannot be clicked until the drawer is open. 900, not the 1024 the
@@ -108,19 +167,20 @@ export async function openAdminTab(page, label) {
     return Boolean(box) && box.x >= 0 && box.x < page.viewportSize().width;
   };
   if (!(await onScreen())) {
-    await page.getByRole('button', { name: 'Open navigation' }).click();
+    await drawerButton.click();
     await expect.poll(onScreen, { message: 'the drawer never slid in' }).toBe(true);
+    await expect.poll(stopped, { message: 'the drawer never stopped moving' }).toBe(true);
   }
 
-  // The `force: true` that used to be here is gone. It existed because
-  // .sidebar-item carried `transition: all .3s ease` and the active entry
-  // animates its own padding and left border, so Playwright's stability
-  // check waited out its own timeout on an element that was only changing
-  // its appearance. Phase 4f halved that to 150ms — measured, not assumed:
-  // getComputedStyle reports 0.15s — and the click now lands on its own.
-  //
-  // `transition: all` is still there; banning the keyword is Phase 5.
-  // Half the removal condition turned out to be enough.
+  // No `force`. It used to be here because .sidebar-item carried
+  // `transition: all .3s ease` and the active entry animates its own
+  // padding and left border, so Playwright's stability check waited out
+  // its own timeout on an element that was only changing appearance.
+  // Phase 4f halved that to 150ms — measured, not assumed: getComputedStyle
+  // reports 0.15s — and the click lands on its own.
   await item.click();
-  await page.waitForLoadState('networkidle');
+  // The tab has arrived when its own heading is on screen — a fact about
+  // this navigation, not about the network going quiet.
+  await expect(page.locator('.page-title').first()).toBeVisible();
 }
+

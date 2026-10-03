@@ -3,14 +3,14 @@
 // UX-093 was the headline: the dashboard's entire page switcher was ten
 // divs with a click handler. A keyboard user could not change tab at all.
 import { test, expect } from '@playwright/test';
-import { ADMIN_TABS, ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
+import { ADMIN_TABS, ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab, appReady } from './helpers.js';
 
 test.describe('admin keyboard access', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
 
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   // UX-093. The whole point: reachable AND operable, not merely present.
@@ -25,7 +25,7 @@ test.describe('admin keyboard access', () => {
     const users = page.getByRole('button', { name: /^User Management$/ }).first();
     await users.focus();
     await page.keyboard.press('Enter');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     await expect(users).toHaveAttribute('aria-current', 'page');
   });
 

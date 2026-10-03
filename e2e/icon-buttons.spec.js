@@ -5,7 +5,7 @@
 // browser instead of in the source settles it: the accessible name is what
 // the accessibility tree says it is, which is the thing that actually matters.
 import { test, expect } from '@playwright/test';
-import { login, STUDENT, TEACHER, STUDENT_LOGIN, STAFF_LOGIN } from './helpers.js';
+import { login, STUDENT, TEACHER, STUDENT_LOGIN, STAFF_LOGIN, appReady } from './helpers.js';
 
 // A visible button with no text node and no aria-label announces as just
 // "button". Passed as a real function — page.evaluate given a STRING
@@ -25,14 +25,14 @@ const named = (page) => page.evaluate(() =>
 test('no public page leaves an icon button unnamed', async ({ page }) => {
   for (const path of ['/', '/news', '/calendar', '/login', '/student-login', '/faculty-login']) {
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     expect(await named(page), `${path} has unnamed icon buttons`).toEqual([]);
   }
 });
 
 test('the student dashboard names every icon button, collapsed and expanded', async ({ page }) => {
   await login(page, STUDENT, STUDENT_LOGIN, '/student-dashboard');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
   expect(await named(page), 'student shell').toEqual([]);
 
   // Collapsed is the state that strips the visible "Logout" text, leaving the
@@ -52,7 +52,7 @@ test('the teacher dashboard names every icon button on every tab', async ({ page
   // the flakiness was mine, not the app’s.
   for (const path of ['', 'worksheets', 'lesson-plans', 'students', 'attendance', 'announcements']) {
     await page.goto(`/teacher-dashboard/${path}`);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     expect(await named(page), `teacher /${path} has unnamed icon buttons`).toEqual([]);
   }
 });

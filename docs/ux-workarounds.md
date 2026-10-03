@@ -125,7 +125,7 @@ later, the statement becomes a control again.
 | Login attempt limiting | Nothing counts or limits failed sign-ins. The only rate limiter in the repo is `express-rate-limit` on the AI route (`backend/src/routes/ai.js:34`). | An auth hook or edge function that counts failures per identifier and locks out, plus an unlock path. |
 | Activity log retention | Nothing deletes old rows. Logs accumulate forever regardless of the 30 days / 90 days / 1 year that used to be selectable. | A scheduled job (pg_cron or an edge function) reading the retention setting and deleting past it. |
 | Configurable backup schedule | `.github/workflows/supabase-backup.yml` runs on a hardcoded `30 16 * * *` (00:30 Manila) and never reads `auto_backup`, `backup_frequency` or `backup_time`. | Either a workflow that reads the setting before deciding to run, or moving the schedule into pg_cron where the setting lives. |
-| One source of truth for the school year | Settings has an Academic Year field. The academic tabs ignore it and compute the year from the clock in `currentSchoolYear()` (`frontend/src/lib/academicRules.js:27`), rolling over every June. Two answers to one question, and only the computed one is load-bearing. | Decide which wins. If Settings wins, the academic queries read it and the June rollover becomes a default rather than the rule; if the calendar wins, the Settings field is a banner caption and should be named as one. The hints on both rows say which it is today. |
+| One source of truth for the school year | Settings has an Academic Year field. The academic tabs ignore it and compute the year from the clock in `currentSchoolYear()` (`frontend/src/lib/academicRules.js:27`), rolling over every June. Two answers to one question, and only the computed one is load-bearing. **Visible today:** Overview reads `2025-2026` from Settings while Sections reads `Class sections for 2026-2027` from the calendar, on the same screen, one click apart. | Decide which wins. If Settings wins, the academic queries read it and the June rollover becomes a default rather than the rule; if the calendar wins, the Settings field is a banner caption and should be named as one. The hints on both rows say which it is today. |
 | Email notifications | The portal sends no email of its own — no nodemailer, Resend, SendGrid or SMTP client in the repo. | A sender, templates, and a decision about what is worth emailing. |
 
 ## Test infrastructure — `networkidle` is not reliable here
@@ -329,3 +329,29 @@ between two options: write `description` instead of `details`, or add
 items above — one reconciliation of the canonical schema files against
 production would settle `school_settings`, `activity_logs` and the
 `session_timeout` gap together.
+
+## Phase 7: data reconciliation
+
+**Scheduled: after Phase 6, before any feature-backlog work.** Not to be
+done during the UI overhaul.
+
+Three findings of one kind, each found the same way — by watching the
+request rather than reading the code — and each invisible because the
+code that fails is written to keep going quietly:
+
+| # | What | Evidence |
+|---|---|---|
+| 1 | **`school_settings` wrote six columns that do not exist** — `academic_year`, `semester`, `portal_name`, `theme`, `language`, `auto_save`. Every PATCH was rejected whole, so no setting on that page had ever saved, including `session_timeout`, the one the app enforces. `saveSettings` never destructured the error and said "Settings saved!" every time. | `PATCH → 400 PGRST204`. **Fixed in Phase 3b** by writing `school_year` and `current_semester`; the drift itself is not reconciled. |
+| 2 | **The eight settings columns that DO exist are in no canonical schema file.** `session_timeout`, `two_factor_auth`, `login_attempt_limit`, `email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`, `activity_logs_retention` live in production only because `legacy/add-settings-backup-history.sql` was run by hand. | A database built fresh from `database-schema.sql` has no `session_timeout`, so idle logout silently falls back to 30 minutes **and** the Settings save breaks again exactly as in 1. |
+| 3 | **`activity_logs` has no `details` column**, which is what `logActivity` writes. Every write has failed since the feature was built, so the table is empty and both activity panels show a `localStorage` cache. | `POST → 400 PGRST204`; `GET → 200 []`. Not RLS: a policy denial reads as `200 []` but writes as 401/403. |
+
+The two schema files disagree with each other as well as with
+production: `database-schema.sql` has `activity_logs.details JSONB`,
+`COMPLETE_DATABASE_SCHEMA_v2.sql` has `description TEXT` and no
+`details`, and the live database matches v2.
+
+One pass should settle all of it: decide which schema file is canonical,
+reconcile it against production, fold the legacy ALTER in, and pick
+`details` or `description` for `activity_logs`. Also in scope, because
+it is the same conversation: renaming `current_semester`, which now
+holds a quarter number 1-4.

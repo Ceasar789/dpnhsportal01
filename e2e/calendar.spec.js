@@ -4,11 +4,12 @@
 // claimed aria-modal but never touched focus, every event chip opened the
 // first event on the day, and the error state had no way out.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 test.describe('public calendar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('a day with events exposes one control per event, not one per day', async ({ page }) => {
@@ -66,7 +67,7 @@ test.describe('public calendar on small screens', () => {
     test(`${label} ${w}x${h}: no sideways scroll and no sub-24px targets`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/calendar');
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
 
       const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(scrollW, `${label} scrolls sideways`).toBeLessThanOrEqual(w + 1);
@@ -85,7 +86,7 @@ test.describe('public calendar on small screens', () => {
 
   test('the colours in the grid are named somewhere', async ({ page }) => {
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     // Event type is carried by hue in the grid; a legend keeps that readable
     // for anyone who cannot separate the hues.
     for (const label of ['Event', 'Deadline', 'Holiday', 'Other']) {
@@ -95,7 +96,7 @@ test.describe('public calendar on small screens', () => {
 
   test('a start time reads as a clock time, not a database value', async ({ page }) => {
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     const body = await page.locator('main').innerText();
     // "13:00:00" came straight out of the Postgres TIME column.
     expect(body).not.toMatch(/\bat \d{1,2}:\d{2}:\d{2}\b/);
@@ -104,7 +105,7 @@ test.describe('public calendar on small screens', () => {
 
 test('the dialog badge says what its colour says', async ({ page }) => {
   await page.goto('/calendar');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
   const chips = page.getByRole('button', { name: /^Open / });
   test.skip(await chips.count() === 0, 'no events this month');
 
@@ -130,7 +131,7 @@ test('an event name is readable at every width, not truncated to "PERIODIC ..."'
   for (const [w, h] of [[390, 844], [768, 1024], [1440, 900]]) {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // A 97px cell truncated "PERIODIC EXAM" to a word and an ellipsis; a 43px
     // one cut it to a letter. Nothing that names an event may be clipped.
@@ -151,7 +152,7 @@ test('an event name is readable at every width, not truncated to "PERIODIC ..."'
 test('the type filter narrows the grid, not just the lists', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/calendar');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
 
   // role=group is the day cell, so this counts GRID chips only. Counting
   // every 'Open ...' on the page measures the month and upcoming lists too,
@@ -203,7 +204,7 @@ test('the type filter narrows the grid, not just the lists', async ({ page }) =>
 test('a phone sees the filter result without scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/calendar');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
 
   // The banner was 184px and the cells 96px, which put the event names at
   // y=840 on an 844px screen: tapping a filter changed nothing visible.

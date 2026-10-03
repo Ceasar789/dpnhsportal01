@@ -43,8 +43,10 @@ test.describe('admin data states', () => {
   test('the Overview says it is loading rather than reporting no activity', async ({ page }) => {
     await page.route('**/rest/v1/activity_logs**', stall());
     await loginAsAdmin(page);
-    // Deliberately NOT openAdminTab: it waits for networkidle, which waits
-    // out the very stall this test depends on. Overview is the landing tab.
+    // Deliberately NOT openAdminTab. It used to wait for networkidle, which
+    // waited out the very stall this test depends on; it now waits for the
+    // tab heading, which this test also does not want to wait for. Overview
+    // is the landing tab, so no navigation is needed at all.
 
     // The old behaviour was this text, immediately, while the fetch was open.
     await expect(page.getByText(/loading activity/i)).toBeVisible({ timeout: 8000 });

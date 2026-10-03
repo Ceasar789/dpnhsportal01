@@ -19,7 +19,7 @@
 // has not reached — the two floors converge when it does.
 import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { login, STUDENT, TEACHER, STUDENT_LOGIN, STAFF_LOGIN } from './helpers.js';
+import { login, STUDENT, TEACHER, STUDENT_LOGIN, STAFF_LOGIN, appReady } from './helpers.js';
 
 const FLOOR = 11;
 
@@ -47,7 +47,7 @@ test('no public page paints text below the floor', async ({ page }) => {
   for (const path of ['/', '/news', '/calendar', '/login', '/student-login', '/faculty-login',
     '/forgot-password', '/verify-email']) {
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     expect(await smallest(page), `${path} paints text under ${FLOOR}px`).toEqual([]);
   }
 });
@@ -56,7 +56,7 @@ test('the student dashboard paints nothing below the floor', async ({ page }) =>
   await login(page, STUDENT, STUDENT_LOGIN, '/student-dashboard');
   for (const path of ['', 'tasks', 'attendance', 'announcements']) {
     await page.goto(`/student-dashboard/${path}`);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     expect(await smallest(page), `student /${path} paints text under ${FLOOR}px`).toEqual([]);
   }
 });
@@ -65,14 +65,14 @@ test('the teacher dashboard paints nothing below the floor', async ({ page }) =>
   await login(page, TEACHER, STAFF_LOGIN, '/teacher-dashboard', 'Teacher');
   for (const path of ['', 'worksheets', 'lesson-plans', 'students', 'attendance']) {
     await page.goto(`/teacher-dashboard/${path}`);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     expect(await smallest(page), `teacher /${path} paints text under ${FLOOR}px`).toEqual([]);
   }
 });
 
 test('the unread count is legible', async ({ page }) => {
   await login(page, STUDENT, STUDENT_LOGIN, '/student-dashboard');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
 
   // The badge only renders when something is unread, and no seeded account
   // has an unread notification — so waiting for one would make this skip

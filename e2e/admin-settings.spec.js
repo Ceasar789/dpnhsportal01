@@ -9,7 +9,55 @@ import { test, expect } from '@playwright/test';
 import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
 
 const TIMEOUTS = ['15 min', '30 min', '1 hour', '2 hours'];
+const QUARTERS = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
 const bar = (page) => page.locator('.settings-savebar');
+
+// The save bar compares the editable settings against the baseline that
+// fetchSettings records, and nothing on screen says that read has landed —
+// the fields show their defaults until it does. openAdminTab used to wait
+// for networkidle, which waited for it by accident; now that it waits for
+// the heading instead, these tests have to say what they are really
+// waiting for. The response itself is that thing.
+// The full-row read. AuthContext reads session_timeout on its own, so that
+// one is filtered out.
+const settingsRead = (page) => page.waitForResponse(
+  (r) => r.url().includes('/rest/v1/school_settings')
+    && r.request().method() === 'GET'
+    && !r.url().includes('session_timeout'),
+);
+
+// The response ARRIVING is not the response being APPLIED. Waiting only for
+// the response was not enough: a test edited a field, fetchSettings then
+// overwrote it with the loaded value, and the save bar never appeared — or
+// worse, appeared and then vanished under a click that was already in
+// flight ("element was detached from the DOM"). Waiting until the DOM shows
+// the row that came back is the only observable proof that setSettings and
+// setSettingsBaseline have both run.
+async function showsRow(page, row) {
+  await expect(page.locator('#settings-academic-year')).toHaveValue(row.school_year);
+  await expect(page.locator('#settings-quarter'))
+    .toHaveValue(QUARTERS[(Number(row.current_semester) || 1) - 1]);
+  await expect(timeout(page)).toHaveValue(row.session_timeout || '30 min');
+}
+
+// Same wait, after a reload rather than a login.
+async function reopenSettings(page) {
+  const read = settingsRead(page);
+  await page.reload();
+  const row = await (await read).json();
+  await openAdminTab(page, 'System Settings');
+  await showsRow(page, row);
+  return row;
+}
+
+async function loginAndOpenSettings(page) {
+  const read = settingsRead(page);
+  await loginAsAdmin(page);
+  const row = await (await read).json();
+  await openAdminTab(page, 'System Settings');
+  await showsRow(page, row);
+  return row;
+}
 const timeout = (page) => page.getByLabel('Session Timeout');
 
 test.describe('admin settings', () => {
@@ -23,8 +71,7 @@ test.describe('admin settings', () => {
   // test asserts the thing it always wanted to: the value comes back after
   // a reload.
   test('a change in the Security card raises the bar, and Save persists it', async ({ page }) => {
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
 
     // Nothing is claimed on a page nobody has touched.
     await expect(bar(page)).toHaveCount(0);
@@ -38,18 +85,19 @@ test.describe('admin settings', () => {
     await expect(bar(page)).toBeVisible();
     await expect(bar(page)).toContainText('1 unsaved change');
 
+    await expect(bar(page)).toBeVisible();
     await bar(page).getByRole('button', { name: /Save Changes/ }).click();
     await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
 
     // Persisted means it survives a reload, not that a toast appeared.
-    await page.reload();
-    await openAdminTab(page, 'System Settings');
+    await reopenSettings(page);
     await expect(timeout(page)).toHaveValue(next);
 
     // Put the row back the way it was found — this one is enforced, and
     // leaving the suite's choice behind would change how the real portal
     // behaves.
     await timeout(page).selectOption(original);
+    await expect(bar(page)).toBeVisible();
     await bar(page).getByRole('button', { name: /Save Changes/ }).click();
     await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
   });
@@ -65,14 +113,14 @@ test.describe('admin settings', () => {
       await route.continue();
     });
 
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
 
     const quarter = page.locator('#settings-quarter');
     const loaded = await quarter.inputValue();
     const next = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].find((q) => q !== loaded);
 
     await quarter.selectOption(next);
+    await expect(bar(page)).toBeVisible();
     await bar(page).getByRole('button', { name: /Save Changes/ }).click();
     await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
 
@@ -84,11 +132,11 @@ test.describe('admin settings', () => {
     ]);
     expect(sent[0].current_semester).toBe(['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].indexOf(next) + 1);
 
-    await page.reload();
-    await openAdminTab(page, 'System Settings');
+    await reopenSettings(page);
     await expect(page.locator('#settings-quarter')).toHaveValue(next);
 
     await page.locator('#settings-quarter').selectOption(loaded);
+    await expect(bar(page)).toBeVisible();
     await bar(page).getByRole('button', { name: /Save Changes/ }).click();
     await expect(bar(page)).toHaveCount(0, { timeout: 15_000 });
   });
@@ -98,8 +146,7 @@ test.describe('admin settings', () => {
   // the hardcoded defaults too, not the row. Both now come from
   // school_year and current_semester, and this is what proves they agree.
   test('the Overview banner shows the same values the Settings page does', async ({ page }) => {
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
     const year = await page.locator('#settings-academic-year').inputValue();
     const quarter = await page.locator('#settings-quarter').inputValue();
 
@@ -119,14 +166,14 @@ test.describe('admin settings', () => {
       });
     });
 
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
 
     const original = await timeout(page).inputValue();
     const next = TIMEOUTS.find((t) => t !== original);
     await timeout(page).selectOption(next);
     await expect(bar(page)).toBeVisible();
 
+    await expect(bar(page)).toBeVisible();
     await bar(page).getByRole('button', { name: /Save Changes/ }).click();
 
     await expect(page.locator('.toast.error')).toBeVisible({ timeout: 10_000 });
@@ -139,8 +186,7 @@ test.describe('admin settings', () => {
   });
 
   test('the count counts, and Discard restores what was loaded', async ({ page }) => {
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
 
     const year = page.locator('#settings-academic-year');
     const quarter = page.locator('#settings-quarter');
@@ -168,8 +214,7 @@ test.describe('admin settings', () => {
   });
 
   test('leaving the page with unsaved settings asks first', async ({ page }) => {
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
 
     const year = page.locator('#settings-academic-year');
     const loadedYear = await year.inputValue();
@@ -193,8 +238,7 @@ test.describe('admin settings', () => {
   // The header button and the Settings dropdown are one state, so there is
   // nothing for them to disagree about. This is what that means on screen.
   test('the theme dropdown and the header button are the same control', async ({ page }) => {
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
 
     const dropdown = page.getByLabel('Theme');
     const headerButton = page.locator('.nav-toggle-btn');
@@ -220,8 +264,7 @@ test.describe('admin settings', () => {
       () => page.evaluate(() => localStorage.getItem('smartedu-theme')),
       { message: 'the theme preference never reached localStorage' },
     ).toBe('light');
-    await page.reload();
-    await openAdminTab(page, 'System Settings');
+    await reopenSettings(page);
     expect(await isDark()).toBe(false);
     await expect(page.getByLabel('Theme')).toHaveValue('light');
 
@@ -241,8 +284,7 @@ test.describe('admin settings', () => {
   // control would still say "this is a setting you cannot reach"; the claim
   // being withdrawn is that it is a setting at all.
   test('the inert settings are text, not controls', async ({ page }) => {
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'System Settings');
+    await loginAndOpenSettings(page);
 
     // Five controls left on the whole page, and these are they - one of
     // which (Portal Name) is disabled and explains itself.

@@ -9,7 +9,7 @@
 // button is what lets it keep focus while saving — and `disabled` was the
 // only thing stopping a double click from creating two users.
 import { test, expect } from '@playwright/test';
-import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab } from './helpers.js';
+import { ADMIN_SKIP_REASON, hasAdminCredentials, loginAsAdmin, openAdminTab, appReady } from './helpers.js';
 
 test.describe('admin user modal', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
@@ -22,7 +22,7 @@ test.describe('admin user modal', () => {
 
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('it is a dialog, and it says what it is', async ({ page }) => {
@@ -149,7 +149,7 @@ test.describe('every admin dialog', () => {
 
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   // tab label, the control that opens the dialog, the name it should carry
@@ -188,7 +188,15 @@ test.describe('every admin dialog', () => {
   // on — a stray Enter on an archive confirmation is the whole point.
   test('the delete confirmation opens with focus on Cancel', async ({ page }) => {
     await openAdminTab(page, 'Subjects');
+    // count() does not wait. Asking it the moment the tab opens reports
+    // zero on a table that is still fetching, and the test then SKIPS
+    // itself — a silently weakened suite, which is worse than a failure.
+    // Wait for a definite answer first: a row to act on, or the page
+    // saying there are none.
     const del = page.getByRole('button', { name: /^Delete / }).first();
+    await expect(
+      del.or(page.getByText('No subjects yet. Add the first one.')),
+    ).toBeVisible();
     test.skip(await del.count() === 0, 'no subject to delete against');
     await del.click();
 
@@ -205,7 +213,15 @@ test.describe('every admin dialog', () => {
   // override invented at the call site.
   test('the destructive confirm button uses the named variant', async ({ page }) => {
     await openAdminTab(page, 'Subjects');
+    // count() does not wait. Asking it the moment the tab opens reports
+    // zero on a table that is still fetching, and the test then SKIPS
+    // itself — a silently weakened suite, which is worse than a failure.
+    // Wait for a definite answer first: a row to act on, or the page
+    // saying there are none.
     const del = page.getByRole('button', { name: /^Delete / }).first();
+    await expect(
+      del.or(page.getByText('No subjects yet. Add the first one.')),
+    ).toBeVisible();
     test.skip(await del.count() === 0, 'no subject to delete against');
     await del.click();
 
@@ -229,7 +245,7 @@ test.describe('the dirty check sees prefilled fields', () => {
 
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   // tab, opener, the prefilled control, and what to change it to
@@ -292,12 +308,20 @@ test.describe('the snapshot survives data arriving late', () => {
 
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('an edit form, opened and closed untouched, asks nothing', async ({ page }) => {
     await openAdminTab(page, 'Subjects');
+    // count() does not wait. Asking it the moment the tab opens reports
+    // zero on a table that is still fetching, and the test then SKIPS
+    // itself — a silently weakened suite, which is worse than a failure.
+    // Wait for a definite answer first: a row to act on, or the page
+    // saying there are none.
     const edit = page.getByRole('button', { name: /^Edit / }).first();
+    await expect(
+      edit.or(page.getByText('No subjects yet. Add the first one.')),
+    ).toBeVisible();
     test.skip(await edit.count() === 0, 'no subject to edit');
     await edit.click();
 

@@ -297,7 +297,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         tr:hover td { background: rgba(255,255,255,0.02); }
         .toolbar { display: flex; gap: var(--space-12); margin-bottom: var(--space-16); align-items: center; flex-wrap: wrap; }
         .toolbar input { flex: 1; min-width: 160px; max-width: 280px; }
-        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        /* overflow-x: auto, not hidden. Hidden clipped every table wider
+           than the screen, and a clipped table is not a cosmetic problem:
+           at 360 the Actions column sat entirely outside the card, so Edit
+           and Delete could not be reached by touch at all. Programmatic
+           scrolling still worked, which is why the e2e suite never noticed.
+           Phase 6 replaces this with the R1/R2 two-line rows; until then a
+           scrollbar is the difference between awkward and impossible. */
+        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
 
         /* Teaching Load — bulk assignment form and the grade-grouped list.
            Everything here is built from the same vars as the rest of the
@@ -418,7 +425,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .recent-time  { font-size: var(--font-size-12); color: var(--text-dim); }
         .role-bar { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--space-12); }
         .role-row { display: flex; align-items: center; gap: var(--space-12); }
-        .role-track { flex: 1; height: 10px; background: var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        .role-track { flex: 1; height: 10px; background: var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
         .role-fill  { height: 100%; border-radius: var(--radius-lg); }
         .role-label { font-size: var(--font-size-12); color: var(--text-muted); width: 110px; flex-shrink: 0; }
         .role-overview { display: flex; align-items: center; gap: var(--space-16); margin: var(--space-12) 0 var(--space-16); }
@@ -437,7 +444,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .assign-hint { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
 
         .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); }
-        .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
         .news-card-top { height: 4px; }
         .news-card-top.pub  { background: var(--accent); }
         .news-card-top.draft { background: var(--yellow); }
@@ -458,7 +465,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .cal-title   { font-size: var(--font-size-16); font-weight: 600; }
         .cal-nav { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: var(--font-size-16); padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); }
         .cal-nav:hover { background: rgba(255,255,255,0.06); color: var(--text); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: var(--radius-lg); overflow: hidden; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dbe3ef; border: 1px solid #dbe3ef; border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
         .cal-head { background: #f8fafc; padding: var(--space-12); text-align: center; font-size: var(--font-size-12); font-weight: 600; color: #64748b; }
         .cal-cell { background: var(--card-bg); min-height: 80px; padding: var(--space-8); position: relative; }
         .cal-cell.weekend { background: rgba(254,226,226,.55); }

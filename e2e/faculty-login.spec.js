@@ -6,6 +6,7 @@
 // read at 4.30:1 as text though they pass as a button background. The design
 // is unchanged.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 // sRGB relative luminance, WCAG 2.1 formula. Takes "rgb(r, g, b)".
 const CONTRAST = `(fg, bg) => {
@@ -27,7 +28,7 @@ const ROLES = ['Admin', 'Teacher', 'Faculty', 'Registrar'];
 test.describe('faculty login', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/faculty-login');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('both fields are reachable by their label, and autofillable', async ({ page }) => {

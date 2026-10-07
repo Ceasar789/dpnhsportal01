@@ -44,6 +44,13 @@ test.describe('teacher dashboard', () => {
   });
 
   test('the notification bell opens', async ({ page }) => {
+    // Opening refetches and then marks notifications read. This test checks
+    // the panel, so acknowledge that PATCH without changing the live inbox.
+    await page.route('**/rest/v1/notifications**', (route) => (
+      route.request().method() === 'PATCH'
+        ? route.fulfill({ status: 204 })
+        : route.continue()
+    ));
     await page.getByRole('button', { name: /notifications/i }).click();
     await expect(page.getByText(/notifications/i).first()).toBeVisible();
   });

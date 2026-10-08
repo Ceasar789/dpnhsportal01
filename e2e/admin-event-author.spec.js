@@ -30,6 +30,39 @@ async function adminToken(request) {
 test.describe('a calendar event knows who made it', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
 
+  test('the create request carries the signed-in admin without writing live data', async ({ page }) => {
+    const signedIn = page.waitForResponse((response) => (
+      response.url().includes('/auth/v1/token')
+      && response.request().method() === 'POST'
+      && response.ok()
+    ));
+    const inserts = [];
+    await page.route('**/rest/v1/calendar_events**', (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      inserts.push(route.request().postDataJSON());
+      return route.fulfill({ status: 201, contentType: 'application/json', body: '[]' });
+    });
+    await page.route('**/rest/v1/activity_logs**', (route) => (
+      route.request().method() === 'POST'
+        ? route.fulfill({ status: 201, contentType: 'application/json', body: '[]' })
+        : route.continue()
+    ));
+
+    await loginAsAdmin(page);
+    const { user } = await (await signedIn).json();
+    expect(user.id).toBeTruthy();
+    await openAdminTab(page, 'Calendar');
+    await page.getByRole('button', { name: /Add Event/ }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.locator('input').first().fill('Intercepted author verification');
+    await dialog.locator('input[type=date]').first().fill('2026-10-15');
+    await dialog.getByRole('button', { name: /^Add Event$/ }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(inserts).toHaveLength(1);
+    const event = Array.isArray(inserts[0]) ? inserts[0][0] : inserts[0];
+    expect(event.created_by).toBe(user.id);
+  });
+
   test('events that predate the column still load and render', async ({ page, request }) => {
     const token = await adminToken(request);
     const res = await request.get(

@@ -322,11 +322,14 @@ test.describe('admin settings', () => {
       /Users sign in with email and password. Password reset links are sent through Supabase Auth./,
       /After this setting is saved, each browser applies it on its next portal load/,
       /After 5 consecutive incorrect-password submissions, this browser pauses sign-in for 60 seconds/,
-      'Backups run automatically every day at 12:30 AM (Manila time). The schedule is not configurable here.',
-      'Activity logs are currently kept indefinitely. Automatic cleanup is not available yet.',
+      /The portal currently does not send announcement, memo, calendar, or activity email notifications/,
+      /GitHub Actions backs up the database and uploaded storage files every day at 12:30 AM \(Manila time\)/,
+      'Each downloadable backup artifact is retained for 7 days.',
+      'Activity logs are kept indefinitely. No automated retention policy is implemented.',
     ]) {
       await expect(page.getByText(said)).toBeVisible();
     }
+    await expect(page.getByText(/not available|coming soon/i)).toHaveCount(0);
   });
 });
 

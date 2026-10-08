@@ -23,6 +23,7 @@ beforeEach(() => {
     themePref: 'light',
     setThemePref: vi.fn(),
     settingsLoading: false,
+    overviewLoading: false,
   };
 });
 

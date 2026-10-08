@@ -165,6 +165,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
       && !window.confirm('You have unsaved settings. Discard them?')) return;
     go();
   };
+  const openSettingsSection = (id) => {
+    if (!sidebarOpen) {
+      scrollToSection(id);
+      return;
+    }
+
+    // The mobile drawer locks the document at its current scroll position.
+    // Close it first, then scroll after React has run the unlock cleanup;
+    // otherwise that cleanup restores the old position and cancels this jump.
+    setSidebarOpen(false);
+    requestAnimationFrame(() => scrollToSection(id));
+  };
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
 
   return (
@@ -940,8 +952,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .settings-label { font-size: var(--font-size-13); font-weight: 600; }
         .settings-hint  { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
         .settings-history { border-top: 1px solid var(--border); margin-top: var(--space-12); padding-top: var(--space-16); }
-        .settings-history-empty { color: var(--text-dim); font-size: var(--font-size-12); margin-top: var(--space-12); }
-        .settings-history-item { color: var(--text-muted); font-size: var(--font-size-12); padding: var(--space-8) 0; border-bottom: 1px solid var(--border); }
+        .settings-history-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); }
+        .settings-history-list { list-style: none; display: grid; gap: var(--space-8); margin-top: var(--space-12); }
+        .settings-history-empty { color: var(--text-dim); font-size: var(--font-size-12); margin-top: var(--space-12); padding: var(--space-12); border: 1px dashed var(--border); border-radius: var(--radius-md); }
+        .settings-history-item { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); min-width: 0; padding: var(--space-12); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); }
+        .settings-history-content { min-width: 0; }
+        .settings-history-primary { color: var(--text); font-size: var(--font-size-13); font-weight: 600; overflow-wrap: anywhere; }
+        .settings-history-detail { color: var(--text-muted); font-size: var(--font-size-12); line-height: 1.5; margin-top: var(--space-4); overflow-wrap: anywhere; }
+        .settings-history-meta { color: var(--text-dim); font-size: var(--font-size-12); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-top: var(--space-4); }
+        .settings-history-item > .badge { flex-shrink: 0; }
         .settings-hint a { color: var(--accent); text-decoration: none; }
         .settings-input-row { display: flex; align-items: flex-start; gap: var(--space-12); padding: var(--space-12) 0; border-bottom: 1px solid var(--border); }
         /* The field and its hint share a column, capped. These inputs held
@@ -1266,7 +1285,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                   type="button"
                   className={`ux-unbutton sidebar-sub ${activeSettingsSub === id ? 'active' : ''}`}
                   aria-current={activeSettingsSub === id ? 'true' : undefined}
-                  onClick={() => { scrollToSection(id); setSidebarOpen(false); }}
+                  onClick={() => openSettingsSection(id)}
                 >{label}</button>
               ))}
             </div>

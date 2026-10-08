@@ -33,6 +33,21 @@ import Button from '../../../../components/ui/Button';
 import { useAdminContext } from '../AdminContext';
 import { formatDateTime } from '../../../../lib/formatDate';
 
+const normalizedStatus = (status) => String(status || '').trim().toLowerCase();
+
+const statusLabel = (status) => {
+  const normalized = normalizedStatus(status);
+  return normalized
+    ? normalized.charAt(0).toUpperCase() + normalized.slice(1)
+    : 'Unknown';
+};
+
+const statusBadge = (status) => ({
+  completed: 'badge-green',
+  running: 'badge-yellow',
+  failed: 'badge-red',
+}[normalizedStatus(status)] || 'badge-grey');
+
 const SettingsTab = () => {
   const {
     activityLogs, backupHistory,
@@ -40,12 +55,14 @@ const SettingsTab = () => {
     setSettings, settings, settingsSaving,
     settingsDirty, settingsChangeCount, discardSettings,
     themePref, setThemePref, settingsLoading,
+    overviewLoading,
   } = useAdminContext();
 
   // The 300ms rule, as everywhere else: a read that returns quickly shows
   // no spinner at all, and a slow one says it is working rather than
   // claiming there is nothing to show.
   const slowSettings = useDelayedFlag(settingsLoading);
+  const slowActivity = useDelayedFlag(overviewLoading);
 
   // The sidebar guard covers leaving the page. This covers leaving the tab.
   useEffect(() => {
@@ -59,7 +76,7 @@ const SettingsTab = () => {
     <div>
       <div className="page-header-bar">
         <div className="page-title">System Settings</div>
-        <div className="page-sub">Configure portal name, academic year, and system preferences</div>
+        <div className="page-sub">Manage academic display, session behavior, appearance, and operational information</div>
       </div>
 
       <div id="sec-general" className="settings-section">
@@ -133,10 +150,9 @@ const SettingsTab = () => {
         <div className="settings-card">
           <div className="settings-row">
             <div>
-              <div className="settings-label">Email Notifications</div>
-              <div className="settings-hint">The portal does not send its own email. Account email from Supabase, such as password resets, is unaffected.</div>
+              <div className="settings-label">Portal Email Notifications</div>
+              <div className="settings-hint">The portal currently does not send announcement, memo, calendar, or activity email notifications. Authentication emails, including password reset and email verification, are handled by Supabase Auth.</div>
             </div>
-            <span className="badge badge-grey">Not available</span>
           </div>
         </div>
       </div>
@@ -150,31 +166,76 @@ const SettingsTab = () => {
               (30 16 * * * UTC), which never looks at this table. */}
           <div className="settings-row">
             <div>
-              <div className="settings-label">Backup Schedule</div>
-              <div className="settings-hint">Backups run automatically every day at 12:30 AM (Manila time). The schedule is not configurable here.</div>
+              <div className="settings-label">Automated Backup</div>
+              <div className="settings-hint">GitHub Actions backs up the database and uploaded storage files every day at 12:30 AM (Manila time). The schedule is managed outside this portal.</div>
+            </div>
+            <span className="badge badge-grey">Daily</span>
+          </div>
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Backup Retention</div>
+              <div className="settings-hint">Each downloadable backup artifact is retained for 7 days.</div>
             </div>
           </div>
           <div className="settings-row">
             <div>
               <div className="settings-label">Activity Log Retention</div>
-              <div className="settings-hint">Activity logs are currently kept indefinitely. Automatic cleanup is not available yet.</div>
+              <div className="settings-hint">Activity logs are kept indefinitely. No automated retention policy is implemented.</div>
             </div>
           </div>
           <div className="settings-history">
-            <div className="settings-label">Backup History</div>
-            <div className="settings-hint">Scheduled backup records will appear here with date and time.</div>
+            <div className="settings-history-header">
+              <div>
+                <div className="settings-label" id="backup-history-heading">Backup History</div>
+                <div className="settings-hint">The 10 most recent runs recorded by the backup workflow.</div>
+              </div>
+            </div>
             {settingsLoading
               ? <div className="settings-history-empty">{slowSettings ? 'Loading backup history…' : ''}</div>
-              : backupHistory.length === 0 && <div className="settings-history-empty">No backup history yet.</div>}
-            {backupHistory.map(backup => <div className="settings-history-item" key={backup.id}>{formatDateTime(backup.started_at)} · {backup.status}</div>)}
+              : backupHistory.length === 0 && <div className="settings-history-empty">No backup runs have been recorded.</div>}
+            {!settingsLoading && backupHistory.length > 0 && (
+              <ul className="settings-history-list" aria-labelledby="backup-history-heading">
+                {backupHistory.map(backup => (
+                  <li className="settings-history-item" key={backup.id}>
+                    <div className="settings-history-content">
+                      <div className="settings-history-primary">Database &amp; storage backup</div>
+                      <div className="settings-history-meta">
+                        <time dateTime={backup.started_at}>{formatDateTime(backup.started_at)}</time>
+                      </div>
+                    </div>
+                    <span className={`badge ${statusBadge(backup.status)}`}>{statusLabel(backup.status)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="settings-history">
-            <div className="settings-label">Activity Log History</div>
-            <div className="settings-hint">Recent admin activity.</div>
-            {settingsLoading
-              ? <div className="settings-history-empty">{slowSettings ? 'Loading activity…' : ''}</div>
-              : activityLogs.length === 0 && <div className="settings-history-empty">No activity logs yet.</div>}
-            {activityLogs.map(log => <div className="settings-history-item" key={log.id}>{log.action} · {formatDateTime(log.created_at)}</div>)}
+            <div className="settings-history-header">
+              <div>
+                <div className="settings-label" id="activity-history-heading">Recent Admin Activity</div>
+                <div className="settings-hint">The 5 most recent administrative actions recorded by the portal.</div>
+              </div>
+            </div>
+            {overviewLoading
+              ? <div className="settings-history-empty">{slowActivity ? 'Loading activity…' : ''}</div>
+              : activityLogs.length === 0 && <div className="settings-history-empty">No administrative activity has been recorded.</div>}
+            {!overviewLoading && activityLogs.length > 0 && (
+              <ul className="settings-history-list" aria-labelledby="activity-history-heading">
+                {activityLogs.map(log => (
+                  <li className="settings-history-item" key={log.id}>
+                    <div className="settings-history-content">
+                      <div className="settings-history-primary">{log.action}</div>
+                      {log.message && <div className="settings-history-detail">{log.message}</div>}
+                      <div className="settings-history-meta">
+                        <span>{log.actorName}</span>
+                        <span aria-hidden="true">·</span>
+                        <time dateTime={log.created_at}>{formatDateTime(log.created_at)}</time>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
@@ -199,7 +260,7 @@ const SettingsTab = () => {
           <div className="settings-row">
             <div>
               <div className="settings-label">Language</div>
-              <div className="settings-hint">English is the only language the portal is translated into, so there is nothing else to choose yet.</div>
+              <div className="settings-hint">The portal interface is available in English only.</div>
             </div>
             <span className="badge badge-grey">English only</span>
           </div>

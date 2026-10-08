@@ -845,8 +845,16 @@ export const useAdminLogic = (userData) => {
     );
     if (error) { showToast('Error loading memos: ' + error.message, 'error'); }
     else {
-      setMemos(data || []);
-      if (data?.length && !selMemo) setSelMemo(data[0]);
+      const nextMemos = data || [];
+      setMemos(nextMemos);
+      // RC2: fetchMemos is intentionally stable, so reading selMemo here
+      // captured its initial null forever and every refresh selected row one.
+      // Reconcile inside the state setter: keep the current id when it still
+      // exists, replace its object with the fresh row, and fall back only when
+      // the selection is absent or was removed.
+      setSelMemo(current => (
+        nextMemos.find(memo => memo.id === current?.id) || nextMemos[0] || null
+      ));
     }
     setML(false);
   }, []);

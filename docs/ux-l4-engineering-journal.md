@@ -3,6 +3,12 @@
 Date: 8 October 2026
 Scope: Admin Dashboard Calendar toolbar, L4 only
 
+> **RC1 update (8 October 2026):** The Month/Week selector described in this
+> historical L4 record was subsequently confirmed to be a nonfunctional
+> placeholder and removed from the Release Candidate. The supported Month
+> workflow and L4 two-row responsive grouping remain. See
+> [rc1-week-view-engineering-journal.md](rc1-week-view-engineering-journal.md).
+
 ## Problem
 
 At 360px, the Calendar toolbar occupied three rows. The first row held month

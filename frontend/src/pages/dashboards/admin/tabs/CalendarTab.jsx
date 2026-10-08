@@ -63,7 +63,6 @@ const CalendarTab = () => {
                       <button className="cal-nav" onClick={nextMonth}>›</button>
                     </div>
                     <div className="cal-toolbar-group cal-toolbar-actions">
-                      <select className="cal-view-select"><option>Month</option><option>Week</option></select>
                       <button className="btn btn-primary cal-add-event" onClick={openCreateEvent}>+ Add Event</button>
                       <select className="cal-filter-select" value={calFilter} onChange={e => setCalFilter(e.target.value)}>
                         <option value="">Filter type</option>

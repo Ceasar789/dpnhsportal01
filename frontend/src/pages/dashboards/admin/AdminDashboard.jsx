@@ -774,8 +774,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .cal-toolbar { display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-16); flex-wrap: wrap; }
         .cal-toolbar-group { display: contents; }
-        .cal-year-select, .cal-view-select, .cal-filter-select { width: auto; }
-        .cal-view-select { margin-left: var(--space-8); }
+        .cal-year-select, .cal-filter-select { width: auto; }
         .cal-add-event { margin-left: auto; }
         .cal-title   { font-size: var(--font-size-16); font-weight: 600; }
         /* P4: 20x32 on a desktop, so narrower than the 24px floor. The
@@ -1079,16 +1078,16 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .role-overview { gap: var(--space-12); }
           .role-pie { width: 104px; height: 104px; }
           .role-pie::after { inset: 22px; }
-          /* L4: make the two toolbar rows deliberate. Intrinsic control
-             widths in one wrapping flex row pushed the type filter onto a
-             third line at 360px. The groups preserve DOM/keyboard order;
-             their children keep the existing 44px target floor. */
+          /* L4: keep the two toolbar rows deliberate. The period controls
+             form row one, while the supported actions form row two. The
+             groups preserve DOM/keyboard order and the existing 44px target
+             floor. */
           .cal-toolbar { align-items: stretch; }
           .cal-toolbar-group { width: 100%; min-width: 0; align-items: center; }
           .cal-toolbar-period { display: flex; justify-content: space-between; gap: var(--space-12); }
-          .cal-toolbar-actions { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: var(--space-8); }
+          .cal-toolbar-actions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-8); }
           .cal-toolbar-actions > * { max-width: 100%; min-width: 0; }
-          .cal-view-select, .cal-add-event { margin-left: 0; }
+          .cal-add-event { margin-left: 0; }
           .cal-toolbar-actions > select { width: 100%; }
           .cal-grid { min-width: 0; }
           .cal-cell { min-height: 64px; padding: var(--space-4); }

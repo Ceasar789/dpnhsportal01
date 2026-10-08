@@ -112,6 +112,9 @@ test.describe('calendar controls', () => {
     await loginAsAdmin(page);
     await openAdminTab(page, 'Calendar');
 
+    await expect(page.locator('.cal-view-select')).toHaveCount(0);
+    await expect(page.getByRole('option', { name: 'Week' })).toHaveCount(0);
+
     const filter = page.locator('.cal-filter-select');
     await filter.selectOption('Custom Type');
     await expect(filter).toHaveValue('Custom Type');
@@ -139,7 +142,6 @@ test.describe('calendar controls', () => {
       'cal-nav',
       'cal-year-select',
       'cal-nav',
-      'cal-view-select',
       'btn btn-primary cal-add-event',
       'cal-filter-select',
     ]);

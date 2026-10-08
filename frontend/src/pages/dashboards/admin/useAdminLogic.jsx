@@ -59,7 +59,7 @@ export const useAdminLogic = (userData) => {
   const [notifications, setNotifications]   = useState([]);
 
   // ── Delete confirmation modal state ─────────────────────────────────────────
-  // Shape: { label: string, role?: string, onConfirm: () => Promise<void> } | null
+  // Shape: { title?, message?, label, role?, warning?, confirmLabel?, onConfirm } | null
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const showToast = (msg, type = 'success') => {
@@ -434,12 +434,13 @@ export const useAdminLogic = (userData) => {
   }
 };
 
-  const deleteUser = (id) => {
+  const deleteUser = (id, onConfirmStart) => {
     const userToDelete = users.find(u => u.id === id);
     setDeleteConfirm({
       label: userToDelete?.name || userToDelete?.email || 'this user',
       role: userToDelete?.role,
       onConfirm: async () => {
+        onConfirmStart?.();
         try {
           const { error } = await supabase.from('profiles').update({ status: 'archived', updated_at: new Date().toISOString() }).eq('id', id);
           if (error) throw error;
@@ -682,13 +683,21 @@ export const useAdminLogic = (userData) => {
     await fetchNews(); await fetchStats();
   };
 
-  const deleteNewsItem = async (id) => {
-    if (!confirm('Delete this post?')) return;
+  const deleteNewsItem = (id) => {
     const newsItem = newsItems.find(n => n.id === id);
-    await supabase.from('news').delete().eq('id', id);
-    await logActivity('Deleted news', newsItem?.title);
-    showToast('Post deleted');
-    await fetchNews(); await fetchStats();
+    setDeleteConfirm({
+      label: newsItem?.title || 'this post',
+      title: 'Delete Post?',
+      message: 'This post will be permanently deleted.',
+      warning: 'This cannot be undone.',
+      confirmLabel: 'Yes, Delete',
+      onConfirm: async () => {
+        await supabase.from('news').delete().eq('id', id);
+        await logActivity('Deleted news', newsItem?.title);
+        showToast('Post deleted');
+        await fetchNews(); await fetchStats();
+      },
+    });
   };
 
   const filteredNews = useMemo(() =>
@@ -790,13 +799,21 @@ export const useAdminLogic = (userData) => {
     } finally { savingEventRef.current = false; setEvSaving(false); }
   };
 
-  const deleteEvent = async (id) => {
-    if (!confirm('Delete this event?')) return;
+  const deleteEvent = (id) => {
     const eventToDelete = calEvents.find(e => e.id === id);
-    await supabase.from('calendar_events').delete().eq('id', id);
-    await logActivity('Deleted event', eventToDelete?.title);
-    showToast('Event deleted');
-    await fetchCalEvents(); await fetchStats();
+    setDeleteConfirm({
+      label: eventToDelete?.title || 'this event',
+      title: 'Delete Event?',
+      message: 'This calendar event will be permanently deleted.',
+      warning: 'This cannot be undone.',
+      confirmLabel: 'Yes, Delete',
+      onConfirm: async () => {
+        await supabase.from('calendar_events').delete().eq('id', id);
+        await logActivity('Deleted event', eventToDelete?.title);
+        showToast('Event deleted');
+        await fetchCalEvents(); await fetchStats();
+      },
+    });
   };
 
   const typeColor = (t) => ({ Event:'#60a5fa', Deadline:'#fbbf24', Holiday:'#f87171', Other:'#2dd4bf' }[t] || '#60a5fa');
@@ -899,14 +916,22 @@ export const useAdminLogic = (userData) => {
     } finally { savingMemoRef.current = false; setMSaving(false); }
   };
 
-  const deleteMemo = async (id) => {
-    if (!confirm('Delete this memo?')) return;
+  const deleteMemo = (id) => {
     const memoToDelete = memos.find(m => m.id === id);
-    await supabase.from('memos').delete().eq('id', id);
-    await logActivity('Deleted memo', memoToDelete?.title);
-    if (selMemo?.id === id) setSelMemo(null);
-    showToast('Memo deleted');
-    await fetchMemos(); await fetchStats();
+    setDeleteConfirm({
+      label: memoToDelete?.subject || memoToDelete?.title || 'this memo',
+      title: 'Delete Memo?',
+      message: 'This memo will be permanently deleted.',
+      warning: 'This cannot be undone.',
+      confirmLabel: 'Yes, Delete',
+      onConfirm: async () => {
+        await supabase.from('memos').delete().eq('id', id);
+        await logActivity('Deleted memo', memoToDelete?.title);
+        if (selMemo?.id === id) setSelMemo(null);
+        showToast('Memo deleted');
+        await fetchMemos(); await fetchStats();
+      },
+    });
   };
 
   const filteredMemos = useMemo(() => {

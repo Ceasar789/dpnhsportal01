@@ -223,3 +223,34 @@ test.describe('Logout is readable in both themes', () => {
     });
   }
 });
+
+test.describe('Logout confirmation', () => {
+  test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
+
+  test('Cancel and Escape preserve the session; Sign Out performs the existing route', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.setViewportSize(DESKTOP);
+
+    const trigger = page.getByRole('button', { name: 'Logout' });
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: 'Sign Out?' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+    await expect(page).toHaveURL(/admin-dashboard/);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(page).toHaveURL(/admin-dashboard/);
+
+    await trigger.click();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(page).toHaveURL(/admin-dashboard/);
+
+    await trigger.click();
+    await dialog.getByRole('button', { name: 'Sign Out', exact: true }).click();
+    await expect(page).not.toHaveURL(/admin-dashboard/);
+  });
+});

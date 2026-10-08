@@ -7,13 +7,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { Sun, Moon, LogOut, AlertTriangle, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
+import { Sun, Moon, LogOut, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
-import Modal from '../../../components/ui/Modal';
-import Button from '../../../components/ui/Button';
-import { roleBadge, roleLabel } from './shared/helpers';
+import ConfirmationDialog from './shared/ConfirmationDialog';
 import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { cycleTab, focusableWithin, lockScroll } from '../../../lib/focusTrap';
@@ -155,6 +153,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
     };
   }, [sidebarOpen]);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const { darkMode, page, setDarkMode, setPage, toast,
     activeSettingsSub, scrollToSection, deleteConfirm, setDeleteConfirm,
     settingsDirty } = useAdminContext();
@@ -625,6 +624,16 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         /* UX-075: the password field and its reveal share a row. */
         .form-with-action { display: flex; gap: var(--space-8); align-items: center; }
         .form-with-action .form-input { flex: 1; }
+        .password-toggle { width: 44px; height: 44px; min-width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .password-strength { --password-strength-color: var(--red); margin-top: var(--space-8); }
+        .password-strength--fair { --password-strength-color: var(--yellow); }
+        .password-strength--good { --password-strength-color: var(--accent); }
+        .password-strength--strong { --password-strength-color: var(--green); }
+        .password-strength-label { display: flex; justify-content: space-between; gap: var(--space-8); font-size: var(--font-size-12); color: var(--text-muted); }
+        .password-strength-label strong { color: var(--password-strength-color); }
+        .password-strength-meter { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-4); margin-top: var(--space-4); }
+        .password-strength-meter span { height: 4px; border-radius: var(--radius-full); background: var(--border); }
+        .password-strength-meter span.active { background: var(--password-strength-color); }
 
         .section-picker { display: flex; gap: var(--space-8); flex-wrap: wrap; margin-bottom: var(--space-16); }
         .section-chip { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-8) var(--space-16); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); cursor: pointer; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
@@ -1254,7 +1263,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                 No colour overrides now, and no red: red is reserved for
                 destructive actions (Rule B4), and signing out is reversible
                 by signing back in. The button says what it does. */}
-            <button className="nav-logout-btn nav-logout-btn--sidebar" aria-label="Logout" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }} onClick={() => { logout(); navigate('/login'); }}>
+            <button className="nav-logout-btn nav-logout-btn--sidebar" aria-label="Logout" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }} onClick={() => setLogoutConfirmOpen(true)}>
               <LogOut size={15} />
               {!sidebarCollapsed && 'Logout'}
             </button>
@@ -1282,57 +1291,38 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
       {/* DELETE CONFIRM MODAL */}
       {/* Condition 3: initial focus lands on Cancel, not on the
-          destructive button. <Modal> focuses the first focusable element,
-          and Cancel is first in the footer, so this holds by construction —
-          and e2e/admin-modal.spec.js asserts it rather than trusting it. */}
-      <Modal
+          destructive button. ConfirmationDialog delegates that contract to
+          <Modal>, and Cancel is first in the footer, so this holds by
+          construction — and e2e/admin-modal.spec.js asserts it. */}
+      <ConfirmationDialog
         open={Boolean(deleteConfirm)}
         title={deleteConfirm?.title || 'Archive User?'}
-        onClose={() => setDeleteConfirm(null)}
-        footer={(requestClose) => (
-          <>
-            <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-            <Button
-              variant="danger-solid"
-              onClick={async () => {
-                const fn = deleteConfirm?.onConfirm;
-                setDeleteConfirm(null);
-                if (fn) await fn();
-              }}
-            >
-              {deleteConfirm?.confirmLabel || 'Yes, Archive'}
-            </Button>
-          </>
-        )}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: 'var(--space-12)', display: 'flex', justifyContent: 'center' }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: '50%',
-              background: 'rgba(239,68,68,0.12)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <AlertTriangle size={26} color="var(--red)" />
-            </div>
-          </div>
-          <p style={{ fontSize: 'var(--font-size-13)', color: 'var(--text-muted)', marginBottom: 'var(--space-8)', lineHeight: 1.6 }}>
-            {deleteConfirm?.message || 'This user will be moved to the archive and removed from the active user list:'}
-          </p>
-          <p style={{ fontSize: 'var(--font-size-14)', fontWeight: 700, color: 'var(--text)', marginBottom: 'var(--space-4)' }}>
-            {deleteConfirm?.label}
-          </p>
-          {deleteConfirm?.role && (
-            <span className={`badge ${roleBadge(deleteConfirm.role)}`} style={{ marginBottom: 'var(--space-12)', display: 'inline-block' }}>
-              {roleLabel(deleteConfirm.role)}
-            </span>
-          )}
-          {deleteConfirm?.warning !== null && (
-            <p style={{ fontSize: 'var(--font-size-12)', color: 'var(--red)', marginTop: 'var(--space-12)', marginBottom: 'var(--space-24)' }}>
-              {deleteConfirm?.warning || 'The account will not be permanently deleted.'}
-            </p>
-          )}
-        </div>
-      </Modal>
+        description={deleteConfirm?.message || 'This user will be moved to the archive and removed from the active user list:'}
+        subject={deleteConfirm?.label}
+        role={deleteConfirm?.role}
+        warning={deleteConfirm?.warning === null ? null : deleteConfirm?.warning || 'The account will not be permanently deleted.'}
+        confirmLabel={deleteConfirm?.confirmLabel || 'Yes, Archive'}
+        destructive
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={async () => {
+          const fn = deleteConfirm?.onConfirm;
+          setDeleteConfirm(null);
+          if (fn) await fn();
+        }}
+      />
+
+      <ConfirmationDialog
+        open={logoutConfirmOpen}
+        title="Sign Out?"
+        description="Are you sure you want to sign out of the Admin Dashboard?"
+        confirmLabel="Sign Out"
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={() => {
+          setLogoutConfirmOpen(false);
+          logout();
+          navigate('/login');
+        }}
+      />
 
     </div>
   );

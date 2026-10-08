@@ -67,9 +67,10 @@ test.describe('admin forms', () => {
     await expect(page.getByText('* Required')).toBeVisible();
   });
 
-  // UX-075: one masked field the admin could neither reveal nor re-enter, for
-  // a credential belonging to somebody else.
-  test('Users · the password can be revealed and must be typed twice', async ({ page }) => {
+  // UX-075 / Sprint A: both copies start masked, can be inspected
+  // independently, and the meter describes the typed password without
+  // changing the validation enforced by saveUser.
+  test('Users · password visibility is independent and strength is informational', async ({ page }) => {
     let posts = 0;
     await page.route('**/auth/v1/signup**', (route) => { posts += 1; return route.abort(); });
 
@@ -80,15 +81,26 @@ test.describe('admin forms', () => {
     const pass = page.locator('#users-password');
     const confirm = page.locator('#users-password-confirm');
     await expect(pass).toHaveAttribute('type', 'password');
-    await page.getByRole('button', { name: /^Show$/ }).click();
+    await expect(confirm).toHaveAttribute('type', 'password');
+
+    await page.getByRole('button', { name: 'Show password' }).click();
     await expect(pass).toHaveAttribute('type', 'text');
+    await expect(confirm).toHaveAttribute('type', 'password');
+
+    await page.getByRole('button', { name: 'Show confirm password' }).click();
     await expect(confirm).toHaveAttribute('type', 'text');
-    await page.getByRole('button', { name: /^Hide$/ }).click();
+    await expect(pass).toHaveAttribute('type', 'text');
+
+    await page.getByRole('button', { name: 'Hide password' }).click();
     await expect(pass).toHaveAttribute('type', 'password');
+    await expect(confirm).toHaveAttribute('type', 'text');
 
     await page.locator('#users-full-name').fill('Probe Person');
     await page.locator('#users-email').fill('probe.person@example.invalid');
     await pass.fill('Sup3rSecret!Pass');
+    await expect(page.getByRole('status')).toContainText('Password strength');
+    await expect(page.getByRole('status')).toContainText('Strong');
+    await expect(page.locator('.password-strength-meter .active')).toHaveCount(5);
     await confirm.fill('Sup3rSecret!Pasz');
     await page.getByRole('button', { name: /^Create$/ }).click();
 
@@ -108,7 +120,7 @@ test.describe('admin forms', () => {
 
     await expect(page.locator('#users-password')).toHaveCount(0);
     await expect(page.locator('#users-password-confirm')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Show$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /show (confirm )?password/i })).toHaveCount(0);
 
     // And the form still saves with no password in sight.
     await expect(page.getByRole('button', { name: /^Update$/ })).toBeEnabled();

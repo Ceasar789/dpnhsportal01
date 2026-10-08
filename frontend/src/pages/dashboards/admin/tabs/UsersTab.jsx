@@ -5,7 +5,7 @@
 // ============================================
 
 import { useEffect, useState } from 'react';
-import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { avatarColor, roleBadge, roleLabel } from '../shared/helpers';
 import Modal from '../../../../components/ui/Modal';
@@ -21,6 +21,21 @@ import { useIsNarrow } from '../../../../lib/useMediaQuery';
 const UserAvatarCell = ({ user }) => {
   const photoUrl = useSignedPhotoUrl(user.photo_url);
   return <Avatar className="avatar" src={photoUrl} name={user.name || user.email || ''} size={34} fontSize="var(--font-size-12)" bg={avatarColor(user.name || user.email || '')} />;
+};
+
+const getPasswordStrength = (password) => {
+  const score = [
+    password.length >= 12,
+    /[a-z]/.test(password),
+    /[A-Z]/.test(password),
+    /\d/.test(password),
+    /[^A-Za-z0-9]/.test(password),
+  ].filter(Boolean).length;
+
+  if (score <= 2) return { score, label: 'Weak', tone: 'weak' };
+  if (score === 3) return { score, label: 'Fair', tone: 'fair' };
+  if (score === 4) return { score, label: 'Good', tone: 'good' };
+  return { score, label: 'Strong', tone: 'strong' };
 };
 
 const UsersTab = () => {
@@ -43,14 +58,23 @@ const UsersTab = () => {
   const [tried, setTried] = useState(false);
   const [uPass2, setUPass2] = useState('');
   const [revealPass, setRevealPass] = useState(false);
+  const [revealPassConfirm, setRevealPassConfirm] = useState(false);
   // Reset on CLOSE, not on open. Modal is a child, so its snapshot
   // effect runs before this one — clearing a stale confirm value on open
   // would change a field after the snapshot was taken and the modal would
   // report a form the admin has not touched as dirty.
-  useEffect(() => { if (modal !== 'user') { setTried(false); setUPass2(''); setRevealPass(false); } }, [modal]);
+  useEffect(() => {
+    if (modal !== 'user') {
+      setTried(false);
+      setUPass2('');
+      setRevealPass(false);
+      setRevealPassConfirm(false);
+    }
+  }, [modal]);
   const missingName = tried && !uName.trim();
   const missingEmail = tried && !uEmail.trim();
   const passMismatch = tried && !editUser && !!uPass && uPass !== uPass2;
+  const passwordStrength = getPasswordStrength(uPass);
 
   return (
     <>
@@ -125,8 +149,7 @@ const UsersTab = () => {
                                 const settle = focusAfterRemoval(
                                   e.currentTarget, 'table', '.archive-action', 'h2, .page-title',
                                 );
-                                deleteUser(u.id);
-                                settle();
+                                deleteUser(u.id, settle);
                               }}
                             ><Trash2 size={16} /></button>
                           </td>
@@ -243,20 +266,57 @@ const UsersTab = () => {
                 <label className="form-label" htmlFor="users-password">Password<span className="form-req" aria-hidden="true">*</span></label>
                 <div className="form-with-action">
                   <input id="users-password" className="form-input" type={revealPass ? 'text' : 'password'} value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char"
-                    aria-required="true" aria-describedby="users-password-hint" />
+                    aria-required="true" aria-describedby={`users-password-hint${uPass ? ' users-password-strength' : ''}`} />
                   {/* Reveal, not a permanent unmask: the admin is typing
                       someone else's credential and may be on a shared
                       screen, so it starts hidden. */}
-                  <button type="button" className="btn btn-ghost btn-sm" aria-pressed={revealPass} onClick={() => setRevealPass(!revealPass)}>
-                    {revealPass ? 'Hide' : 'Show'}
+                  <button
+                    type="button"
+                    className="btn btn-ghost password-toggle"
+                    aria-label={revealPass ? 'Hide password' : 'Show password'}
+                    aria-controls="users-password"
+                    aria-pressed={revealPass}
+                    onClick={() => setRevealPass(!revealPass)}
+                  >
+                    {revealPass ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                   </button>
                 </div>
+                {uPass && (
+                  <div
+                    id="users-password-strength"
+                    className={`password-strength password-strength--${passwordStrength.tone}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div className="password-strength-label">
+                      <span>Password strength</span>
+                      <strong>{passwordStrength.label}</strong>
+                    </div>
+                    <div className="password-strength-meter" aria-hidden="true">
+                      {[1, 2, 3, 4, 5].map(segment => (
+                        <span key={segment} className={segment <= passwordStrength.score ? 'active' : ''} />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="form-hint" id="users-password-hint">This is the password the account holder will sign in with. Tell it to them, and ask them to change it.</div>
               </div>
               <div className="form-row">
                 <label className="form-label" htmlFor="users-password-confirm">Confirm Password<span className="form-req" aria-hidden="true">*</span></label>
-                <input id="users-password-confirm" className={`form-input${passMismatch ? ' is-invalid' : ''}`} type={revealPass ? 'text' : 'password'} value={uPass2} onChange={e => setUPass2(e.target.value)} placeholder="Type it again"
-                  aria-required="true" aria-invalid={passMismatch || undefined} aria-describedby={passMismatch ? 'users-password-confirm-error' : undefined} />
+                <div className="form-with-action">
+                  <input id="users-password-confirm" className={`form-input${passMismatch ? ' is-invalid' : ''}`} type={revealPassConfirm ? 'text' : 'password'} value={uPass2} onChange={e => setUPass2(e.target.value)} placeholder="Type it again"
+                    aria-required="true" aria-invalid={passMismatch || undefined} aria-describedby={passMismatch ? 'users-password-confirm-error' : undefined} />
+                  <button
+                    type="button"
+                    className="btn btn-ghost password-toggle"
+                    aria-label={revealPassConfirm ? 'Hide confirm password' : 'Show confirm password'}
+                    aria-controls="users-password-confirm"
+                    aria-pressed={revealPassConfirm}
+                    onClick={() => setRevealPassConfirm(!revealPassConfirm)}
+                  >
+                    {revealPassConfirm ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                  </button>
+                </div>
                 {passMismatch && <div className="field-error" id="users-password-confirm-error">The two passwords do not match.</div>}
               </div>
             </>

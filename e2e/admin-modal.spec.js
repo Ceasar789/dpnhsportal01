@@ -232,6 +232,70 @@ test.describe('every admin dialog', () => {
 
     await page.keyboard.press('Escape');
   });
+
+  const DELETE_CASES = [
+    {
+      tab: 'User Management',
+      action: (page) => page.getByRole('button', { name: /^Archive / }).first(),
+      empty: (page) => page.getByText('No users found'),
+      title: /Archive User/i,
+    },
+    {
+      tab: 'News Management',
+      action: (page) => page.getByRole('button', { name: /^Delete / }).first(),
+      empty: (page) => page.getByText('No posts found'),
+      title: /Delete Post/i,
+    },
+    {
+      tab: 'Memos',
+      prepare: async (page) => page.locator('.memo-list-item').first().click(),
+      action: (page) => page.getByRole('button', { name: 'Delete', exact: true }),
+      empty: (page) => page.getByText('No memos found'),
+      title: /Delete Memo/i,
+    },
+    {
+      tab: 'Calendar',
+      action: (page) => page.getByRole('button', { name: /^Remove / }).first(),
+      empty: (page) => page.getByText('No upcoming events'),
+      title: /Delete Event/i,
+    },
+  ];
+
+  for (const { tab, prepare, action, empty, title } of DELETE_CASES) {
+    test(`${tab}: destructive actions use the shared confirmation dialog`, async ({ page }) => {
+      await openAdminTab(page, tab);
+      if (prepare) {
+        const record = page.locator('.memo-list-item').first();
+        await expect(record.or(empty(page))).toBeVisible();
+        test.skip(await record.count() === 0, `no ${tab} record to confirm against`);
+        await prepare(page);
+      }
+      const trigger = action(page);
+      if (!prepare) {
+        await expect(trigger.or(empty(page))).toBeVisible();
+        test.skip(await trigger.count() === 0, `no ${tab} record to confirm against`);
+      }
+      await expect(trigger).toBeVisible();
+
+      let nativePrompt = false;
+      page.on('dialog', async (dialog) => {
+        nativePrompt = true;
+        await dialog.dismiss();
+      });
+
+      await trigger.click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveAccessibleName(title);
+      await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+      await expect(dialog.getByRole('button', { name: /Yes, (Delete|Archive)/ })).toHaveClass(/btn-danger-solid/);
+      expect(nativePrompt, `${tab} still opened a browser confirmation`).toBe(false);
+
+      await page.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+    });
+  }
 });
 
 // The dirty check, on the two forms that open with a field already filled.

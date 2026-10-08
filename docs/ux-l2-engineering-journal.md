@@ -3,6 +3,10 @@
 Date: 8 October 2026  
 Scope: Admin Dashboard L2 only
 
+> **Release continuity:** L2 is complete. Later checkpoint language in this
+> journal is preserved as history; L3, L4, and RC1–RC3 were subsequently
+> completed. See [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md).
+
 ## Problem
 
 At calendar-grid widths around 768px and 1024px, each of the seven day

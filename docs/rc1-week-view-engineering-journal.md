@@ -3,6 +3,10 @@
 Date: 8 October 2026
 Scope: Admin Dashboard Calendar toolbar, RC1 only
 
+> **Release continuity:** RC1 is complete. RC2 and RC3 followed; the final
+> Admin release chronology is in
+> [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md).
+
 ## Problem
 
 The Calendar toolbar offered Month and Week choices, but selecting Week changed

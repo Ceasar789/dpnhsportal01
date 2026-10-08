@@ -3,6 +3,10 @@
 Date: 8 October 2026
 Scope: Admin Dashboard Memo selection, RC2 only
 
+> **Release continuity:** RC2 is complete. RC3 followed; the final Admin
+> release chronology is in
+> [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md).
+
 ## Problem
 
 Selecting a memo other than the first row was not stable across a memo-list

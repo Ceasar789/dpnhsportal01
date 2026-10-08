@@ -3,6 +3,10 @@
 Date: 8 October 2026
 Scope: Admin Dashboard, Users, News, Memos, Calendar, Settings, and shared Admin dialogs
 
+> **RC4 update (8 October 2026):** Documentation Reconciliation is now
+> complete. Lint Triage and Manual QA remain separate next stages. See
+> [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md).
+
 ## Problem
 
 The release pass found three material accessibility defects:

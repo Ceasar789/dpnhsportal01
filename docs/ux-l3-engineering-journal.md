@@ -3,6 +3,10 @@
 Date: 8 October 2026
 Scope: Admin Dashboard Calendar Agenda, L3 only
 
+> **Release continuity:** L3 is complete. Later checkpoint language in this
+> journal is preserved as history; L4 and RC1–RC3 were subsequently completed.
+> See [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md).
+
 ## Problem
 
 The mobile Agenda rendered its `Today` marker only inside an existing event-group

@@ -1,5 +1,11 @@
 # Admin dashboard — UX findings
 
+> **RC4 release status (8 October 2026):** This is the historical audit and
+> recovery-checkpoint ledger. Statements below that call L1–L4 pending or
+> unimplemented describe the checkpoint at which they were written; all four
+> were subsequently completed. Current release status and chronology are in
+> [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md).
+
 Produced by `/ux-engine:ux-audit AdminDashboard` on 2026-10-01, against
 `frontend/src/pages/dashboards/admin` — 15 source files, 4682 lines, screened
 against 103 candidate failure modes.

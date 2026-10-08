@@ -1,8 +1,17 @@
-# Temporary workarounds — remove in Phase 5
+# Admin Dashboard workaround and recovery notebook
 
-Things that exist only because an earlier phase could not reach the code that
-really causes them. Each row names what removes it. Nothing here is a design
-decision; if a row survives Phase 5, it has become one by accident.
+> **RC4 release status (8 October 2026):** This file is a chronological
+> engineering and recovery notebook. Its `pending`, `deferred`, and `not
+> verified` labels belong to the dated sections where they appear and are not
+> the current Admin release checklist. See
+> [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md) for
+> final status and the genuine work that remains outside this release pass.
+
+## Original workaround inventory (historical)
+
+The original inventory follows for chronology. Its removal targets describe
+the phase plan at the time; completed or reclassified rows elsewhere in this
+notebook supersede it.
 
 | # | Where | What | Why it is there | Removed by |
 |---|---|---|---|---|

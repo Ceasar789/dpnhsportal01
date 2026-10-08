@@ -3,6 +3,10 @@
 Date: 8 October 2026
 Scope: Admin Dashboard Calendar toolbar, L4 only
 
+> **Release continuity:** L4 is complete. RC1–RC3 subsequently closed the
+> Week View, Memo selection, and accessibility release findings. See
+> [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md).
+
 > **RC1 update (8 October 2026):** The Month/Week selector described in this
 > historical L4 record was subsequently confirmed to be a nonfunctional
 > placeholder and removed from the Release Candidate. The supported Month

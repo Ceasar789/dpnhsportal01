@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../config/supabase';
 import { Eye, EyeOff, Mail, Lock, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
+import { loginErrorMessage } from '../../lib/loginAttemptLimit';
 
 const normalizeRole = (role) => {
   if (!role) return 'student';
@@ -84,17 +85,10 @@ const StudentLogin = () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
       console.error('Login error:', error);
-      setErrorMessage(getErrorMessage(error.message));
+      setErrorMessage(loginErrorMessage(error));
       setLoginAttempted(false);
       setIsLoading(false);
     }
-  };
-
-  const getErrorMessage = (message) => {
-    if (message?.includes('Invalid login credentials')) return 'Invalid email or password';
-    if (message?.includes('Email not confirmed')) return 'Please verify your email first';
-    if (message?.includes('Too many requests')) return 'Too many attempts. Please try again later';
-    return 'Login failed. Please try again.';
   };
 
   return (

@@ -316,11 +316,12 @@ test.describe('admin settings', () => {
 
     // And the claims that were false are gone.
     await expect(page.getByText('Locked On')).toHaveCount(0);
-    await expect(page.getByText('5 Attempts')).toHaveCount(0);
+    await expect(page.getByText('Two-Factor Authentication')).toHaveCount(0);
 
     for (const said of [
-      /Sign-in: email and password. Forgotten passwords are reset through a link sent to the user.s email./,
-      'Failed sign-ins are not counted or limited.',
+      /Users sign in with email and password. Password reset links are sent through Supabase Auth./,
+      /After this setting is saved, each browser applies it on its next portal load/,
+      /After 5 consecutive incorrect-password submissions, this browser pauses sign-in for 60 seconds/,
       'Backups run automatically every day at 12:30 AM (Manila time). The schedule is not configurable here.',
       'Activity logs are currently kept indefinitely. Automatic cleanup is not available yet.',
     ]) {

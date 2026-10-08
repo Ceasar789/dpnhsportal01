@@ -100,26 +100,19 @@ const SettingsTab = () => {
       <div id="sec-security" className="settings-section">
         <div className="settings-section-title">Security</div>
         <div className="settings-card">
-          {/* What sign-in actually is. The password-reset email goes out
-              through SMTP configured in the Supabase dashboard, which is
-              why there is no mail sender anywhere in this repository. */}
+          {/* What sign-in actually is. MFA needs enrollment, challenge and
+              enforcement flows; none exists in this application, so the old
+              Two-Factor row is gone rather than presented as a setting. */}
           <div className="settings-row">
             <div>
-              <div className="settings-label">How people sign in</div>
-              <div className="settings-hint">Sign-in: email and password. Forgotten passwords are reset through a link sent to the user's email.</div>
+              <div className="settings-label">Authentication Method</div>
+              <div className="settings-hint">Users sign in with email and password. Password reset links are sent through Supabase Auth.</div>
             </div>
-          </div>
-          <div className="settings-row">
-            <div>
-              <div className="settings-label">Two-Factor Authentication</div>
-              <div className="settings-hint">A second step after the password</div>
-            </div>
-            <span className="badge badge-grey">Not available</span>
           </div>
           <div className="settings-row">
             <div>
               <div className="settings-label">Session Timeout</div>
-              <div className="settings-hint">Signs the user out after this long with no mouse, key, scroll or touch activity</div>
+              <div className="settings-hint">After this setting is saved, each browser applies it on its next portal load and signs the user out after this long without mouse, keyboard, scroll or touch activity.</div>
             </div>
             <select value={sessionTimeout} onChange={e => setSessionTimeout(e.target.value)} aria-label="Session Timeout">
               <option>15 min</option><option>30 min</option><option>1 hour</option><option>2 hours</option>
@@ -127,10 +120,10 @@ const SettingsTab = () => {
           </div>
           <div className="settings-row">
             <div>
-              <div className="settings-label">Login Attempt Limit</div>
-              <div className="settings-hint">Failed sign-ins are not counted or limited.</div>
+              <div className="settings-label">Sign-in Attempt Protection</div>
+              <div className="settings-hint">After 5 consecutive incorrect-password submissions, this browser pauses sign-in for 60 seconds. Supabase Auth separately rate-limits authentication traffic.</div>
             </div>
-            <span className="badge badge-grey">Not configured</span>
+            <span className="badge badge-grey">5 attempts · 60 sec</span>
           </div>
         </div>
       </div>

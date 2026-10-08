@@ -86,6 +86,26 @@ test.describe('forgot password', () => {
     await clears24(back, 'Back to login');
     expect(await ratioOf(back)).toBeGreaterThanOrEqual(4.5);
   });
+
+  test('a reset request uses Supabase Auth and reports success without revealing an account', async ({ page }) => {
+    const requests = [];
+    await page.route('**/auth/v1/recover**', async (route) => {
+      requests.push({
+        method: route.request().method(),
+        body: route.request().postDataJSON(),
+        url: route.request().url(),
+      });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
+    await page.getByLabel('EMAIL ADDRESS').fill('reset-probe@example.invalid');
+    await page.getByRole('button', { name: 'Send Reset Link' }).click();
+
+    await expect(page.getByRole('alert')).toContainText('Password reset email sent');
+    const request = requests.find(({ method }) => method === 'POST');
+    expect(request?.body?.email).toBe('reset-probe@example.invalid');
+    expect(new URL(request.url).searchParams.get('redirect_to')).toMatch(/\/reset-password$/);
+  });
 });
 
 test.describe('reset password without a recovery link', () => {

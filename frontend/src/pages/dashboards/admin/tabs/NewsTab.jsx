@@ -4,7 +4,7 @@
 // Includes the NEWS MODAL, which only this tab opens.
 // ============================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Archive, ArchiveRestore } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
@@ -25,16 +25,16 @@ const NewsTab = () => {
   // screen and the only sign anything had happened was the browser's own
   // filename text. On a new post there was no preview at all.
   //
-  // createObjectURL in a memo rather than an effect: an effect would have
-  // to setState to publish the url, and that is the cascading-render
-  // pattern the lint rules flag. The effect below only revokes, which is
-  // the part that genuinely belongs in one — without it every pick leaks
-  // a blob for the lifetime of the page.
-  const stagedUrl = useMemo(
-    () => (nImageFile ? URL.createObjectURL(nImageFile) : ''),
-    [nImageFile],
-  );
-  useEffect(() => () => { if (stagedUrl) URL.revokeObjectURL(stagedUrl); }, [stagedUrl]);
+  // The blob belongs to the visible preview, not to a render. Creating it
+  // in an effect pairs every allocation with cleanup, including StrictMode
+  // replay, replacement, and closing the modal while this tab stays mounted.
+  const previewImageRef = useRef(null);
+  useEffect(() => {
+    if (modal !== 'news' || !nImageFile || !previewImageRef.current) return;
+    const url = URL.createObjectURL(nImageFile);
+    previewImageRef.current.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [modal, nImageFile]);
 
   // The file input is uncontrolled, so clearing the state is not enough:
   // the element keeps showing the filename until its own value is reset.
@@ -195,21 +195,22 @@ const NewsTab = () => {
               onChange={e => setNImageFile(e.target.files?.[0] || null)}
               disabled={newsReadOnly}
             />
-            {(stagedUrl || nImageUrl) && (
+            {(nImageFile || nImageUrl) && (
               <div className="news-image-preview">
                 <img
-                  src={stagedUrl || nImageUrl}
-                  alt={stagedUrl ? `Preview of ${nImageFile?.name || 'the chosen image'}` : 'The image currently on this post'}
+                  ref={previewImageRef}
+                  src={nImageFile ? undefined : nImageUrl}
+                  alt={nImageFile ? `Preview of ${nImageFile.name || 'the chosen image'}` : 'The image currently on this post'}
                 />
                 <div className="news-image-preview-bar">
                   {/* Which image this is, said plainly: the old version
                       showed the saved one and called it the attachment. */}
                   <span className="news-image-preview-label">
-                    {stagedUrl
+                    {nImageFile
                       ? `${nImageFile?.name || 'New image'} — not saved yet`
                       : 'Current image'}
                   </span>
-                  {stagedUrl && !newsReadOnly && (
+                  {nImageFile && !newsReadOnly && (
                     <button type="button" className="news-action" onClick={clearStagedImage}>
                       {nImageUrl ? 'Keep current' : 'Remove'}
                     </button>

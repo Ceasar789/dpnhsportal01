@@ -54,18 +54,22 @@ const CalendarTab = () => {
               <div className="cal-layout">
                 <div className="cal-main">
                   <div className="cal-toolbar">
-                    <button className="cal-nav" onClick={prevMonth}>‹</button>
-                    <span className="cal-title">{MONTHS[calMonth]} {calYear}</span>
-                    <select value={calYear} onChange={e => setCalYear(Number(e.target.value))} style={{ width:'auto' }} aria-label="Calendar year">
-                      {[...Array(11)].map((_, i) => { const year = new Date().getFullYear() - 5 + i; return <option key={year} value={year}>{year}</option>; })}
-                    </select>
-                    <button className="cal-nav" onClick={nextMonth}>›</button>
-                    <select style={{ marginLeft: 'var(--space-8)', width:'auto' }}><option>Month</option><option>Week</option></select>
-                    <button className="btn btn-primary" style={{ marginLeft:'auto' }} onClick={openCreateEvent}>+ Add Event</button>
-                    <select value={calFilter} onChange={e => setCalFilter(e.target.value)} style={{ width:'auto' }}>
-                      <option value="">Filter type</option>
-                      {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
-                    </select>
+                    <div className="cal-toolbar-group cal-toolbar-period">
+                      <button className="cal-nav" onClick={prevMonth}>‹</button>
+                      <span className="cal-title">{MONTHS[calMonth]} {calYear}</span>
+                      <select className="cal-year-select" value={calYear} onChange={e => setCalYear(Number(e.target.value))} aria-label="Calendar year">
+                        {[...Array(11)].map((_, i) => { const year = new Date().getFullYear() - 5 + i; return <option key={year} value={year}>{year}</option>; })}
+                      </select>
+                      <button className="cal-nav" onClick={nextMonth}>›</button>
+                    </div>
+                    <div className="cal-toolbar-group cal-toolbar-actions">
+                      <select className="cal-view-select"><option>Month</option><option>Week</option></select>
+                      <button className="btn btn-primary cal-add-event" onClick={openCreateEvent}>+ Add Event</button>
+                      <select className="cal-filter-select" value={calFilter} onChange={e => setCalFilter(e.target.value)}>
+                        <option value="">Filter type</option>
+                        {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
                   </div>
                   <div className="cal-grid">
                     {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="cal-head">{d}</div>)}

@@ -106,6 +106,45 @@ test.describe('the agenda', () => {
 test.describe('calendar controls', () => {
   test.skip(!hasAdminCredentials, ADMIN_SKIP_REASON);
 
+  test('L4: the 360px toolbar uses two deliberate control rows', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 900 });
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360);
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'Calendar');
+
+    const filter = page.locator('.cal-filter-select');
+    await filter.selectOption('Custom Type');
+    await expect(filter).toHaveValue('Custom Type');
+
+    const layout = await page.locator('.cal-toolbar').evaluate((toolbar) => {
+      const controls = [...toolbar.querySelectorAll('button, select')];
+      const centers = (items) => [...new Set(items.map((item) => {
+        const rect = item.getBoundingClientRect();
+        return Math.round(rect.top + rect.height / 2);
+      }))];
+      return {
+        rows: centers(controls),
+        periodRows: centers([...toolbar.querySelectorAll('.cal-toolbar-period > *')]),
+        actionRows: centers([...toolbar.querySelectorAll('.cal-toolbar-actions > *')]),
+        overflow: toolbar.scrollWidth - toolbar.clientWidth,
+        controlOrder: controls.map((control) => control.className),
+      };
+    });
+
+    expect(layout.rows, 'the toolbar returned to three rows').toHaveLength(2);
+    expect(layout.periodRows, 'date controls split across rows').toHaveLength(1);
+    expect(layout.actionRows, 'action controls split across rows').toHaveLength(1);
+    expect(layout.overflow, 'the toolbar overflows the phone').toBe(0);
+    expect(layout.controlOrder).toEqual([
+      'cal-nav',
+      'cal-year-select',
+      'cal-nav',
+      'cal-view-select',
+      'btn btn-primary cal-add-event',
+      'cal-filter-select',
+    ]);
+  });
+
   for (const width of [360, 768, 1440]) {
     test(`${width}: the month arrows and the Upcoming actions are 44x44`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });

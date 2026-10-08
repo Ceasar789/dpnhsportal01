@@ -958,7 +958,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           padding-bottom: calc(var(--space-12) + env(safe-area-inset-bottom, 0px));
           margin-top: var(--space-24);
           background: var(--card-bg);
-          border: 1px solid var(--accent);
+          border: 1px solid var(--border);
           border-bottom: none;
           /* An edge sitting on the screen edge has no radius (RD4). */
           border-radius: var(--radius-lg) var(--radius-lg) 0 0;

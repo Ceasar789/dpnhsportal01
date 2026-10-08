@@ -11,7 +11,7 @@ const indicator = el => {
     parseFloat(c.outlineWidth) >= 2 &&
     !/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)|transparent/.test(c.outlineColor);
   const ringVisible = c.boxShadow !== 'none' && c.boxShadow.trim() !== '';
-  return { outlineVisible, ringVisible, outline: `${c.outlineWidth} ${c.outlineStyle} ${c.outlineColor}`, boxShadow: c.boxShadow };
+  return { focused: el.isConnected && document.activeElement === el, outlineVisible, ringVisible, outline: `${c.outlineWidth} ${c.outlineStyle} ${c.outlineColor}`, boxShadow: c.boxShadow };
 };
 
 const CASES = [
@@ -33,19 +33,18 @@ for (const [path, role, name, note] of CASES) {
     test.skip(await el.count() === 0, `"${name}" is not on ${path} with the current data`);
     await expect(el).toBeVisible();
 
-    // Focus, then measure, then check the measurement is of a live node.
-    // A React re-render between the two replaces the element, and
-    // getComputedStyle on the detached handle returns empty strings for
-    // every property — which reads as "no focus indicator" and fails a
-    // control that has one. An element that genuinely has no outline still
-    // reports "0px none rgb(0, 0, 0)", so an empty string can only mean
-    // the node went away.
+    // A data-loading render can replace the button between focus and
+    // measurement. The replacement has nonempty styles but is unfocused;
+    // checking only for empty styles misses that race. Measure an actually
+    // focused node and allow its focus transition to paint. A persistently
+    // missing indicator still fails, with the last measurement attached.
+    await page.keyboard.press('Tab');
     let r;
     await expect.poll(async () => {
       await el.focus();
       r = await el.evaluate(indicator);
-      return r.outline.trim() !== '';
-    }, { message: `${name}: the element was replaced faster than it could be measured` }).toBe(true);
+      return r.focused && (r.outlineVisible || r.ringVisible);
+    }, { message: `${name}: no visible indicator on the focused control` }).toBe(true);
     console.log(`  ${name.padEnd(15)} outline=${r.outline}  ring=${r.ringVisible}`);
     expect(r.outlineVisible || r.ringVisible,
       `${name} has no visible focus indicator: ${JSON.stringify(r)}`).toBe(true);

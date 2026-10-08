@@ -81,7 +81,7 @@ test('the unread count is legible', async ({ page }) => {
   // stylesheet. It measures the styling, which is what changed; it does not
   // claim the count itself was exercised.
   const src = fs.readFileSync('frontend/src/components/NotificationBell.jsx', 'utf8');
-  const cls = (src.match(/className="(absolute top-0[^"]*)"/) || [])[1];
+  const cls = (src.match(/className="(notification-badge [^"]*)"/) || [])[1];
   expect(cls, 'could not find the badge className in NotificationBell.jsx').toBeTruthy();
 
   await page.evaluate(([c]) => {

@@ -26,7 +26,6 @@ import CalendarTab from './tabs/CalendarTab';
 import MemosTab from './tabs/MemosTab';
 import SettingsTab from './tabs/SettingsTab';
 import ProfileTab from '../../profile/ProfileTab';
-import FlippingLogo from '../../../components/FlippingLogo';
 
 // ============================================
 // MAIN ADMIN DASHBOARD — auth guard, then mounts AdminProvider
@@ -240,6 +239,12 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         }
 
         .nav-actions { display: flex; align-items: center; gap: var(--space-8); margin-left: auto; }
+        /* The shared bell keeps its existing 40px shape elsewhere. In the
+           Admin header it follows the dashboard's 44px touch-target floor,
+           and the count sits just outside the glyph instead of covering it. */
+        .admin-notification-bell { width: 44px; height: 44px; flex-shrink: 0; }
+        .admin-notification-bell .notification-bell-button { width: 44px; height: 44px; }
+        .admin-notification-bell .notification-badge { top: -2px; right: -6px; }
         .nav-search-btn {
           width: 40px; height: 40px; border-radius: 50%;
           border: none; background: rgba(255,255,255,.12); cursor: pointer;
@@ -1079,6 +1084,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           nav { padding: 0 var(--space-16); }
           .nav-logo { margin-right: 0; }
           .nav-logo-text span:first-child { font-size: 18px; }
+          /* A width cap alone did not keep this right-anchored panel on the
+             screen: at 360px its left edge was still -36px. On phones it
+             follows the same 16px viewport gutters as the page. */
+          .admin-notification-bell .notification-panel {
+            position: fixed;
+            top: calc(76px + var(--space-8));
+            left: var(--space-16);
+            right: var(--space-16);
+            width: auto;
+            max-width: none;
+            margin-top: 0;
+          }
           .sidebar { width: 256px; }
           /* 2x2, not a single column. Four full-width cards push the
              Recent Activity panel below two screens of scroll on a phone,
@@ -1146,14 +1163,14 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           <Menu size={20} />
         </button>
         <div className="nav-logo">
-          <FlippingLogo size={64} />
+          <img src="/EduScribeLogoIcon.png" alt="EduScribe" width="64" height="64" />
           <div className="nav-logo-text">
             <span><b>Edu</b><i>Scribe</i></span>
             <span>Admin Portal</span>
           </div>
         </div>
         <div className="nav-actions">
-          <NotificationBell />
+          <NotificationBell className="admin-notification-bell" />
           <button className="nav-toggle-btn" aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} onClick={() => setDarkMode(d => !d)}>
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>

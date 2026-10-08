@@ -860,6 +860,11 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
              its content unless it is told otherwise, and flex: 1 only
              governs the main axis. Both get the full width by name. */
           .cal-main, .cal-sidebar { width: 100%; }
+          /* L2: at the narrow grid widths used by 768 and 1024px
+             viewports, a third line keeps names such as "Midterm
+             Examinations" intact without shrinking the approved type.
+             Wider calendars retain the base two-line density. */
+          .cal-event { -webkit-line-clamp: 3; }
         }
 
         /* CAL4. Seven columns give a day 43px on a 360px screen, which is

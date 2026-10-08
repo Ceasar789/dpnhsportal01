@@ -415,6 +415,7 @@ test.describe('calendar event chips', () => {
         // Two lines, not one: a single nowrap line made every name
         // "Midterm E..." the moment a column was under ~160px.
         const oneLiners = chips.filter((c) => getComputedStyle(c).whiteSpace === 'nowrap').length;
+        const lineClamps = [...new Set(chips.map((c) => getComputedStyle(c).webkitLineClamp))];
 
         // Whatever is still cut off has to be recoverable.
         const silent = chips
@@ -432,11 +433,13 @@ test.describe('calendar event chips', () => {
           .filter(([, hs]) => new Set(hs).size > 1)
           .map(([top, hs]) => `row at ${top}: ${[...new Set(hs)].join('/')}`);
 
-        return { chips: chips.length, oneLiners, silent, ragged };
+        return { chips: chips.length, oneLiners, lineClamps, silent, ragged };
       });
 
       expect(r.chips, 'no events this month to measure').toBeGreaterThan(0);
       expect(r.oneLiners, 'a chip is still a single nowrap line').toBe(0);
+      expect(r.lineClamps, 'the clamp does not match the calendar container width')
+        .toEqual([width === 1440 ? '2' : '3']);
       expect(r.silent, 'a clipped name with no title to recover it').toEqual([]);
       expect(r.ragged, 'cells in one week are different heights').toEqual([]);
     });

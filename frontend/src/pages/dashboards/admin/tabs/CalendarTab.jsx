@@ -55,16 +55,16 @@ const CalendarTab = () => {
                 <div className="cal-main">
                   <div className="cal-toolbar">
                     <div className="cal-toolbar-group cal-toolbar-period">
-                      <button className="cal-nav" onClick={prevMonth}>‹</button>
+                      <button className="cal-nav" type="button" aria-label="Previous month" onClick={prevMonth}>‹</button>
                       <span className="cal-title">{MONTHS[calMonth]} {calYear}</span>
                       <select className="cal-year-select" value={calYear} onChange={e => setCalYear(Number(e.target.value))} aria-label="Calendar year">
                         {[...Array(11)].map((_, i) => { const year = new Date().getFullYear() - 5 + i; return <option key={year} value={year}>{year}</option>; })}
                       </select>
-                      <button className="cal-nav" onClick={nextMonth}>›</button>
+                      <button className="cal-nav" type="button" aria-label="Next month" onClick={nextMonth}>›</button>
                     </div>
                     <div className="cal-toolbar-group cal-toolbar-actions">
                       <button className="btn btn-primary cal-add-event" onClick={openCreateEvent}>+ Add Event</button>
-                      <select className="cal-filter-select" value={calFilter} onChange={e => setCalFilter(e.target.value)}>
+                      <select className="cal-filter-select" value={calFilter} onChange={e => setCalFilter(e.target.value)} aria-label="Filter events by type">
                         <option value="">Filter type</option>
                         {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
                       </select>
@@ -182,8 +182,8 @@ const CalendarTab = () => {
                             : formatDateLong(e.event_date)}
                         </div>
                         <div style={{ display:'flex', gap: 'var(--space-8)', marginTop: 'var(--space-4)' }}>
-                          <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => openEditEvent(e)}>Edit</button>
-                          <button className="news-action red" style={{ fontSize: 'var(--font-size-12)' }} onClick={() => deleteEvent(e.id)}>Remove</button>
+                          <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} aria-label={`Edit ${e.title}`} onClick={() => openEditEvent(e)}>Edit</button>
+                          <button className="news-action red" style={{ fontSize: 'var(--font-size-12)' }} aria-label={`Remove ${e.title}`} onClick={() => deleteEvent(e.id)}>Remove</button>
                         </div>
                       </div>
                     ))
@@ -208,11 +208,11 @@ const CalendarTab = () => {
       >
           <div className="form-row">
             <label className="form-label" htmlFor="calendar-title">Title</label>
-            <input id="calendar-title" className="form-input" value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="Event title" />
+            <input id="calendar-title" className="form-input" value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="Event title" aria-required="true" />
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="calendar-start-date">Start Date</label>
-            <input id="calendar-start-date" className="form-input" type="date" value={evDate} onChange={e => setEvDate(e.target.value)} />
+            <input id="calendar-start-date" className="form-input" type="date" value={evDate} onChange={e => setEvDate(e.target.value)} aria-required="true" />
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="calendar-end-date-optional">End Date (optional)</label>
@@ -227,7 +227,7 @@ const CalendarTab = () => {
           {evType === 'Custom Type' && (
             <div className="form-row">
               <label className="form-label" htmlFor="calendar-custom-event-type">Custom Event Type</label>
-              <input id="calendar-custom-event-type" className="form-input" value={evCustomType} onChange={e => setEvCustomType(e.target.value)} placeholder="e.g. Foundation Day or Faculty Meeting" />
+              <input id="calendar-custom-event-type" className="form-input" value={evCustomType} onChange={e => setEvCustomType(e.target.value)} placeholder="e.g. Foundation Day or Faculty Meeting" aria-required="true" />
             </div>
           )}
           <div className="form-row">

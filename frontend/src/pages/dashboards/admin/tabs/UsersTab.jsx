@@ -61,7 +61,7 @@ const UsersTab = () => {
               </div>
               <div className="toolbar">
                 <input type="search" name="portal-user-search" autoComplete="new-password" autoCorrect="off" spellCheck="false" placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} style={{ flex:1, maxWidth:280 }} />
-                <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ width:'auto' }}>
+                <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ width:'auto' }} aria-label="Filter users by role">
                   <option value="">Role: All</option>
                   <option value="student">Student</option>
                   <option value="teacher">Teacher</option>

@@ -65,11 +65,11 @@ const NewsTab = () => {
               </div>
               <div className="toolbar">
                 <input placeholder="Search articles..." value={newsSearch} onChange={e => setNewsSearch(e.target.value)} />
-                <select value={newsCatF} onChange={e => setNewsCatF(e.target.value)} style={{ width:'auto' }}>
+                <select value={newsCatF} onChange={e => setNewsCatF(e.target.value)} style={{ width:'auto' }} aria-label="Filter news by category">
                   <option value="">Category</option>
                   {['Academics','Events','Scholarships','Announcements','Sports'].map(c => <option key={c}>{c}</option>)}
                 </select>
-                <select value={newsStatF} onChange={e => setNewsStatF(e.target.value)} style={{ width:'auto' }}>
+                <select value={newsStatF} onChange={e => setNewsStatF(e.target.value)} style={{ width:'auto' }} aria-label="Filter news by status">
                   <option value="">Status</option>
                   <option>Published</option><option>Draft</option><option>Archived</option>
                 </select>
@@ -150,7 +150,7 @@ const NewsTab = () => {
           )}
           <div className="form-row">
             <label className="form-label" htmlFor="news-title">Title</label>
-            <input id="news-title" className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" disabled={newsReadOnly} />
+            <input id="news-title" className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" disabled={newsReadOnly} aria-required={newsReadOnly ? undefined : 'true'} />
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="news-category">Category</label>
@@ -173,6 +173,7 @@ const NewsTab = () => {
                 onChange={e => setNCustomTarget(e.target.value)}
                 placeholder="e.g. Grade 10 students or Science Department"
                 disabled={newsReadOnly}
+                aria-required={newsReadOnly ? undefined : 'true'}
               />
             </div>
           )}

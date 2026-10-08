@@ -137,7 +137,7 @@ const MemosTab = () => {
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="memos-subject">Subject</label>
-            <input id="memos-subject" className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" />
+            <input id="memos-subject" className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" aria-required="true" />
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="memos-body">Body</label>

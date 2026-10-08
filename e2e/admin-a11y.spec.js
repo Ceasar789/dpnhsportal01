@@ -110,4 +110,70 @@ test.describe('admin keyboard access', () => {
     await expect(page.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
   });
 
+  test('toolbar filters and Calendar navigation have meaningful names', async ({ page }) => {
+    const FILTERS = [
+      ['User Management', '.toolbar select', ['Filter users by role', 'Filter users by status']],
+      ['News Management', '.toolbar select', ['Filter news by category', 'Filter news by status']],
+      ['Memos', '.toolbar select', ['Filter by recipient']],
+      ['Calendar', '.cal-filter-select', ['Filter events by type']],
+    ];
+
+    for (const [tab, selector, names] of FILTERS) {
+      await openAdminTab(page, tab);
+      const controls = page.locator(selector);
+      await expect(controls).toHaveCount(names.length);
+      for (let i = 0; i < names.length; i++) {
+        await expect(controls.nth(i)).toHaveAccessibleName(names[i]);
+      }
+    }
+
+    await openAdminTab(page, 'Calendar');
+    const previous = page.locator('.cal-toolbar-period .cal-nav').first();
+    const next = page.locator('.cal-toolbar-period .cal-nav').last();
+    await expect(previous).toHaveAccessibleName('Previous month');
+    await expect(next).toHaveAccessibleName('Next month');
+
+    const startingMonth = await page.locator('.cal-title').innerText();
+    await next.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.cal-title')).not.toHaveText(startingMonth);
+    await previous.click();
+    await expect(page.locator('.cal-title')).toHaveText(startingMonth);
+  });
+
+  test('Calendar Upcoming actions name the event they affect', async ({ page }) => {
+    await openAdminTab(page, 'Calendar');
+    const actions = page.locator('.upcoming-item .news-action');
+    test.skip(await actions.count() === 0, 'no upcoming Calendar events to act on');
+    await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
+  });
+
+  test('required News, Calendar and Memo fields expose that requirement', async ({ page }) => {
+    const CASES = [
+      ['News Management', /new post/i, ['#news-title']],
+      ['Calendar', /add event/i, ['#calendar-title', '#calendar-start-date']],
+      ['Memos', /compose/i, ['#memos-subject']],
+    ];
+
+    for (const [tab, opener, selectors] of CASES) {
+      await openAdminTab(page, tab);
+      await page.getByRole('button', { name: opener }).first().click();
+      for (const selector of selectors) {
+        await expect(page.locator(selector)).toHaveAttribute('aria-required', 'true');
+      }
+      if (tab === 'News Management') {
+        await page.locator('#news-target-audience').selectOption('custom');
+        await expect(page.locator('#news-custom-audience')).toHaveAttribute('aria-required', 'true');
+      }
+      if (tab === 'Calendar') {
+        await page.locator('#calendar-type').selectOption('Custom Type');
+        await expect(page.locator('#calendar-custom-event-type')).toHaveAttribute('aria-required', 'true');
+      }
+      page.once('dialog', dialog => dialog.accept());
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+  });
+
 });

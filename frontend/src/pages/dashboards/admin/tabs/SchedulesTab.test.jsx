@@ -14,7 +14,6 @@
 // VARCHAR — 'Grade 7', 'grade 7' and '7' all reach it.
 // ============================================
 
-import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 

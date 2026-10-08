@@ -813,10 +813,11 @@ export const useAdminLogic = (userData) => {
     return cells;
   }, [calYear, calMonth]);
 
-  const upcomingEvents = useMemo(() => {
-    const ts = today.toISOString().slice(0, 10);
-    return calEvents.filter(e => e.event_date >= ts).slice(0, 4);
-  }, [calEvents]);
+  const todayDateKey = today.toISOString().slice(0, 10);
+  const upcomingEvents = useMemo(
+    () => calEvents.filter(e => e.event_date >= todayDateKey).slice(0, 4),
+    [calEvents, todayDateKey]
+  );
 
   const prevMonth = () => { if(calMonth===0){setCalYear(y=>y-1);setCalMonth(11)}else setCalMonth(m=>m-1); };
   const nextMonth = () => { if(calMonth===11){setCalYear(y=>y+1);setCalMonth(0)}else setCalMonth(m=>m+1); };

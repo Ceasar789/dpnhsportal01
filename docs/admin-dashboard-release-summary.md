@@ -2,7 +2,7 @@
 
 Date: 8 October 2026
 
-Stage: Release Candidate 4 — Release Documentation Finalization
+Stage: Release Candidate 5 — Lint Risk Assessment and Triage
 
 Overall status: **ADMIN DASHBOARD READY FOR MANUAL QA**
 
@@ -24,6 +24,7 @@ checkpoint labels when determining current release state.
 | RC2 | ✓ Complete | [Memo selection stability journal](rc2-memo-selection-engineering-journal.md) — `7def194` |
 | RC3 | ✓ Complete | [Accessibility release journal](rc3-accessibility-engineering-journal.md) — `747e501` |
 | RC4 | ✓ Complete | Documentation reconciled; this summary and continuity links are the RC4 changes. |
+| RC5 | ✓ Complete | [Lint risk assessment](rc5-lint-risk-assessment.md) — release-risk findings triaged and justified fixes verified. |
 
 ## Recovery
 
@@ -108,9 +109,7 @@ release commitments.
 
 ## Remaining Release Work
 
-- **RC5 — Lint Triage:** not started during RC4.
-- **Manual QA:** the next release gate; not performed or claimed by this
-  documentation pass.
+- **Manual QA:** the next release gate; not performed or claimed by RC5.
 
 ## RC4 Release Notes
 

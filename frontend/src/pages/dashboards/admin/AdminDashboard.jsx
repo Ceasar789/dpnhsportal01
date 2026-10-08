@@ -883,6 +883,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
            title - the title truncates, this does not. */
         .cal-agenda-item .truncate-1 { flex: 1; min-width: 0; }
         .cal-agenda-range { flex-shrink: 0; font-size: var(--font-size-12); color: var(--text-muted); }
+        .cal-agenda-today-empty { margin: 0; color: var(--text-muted); font-size: var(--font-size-13); }
         .cal-agenda-empty { color: var(--text-muted); font-size: var(--font-size-13); padding: var(--space-24) 0; }
         @media (max-width: 767.98px) {
           /* The grid goes; the legend stays. Agenda entries carry the

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agendaGroups, monthBounds } from './agenda';
+import { agendaGroups, agendaTimeline, monthBounds } from './agenda';
 
 const ev = (event_date, end_date, event_type = 'Event') => ({ event_date, end_date, event_type, title: event_date });
 const OCT = [2026, 9]; // October 2026
@@ -66,5 +66,29 @@ describe('agendaGroups', () => {
   it('counts rows, not days: nine rows for two events was the bug', () => {
     const out = agendaGroups([ev('2026-10-19', '2026-10-23'), ev('2026-10-28', '2026-10-31')], ...OCT);
     expect(out.reduce((n, g) => n + g.events.length, 0)).toBe(2);
+  });
+});
+
+describe('agendaTimeline', () => {
+  it('inserts a marker-only today row in chronological order', () => {
+    const groups = agendaGroups([ev('2026-10-03'), ev('2026-10-19')], ...OCT);
+    const out = agendaTimeline(groups, ...OCT, new Date(2026, 9, 8));
+
+    expect(out.map((group) => group.day)).toEqual([3, 8, 19]);
+    expect(out[1]).toMatchObject({ events: [], todayOnly: true });
+    expect(groups.map((group) => group.day), 'event grouping must not be mutated').toEqual([3, 19]);
+  });
+
+  it('does not duplicate today when an event group already owns the heading', () => {
+    const groups = agendaGroups([ev('2026-10-08'), ev('2026-10-19')], ...OCT);
+    const out = agendaTimeline(groups, ...OCT, new Date(2026, 9, 8));
+
+    expect(out).toBe(groups);
+    expect(out.filter((group) => group.day === 8)).toHaveLength(1);
+  });
+
+  it('does not add today to a different displayed month', () => {
+    const groups = agendaGroups([ev('2026-11-03')], 2026, 10);
+    expect(agendaTimeline(groups, 2026, 10, new Date(2026, 9, 8))).toBe(groups);
   });
 });

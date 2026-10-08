@@ -10,7 +10,7 @@ import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { MONTHS, EVENT_TYPES } from '../shared/helpers';
 import Button from '../../../../components/ui/Button';
 import { formatDateLong, formatDateRange } from '../../../../lib/formatDate';
-import { agendaGroups } from '../../../../lib/agenda';
+import { agendaGroups, agendaTimeline } from '../../../../lib/agenda';
 
 const CalendarTab = () => {
   const {
@@ -37,6 +37,10 @@ const CalendarTab = () => {
   // what is on this month, and listing that week five times cost nine
   // rows for two events. See lib/agenda.js.
   const agendaDays = agendaGroups(calEvents, calYear, calMonth, calFilter);
+  // L3. Event groups keep their one-row-per-event contract. Today's position
+  // is a presentation concern, so add a marker-only row only when no event
+  // group already supplies today's heading.
+  const agendaRows = agendaTimeline(agendaDays, calYear, calMonth, today);
 
   return (
     <>
@@ -102,11 +106,11 @@ const CalendarTab = () => {
                   <div className="cal-agenda">
                     {calLoading ? (
                       <div className="cal-agenda-empty">{slowCal ? 'Loading events…' : ''}</div>
-                    ) : agendaDays.length === 0 ? (
+                    ) : agendaRows.length === 0 ? (
                       <div className="cal-agenda-empty">
                         {calFilter ? `No ${calFilter} events this month.` : 'No events this month.'}
                       </div>
-                    ) : agendaDays.map(({ ds, day, events }) => {
+                    ) : agendaRows.map(({ ds, day, events, todayOnly }) => {
                       const isToday = day === today.getDate()
                         && calMonth === today.getMonth() && calYear === today.getFullYear();
                       return (
@@ -115,28 +119,34 @@ const CalendarTab = () => {
                             {formatDateLong(ds)}
                             {isToday && <span className="cal-agenda-today"> · Today</span>}
                           </h3>
-                          <ul className="cal-agenda-list">
-                            {events.map((e, j) => (
-                              <li key={j}>
-                                <button
-                                  type="button"
-                                  className={`ux-unbutton cal-agenda-item ${typeClass(e.event_type)}`}
-                                  onClick={() => openEditEvent(e)}
-                                  aria-label={`Edit ${e.title}`}
-                                >
-                                  <span className="truncate-1" title={e.title}>{e.title}</span>
-                                  {/* P3: a five-day event appears under all
-                                      five days. Without the span it reads as
-                                      five unrelated events with one name. */}
-                                  {e.end_date && e.end_date !== e.event_date && (
-                                    <span className="cal-agenda-range">
-                                      {formatDateRange(e.event_date, e.end_date)}
-                                    </span>
-                                  )}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
+                          {todayOnly ? (
+                            <p className="cal-agenda-today-empty">
+                              {calFilter ? `No ${calFilter} events start today.` : 'No events start today.'}
+                            </p>
+                          ) : (
+                            <ul className="cal-agenda-list">
+                              {events.map((e, j) => (
+                                <li key={j}>
+                                  <button
+                                    type="button"
+                                    className={`ux-unbutton cal-agenda-item ${typeClass(e.event_type)}`}
+                                    onClick={() => openEditEvent(e)}
+                                    aria-label={`Edit ${e.title}`}
+                                  >
+                                    <span className="truncate-1" title={e.title}>{e.title}</span>
+                                    {/* P3: a five-day event appears under all
+                                        five days. Without the span it reads as
+                                        five unrelated events with one name. */}
+                                    {e.end_date && e.end_date !== e.event_date && (
+                                      <span className="cal-agenda-range">
+                                        {formatDateRange(e.event_date, e.end_date)}
+                                      </span>
+                                    )}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </section>
                       );
                     })}

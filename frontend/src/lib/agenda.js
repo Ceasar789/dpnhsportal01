@@ -58,3 +58,20 @@ export function agendaGroups(events, year, monthIndex, typeFilter = '') {
   return [...byDay.keys()].sort()
     .map((ds) => ({ ds, day: Number(ds.slice(8, 10)), events: byDay.get(ds) }));
 }
+
+/**
+ * Adds today's logical position to the rendered agenda without changing how
+ * events are grouped. A real group for today already owns the marker; when
+ * none exists, the inserted marker-only row keeps its chronological place.
+ */
+export function agendaTimeline(groups, year, monthIndex, today) {
+  if (!(today instanceof Date)
+      || today.getFullYear() !== year
+      || today.getMonth() !== monthIndex) return groups;
+
+  const ds = `${year}-${pad(monthIndex + 1)}-${pad(today.getDate())}`;
+  if (groups.some((group) => group.ds === ds)) return groups;
+
+  return [...groups, { ds, day: today.getDate(), events: [], todayOnly: true }]
+    .sort((a, b) => a.ds.localeCompare(b.ds));
+}

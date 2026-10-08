@@ -138,3 +138,54 @@ screenshots at 360 and 1440.
 
 Phase 6 closes with every ID above marked **fixed**, **not fixed** or
 **disputed** with a reason. No ID may be left unlisted.
+
+## Recovery status addendum — 8 October 2026 (Checkpoint C)
+
+The findings above remain historical evidence. The final-report instruction is
+not a completed status ledger: the 54 judgment findings (37 high, 17 medium)
+and 196 UX-101 occurrences have not all been individually re-adjudicated here.
+Do not mark the entire overhaul complete from this addendum. Current test
+commands/results, database limits and Phase 7 evidence are in the recovery
+section of [ux-workarounds.md](ux-workarounds.md).
+
+**F1/F2 remain unresolved identifiers; no code changes made for them.**
+Repository docs, relevant history/comments, Superpowers/SDD artifacts and
+available sessions did not establish Admin Overhaul meanings. Unrelated
+September academic-review labels were not substituted.
+
+| Priority/status | Finding | Current conclusion |
+| --- | --- | --- |
+| ALREADY FIXED / VERIFIED | Notification tests could mark live inboxes read | PATCH interception committed locally as `efaa0e9`; cases pass, notification fingerprints unchanged |
+| ALREADY FIXED / VERIFIED | 7C preview URL lifetime | Commit `dc7667a`; three regression tests red → green; zero live URLs after cancel in ten width/theme combinations; existing preview/undo tests pass |
+| ALREADY FIXED / VERIFIED | Full-suite focus-test timing failure | Commit `af20034`; measure an actually focused control; targeted tests and 20 repeated focus cases pass; public app unchanged |
+| ALREADY FIXED / VERIFIED | Event-author request coverage | Commit `effa33c`; intercepted request carries the authenticated admin ID without a live write |
+| SHOULD FIX / DEFERRED pending approval | L1–L4 | All reproduced; source and proposals below |
+| BLOCKED / NOT VERIFIED | F1/F2 | Definitions unproven; no implementation |
+| PARTIAL / DEFERRED | Canonical DB reconciliation | Live columns show v2 still depends on legacy additions; no consolidation or SQL execution |
+| DEFERRED | Lint | 256 errors/19 warnings, unchanged by recovery; touched/untouched attribution in workarounds |
+| PARTIAL / SHOULD FIX | Full findings ledger | Only investigated recovery items are updated; no blanket closure of original IDs |
+| NOT VERIFIED | Live policy targets, migration application, real Phase 7 write persistence | Read-only evidence cannot close these; write gates remain |
+
+### Deferred UI: evidence and proposals
+
+**None of L1–L4 has been implemented.** Approval is required by continuation
+request sections 7 and 20. Before captures are local ignored artifacts under
+`screenshots/admin-recovery-2026-10-08/before/`. Proposals preserve the existing
+tokens, hierarchy, patterns, typography and light/dark design.
+
+| ID/current status | UX cause and existing pattern | Smallest proposed fix | Affected matrix and intended verification |
+| --- | --- | --- | --- |
+| L1 — still reproducible | Save bar's accent top border reads as a stray line over its full-width backing. Approved surfaces use quiet neutral boundaries; dirty count and Save already identify pending work. | Use the existing neutral-border token instead of the accent boundary; retain sticky positioning, opaque backing, shadow, spacing and edge radius. | Both themes, clearest at 360; dirty-state screenshots at 360/390/768/1024/1440, Security scrolling, keyboard focus, Discard and footer coverage. |
+| L2 — still reproducible | Two-line clamp in narrow seven-column cells truncates Midterm Examinations and School Foundation Day at 768. This is density, not a reason to shrink type. Existing chips wrap and cells can grow. | Permit three lines in the narrow calendar-grid container range; retain 12px type, tint/stripe, full accessible name, desktop two-line behavior and mobile agenda. | Both themes, 768 primary; 768/1024/1440 long-title and multi-event cells plus unchanged 360/390 agenda. Read-only response fixtures for edge content. |
+| L3 — still reproducible / source-supported edge | Agenda headings exist only for event start groups. Today is 8 October; groups are 3/19/28, so the agenda has no Today marker while the grid marks the 8th. Later days in an event range have the same problem. | Ensure a current-month Today heading independently of event starts, using truthful “No events start today” wording when empty. Reuse agenda heading/empty styles; retain one listing per event and its date range. | Both themes, visible agenda at 360/390 (<768). Controlled-clock/read-only fixtures for no-start day, start day, later range day, filtered-empty current month and non-current month; no duplicate events. |
+| L4 — still reproducible | Free wrapping puts the type filter alone on row three at 360; the navigation and action/filter controls lack deliberate grouping. At 390 they fit in two rows. | Group navigation/year as row one; use bounded flexible widths for view, Add Event and type filter in row two, retaining mobile gaps and 44px targets. Keep desktop layout. | Both themes, 360 primary; verify all five widths, keyboard order, filter behavior, long option text and zero body overflow. |
+
+Examples: `light-360-settings-dirty.png`, `dark-360-settings-dirty.png`,
+`light-768-calendar.png`, `dark-768-calendar.png`, `light-360-calendar.png`.
+Calendar measurements show no body overflow at any matrix width. These are
+BEFORE evidence; there are deliberately no L1–L4 AFTER claims.
+
+Separate Supabase E2E setup, broad lint cleanup, schema consolidation, complete
+original-findings adjudication and feature backlog remain outside approved
+implementation scope. Readiness prerequisites are in workarounds; none was
+silently started.

@@ -989,3 +989,146 @@ Considered and rejected for `activity_logs`: a sweep needs a DELETE
 policy on an audit table, or a service-role key in the test environment.
 Adding either to make the tests tidier is a worse trade than keeping a
 handful of honest rows.
+
+## Recovery verification — 8 October 2026 (Checkpoint B)
+
+This supplements the historical record. Recovery began on `ux-overhaul` at
+`75b8ed116f809e5d50a37ac6594e4678e40f0b5f`, with no later commits or tracked
+changes. Existing untracked `AGENTS.md` and `PROJECT_CONTEXT.md` were preserved.
+The original UX brief/session, Phase 6 screenshot manifest, current tokens,
+components and responsive rules were inspected. The approved Admin remains the
+baseline: existing patterns, keyboard accessibility, both themes, and
+360/390/768/1024/1440px BEFORE → CHANGE → AFTER verification.
+
+### Current verification, not historical results
+
+Browser commands used PowerShell `$env:E2E_ALLOW_WRITES='0'`, one Chrome worker
+and zero configured retries. Reports/captures are local ignored artifacts under
+`screenshots/admin-recovery-2026-10-08/`.
+
+| Check | Current result |
+| --- | --- |
+| `npm test` before application changes | 15 files, 188 passed, 38.09s |
+| `npm run test:e2e -- --reporter=list,json --output=screenshots/admin-recovery-2026-10-08/test-results` | 265 total: 254 passed, 1 failed, 10 skipped; 787.343s |
+| New `NewsTab.test.jsx` before/after fix | Three failures before; three passes after (3.81s after) |
+| `npm test` after fix | 16 files, 191 passed; 6.26s |
+| `npm run build` after fix | Passed, 10.06s; existing >500kB bundle warning remains |
+| Targeted browser command below | 43 total: 41 passed, 0 failed, 2 write-gated skips; 148.949s |
+| `npm run test:e2e -- e2e/focus.spec.js --repeat-each=5 --reporter=list,json --output=screenshots/admin-recovery-2026-10-08/focus-repeat-test-results` | 20 passed; 33.612s |
+| `npm run lint -- --format json --output-file screenshots/admin-recovery-2026-10-08/lint-final.json` | Exit 1: 256 errors, 19 warnings; unchanged diagnostic totals |
+
+```powershell
+$env:E2E_ALLOW_WRITES='0'
+$env:PLAYWRIGHT_JSON_OUTPUT_NAME='screenshots/admin-recovery-2026-10-08/targeted-results.json'
+npm run test:e2e -- e2e/admin-activity-log.spec.js e2e/admin-event-author.spec.js e2e/admin-news-image.spec.js e2e/admin-memo-recipients.spec.js e2e/admin-modal.spec.js e2e/admin-double-click.spec.js e2e/focus.spec.js --reporter=list,json --output=screenshots/admin-recovery-2026-10-08/targeted-test-results
+```
+
+The full-run JSON filename was `e2e-results.json`; repeated-focus output was
+`focus-repeat-results.json`. Initial sandbox `spawn EPERM` attempts were
+environment failures; approved reruns produced the results above. The full
+265-test run has NOT been relabelled a pass or rerun in full after the fixes.
+Relevant follow-up suites passed.
+
+**Full-run failure:** `e2e/focus.spec.js`, “NEWS HISTORY shows a visible focus
+indicator (has its own ring)”, reported `3px none rgb(71, 85, 105)` and
+`boxShadow: none`. Classification: **test defect / timing failure**. The public
+News section can remount during loading. A read-only browser probe observed
+detached measurements; the old test also accepted nonempty styles on a newly
+resolved, unfocused replacement. The test now establishes keyboard modality
+and polls for a connected, currently focused control with an indicator.
+No public-page application/style change was made. Targeted coverage and five
+repeats pass. This does not certify focus preservation through every later
+public-page data refresh.
+
+The ten full-run skips: five write gates (activity log, event author, three
+Settings persistence cases), three horizontal-table-scroll conditions (rows
+fit at 360px), and two public-news content conditions (no sufficiently long
+article and fewer than two visible articles). Skips are not passes.
+
+### Database comparison and safety correction
+
+**VERIFIED:** Before the full run (2026-10-07 17:01:23 UTC) and immediately after
+(17:16:53 UTC), all 33 readable application tables had identical counts and
+SHA-256 content fingerprints, including `activity_logs` 55 → 55,
+`notifications` 508 → 508 and `backup_history` 36 → 36. Fingerprints cover all
+returned rows/columns, not just counts; raw rows and credentials were not saved.
+`teacher_load_summary` returned 404 in both snapshots. These were paginated
+PostgREST GETs using existing server credentials, never SQL or mutations.
+Snapshots were sequential, not atomic; Auth audit/session records and Storage
+were outside this comparison.
+
+`75b8ed1` is supported by seven passing double-click cases and the unchanged
+activity-log fingerprint. Inspection found an additional default-suite write
+path: opening the student/teacher notification panel marks notifications read.
+Both specs now intercept only that PATCH, preserving live GETs. Local commit
+**`efaa0e9`** contains this safety fix. Their browser cases passed and notification
+contents stayed unchanged. No inbox cleanup or app behavior change occurred.
+
+**Later observation:** a final GET snapshot at 2026-10-08 00:46:55 UTC still
+matched 32 tables, but `backup_history` had 37 rows. The latest completed row
+started at 2026-10-07 21:27:29 UTC and completed at 21:30:11 UTC, hours after the
+last browser tests ended around 17:28:50 UTC. The repository backup workflow
+invokes `backend/scripts/backup-history.mjs`, which writes this table. External
+backup activity is **INFERRED**; the specific remote workflow run was not
+verified. No test writes this table, no backup was triggered here, and no row
+was altered or removed. Do not call the whole elapsed session DB-unchanged.
+
+### Phase 7 status
+
+- **7A VERIFIED within read-only scope:** insert names `description`; live
+  OpenAPI exposes it and no `details`. `activityLog.test.js` covers archived
+  names, deleted actors and missing descriptions. Empty/error-backed activity
+  and all double-click cases pass. Actual insert persistence/RLS acceptance
+  remains write-gated and NOT VERIFIED in this continuation.
+- **7B VERIFIED request/read behavior (`effa33c`):** a new intercepted-request test checks
+  `created_by` against the signed-in auth user ID. Event/audit POSTs are fulfilled
+  locally. All five existing NULL-creator events remain readable. Real insert
+  persistence remains gated.
+- **7C VERIFIED FIXED (`dc7667a`):** `useMemo` URL allocation leaked during
+  StrictMode replay; modal close retained the staged file after its preview
+  disappeared. One effect now owns allocation/assignment/revocation by modal
+  and file. Three regression tests went red → green. Existing preview, undo,
+  saved-image and modal browser cases pass. Browser instrumentation before:
+  four allocations/one revocation after pick, replace, cancel. After: two/two,
+  zero live URLs across all five widths/both themes. There are 30 before and
+  10 after captures, with representative images visually reviewed. Layout is
+  preserved. Capture contexts blocked REST mutations; none were attempted.
+- **7D VERIFIED:** three recipient tests pass for real departments,
+  memo-derived filters and their shared source.
+- **7E VERIFIED by source/diff review and regression coverage:** removed
+  `adminUid`, `MemosTab.stats` and shell `settings` bindings were unused;
+  dashboard smoke/default-browser coverage passes. No further deletions.
+
+Recovery commits are `efaa0e9` (notification test write protection), `dc7667a`
+(preview URL lifetime), `af20034` (focus timing), and `effa33c` (event-author
+payload verification). Nothing was pushed.
+
+### Reconciliation, lint and future E2E readiness
+
+**PARTIAL / DEFERRED:** live OpenAPI is column evidence, not a complete catalog,
+constraint or RLS inventory. Activity-log columns match v2; the older
+`database-schema.sql` is stale there. V2 Settings lacks eight live legacy
+columns: `two_factor_auth`, `session_timeout`, `login_attempt_limit`,
+`email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`,
+`activity_logs_retention`. Calendar's `custom_event_type` comes from legacy SQL.
+The earlier claim that v2 plus migrations alone reconstructs live schema is
+insufficiently supported. Five registrar relations were absent from the exposed
+API inventory, not proved absent from every database schema.
+
+`phase7-01-activity-logs-rls-record.sql` was NOT executed. Assumed
+`TO authenticated`, actual live policy role targets and later migration
+application remain NOT VERIFIED. No schema consolidation occurred.
+
+Lint: 14 errors/4 warnings in overhaul-touched files; 242/15 elsewhere.
+Applying current rules to `09b3252` source identifies four introduced
+set-state-in-effect diagnostics (`useDelayedFlag`, Users, Subjects, Sections);
+several other touched-file findings predate the overhaul. This is attribution
+under current rules, not a historical lint run. All six code/test files changed
+in recovery have zero findings. Broad cleanup remains deferred.
+
+Separate E2E infrastructure is unstarted. Prerequisites: reconcile reproducible
+schema/legacy dependency order and policy targets; provision only an isolated
+project; seed representative content/roles; pass dedicated ignored `.env.e2e`
+consistently to Playwright and Vite; prove tests cannot reach school data before
+removing write gates. Do not blindly apply every historical migration. No new
+project, package, live SQL or migration execution was introduced.

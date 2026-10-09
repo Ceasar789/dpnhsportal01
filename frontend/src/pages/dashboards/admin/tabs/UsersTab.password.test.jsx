@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({ ctx: {} }));
 vi.mock('../AdminContext', () => ({ useAdminContext: () => h.ctx }));
-vi.mock('../../../../lib/useMediaQuery', () => ({ useIsNarrow: () => false }));
+vi.mock('../../../../lib/useMediaQuery', () => ({ useMediaQuery: () => false }));
 vi.mock('../../../../hooks/useSignedPhotoUrl', () => ({ useSignedPhotoUrl: () => null }));
 
 const UsersTab = (await import('./UsersTab')).default;

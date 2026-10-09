@@ -250,6 +250,7 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   const [users, setUsers]           = useState([]);
   const [usersLoading, setUL]       = useState(true);
+  const [usersError, setUsersError] = useState(null);
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -269,6 +270,7 @@ export const useAdminLogic = (userData) => {
 
   const fetchUsers = useCallback(async () => {
     setUL(true);
+    setUsersError(null);
     try {
       let { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
 
@@ -282,6 +284,7 @@ export const useAdminLogic = (userData) => {
       }
 
       if (error) {
+        setUsersError('Unable to load users.');
         if (error.status === 403) {
           console.warn('Users table access denied - check RLS policies on profiles table. Admin may need permission to read profiles.');
           showToast('User management requires database permissions. Contact your administrator.', 'error');
@@ -296,6 +299,7 @@ export const useAdminLogic = (userData) => {
       }
     } catch (e) {
       console.error('Users fetch exception:', e);
+      setUsersError('Unable to load users.');
       showToast('Error loading users', 'error');
     }
     setUL(false);
@@ -313,6 +317,11 @@ export const useAdminLogic = (userData) => {
 
   const saveUser = async () => {
   if (!uName.trim() || !uEmail.trim()) return showToast('Name and email required', 'error');
+  if (editUser?.id === userData?.uid
+      && (uRole !== editUser.role || uStatus !== (editUser.status || 'active').toLowerCase())) {
+    showToast('You cannot change your own administrator role or account status.', 'error');
+    return;
+  }
   if (savingUserRef.current) return;   // the second of a double click
   savingUserRef.current = true;
   setUSaving(true);
@@ -359,17 +368,19 @@ export const useAdminLogic = (userData) => {
       if (authErr) throw authErr;
       
       const uid = authData?.user?.id;
+      if (!uid) throw new Error('Supabase did not return a user identifier. Account setup was not completed.');
       console.log('✅ Auth user created:', uid);
 
       // Step 3: Restore admin session immediately
       console.log('🔒 Restoring admin session...');
-      const restoreResult = await supabase.auth.setSession({
+      const restoreAdminSession = () => supabase.auth.setSession({
         access_token: adminAccessToken,
         refresh_token: adminRefreshToken,
       });
-      
+
+      const restoreResult = await restoreAdminSession();
       if (restoreResult.error) {
-        console.error('❌ Failed to restore admin session:', restoreResult.error);
+        throw new Error(`Failed to restore administrator session: ${restoreResult.error.message}`);
       } else {
         console.log('✅ Admin session restored');
         await new Promise(r => setTimeout(r, 150)); // Wait for session to sync
@@ -388,7 +399,7 @@ export const useAdminLogic = (userData) => {
               name: uName.trim(),
               role: uRole,
               department: uDept.trim() || null,
-              status: 'active',
+              status: uStatus,
               created_at: new Date().toISOString()
             }], { onConflict: 'id' })
             .select()
@@ -407,8 +418,14 @@ export const useAdminLogic = (userData) => {
           
         } catch (err) {
           console.error('❌ Database error:', err.message);
-          showToast(err.message, 'error');
-          setUSaving(false);
+          // signUp can replace the browser session when email confirmation is
+          // disabled. Reassert the saved administrator session before leaving
+          // the failed workflow, and never mutate the local directory.
+          const compensation = await restoreAdminSession();
+          const sessionSuffix = compensation.error
+            ? ' Refresh the page before trying again.'
+            : '';
+          showToast(`Account setup could not be completed. No user was added to the directory.${sessionSuffix}`, 'error');
           return;
         }
       }
@@ -439,29 +456,54 @@ export const useAdminLogic = (userData) => {
   }
 };
 
-  const deleteUser = (id, onConfirmStart) => {
-    const userToDelete = users.find(u => u.id === id);
+  const setUserArchivedState = (id, archived, onConfirmStart) => {
+    const targetUser = users.find(u => u.id === id);
+    if (!archived && id === userData?.uid) {
+      showToast('You cannot archive your own administrator account.', 'error');
+      return;
+    }
+    const action = archived ? 'Restore' : 'Archive';
+    const nextStatus = archived ? 'active' : 'archived';
     setDeleteConfirm({
-      label: userToDelete?.name || userToDelete?.email || 'this user',
-      role: userToDelete?.role,
+      title: `${action} User?`,
+      message: archived
+        ? 'This user will return to the active user list:'
+        : 'This user will be moved to the archive and removed from the active user list:',
+      label: targetUser?.name || targetUser?.email || 'this user',
+      role: targetUser?.role,
+      warning: archived ? null : 'The account will not be permanently deleted.',
+      confirmLabel: `Yes, ${action}`,
       onConfirm: async () => {
-        onConfirmStart?.();
         try {
-          const { error } = await supabase.from('profiles').update({ status: 'archived', updated_at: new Date().toISOString() }).eq('id', id);
+          const { data, error } = await supabase
+            .from('profiles')
+            .update({ status: nextStatus, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
           if (error) throw error;
-          await logActivity('Archived user', userToDelete?.name || id);
-          setUsers(prev => prev.filter(u => u.id !== id));
-          setStats(prev => ({ ...prev, users: Math.max(0, prev.users - 1) }));
-          showToast('User archived. It can be restored from the archive.');
+          if (!data?.id) throw new Error(`No user was ${action.toLowerCase()}d.`);
+          await logActivity(`${action}d user`, targetUser?.name || id);
+          setUsers(prev => prev.map(u => u.id === id ? data : u));
+          onConfirmStart?.();
+          setStats(prev => ({
+            ...prev,
+            users: archived ? prev.users + 1 : Math.max(0, prev.users - 1),
+          }));
+          showToast(`User ${action.toLowerCase()}d.`);
           await fetchRoleDist();
+          return true;
         } catch (e) {
-          showToast(e.message || 'Error deleting user', 'error');
-          // Refresh users list on error to ensure consistency
+          showToast(e.message || `Error ${archived ? 'restoring' : 'archiving'} user`, 'error');
           await fetchUsers();
+          return false;
         }
       },
     });
   };
+
+  const deleteUser = (id, onConfirmStart) => setUserArchivedState(id, false, onConfirmStart);
+  const restoreUser = (id, onConfirmStart) => setUserArchivedState(id, true, onConfirmStart);
 
   const filteredUsers = useMemo(() => {
     const s = userSearch.toLowerCase();
@@ -1222,7 +1264,7 @@ export const useAdminLogic = (userData) => {
     activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime,
     calError, calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     darkMode, debounceTimersRef, debouncedFetchRoleDist, debouncedFetchStats, debouncedFetchUsers, deleteConfirm,
-    deleteEvent, deleteMemo, deleteNewsItem, deleteUser, editEvent, editMemo,
+    deleteEvent, deleteMemo, deleteNewsItem, deleteUser, restoreUser, editEvent, editMemo,
     editNews, editUser, emailNotifications, evDate, evDesc, evEnd,
     evCustomType, evSaving, evTitle, evType, fetchCalEvents, fetchLogs, fetchMemos,
     fetchNews, fetchRoleDist, fetchSettings, fetchStats, fetchUsers, filteredMemos,
@@ -1252,6 +1294,6 @@ export const useAdminLogic = (userData) => {
     settingsLoading,
     typeClass, typeColor, uDept, uEmail, uName, uPass,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
-    usersLoading,
+    usersLoading, usersError,
   };
 };

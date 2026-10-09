@@ -14,7 +14,7 @@ import Button from '../../../../components/ui/Button';
 import { useSignedPhotoUrl } from '../../../../hooks/useSignedPhotoUrl';
 import Avatar from '../../../../components/Avatar';
 import RowSheet from '../../../../components/ui/RowSheet';
-import { useIsNarrow } from '../../../../lib/useMediaQuery';
+import { useMediaQuery } from '../../../../lib/useMediaQuery';
 
 // One per row so each user's photo path resolves to its own signed URL
 // without breaking the rules of hooks inside .map().
@@ -40,9 +40,9 @@ const getPasswordStrength = (password) => {
 
 const UsersTab = () => {
   const {
-    closeModal, deleteUser, editUser, filteredUsers, modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
+    closeModal, deleteUser, restoreUser, editUser, fetchUsers, filteredUsers, modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
     setStatusFilter, setShowArchived, setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
-    showArchived, statusFilter, uDept, setUDept, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, onlineUsers
+    showArchived, statusFilter, uDept, setUDept, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, usersError, onlineUsers
   } = useAdminContext();
 
   // UX-062: the form mixed required and optional fields and distinguished
@@ -52,7 +52,9 @@ const UsersTab = () => {
   // person's stored credential, and nobody finds out until they cannot log
   // in. The rules themselves are unchanged and still live in saveUser.
   // R5. 123 rows of five columns is the worst table here on a phone.
-  const narrow = useIsNarrow();
+  // The card switches to mobile rows at 560px. RowSheet behavior follows
+  // that same boundary so a table row never competes with its action buttons.
+  const narrow = useMediaQuery('(max-width: 560px)');
   const [sheetUser, setSheetUser] = useState(null);
 
   const [tried, setTried] = useState(false);
@@ -106,6 +108,11 @@ const UsersTab = () => {
               <div className="table-card">
                 {usersLoading
                   ? <div className="loading-row"><div className="spin"></div></div>
+                  : usersError
+                    ? <div className="loading-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-12)' }}>
+                      <span>Unable to load users.</span>
+                      <Button variant="ghost" onClick={fetchUsers}>Retry</Button>
+                    </div>
                   : <table>
                     <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
@@ -138,20 +145,21 @@ const UsersTab = () => {
                             : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-grey'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-neutral'}`} style={{ marginRight: 'var(--space-4)' }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
                           </td>
                           <td data-cell="actions">
-                            <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={() => openEditUser(u)}><Pencil size={16} /></button>
+                            <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={(e) => { e.stopPropagation(); openEditUser(u); }}><Pencil size={16} /></button>
                             <button
-                              className="icon-action archive-action"
-                              title="Archive user"
-                              aria-label={`Archive ${u.name || u.email}`}
+                              className={`icon-action ${showArchived ? 'edit-action restore-action' : 'archive-action'}`}
+                              title={showArchived ? 'Restore user' : 'Archive user'}
+                              aria-label={`${showArchived ? 'Restore' : 'Archive'} ${u.name || u.email}`}
                               onClick={(e) => {
+                                e.stopPropagation();
                                 // UX-025 — decide where focus goes before the
                                 // row that holds it is unmounted.
                                 const settle = focusAfterRemoval(
-                                  e.currentTarget, 'table', '.archive-action', 'h2, .page-title',
+                                  e.currentTarget, 'table', showArchived ? '.restore-action' : '.archive-action', 'h2, .page-title',
                                 );
-                                deleteUser(u.id, settle);
+                                (showArchived ? restoreUser : deleteUser)(u.id, settle);
                               }}
-                            ><Trash2 size={16} /></button>
+                            >{showArchived ? <ArchiveRestore size={16} /> : <Trash2 size={16} />}</button>
                           </td>
                         </tr>
                       ))}
@@ -188,7 +196,16 @@ const UsersTab = () => {
         actions={sheetUser && (
           <>
             <Button variant="ghost" onClick={() => { const u = sheetUser; setSheetUser(null); openEditUser(u); }}>Edit</Button>
-            <Button variant="danger" onClick={() => { const u = sheetUser; setSheetUser(null); deleteUser(u.id); }}>Archive</Button>
+            <Button
+              variant={showArchived ? 'primary' : 'danger'}
+              onClick={() => {
+                const u = sheetUser;
+                setSheetUser(null);
+                (showArchived ? restoreUser : deleteUser)(u.id);
+              }}
+            >
+              {showArchived ? 'Restore' : 'Archive'}
+            </Button>
           </>
         )}
         onClose={() => setSheetUser(null)}
@@ -253,13 +270,13 @@ const UsersTab = () => {
               <input id="users-department-subject" className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
             </div>
           )}
-          {editUser && <div className="form-row">
+          <div className="form-row">
             <label className="form-label" htmlFor="users-account-status">Account Status</label>
             <select id="users-account-status" className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
-          </div>}
+          </div>
           {!editUser && (
             <>
               <div className="form-row">

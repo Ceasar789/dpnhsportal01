@@ -158,12 +158,12 @@ test.describe('pickers on a phone', () => {
     await phone(page);
     await openAdminTab(page, 'Teaching Load');
 
-    const grid = page.locator('.bulk-grid');
+    const grid = page.locator('.teaching-workspace');
     await expect(grid).toBeVisible();
     expect(await grid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length),
       'the builder is still two columns').toBe(1);
 
-    const outside = await page.locator('.bulk-grid *, .grade-tabs, .toolbar *').evaluateAll((els, vw) => els
+    const outside = await page.locator('.teaching-workspace *, .grade-tabs, .toolbar *').evaluateAll((els, vw) => els
       .filter((e) => e.offsetParent !== null)
       .map((e) => ({ r: e.getBoundingClientRect(), n: e.className || e.tagName }))
       .filter((x) => x.r.width > 0 && x.r.right > vw + 1)

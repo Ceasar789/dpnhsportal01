@@ -129,7 +129,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       // department per teacher, "math" narrows 48 teachers to 6 — without it
       // the only thing to search is a name the admin would have to know
       // already.
-      () => supabase.from('profiles').select('id, name, email, department').eq('role', 'teacher').order('name'),
+      () => supabase.from('profiles').select('id, name, email, department, status').eq('role', 'teacher').order('name'),
       { label: 'Teachers fetch' }
     );
     if (error) {
@@ -238,11 +238,21 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     return written;
   };
 
-  const removeLoad = async (id) => {
-    const { error } = await supabase.from('teacher_subjects').delete().eq('id', id);
-    if (error) return showToast(`Could not remove: ${error.message}`, 'error');
-    showToast('Teaching load removed');
-    fetchTeachingLoad();
+  const removeLoad = async (idOrIds, { refresh = true } = {}) => {
+    const ids = [...new Set((Array.isArray(idOrIds) ? idOrIds : [idOrIds]).filter(Boolean))];
+    if (ids.length === 0) return false;
+
+    const deletion = supabase.from('teacher_subjects').delete();
+    const { error } = await (ids.length === 1
+      ? deletion.eq('id', ids[0])
+      : deletion.in('id', ids));
+    if (error) {
+      showToast(`Could not remove: ${error.message}`, 'error');
+      return false;
+    }
+    showToast(ids.length === 1 ? 'Teaching load removed' : `${ids.length} teaching load entries removed`);
+    if (refresh) fetchTeachingLoad();
+    return true;
   };
 
   const copyLoadFromYear = async (fromYear) => {

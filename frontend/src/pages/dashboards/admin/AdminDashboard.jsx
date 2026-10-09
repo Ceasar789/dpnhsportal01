@@ -568,40 +568,96 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .table-card td[colspan] { grid-column: 1 / -1; text-align: center; }
         }
 
-        /* Teaching Load — bulk assignment form and the grade-grouped list.
-           Everything here is built from the same vars as the rest of the
-           dashboard, so it follows the light/dark theme without branching. */
-        .bulk-grid { display: grid; grid-template-columns: minmax(280px, 1.3fr) minmax(240px, 1fr); gap: var(--space-24); }
-        /* Was 860px, which left the two columns in place for every phone.
-           The builder stacks at the drawer breakpoint now, and its children
-           are allowed to shrink: a grid child defaults to min-width:auto and
-           refuses to go below its content, which is what pushed the picker
-           past the right edge however narrow the screen got. */
-        @media (max-width: 1023.98px) {
-          .bulk-grid { grid-template-columns: 1fr; }
-          .bulk-grid > * { min-width: 0; }
-          .picker-panel, .picker-search, .bulk-submit { max-width: 100%; }
-          .picker-row { gap: var(--space-8); }
-          .picker-name { min-width: 0; overflow-wrap: anywhere; }
-          .bulk-submit { flex-wrap: wrap; }
-        }
+        /* Teaching Load uses the dashboard's existing tokens in both themes. */
         .bulk-label { font-size: var(--font-size-12); font-weight: 600; color: var(--text-muted); margin-bottom: var(--space-8); display: flex; align-items: center; }
-        .bulk-submit { display: flex; align-items: center; gap: var(--space-12); margin-top: var(--space-16); flex-wrap: wrap; }
-        .bulk-hint { font-size: var(--font-size-12); color: var(--text-muted); flex: 1; min-width: 180px; line-height: 1.45; }
+        .bulk-hint { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-8); line-height: 1.45; }
         .picker-search { display: flex; align-items: center; gap: var(--space-8); padding: 0 var(--space-12); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); color: var(--text-muted); margin-bottom: var(--space-8); }
         .picker-search:focus-within { border-color: var(--accent); }
         .picker-search input { border: none; background: transparent; padding: var(--space-8) 0; flex: 1; min-width: 0; }
         .picker-search input:focus { border: none; }
-        /* Capped and scrollable: 48 teachers would otherwise push the Add
-           button and the whole list far below the fold. */
-        .picker-panel { max-height: 230px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); }
-        .picker-row { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-8) var(--space-12); cursor: pointer; border-bottom: 1px solid var(--border); font-size: var(--font-size-13); color: var(--text); }
-        .picker-row:last-child { border-bottom: none; }
-        .picker-row:hover { background: rgba(255,255,255,0.03); }
-        .picker-row input[type="checkbox"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-        .picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .picker-dept { font-size: var(--font-size-12); color: var(--text-muted); white-space: nowrap; }
+        /* The Teaching Load search is one visual control. Put its keyboard
+           ring around that whole control instead of around the nested input. */
+        .teaching-load-page .picker-search:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+        .teaching-load-page .picker-search input:focus-visible { outline: none; }
         .picker-empty { padding: var(--space-16) var(--space-12); text-align: center; font-size: var(--font-size-12); color: var(--text-muted); }
+        /* UX-01: a teacher list beside one persistent working context. */
+        .teaching-workspace { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(480px, 1.7fr); gap: var(--space-16); align-items: start; }
+        .teaching-teachers, .teaching-detail { padding: var(--space-16); min-width: 0; }
+        .teaching-toolbar-note { color: var(--text-muted); font-size: var(--font-size-12); }
+        .teaching-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); margin-bottom: var(--space-12); }
+        .teaching-panel-title { font-size: var(--font-size-16); font-weight: 700; color: var(--text); }
+        .teaching-panel-sub { margin-top: var(--space-2); font-size: var(--font-size-12); color: var(--text-muted); }
+        .teacher-list { max-height: 510px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); }
+        .teacher-option { width: 100%; min-height: 58px; padding: var(--space-8) var(--space-12); border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); display: flex; align-items: center; gap: var(--space-12); text-align: left; cursor: pointer; }
+        .teacher-option:last-child { border-bottom: 0; }
+        .teacher-option:hover { background: var(--card2); }
+        .teacher-option.selected { background: var(--banner-bg); box-shadow: inset 3px 0 0 var(--accent); }
+        .teacher-option-avatar, .teacher-summary-avatar { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: var(--radius-full); background: var(--card2); color: var(--accent); font-weight: 700; }
+        .teacher-option-avatar { width: 34px; height: 34px; font-size: var(--font-size-12); }
+        .teacher-option-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: var(--space-2); }
+        .teacher-option-name { font-size: var(--font-size-13); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .teacher-option-meta { font-size: var(--font-size-12); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .teacher-option-count { min-width: 28px; padding: var(--space-2) var(--space-8); border: 1px solid var(--border); border-radius: var(--radius-full); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 700; text-align: center; }
+        .teaching-empty { min-height: 390px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-8); padding: var(--space-24); text-align: center; color: var(--text-muted); }
+        .teaching-empty h2 { color: var(--text); font-size: var(--font-size-16); }
+        .teaching-empty p { font-size: var(--font-size-13); }
+        .teaching-empty-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-full); border: 1px solid var(--border); background: var(--card2); color: var(--accent); font-weight: 700; }
+        .teacher-summary { display: flex; align-items: center; gap: var(--space-12); padding-bottom: var(--space-16); border-bottom: 1px solid var(--border); }
+        .teacher-summary-avatar { width: 48px; height: 48px; font-size: var(--font-size-14); }
+        .teacher-summary-copy { min-width: 0; flex: 1; color: var(--text-muted); font-size: var(--font-size-12); }
+        .teacher-summary-copy h2 { color: var(--text); font-size: var(--font-size-18); margin: var(--space-2) 0; overflow-wrap: anywhere; }
+        .teaching-eyebrow { color: var(--text-dim); font-size: var(--font-size-11); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+        .teacher-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-8); padding: var(--space-16) 0; border-bottom: 1px solid var(--border); }
+        .teacher-summary-grid > div { min-width: 0; padding: var(--space-8); border-radius: var(--radius-md); background: var(--card2); }
+        .teacher-summary-grid dt { color: var(--text-dim); font-size: var(--font-size-11); margin-bottom: var(--space-4); }
+        .teacher-summary-grid dd { color: var(--text); font-size: var(--font-size-13); font-weight: 600; overflow-wrap: anywhere; }
+        .assigned-subjects { padding: var(--space-16) 0; border-bottom: 1px solid var(--border); }
+        .subject-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); margin-bottom: var(--space-12); }
+        .subject-section-title { color: var(--text); font-size: var(--font-size-14); font-weight: 700; }
+        .subject-section-head p { margin-top: var(--space-2); color: var(--text-muted); font-size: var(--font-size-12); }
+        .subject-empty { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-16); border: 1px dashed var(--border); border-radius: var(--radius-md); color: var(--text-muted); font-size: var(--font-size-12); text-align: center; }
+        .subject-empty strong { color: var(--text); font-size: var(--font-size-13); }
+        .subject-chip-list { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+        .subject-chip { min-height: 36px; display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12); border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--card2); color: var(--text); font-size: var(--font-size-13); font-weight: 600; }
+        .subject-chip.pending { border-style: dashed; border-color: var(--accent); background: var(--card2); }
+        .subject-chip-state { color: var(--accent); font-size: var(--font-size-11); text-transform: uppercase; letter-spacing: .04em; }
+        .subject-chip-remove { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--text-muted); cursor: pointer; }
+        .subject-chip-remove:hover { background: var(--card-bg); color: var(--red); }
+        .subject-chip-remove:disabled { opacity: .5; cursor: wait; }
+        .add-subject-panel { padding: var(--space-16) 0; }
+        .add-subject-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-8); align-items: center; }
+        .subject-read-error { padding: var(--space-8); margin-bottom: var(--space-8); border: 1px solid var(--red); border-radius: var(--radius-md); }
+        .teaching-savebar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); padding: var(--space-12) var(--space-16); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card2); }
+        .teaching-savebar.dirty { border-color: var(--accent); background: var(--card2); }
+        .teaching-save-title { display: flex; align-items: center; gap: var(--space-8); color: var(--text); font-size: var(--font-size-13); font-weight: 700; }
+        .teaching-savebar.saved .teaching-save-title { color: var(--green); }
+        .teaching-save-hint { margin-top: var(--space-2); color: var(--text-muted); font-size: var(--font-size-12); }
+        .teaching-save-actions { display: flex; align-items: center; gap: var(--space-8); }
+        .teaching-load-error { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); margin-bottom: var(--space-16); padding: var(--space-12) var(--space-16); border: 1px solid var(--red); border-radius: var(--radius-md); color: var(--text); background: var(--card-bg); font-size: var(--font-size-13); }
+        @media (max-width: 1199.98px) {
+          .teaching-workspace { grid-template-columns: 1fr; }
+          .teacher-list { max-height: 320px; }
+          .teacher-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 1023.98px) {
+          .teaching-load-page .grade-tab, .teaching-load-page .toolbar .form-input,
+          .subject-chip-remove { min-width: 44px; min-height: 44px; }
+          .subject-chip { min-height: 44px; }
+        }
+        @media (max-width: 600px) {
+          .teaching-teachers, .teaching-detail { padding: var(--space-12); }
+          .teacher-summary { align-items: flex-start; flex-wrap: wrap; }
+          .teacher-summary-copy { flex-basis: calc(100% - 64px); }
+          .teacher-summary > .badge { margin-left: 60px; }
+          .teacher-summary-grid { grid-template-columns: 1fr 1fr; }
+          .teacher-summary-grid > div:first-child { grid-column: 1 / -1; }
+          .add-subject-row { grid-template-columns: 1fr; }
+          .add-subject-row .btn { width: 100%; }
+          .teaching-savebar { align-items: flex-start; flex-direction: column; }
+          .teaching-save-actions { width: 100%; }
+          .teaching-save-actions .btn { flex: 1; }
+          .teaching-load-error { align-items: flex-start; flex-direction: column; }
+        }
         .grade-tabs { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-16); border-bottom: 1px solid var(--border); padding-bottom: 0; }
         .grade-tab { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border: 1px solid transparent; border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0; background: transparent; color: var(--text-muted); font-size: var(--font-size-13); font-weight: 600; cursor: pointer; margin-bottom: -1px; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
         .grade-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
@@ -663,38 +719,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sched-teacher { font-weight: 600; color: var(--text); white-space: nowrap; }
         .sched-when { color: var(--text-muted); font-size: var(--font-size-12); flex: 1; }
 
-        .picker-row.selected { background: rgba(99,102,241,.14); }
-        .picker-row.disabled { cursor: default; opacity: .5; }
-        .picker-row.disabled:hover { background: transparent; }
-        .picker-row input[type="radio"] { width: 15px; height: 15px; padding: 0; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-        .picker-actions { display: flex; gap: var(--space-8); margin-top: var(--space-8); }
-        .picker-actions .btn:disabled { opacity: .45; cursor: default; }
-        .picker-tag { font-size: var(--font-size-12); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-full); padding: 1px var(--space-8); white-space: nowrap; }
-        .picker-toggle { display: flex; align-items: center; gap: var(--space-8); margin-top: var(--space-12); font-size: var(--font-size-12); color: var(--text-muted); cursor: pointer; }
-        .picker-toggle input[type="checkbox"] { width: 14px; height: 14px; padding: 0; accent-color: var(--accent); cursor: pointer; }
-        .picker-warning { margin-top: var(--space-8); font-size: var(--font-size-12); line-height: 1.45; color: #fbbf24; border: 1px solid #b45309; background: rgba(245,158,11,0.1); border-radius: var(--radius-md); padding: var(--space-8) var(--space-12); }
-        .grade-picker { display: flex; flex-wrap: wrap; gap: var(--space-8); align-items: center; }
-        .grade-toggle { padding: var(--space-8) var(--space-12); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: var(--font-size-12); font-weight: 600; cursor: pointer; transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base); }
-        .grade-toggle:hover { border-color: var(--accent); color: var(--text); }
-        .grade-toggle.active { border-color: var(--accent); color: var(--on-accent); background: var(--accent); }
-        /* The draft: entries staged but not yet written. Dashed border and
-           an accent tint so it never reads as saved data at a glance. */
-        .draft-card { padding: var(--space-16); margin-bottom: var(--space-24); border-style: dashed; border-color: var(--accent); background: rgba(99,102,241,.05); }
-        .draft-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); flex-wrap: wrap; margin-bottom: var(--space-16); }
-        .draft-title { font-size: var(--font-size-14); font-weight: 700; color: var(--text); }
-        .draft-sub { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
-        .draft-group + .draft-group { margin-top: var(--space-16); }
-        .draft-grade { font-size: var(--font-size-12); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: var(--space-8); }
-        .draft-line { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-8) 0; font-size: var(--font-size-13); color: var(--text); border-bottom: 1px solid var(--border); }
-        .draft-line:last-child { border-bottom: none; }
-        .draft-teacher { font-weight: 600; white-space: nowrap; }
-        .draft-dots { flex: 1; min-width: 20px; border-bottom: 1px dotted var(--border); }
-        .draft-subject { color: var(--text-muted); white-space: nowrap; }
-
-        .group-row td { background: var(--banner-bg); padding: var(--space-8) var(--space-16); }
-        tr.group-row:hover td { background: var(--banner-bg); }
-        .group-title { font-size: var(--font-size-12); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--banner-text); }
-        .group-count { font-size: var(--font-size-12); color: var(--text-muted); margin-left: var(--space-12); }
         .row-sub { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
 
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-16); margin-bottom: var(--space-24); }
@@ -766,9 +790,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .pagination { display: flex; align-items: center; gap: var(--space-8); padding: var(--space-16) var(--space-16); border-top: 1px solid var(--border); font-size: var(--font-size-13); color: var(--text-muted); }
         .page-btn { width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-13); }
         .page-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-        .assign-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-16) var(--space-16); margin-top: var(--space-16); display: flex; align-items: center; justify-content: space-between; }
-        .assign-label { font-size: var(--font-size-13); font-weight: 600; }
-        .assign-hint { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
 
         .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); }
         .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: hidden; }
@@ -1092,7 +1113,6 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           .overview-grid { grid-template-columns: 1fr; }
           .news-grid { grid-template-columns: 1fr; }
           .memo-layout { grid-template-columns: 1fr; }
-          .assign-bar { flex-direction: column; align-items: flex-start; gap: var(--space-12); }
           .news-actions { flex-wrap: wrap; }
           /* :not(.ux-modal) — this block is injected after index.css and
              so wins at equal specificity, and it was capping the mobile

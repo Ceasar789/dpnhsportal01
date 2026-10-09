@@ -129,34 +129,30 @@ test.describe('a double click saves once', () => {
     await doubleClick(page.getByRole('button', { name: /^Publish$/ }));
     await expectExactlyOneInsert(seen);
   });
-  // Reaching Assign means staging an entry first: a teacher who does not
-  // already hold this grade, and a subject nobody holds for it. If the test
-  // database has neither free, the staging step cannot happen — the test
-  // fails with that reason rather than passing on an empty list.
-  test('Teaching Load · Assign', async ({ page }) => {
+  // Save Assignment writes the working subject chips once even when the
+  // button receives a rapid double click.
+  test('Teaching Load · Save Assignment', async ({ page }) => {
     await loginAsAdmin(page);
-    // The seeded database already holds every subject at every grade, so
-    // both pickers come up fully disabled and nothing can be staged. The
-    // existing-load READ is answered with an empty list to free them. That
-    // is the form's input, not the behaviour under test.
+    // Empty the existing-load read so the operation has a deterministic
+    // subject to add without changing the live teaching load.
     const seen = countInserts(page, 'teacher_subjects', { emptyReads: true });
     await openAdminTab(page, 'Teaching Load');
 
-    const teacher = page.locator('.picker-row:not(.disabled) input[type=radio]').first();
-    await expect(teacher, 'no teacher is free even with the load read emptied')
+    const teacher = page.locator('.teacher-option').first();
+    await expect(teacher, 'no teacher is available even with the load read emptied')
       .toBeVisible({ timeout: 10_000 });
-    await teacher.check();
+    await teacher.click();
 
-    const subject = page.locator('.bulk-grid select').first();
+    const subject = page.getByLabel('Add Subject');
     const free = await subject.evaluate((el) => {
       const o = [...el.options].find((x) => x.value && !x.disabled);
       return o ? o.value : null;
     });
-    expect(free, 'no subject is free even with the load read emptied').toBeTruthy();
+    expect(free, 'no active subject is available').toBeTruthy();
     await subject.selectOption(free);
 
-    await page.getByRole('button', { name: /Add to list/ }).click();
-    await doubleClick(page.getByRole('button', { name: 'Assign 1 entry' }));
+    await page.getByRole('button', { name: 'Add Subject' }).click();
+    await doubleClick(page.getByRole('button', { name: 'Save Assignment' }));
     await expectExactlyOneInsert(seen);
   });
   // The schedule form is the one with a real precondition: the chosen

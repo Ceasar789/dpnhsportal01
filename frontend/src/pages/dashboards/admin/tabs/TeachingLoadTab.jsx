@@ -1,48 +1,11 @@
 // ============================================
 // FILE: src/pages/dashboards/admin/tabs/TeachingLoadTab.jsx
-// Which teacher holds which subject, at which grade level, for a school year.
-// Recorded separately from the schedule so a teacher can be established before
-// any class exists, and so the schedule form can constrain its subject picker.
-//
-// ── The shape of this screen, and why ────────────────────────────────────
-//
-// One grade level at a time. The grade tab IS the grade selector — it
-// replaced a dropdown rather than being added next to one — so everything
-// below it, the picker and the saved list both, is about that grade and
-// nothing else.
-//
-// Within a grade the admin builds a LIST first and presses Assign once:
-//
-//   Grade 7 │ Grade 8 │ …            ← the grade, chosen once
-//   [ teacher ] [ subject ] → Add to list
-//
-//        Ana Cruz        ···· English     ×
-//        Ramon Delgado   ···· Mathematics ×
-//
-//   → Assign 2 entries      (one write, one round trip)
-//
-// Nothing reaches the database until that last button. Eight subjects across
-// six grade levels is 48 entries, and writing one per click was the whole
-// problem.
-//
-// ── Two rules this screen enforces that the database does not ────────────
-//
-// 1. One teacher per subject per grade. If Ramon Delgado holds Mathematics
-//    for Grade 7, he holds it for every Grade 7 section. The UNIQUE
-//    constraint on teacher_subjects is (teacher_id, subject_id, grade_level,
-//    school_year) — it would accept a second teacher on the same subject and
-//    grade happily. Only this screen stops it.
-//
-// 2. A teacher already holding something at this grade cannot be picked
-//    again. Shown, labelled and disabled rather than hidden, so the admin can
-//    see who is done without switching anything. Chosen deliberately by the
-//    user, and it does mean a teacher cannot hold two subjects at the same
-//    grade through this screen — Mathematics and Science for Grade 7 would
-//    have to be entered at different grades or by hand.
+// Teacher-centred editing of teacher_subjects for one school year and grade.
+// Additions and removals stay local until Save Assignment is pressed.
 // ============================================
 
-import { useMemo, useRef, useState } from 'react';
-import { Plus, X, Copy, Search, ArrowRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, Copy, Plus, Search, X } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
@@ -50,15 +13,31 @@ import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
 import Button from '../../../../components/ui/Button';
 
-// Case-insensitive match across every field an admin might type: the name,
-// the email (which for the seeded accounts encodes subject and grade) and
-// the department.
 const matchesQuery = (teacher, query) => {
-  if (!query) return true;
+  if (!query?.trim()) return true;
   const q = query.trim().toLowerCase();
-  if (!q) return true;
   return [teacher.name, teacher.email, teacher.department]
     .some(field => String(field || '').toLowerCase().includes(q));
+};
+
+const teacherName = teacher => teacher?.name || teacher?.email || 'Unknown teacher';
+
+const teacherInitials = (teacher) => {
+  const source = teacherName(teacher).trim();
+  const words = source.split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? `${words[0][0]}${words.at(-1)[0]}` : source.slice(0, 2)).toUpperCase();
+};
+
+const statusLabel = (status) => {
+  const value = String(status || '').trim().toLowerCase();
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Not recorded';
+};
+
+const statusClass = (status) => {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'active') return 'badge-green';
+  if (value === 'archived' || !value) return 'badge-grey';
+  return 'badge-yellow';
 };
 
 const TeachingLoadTab = () => {
@@ -69,119 +48,157 @@ const TeachingLoadTab = () => {
     addLoadEntries, removeLoad, copyLoadFromYear, showToast,
   } = useAdminContext();
 
-  // Only paint a loading line once the wait is worth mentioning.
   const slowTeachers = useDelayedFlag(teachersLoading);
-
   const [grade, setGrade] = useState(GRADE_LEVELS[0]);
-  const [pickQuery, setPickQuery] = useState('');
-  const [pickedTeacher, setPickedTeacher] = useState('');
-  const [rowSubject, setRowSubject] = useState('');
-  // [{ teacher_id, grade_level, subject_id }]. Nothing here has been written.
-  const [staged, setStaged] = useState([]);
+  const [query, setQuery] = useState('');
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
+  const [pendingAdditions, setPendingAdditions] = useState([]);
+  const [pendingRemovalIds, setPendingRemovalIds] = useState([]);
   const [saving, setSaving] = useState(false);
-  // Rule B2: Assign is no longer disabled while the write is in flight, so
-  // the ref is what stops the second half of a double click from writing
-  // the same staged entries twice.
-  const savingRef = useRef(false);
-  // UX-052: the copy is two round trips and rendered identically to idle.
   const [copying, setCopying] = useState(false);
-  // Set by pressing Add to list. Nothing is marked red until then — a form
-  // that is red before it has been touched reads as broken, not incomplete.
-  const [tried, setTried] = useState(false);
+  const [triedAdd, setTriedAdd] = useState(false);
+  const savingRef = useRef(false);
+  const searchRef = useRef(null);
+  const subjectSelectRef = useRef(null);
+
+  useEffect(() => {
+    if (window.matchMedia?.('(min-width: 1024px) and (pointer: fine)').matches) {
+      searchRef.current?.focus();
+    }
+  }, []);
 
   const teacherById = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
   const subjectById = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
-  const subjectLabel = (id) => subjectById.get(id)?.name || '—';
-  const subjectCode = (id) => subjectById.get(id)?.code || '—';
-  const teacherLabel = (id) => {
-    const t = teacherById.get(id);
-    return t ? (t.name || t.email) : 'Unknown teacher';
-  };
-
-  // Everything scoped to the grade on screen. teachingLoad is already scoped
-  // to the school year by fetchTeachingLoad, so nothing here can be confused
-  // by last year's load.
-  const gradeLoad = useMemo(
-    () => teachingLoad.filter(r => r.grade_level === grade), [teachingLoad, grade]
+  const selectedTeacher = teacherById.get(selectedTeacherId) || null;
+  const activeSubjects = useMemo(
+    () => subjects.filter(subject => subject.is_active !== false), [subjects]
   );
-  const gradeStaged = useMemo(
-    () => staged.filter(e => e.grade_level === grade), [staged, grade]
+  const visibleTeachers = useMemo(
+    () => teachers.filter(teacher => matchesQuery(teacher, query)), [teachers, query]
   );
+  const removalSet = useMemo(() => new Set(pendingRemovalIds), [pendingRemovalIds]);
 
-  // Taken at THIS grade, saved or staged. Drives both the disabled teachers
-  // and the disabled subjects.
-  const takenTeachers = useMemo(() => {
-    const m = new Map();
-    for (const r of gradeLoad) m.set(r.teacher_id, { subjectId: r.subject_id, saved: true });
-    for (const e of gradeStaged) m.set(e.teacher_id, { subjectId: e.subject_id, saved: false });
-    return m;
-  }, [gradeLoad, gradeStaged]);
+  const workingRows = useMemo(() => [
+    ...teachingLoad
+      .filter(row => !removalSet.has(row.id))
+      .map(row => ({ ...row, source: 'saved' })),
+    ...pendingAdditions.map((row, index) => ({ ...row, source: 'pending', pendingIndex: index })),
+  ], [teachingLoad, pendingAdditions, removalSet]);
 
-  const takenSubjects = useMemo(() => {
-    const m = new Map();
-    for (const r of gradeLoad) m.set(r.subject_id, { teacherId: r.teacher_id, saved: true });
-    for (const e of gradeStaged) m.set(e.subject_id, { teacherId: e.teacher_id, saved: false });
-    return m;
-  }, [gradeLoad, gradeStaged]);
+  const selectedRows = useMemo(() => workingRows
+    .filter(row => row.grade_level === grade && row.teacher_id === selectedTeacherId)
+    .sort((a, b) => {
+      const aName = subjectById.get(a.subject_id)?.name || '';
+      const bName = subjectById.get(b.subject_id)?.name || '';
+      return aName.localeCompare(bName);
+    }), [workingRows, grade, selectedTeacherId, subjectById]);
 
-  // One badge per tab, so the whole year stays readable while only one grade
-  // is on screen. Counts saved entries only — a draft is not progress yet.
-  const countsByGrade = useMemo(() => {
-    const counts = Object.fromEntries(GRADE_LEVELS.map(g => [g, 0]));
-    for (const r of teachingLoad) {
-      if (counts[r.grade_level] !== undefined) counts[r.grade_level] += 1;
+  const assignmentCountByTeacher = useMemo(() => {
+    const counts = new Map();
+    for (const row of workingRows) {
+      if (row.grade_level !== grade) continue;
+      counts.set(row.teacher_id, (counts.get(row.teacher_id) || 0) + 1);
     }
     return counts;
-  }, [teachingLoad]);
+  }, [workingRows, grade]);
 
-  const shownTeachers = useMemo(
-    () => teachers.filter(t => matchesQuery(t, pickQuery)), [teachers, pickQuery]
-  );
-
-  const activeSubjects = useMemo(
-    () => subjects.filter(s => s.is_active !== false), [subjects]
-  );
-
-  const missingTeacher = tried && !pickedTeacher;
-  const missingSubject = tried && !rowSubject;
-
-  const addToList = () => {
-    setTried(true);
-    // Returns silently: the red boxes and the lines under them say which
-    // field is missing, which a toast cannot do while pointing at nothing.
-    if (!pickedTeacher || !rowSubject) return;
-    const heldSubject = takenSubjects.get(rowSubject);
-    if (heldSubject) {
-      return showToast(
-        `${subjectLabel(rowSubject)} for ${grade} is already `
-        + `${heldSubject.saved ? 'assigned to' : 'in the list under'} ${teacherLabel(heldSubject.teacherId)}.`,
-        'error'
-      );
+  const countsByGrade = useMemo(() => {
+    const counts = Object.fromEntries(GRADE_LEVELS.map(level => [level, 0]));
+    for (const row of workingRows) {
+      if (counts[row.grade_level] !== undefined) counts[row.grade_level] += 1;
     }
-    setStaged(prev => [...prev, {
-      teacher_id: pickedTeacher, grade_level: grade, subject_id: rowSubject,
-    }]);
-    setPickedTeacher('');
-    setRowSubject('');
-    setTried(false);
+    return counts;
+  }, [workingRows]);
+
+  const unsavedCount = pendingAdditions.length + pendingRemovalIds.length;
+  const isDirty = unsavedCount > 0;
+  const missingSubject = triedAdd && !selectedSubjectId;
+
+  const selectTeacher = (teacherId) => {
+    setSelectedTeacherId(teacherId);
+    setSelectedSubjectId('');
+    setTriedAdd(false);
   };
 
-  const assignAll = async () => {
-    if (savingRef.current) return;   // the second of a double click
+  const changeGrade = (nextGrade) => {
+    setGrade(nextGrade);
+    setSelectedSubjectId('');
+    setTriedAdd(false);
+  };
+
+  const addSubject = () => {
+    setTriedAdd(true);
+    if (!selectedTeacher || !selectedSubjectId) return;
+
+    const subject = subjectById.get(selectedSubjectId);
+    const duplicate = selectedRows.some(row => row.subject_id === selectedSubjectId);
+    if (duplicate) {
+      showToast(
+        `${subject?.name || 'This subject'} is already assigned to ${teacherName(selectedTeacher)} for ${grade}.`,
+        'error',
+      );
+      return;
+    }
+
+    setPendingAdditions(previous => [...previous, {
+      teacher_id: selectedTeacher.id,
+      subject_id: selectedSubjectId,
+      grade_level: grade,
+    }]);
+    setSelectedSubjectId('');
+    setTriedAdd(false);
+    requestAnimationFrame(() => subjectSelectRef.current?.focus());
+  };
+
+  const removeSubject = (row, button) => {
+    const settle = focusAfterRemoval(
+      button,
+      '.assigned-subjects, .teaching-detail',
+      '.subject-chip-remove',
+      '.subject-section-title, #teaching-subject',
+    );
+
+    if (row.source === 'pending') {
+      setPendingAdditions(previous => previous.filter((_, index) => index !== row.pendingIndex));
+    } else {
+      setPendingRemovalIds(previous => previous.includes(row.id) ? previous : [...previous, row.id]);
+    }
+    settle();
+  };
+
+  const discardChanges = () => {
+    setPendingAdditions([]);
+    setPendingRemovalIds([]);
+    setSelectedSubjectId('');
+    setTriedAdd(false);
+    requestAnimationFrame(() => subjectSelectRef.current?.focus());
+  };
+
+  const saveChanges = async () => {
+    if (savingRef.current || !isDirty) return;
     savingRef.current = true;
     setSaving(true);
-    const written = await addLoadEntries(staged);
-    setSaving(false);
-    savingRef.current = false;
-    // Cleared only on a write that actually happened. addLoadEntries returns
-    // null on failure, and emptying the draft then would destroy work the
-    // admin would have to rebuild before they could retry.
-    if (written !== null) setStaged([]);
+
+    try {
+      if (pendingRemovalIds.length > 0) {
+        const removed = await removeLoad(pendingRemovalIds, { refresh: false });
+        if (removed === false) return;
+        await fetchTeachingLoad();
+        setPendingRemovalIds([]);
+      }
+
+      if (pendingAdditions.length > 0) {
+        const written = await addLoadEntries(pendingAdditions);
+        if (written === null) return;
+        setPendingAdditions([]);
+      }
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
-  // Only a well-formed "YYYY-YYYY" year can be shifted back a year — anything
-  // else (an in-progress edit, garbage input) would otherwise produce
-  // "NaN-NaN" and a copy button that silently does nothing useful.
   const prevYear = /^\d{4}-\d{4}$/.test(schoolYear)
     ? (() => {
       const start = parseInt(schoolYear.split('-')[0], 10) - 1;
@@ -189,258 +206,225 @@ const TeachingLoadTab = () => {
     })()
     : null;
 
-  // The saved list for this grade, one row per teacher.
-  const savedRows = useMemo(() => {
-    const byTeacher = new Map();
-    for (const row of gradeLoad) {
-      const teacher = teacherById.get(row.teacher_id);
-      // A load row whose teacher is missing from the roster — the account was
-      // deleted, or the teachers read failed — is skipped rather than rendered
-      // with a blank name, which would look like corrupt data.
-      if (!teacher) continue;
-      if (!byTeacher.has(teacher.id)) byTeacher.set(teacher.id, { teacher, rows: [] });
-      byTeacher.get(teacher.id).rows.push(row);
-    }
-    return [...byTeacher.values()].sort((a, b) =>
-      (a.teacher.name || a.teacher.email || '').localeCompare(b.teacher.name || b.teacher.email || ''));
-  }, [gradeLoad, teacherById]);
-
-  const loadFailed = teachersError || teachingLoadError;
-
   return (
-    <div>
+    <div className="teaching-load-page">
       <div className="page-header-bar">
         <div className="page-title">Teaching Load</div>
-        <div className="page-sub">Which subjects each teacher holds, and at which grade level.</div>
+        <div className="page-sub">Assign subjects with the teacher and grade always in view.</div>
       </div>
 
       <div className="toolbar">
-        <label className="form-label" style={{ marginRight: 'var(--space-8)' }}>School Year</label>
-        <input className="form-input" style={{ width: 140, flex: 'none' }} value={schoolYear}
-          onChange={e => setSchoolYear(e.target.value)} placeholder="2025-2026" />
+        <label className="form-label" htmlFor="teaching-school-year" style={{ marginRight: 'var(--space-8)' }}>School Year</label>
+        <input id="teaching-school-year" className="form-input" style={{ width: 140, flex: 'none' }}
+          value={schoolYear} onChange={event => setSchoolYear(event.target.value)} placeholder="2025-2026"
+          disabled={isDirty || saving} aria-describedby={isDirty ? 'teaching-year-lock' : undefined} />
         {prevYear && (
           <Button
             variant="ghost"
             busy={copying}
             busyLabel={`Copying from ${prevYear}…`}
+            disabled={isDirty || saving}
             onClick={async () => {
               setCopying(true);
               try { await copyLoadFromYear(prevYear); } finally { setCopying(false); }
             }}
           >
-            <Copy size={15} style={{ marginRight: 'var(--space-8)' }} />
+            <Copy size={15} aria-hidden="true" />
             Copy from {prevYear}
           </Button>
         )}
+        {isDirty && (
+          <span id="teaching-year-lock" className="teaching-toolbar-note">
+            Save or discard changes before changing the school year.
+          </span>
+        )}
       </div>
 
-      <div className="grade-tabs-caption">Numbers show teaching assignments per grade.</div>
-      <GradeTabs value={grade} onChange={setGrade} counts={countsByGrade} unit="teaching assignment" />
-
-      {/* ── Builder ───────────────────────────────────────────────────── */}
-      <div className="card" style={{ padding: 'var(--space-16)', marginBottom: 'var(--space-24)' }}>
-        <div className="bulk-grid">
-          <div>
-            <div className="bulk-label">
-              Teachers
-              <span className="picker-dept" style={{ marginLeft: 'var(--space-8)' }}>
-                {takenTeachers.size} of {teachers.length} already hold {grade}
-              </span>
-            </div>
-
-            <div className="picker-search">
-              <Search size={14} />
-              <input value={pickQuery} onChange={e => setPickQuery(e.target.value)}
-                placeholder="Search by name, email or department…" />
-            </div>
-
-            <div className={`picker-panel${missingTeacher ? ' is-invalid' : ''}`}>
-              {teachersError ? (
-                <div className="picker-empty">
-                  Could not load teachers.{' '}
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchTeachers()}>Retry</button>
-                </div>
-              ) : teachersLoading ? (
-                <div className="picker-empty">{slowTeachers ? 'Loading teachers…' : ''}</div>
-              ) : teachers.length === 0 ? (
-                <div className="picker-empty">No teachers yet. Create them in User Management first.</div>
-              ) : shownTeachers.length === 0 ? (
-                <div className="picker-empty">No teacher matches “{pickQuery}”.</div>
-              ) : shownTeachers.map(t => {
-                const taken = takenTeachers.get(t.id);
-                return (
-                  <label key={t.id}
-                    className={`picker-row${pickedTeacher === t.id ? ' selected' : ''}${taken ? ' disabled' : ''}`}>
-                    <input type="radio" name="teaching-load-teacher"
-                      checked={pickedTeacher === t.id}
-                      disabled={!!taken}
-                      onChange={() => setPickedTeacher(t.id)} />
-                    <span className="picker-name">{t.name || t.email}</span>
-                    {/* Named, not just greyed. "Why can't I click this?" is a
-                        worse question than seeing what they already hold. */}
-                    {taken && (
-                      <span className="picker-tag">
-                        {subjectCode(taken.subjectId)}{taken.saved ? '' : ' · in list'}
-                      </span>
-                    )}
-                    {!taken && t.department && <span className="picker-dept">{t.department}</span>}
-                  </label>
-                );
-              })}
-            </div>
-            {missingTeacher && (
-              <div className="field-error">Pick a teacher from the list above.</div>
-            )}
-          </div>
-
-          <div>
-            <div className="bulk-label">Subject for {grade}</div>
-            {/* UX-048: the hook sets subjectsError and nothing read it, so a
-                failed subjects read rendered an empty dropdown with no
-                explanation — while the teachers failure right above it was
-                reported. */}
-            {subjectsError && (
-              <div className="picker-empty" style={{ marginBottom: 'var(--space-8)' }}>
-                Could not load subjects.{' '}
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchSubjects()}>Retry</button>
-              </div>
-            )}
-            <select className={`form-input${missingSubject ? ' is-invalid' : ''}`}
-              value={rowSubject} onChange={e => setRowSubject(e.target.value)}>
-              <option value="">Select subject…</option>
-              {activeSubjects.map(s => {
-                const held = takenSubjects.get(s.id);
-                return (
-                  <option key={s.id} value={s.id} disabled={!!held}>
-                    {s.name}{held ? ` — ${teacherLabel(held.teacherId)}${held.saved ? '' : ' (in list)'}` : ''}
-                  </option>
-                );
-              })}
-            </select>
-
-            {missingSubject && (
-              <div className="field-error">Choose a subject for {grade}.</div>
-            )}
-
-            <div className="bulk-submit">
-              <button className="btn btn-primary" onClick={addToList}>
-                <Plus size={15} />
-                Add to list
-              </button>
-              <span className="bulk-hint">
-                {pickedTeacher && rowSubject
-                  ? <>{teacherLabel(pickedTeacher)} → {subjectLabel(rowSubject)}, {grade}</>
-                  : 'Nothing is saved until you press Assign below.'}
-              </span>
-            </div>
-          </div>
-        </div>
+      <div className="grade-tabs-caption">
+        Numbers show assignments per grade{isDirty ? ', including unsaved changes' : ''}.
       </div>
+      <GradeTabs value={grade} onChange={changeGrade} counts={countsByGrade} unit="teaching assignment" />
 
-      {/* ── The draft ─────────────────────────────────────────────────── */}
-      {staged.length > 0 && (
-        <div className="card draft-card">
-          <div className="draft-head">
-            <div>
-              <div className="draft-title">To be assigned</div>
-              <div className="draft-sub">
-                {staged.length} entr{staged.length === 1 ? 'y' : 'ies'} · not saved yet
-                {/* The draft deliberately survives a grade switch, so it can
-                    hold more than the grade on screen. Said out loud rather
-                    than letting Assign write rows the admin forgot about. */}
-                {gradeStaged.length !== staged.length
-                  && ` · ${gradeStaged.length} for ${grade}, the rest for other grades`}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setStaged([])} disabled={saving}>
-                Discard
-              </button>
-              <Button onClick={assignAll} busy={saving} busyLabel="Assigning…">
-                <ArrowRight size={15} />
-                {`Assign ${staged.length} entr${staged.length === 1 ? 'y' : 'ies'}`}
-              </Button>
-            </div>
-          </div>
-
-          {GRADE_LEVELS.map(g => {
-            const entries = staged
-              .map((e, index) => ({ ...e, index }))
-              .filter(e => e.grade_level === g);
-            if (entries.length === 0) return null;
-            return (
-              <div key={g} className="draft-group">
-                <div className="draft-grade">{g}</div>
-                {entries.map(e => (
-                  <div key={`${e.grade_level}-${e.subject_id}`} className="draft-line">
-                    <span className="draft-teacher">{teacherLabel(e.teacher_id)}</span>
-                    <span className="draft-dots" />
-                    <span className="draft-subject">{subjectLabel(e.subject_id)}</span>
-                    <button className="chip-x"
-                      aria-label={`Remove ${subjectLabel(e.subject_id)} for ${teacherLabel(e.teacher_id)} from the list`}
-                      title="Remove from list"
-                      onClick={(ev) => {
-                        // When the last staged entry goes, the whole draft
-                        // card unmounts, so the fallback matters here.
-                        const settle = focusAfterRemoval(
-                          ev.currentTarget, '.draft-card, .card', '.chip-x', '.draft-grade, .page-title',
-                        );
-                        setStaged(prev => prev.filter((_, i) => i !== e.index));
-                        settle();
-                      }}>
-                      <X size={13} aria-hidden="true" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+      {teachingLoadError && (
+        <div className="teaching-load-error" role="alert">
+          <span>Could not load teaching assignments. Check your connection and try again.</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchTeachingLoad()}>Retry</button>
         </div>
       )}
 
-      {/* ── The saved list for this grade ─────────────────────────────── */}
-      <div className="table-card"><table>
-        <thead><tr><th style={{ width: '40%' }}>Teacher</th><th>Holds for {grade}</th></tr></thead>
-        <tbody>
-          {teachingLoadLoading ? (
-            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>Loading teaching load…</td></tr>
-          ) : loadFailed ? (
-            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
-              Could not load. Check your connection and try again.
-              <div style={{ marginTop: 'var(--space-12)' }}>
-                <button className="btn btn-ghost" onClick={() => {
-                  if (teachersError) fetchTeachers();
-                  if (teachingLoadError) fetchTeachingLoad();
-                }}>Retry</button>
+      <div className="teaching-workspace">
+        <section className="card teaching-teachers" aria-labelledby="teacher-list-heading">
+          <div className="teaching-panel-head">
+            <div>
+              <h2 id="teacher-list-heading" className="teaching-panel-title">Teachers</h2>
+              <div className="teaching-panel-sub">{visibleTeachers.length} of {teachers.length} shown</div>
+            </div>
+          </div>
+
+          <label className="sr-only" htmlFor="teacher-search">Search teachers</label>
+          <div className="picker-search">
+            <Search size={16} aria-hidden="true" />
+            <input id="teacher-search" ref={searchRef} value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Search by name, email or department…" />
+          </div>
+
+          <div className="teacher-list">
+            {teachersError ? (
+              <div className="picker-empty">
+                Could not load teachers.{' '}
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchTeachers()}>Retry</button>
               </div>
-            </td></tr>
-          ) : savedRows.length === 0 ? (
-            <tr><td colSpan={2} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
-              Nothing assigned for {grade} yet.
-            </td></tr>
-          ) : savedRows.map(({ teacher, rows }) => (
-            <tr key={teacher.id}>
-              <td>
-                <div>{teacher.name || teacher.email}</div>
-                {teacher.department && <div className="row-sub">{teacher.department}</div>}
-              </td>
-              <td>
-                {rows
-                  .slice()
-                  .sort((a, b) => subjectCode(a.subject_id).localeCompare(subjectCode(b.subject_id)))
-                  .map(l => (
-                    <span key={l.id} className="chip">
-                      {subjectCode(l.subject_id)}
-                      <button className="chip-x" aria-label={`Remove ${subjectCode(l.subject_id)}`} title="Remove" onClick={() => removeLoad(l.id)}>
-                        <X size={12} aria-hidden="true" />
-                      </button>
-                    </span>
-                  ))}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table></div>
+            ) : teachersLoading ? (
+              <div className="picker-empty">{slowTeachers ? 'Loading teachers…' : ''}</div>
+            ) : teachers.length === 0 ? (
+              <div className="picker-empty">No teachers yet. Create them in User Management first.</div>
+            ) : visibleTeachers.length === 0 ? (
+              <div className="picker-empty">No teacher matches “{query}”.</div>
+            ) : visibleTeachers.map(teacher => {
+              const count = assignmentCountByTeacher.get(teacher.id) || 0;
+              const hasPending = pendingAdditions.some(row => row.teacher_id === teacher.id && row.grade_level === grade)
+                || teachingLoad.some(row => row.teacher_id === teacher.id
+                  && row.grade_level === grade && removalSet.has(row.id));
+              return (
+                <button key={teacher.id} type="button"
+                  className={`teacher-option${selectedTeacherId === teacher.id ? ' selected' : ''}`}
+                  aria-pressed={selectedTeacherId === teacher.id}
+                  onClick={() => selectTeacher(teacher.id)}>
+                  <span className="teacher-option-avatar" aria-hidden="true">{teacherInitials(teacher)}</span>
+                  <span className="teacher-option-copy">
+                    <span className="teacher-option-name">{teacherName(teacher)}</span>
+                    <span className="teacher-option-meta">{teacher.department || teacher.email || 'Department not recorded'}</span>
+                  </span>
+                  <span className="teacher-option-count" aria-label={`${count} assigned subjects`}>
+                    {count}{hasPending ? ' •' : ''}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="card teaching-detail" aria-labelledby="teacher-detail-heading">
+          {!selectedTeacher ? (
+            <div className="teaching-empty">
+              <div className="teaching-empty-icon" aria-hidden="true">T</div>
+              <h2 id="teacher-detail-heading">Select a teacher</h2>
+              <p>Select a teacher to begin assigning subjects.</p>
+            </div>
+          ) : (
+            <>
+              <div className="teacher-summary">
+                <div className="teacher-summary-avatar" aria-hidden="true">{teacherInitials(selectedTeacher)}</div>
+                <div className="teacher-summary-copy">
+                  <div className="teaching-eyebrow">Selected teacher</div>
+                  <h2 id="teacher-detail-heading">{teacherName(selectedTeacher)}</h2>
+                  <div>{selectedTeacher.department || 'Department not recorded'}</div>
+                </div>
+                <span className={`badge ${statusClass(selectedTeacher.status)}`}>
+                  {statusLabel(selectedTeacher.status)}
+                </span>
+              </div>
+
+              <dl className="teacher-summary-grid">
+                <div><dt>Teacher</dt><dd>{teacherName(selectedTeacher)}</dd></div>
+                <div><dt>Department</dt><dd>{selectedTeacher.department || 'Not recorded'}</dd></div>
+                <div><dt>Current Grade</dt><dd>{grade}</dd></div>
+                <div><dt>Assigned Subjects</dt><dd>{selectedRows.length}</dd></div>
+                <div><dt>Status</dt><dd>{statusLabel(selectedTeacher.status)}</dd></div>
+              </dl>
+
+              <div className="assigned-subjects">
+                <div className="subject-section-head">
+                  <div>
+                    <h3 className="subject-section-title">Assigned Subjects</h3>
+                    <p>{grade} · {schoolYear}</p>
+                  </div>
+                  <span className="badge badge-grey">{selectedRows.length}</span>
+                </div>
+
+                {teachingLoadLoading ? (
+                  <div className="subject-empty">Loading teaching load…</div>
+                ) : selectedRows.length === 0 ? (
+                  <div className="subject-empty">
+                    <strong>No subjects assigned yet.</strong>
+                    <span>Use the selector below to assign the first subject.</span>
+                  </div>
+                ) : (
+                  <div className="subject-chip-list" aria-label={`Subjects assigned to ${teacherName(selectedTeacher)} for ${grade}`}>
+                    {selectedRows.map(row => {
+                      const subject = subjectById.get(row.subject_id);
+                      const label = subject?.name || subject?.code || 'Unknown subject';
+                      return (
+                        <span className={`subject-chip${row.source === 'pending' ? ' pending' : ''}`}
+                          key={row.source === 'pending' ? `pending-${row.pendingIndex}` : row.id}>
+                          <span>{label}</span>
+                          {row.source === 'pending' && <span className="subject-chip-state">New</span>}
+                          <button type="button" className="subject-chip-remove"
+                            disabled={saving}
+                            aria-label={`Remove ${label} from ${teacherName(selectedTeacher)} for ${grade}`}
+                            title={`Remove ${label}`}
+                            onClick={event => removeSubject(row, event.currentTarget)}>
+                            <X size={14} aria-hidden="true" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="add-subject-panel">
+                <label className="bulk-label" htmlFor="teaching-subject">Add Subject</label>
+                {subjectsError && (
+                  <div className="picker-empty subject-read-error">
+                    Could not load subjects.{' '}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => fetchSubjects()}>Retry</button>
+                  </div>
+                )}
+                <div className="add-subject-row">
+                  <select id="teaching-subject" ref={subjectSelectRef}
+                    className={`form-input${missingSubject ? ' is-invalid' : ''}`}
+                    disabled={saving}
+                    value={selectedSubjectId} onChange={event => setSelectedSubjectId(event.target.value)}>
+                    <option value="">Select subject…</option>
+                    {activeSubjects.map(subject => (
+                      <option key={subject.id} value={subject.id}>{subject.name}</option>
+                    ))}
+                  </select>
+                  <button type="button" className="btn btn-primary" onClick={addSubject} disabled={saving}>
+                    <Plus size={15} aria-hidden="true" />
+                    Add Subject
+                  </button>
+                </div>
+                {missingSubject && <div className="field-error">Choose a subject to add for {grade}.</div>}
+                <div className="bulk-hint">
+                  Subjects appear above immediately and are saved when you press Save Assignment.
+                </div>
+              </div>
+
+              <div className={`teaching-savebar${isDirty ? ' dirty' : ' saved'}`} aria-live="polite">
+                <div>
+                  <div className="teaching-save-title">
+                    {isDirty ? 'Unsaved changes' : <><CheckCircle2 size={16} aria-hidden="true" /> All changes saved</>}
+                  </div>
+                  {isDirty && (
+                    <div className="teaching-save-hint">
+                      {unsavedCount} change{unsavedCount === 1 ? '' : 's'} across this teaching load
+                    </div>
+                  )}
+                </div>
+                {isDirty && (
+                  <div className="teaching-save-actions">
+                    <button type="button" className="btn btn-ghost" onClick={discardChanges} disabled={saving}>Discard</button>
+                    <Button onClick={saveChanges} busy={saving} busyLabel="Saving assignment…">Save Assignment</Button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 };

@@ -109,12 +109,16 @@ Authentication → URL Configuration:
 | | |
 | --- | --- |
 | Site URL | `https://eduscribe-dnhs-portal.vercel.app` — must match the domain in Vercel → Settings → Domains, which a project RENAME does not update on its own |
-| Redirect URLs | the same, plus `https://eduscribe-dnhs-portal.vercel.app/reset-password` and `http://localhost:5173/reset-password` |
+| Redirect URLs | the same, plus `https://eduscribe-dnhs-portal.vercel.app/reset-password`, `https://eduscribe-dnhs-portal.vercel.app/setup-password`, `http://localhost:5173/reset-password`, and `http://localhost:5173/setup-password` |
 
 The app asks for `window.location.origin + '/reset-password'`, so it follows
 whatever domain it is served from — but Supabase only honours a redirect
 already on that list. Unlisted, it silently falls back to the Site URL and
 the user lands somewhere they did not expect.
+
+Invitations follow the same rule. The Express onboarding service derives
+`APP_URL + '/setup-password'`; set production `APP_URL` to the Site URL above
+and allow the resulting setup URL in Supabase.
 
 Add the localhost entry too, or a reset requested while developing sends you
 to production.

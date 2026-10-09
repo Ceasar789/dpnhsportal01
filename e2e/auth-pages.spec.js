@@ -121,6 +121,21 @@ test.describe('reset password without a recovery link', () => {
   });
 });
 
+test.describe('invitation callback integration', () => {
+  test('a root-level expired invite opens the friendly setup state without overflow', async ({ page }) => {
+    await page.goto('/#error=access_denied&error_code=otp_expired');
+    await expect(page).toHaveURL(/\/setup-password$/);
+    await expect(page.getByRole('heading', { name: 'Link Expired or Invalid' })).toBeVisible();
+    await expect(page.getByText(/Ask an administrator to resend it/)).toBeVisible();
+
+    for (const width of [360, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        `setup page overflows at ${width}px`).toBe(true);
+    }
+  });
+});
+
 test.describe('change password', () => {
   test.beforeEach(async ({ page }) => {
     await login(page, STUDENT, STUDENT_LOGIN, '/student-dashboard');

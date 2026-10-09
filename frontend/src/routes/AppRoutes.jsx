@@ -3,6 +3,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';  // ✅ fixed path (moved up one level)
 import ProtectedRoute from './ProtectedRoute';
+import InvitationCallbackGuard from './InvitationCallbackGuard';
 import PageTransition from '../components/PageTransition';
 
 // Public Pages
@@ -29,7 +30,8 @@ import AdminDashboard     from '../pages/dashboards/admin/AdminDashboard';
 const AppRoutes = () => {
   return (
     <AuthProvider>
-      <Routes>
+      <InvitationCallbackGuard>
+        <Routes>
         {/* PUBLIC ROUTES */}
         <Route path="/"         element={<PageTransition><Home /></PageTransition>} />
         <Route path="/news"     element={<PageTransition><News /></PageTransition>} />
@@ -76,7 +78,8 @@ const AppRoutes = () => {
             </div>
           </div>
         } />
-      </Routes>
+        </Routes>
+      </InvitationCallbackGuard>
     </AuthProvider>
   );
 };

@@ -9,74 +9,29 @@ vi.mock('../../../../hooks/useSignedPhotoUrl', () => ({ useSignedPhotoUrl: () =>
 
 const UsersTab = (await import('./UsersTab')).default;
 
-let view;
-
 beforeEach(() => {
   h.ctx = {
-    closeModal: vi.fn(),
-    deleteUser: vi.fn(),
-    editUser: null,
-    filteredUsers: [],
-    modal: 'user',
-    openCreateUser: vi.fn(),
-    openEditUser: vi.fn(),
-    roleFilter: '',
-    saveUser: vi.fn(),
-    setRoleFilter: vi.fn(),
-    setStatusFilter: vi.fn(),
-    setShowArchived: vi.fn(),
-    setUEmail: vi.fn(),
-    setUName: vi.fn(),
-    setUPass: (value) => {
-      h.ctx = { ...h.ctx, uPass: value };
-      view.rerender(<UsersTab />);
-    },
-    setURole: vi.fn(),
-    setUStatus: vi.fn(),
-    setUserSearch: vi.fn(),
-    showArchived: false,
-    statusFilter: '',
-    uDept: '',
-    setUDept: vi.fn(),
-    uEmail: '',
-    uName: '',
-    uPass: '',
-    uRole: 'student',
-    uSaving: false,
-    uStatus: 'active',
-    userSearch: '',
-    users: [],
-    usersLoading: false,
-    onlineUsers: new Set(),
+    closeModal: vi.fn(), deleteUser: vi.fn(), restoreUser: vi.fn(), editUser: null,
+    fetchUsers: vi.fn(), filteredUsers: [], modal: 'user', openCreateUser: vi.fn(),
+    openEditUser: vi.fn(), resendInvitation: vi.fn(), roleFilter: '', saveUser: vi.fn(),
+    setRoleFilter: vi.fn(), setStatusFilter: vi.fn(), setShowArchived: vi.fn(),
+    setUEmail: vi.fn(), setUName: vi.fn(), setURole: vi.fn(), setUStatus: vi.fn(),
+    setUserSearch: vi.fn(), showArchived: false, statusFilter: '', uDept: '',
+    setUDept: vi.fn(), uEmail: '', uName: '', uRole: 'student', uSaving: false,
+    uStatus: 'active', userSearch: '', users: [], usersLoading: false,
+    usersError: null, onlineUsers: new Set(),
   };
 });
 
-afterEach(() => {
-  cleanup();
-  view = undefined;
-});
+afterEach(cleanup);
 
-describe('Users password controls', () => {
-  it('reveals the two fields independently and reports deterministic strength', () => {
-    view = render(<UsersTab />);
-    const password = screen.getByLabelText(/^Password/);
-    const confirmation = screen.getByLabelText(/^Confirm Password/);
+describe('invitation-based user creation', () => {
+  it('never asks an administrator to create another user password', () => {
+    render(<UsersTab />);
 
-    expect(password.type).toBe('password');
-    expect(confirmation.type).toBe('password');
-    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
-    expect(password.type).toBe('text');
-    expect(confirmation.type).toBe('password');
-    fireEvent.click(screen.getByRole('button', { name: 'Show confirm password' }));
-    expect(confirmation.type).toBe('text');
-
-    fireEvent.change(password, { target: { value: 'abc' } });
-    expect(screen.getByRole('status').textContent).toContain('Weak');
-    expect(document.querySelectorAll('.password-strength-meter .active')).toHaveLength(1);
-
-    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: 'Sup3rSecret!Pass' } });
-    expect(screen.getByRole('status').textContent).toContain('Strong');
-    expect(document.querySelectorAll('.password-strength-meter .active')).toHaveLength(5);
-    expect(h.ctx.saveUser).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/^Password/)).toBeNull();
+    expect(screen.getByRole('note').textContent).toContain('creates their own password');
+    fireEvent.click(screen.getByRole('button', { name: 'Send Invitation' }));
+    expect(h.ctx.saveUser).toHaveBeenCalledOnce();
   });
 });

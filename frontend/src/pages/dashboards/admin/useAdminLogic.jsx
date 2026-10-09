@@ -13,7 +13,7 @@ import { useDashboardTheme } from '../../../styles/dashboardTheme';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { ACTIVITY_SELECT, toActivityRow } from '../../../lib/activityLog';
 import { publishedAtPatch } from '../../../lib/newsRules';
-import { validatePassword } from '../../../lib/passwordPolicy';
+import { backendRequest } from '../../../lib/backendApi';
 import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
 import { currentSchoolYear } from '../../../lib/academicRules';
 import {
@@ -262,7 +262,6 @@ export const useAdminLogic = (userData) => {
   const [uDept,   setUDept]   = useState('');
   const [uRole,   setURole]   = useState('student');
   const [uStatus, setUStatus] = useState('active');
-  const [uPass,   setUPass]   = useState('');
   const [uSaving, setUSaving] = useState(false);
   // Guards saveUser against a double click now that Rule B2 has taken the
   // disabled attribute off the button. See the note in saveUser.
@@ -272,46 +271,32 @@ export const useAdminLogic = (userData) => {
     setUL(true);
     setUsersError(null);
     try {
-      let { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-
-      // The project's connection pool (free-tier, small compute) can be
-      // briefly saturated — retry once after a short pause before giving up,
-      // instead of leaving the list empty until a manual refresh/re-login.
-      if (error) {
-        console.warn('Users fetch failed, retrying once:', error.message);
-        await new Promise((r) => setTimeout(r, 1500));
-        ({ data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }));
-      }
-
-      if (error) {
-        setUsersError('Unable to load users.');
-        if (error.status === 403) {
-          console.warn('Users table access denied - check RLS policies on profiles table. Admin may need permission to read profiles.');
-          showToast('User management requires database permissions. Contact your administrator.', 'error');
-        } else if (error.status === 406) {
-          console.warn('Profiles table may not exist');
-          showToast('User data unavailable', 'error');
-        } else {
-          showToast('Error loading users: ' + error.message, 'error');
-        }
-      } else {
-        setUsers(data || []);
-      }
+      const { users: directory } = await backendRequest('/api/admin/users');
+      setUsers(directory || []);
     } catch (e) {
       console.error('Users fetch exception:', e);
       setUsersError('Unable to load users.');
-      showToast('Error loading users', 'error');
+      showToast(e.message || 'Error loading users', 'error');
     }
     setUL(false);
   }, []);
 
+  const resendInvitation = async (invitedUser) => {
+    try {
+      await backendRequest(`/api/admin/users/${invitedUser.id}/resend-invitation`, { method: 'POST' });
+      showToast(`Invitation resent to ${invitedUser.email}.`);
+    } catch (error) {
+      showToast(error.message || 'Invitation could not be resent.', 'error');
+      throw error;
+    }
+  };
   const openCreateUser = () => {
-    setEditUser(null); setUName(''); setUEmail(''); setUDept(''); setURole('student'); setUStatus('active'); setUPass('');
+    setEditUser(null); setUName(''); setUEmail(''); setUDept(''); setURole('student'); setUStatus('active');
     openModal('user');
   };
   const openEditUser = (u) => {
     setEditUser(u); setUName(u.name || ''); setUEmail(u.email || '');
-    setUDept(u.department || ''); setURole(u.role || 'student'); setUStatus(u.status?.toLowerCase() || 'active'); setUPass('');
+    setUDept(u.department || ''); setURole(u.role || 'student'); setUStatus(u.status?.toLowerCase() || 'active');
     openModal('user');
   };
 
@@ -330,13 +315,19 @@ export const useAdminLogic = (userData) => {
       // ════════════════════════════════════════════════
       // UPDATE EXISTING USER
       // ════════════════════════════════════════════════
+      const pendingInvitation = editUser.onboarding_status === 'invitation_pending';
       const { data, error } = await supabase.from('profiles').update({
-        name: uName.trim(), role: uRole, status: uStatus, department: uDept.trim() || null, updated_at: new Date().toISOString()
+        name: uName.trim(),
+        department: uDept.trim() || null,
+        ...(!pendingInvitation && { role: uRole, status: uStatus }),
+        updated_at: new Date().toISOString(),
       }).eq('id', editUser.id).select().single();
       
       if (error) throw error;
       
-      setUsers(prev => prev.map(u => u.id === editUser.id ? data : u));
+      setUsers(prev => prev.map(u => u.id === editUser.id
+        ? { ...data, onboarding_status: u.onboarding_status, can_resend_invitation: u.can_resend_invitation }
+        : u));
       showToast('User updated!');
       console.log('✅ User updated:', data.id);
       
@@ -344,96 +335,19 @@ export const useAdminLogic = (userData) => {
       // ════════════════════════════════════════════════
       // CREATE NEW USER
       // ════════════════════════════════════════════════
-      const passwordError = validatePassword(uPass);
-      if (passwordError) return showToast(passwordError, 'error');
-
-      console.log('📋 Starting user creation process...');
-      
-      // Step 1: Save admin session before signUp
-      const { data: adminSessionData } = await supabase.auth.getSession();
-      const adminAccessToken  = adminSessionData?.session?.access_token;
-      const adminRefreshToken = adminSessionData?.session?.refresh_token;
-
-      if (!adminAccessToken || !adminRefreshToken) {
-        throw new Error('Admin session not available - please refresh and try again');
-      }
-      console.log('💾 Admin session saved');
-
-      // Step 2: Create auth user
-      console.log('📝 Creating auth user...');
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: uEmail.trim(), 
-        password: uPass
+      const { user: invitedUser } = await backendRequest('/api/admin/users/invite', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: uName.trim(),
+          email: uEmail.trim(),
+          role: uRole,
+          department: uDept.trim() || null,
+        }),
       });
-      if (authErr) throw authErr;
-      
-      const uid = authData?.user?.id;
-      if (!uid) throw new Error('Supabase did not return a user identifier. Account setup was not completed.');
-      console.log('✅ Auth user created:', uid);
-
-      // Step 3: Restore admin session immediately
-      console.log('🔒 Restoring admin session...');
-      const restoreAdminSession = () => supabase.auth.setSession({
-        access_token: adminAccessToken,
-        refresh_token: adminRefreshToken,
-      });
-
-      const restoreResult = await restoreAdminSession();
-      if (restoreResult.error) {
-        throw new Error(`Failed to restore administrator session: ${restoreResult.error.message}`);
-      } else {
-        console.log('✅ Admin session restored');
-        await new Promise(r => setTimeout(r, 150)); // Wait for session to sync
-      }
-
-      // Step 4: Create profile in database
-      if (uid) {
-        console.log('📊 Creating profile in database...');
-        
-        try {
-          const { data: newProfile, error: profileErr } = await supabase
-            .from('profiles')
-            .upsert([{
-              id: uid,
-              email: uEmail.trim(),
-              name: uName.trim(),
-              role: uRole,
-              department: uDept.trim() || null,
-              status: uStatus,
-              created_at: new Date().toISOString()
-            }], { onConflict: 'id' })
-            .select()
-            .single();
-          
-          if (profileErr) {
-            console.error('❌ Profile creation error:', profileErr);
-            throw new Error(`Failed to create profile: ${profileErr.message}. Check Supabase RLS policies - see SUPABASE_RLS_SETUP.md`);
-          }
-          
-          console.log('✅ Profile created in database:', newProfile.id);
-          
-          // Update UI with new user
-          setUsers(prev => [newProfile, ...prev]);
-          setStats(prev => ({ ...prev, users: prev.users + 1 }));
-          
-        } catch (err) {
-          console.error('❌ Database error:', err.message);
-          // signUp can replace the browser session when email confirmation is
-          // disabled. Reassert the saved administrator session before leaving
-          // the failed workflow, and never mutate the local directory.
-          const compensation = await restoreAdminSession();
-          const sessionSuffix = compensation.error
-            ? ' Refresh the page before trying again.'
-            : '';
-          showToast(`Account setup could not be completed. No user was added to the directory.${sessionSuffix}`, 'error');
-          return;
-        }
-      }
-
-      // Step 5: Log the activity (non-blocking)
-      await logActivity('Created user', `${uName} (${uRole})`);
-
-      showToast('User created. They will receive a confirmation email.');
+      setUsers(prev => [invitedUser, ...prev]);
+      setStats(prev => ({ ...prev, users: prev.users + 1 }));
+      await logActivity('Invited user', `${uName} (${uRole})`);
+      showToast('User invited. They can create their password from the email link.');
     }
     
     // Step 6: Refresh stats (non-blocking)
@@ -463,7 +377,6 @@ export const useAdminLogic = (userData) => {
       return;
     }
     const action = archived ? 'Restore' : 'Archive';
-    const nextStatus = archived ? 'active' : 'archived';
     setDeleteConfirm({
       title: `${action} User?`,
       message: archived
@@ -475,16 +388,11 @@ export const useAdminLogic = (userData) => {
       confirmLabel: `Yes, ${action}`,
       onConfirm: async () => {
         try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .update({ status: nextStatus, updated_at: new Date().toISOString() })
-            .eq('id', id)
-            .select()
-            .single();
-          if (error) throw error;
-          if (!data?.id) throw new Error(`No user was ${action.toLowerCase()}d.`);
+          const { user: updatedUser } = await backendRequest(`/api/admin/users/${id}/archive-state`, {
+            method: 'PATCH', body: JSON.stringify({ archived: !archived }),
+          });
           await logActivity(`${action}d user`, targetUser?.name || id);
-          setUsers(prev => prev.map(u => u.id === id ? data : u));
+          setUsers(prev => prev.map(u => u.id === id ? updatedUser : u));
           onConfirmStart?.();
           setStats(prev => ({
             ...prev,
@@ -1275,7 +1183,7 @@ export const useAdminLogic = (userData) => {
     nTitle, nImageFile, nImageUrl, newsReadOnly, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
     nextMonth, notifications, openCompose, openCreateEvent, openCreateUser, openEditEvent,
     openEditMemo, openEditNews, openEditUser, openModal, openNewPost, page,
-    prevMonth, roleDist, roleFilter, saveEvent, saveMemo, saveNews, saveNewsExpiry,
+    prevMonth, resendInvitation, roleDist, roleFilter, saveEvent, saveMemo, saveNews, saveNewsExpiry,
     saveSettings, saveUser, scrollToSection, selMemo, sessionTimeout, setActiveSettingsSub,
     setActivityLogs, setActivityLogsDays, setAutoBackup, setAutoSave, setBackupFrequency, setBackupTime, setCalEvents, setCalFilter,
     setCalMonth, setCalYear, setDarkMode, setDeleteConfirm, setEditEvent, setEditMemo,
@@ -1287,12 +1195,12 @@ export const useAdminLogic = (userData) => {
     setNTitle, setNewsCatF, setNewsItems, setNewsSearch, setNewsStatF, setNotifications,
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
     setSettings, setStats, setTheme, setToast, setTwoFactorAuth,
-    setUDept, setUEmail, setUL, setUName, setUPass, setURole,
+    setUDept, setUEmail, setUL, setUName, setURole,
     setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
     stats, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     themePref, setThemePref, settingsDirty, settingsChangeCount, discardSettings,
     settingsLoading,
-    typeClass, typeColor, uDept, uEmail, uName, uPass,
+    typeClass, typeColor, uDept, uEmail, uName,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading, usersError,
   };

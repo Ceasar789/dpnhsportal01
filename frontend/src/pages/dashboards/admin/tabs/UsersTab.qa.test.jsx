@@ -23,6 +23,7 @@ beforeEach(() => {
     closeModal: vi.fn(), deleteUser: vi.fn(), restoreUser: vi.fn(), editUser: null,
     fetchUsers: vi.fn(), filteredUsers: [user], modal: null, openCreateUser: vi.fn(),
     openEditUser: vi.fn(), roleFilter: '', saveUser: vi.fn(), setRoleFilter: vi.fn(),
+    resendInvitation: vi.fn().mockResolvedValue(undefined),
     setStatusFilter: vi.fn(), setShowArchived: vi.fn(), setUEmail: vi.fn(),
     setUName: vi.fn(), setUPass: vi.fn(), setURole: vi.fn(), setUStatus: vi.fn(),
     setUserSearch: vi.fn(), showArchived: false, statusFilter: '', uDept: '',
@@ -72,5 +73,15 @@ describe('Users QA Sprint 01 presentation', () => {
 
     fireEvent.keyDown(row, { key: 'Enter' });
     expect(screen.getByRole('dialog', { name: 'Test User' })).toBeTruthy();
+  });
+
+  it('offers resend only when the server marks an invitation as resendable', async () => {
+    const pending = { ...user, status: 'inactive', onboarding_status: 'invitation_pending', can_resend_invitation: true };
+    h.ctx.users = [pending];
+    h.ctx.filteredUsers = [pending];
+    render(<UsersTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resend invitation to Test User' }));
+    expect(h.ctx.resendInvitation).toHaveBeenCalledWith(pending);
   });
 });

@@ -5,7 +5,7 @@
 // ============================================
 
 import { useEffect, useState } from 'react';
-import { Archive, ArchiveRestore, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Mail, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { avatarColor, roleBadge, roleLabel } from '../shared/helpers';
 import Modal from '../../../../components/ui/Modal';
@@ -23,34 +23,15 @@ const UserAvatarCell = ({ user }) => {
   return <Avatar className="avatar" src={photoUrl} name={user.name || user.email || ''} size={34} fontSize="var(--font-size-12)" bg={avatarColor(user.name || user.email || '')} />;
 };
 
-const getPasswordStrength = (password) => {
-  const score = [
-    password.length >= 12,
-    /[a-z]/.test(password),
-    /[A-Z]/.test(password),
-    /\d/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ].filter(Boolean).length;
-
-  if (score <= 2) return { score, label: 'Weak', tone: 'weak' };
-  if (score === 3) return { score, label: 'Fair', tone: 'fair' };
-  if (score === 4) return { score, label: 'Good', tone: 'good' };
-  return { score, label: 'Strong', tone: 'strong' };
-};
-
 const UsersTab = () => {
   const {
-    closeModal, deleteUser, restoreUser, editUser, fetchUsers, filteredUsers, modal, openCreateUser, openEditUser, roleFilter, saveUser, setRoleFilter,
-    setStatusFilter, setShowArchived, setUEmail, setUName, setUPass, setURole, setUStatus, setUserSearch,
-    showArchived, statusFilter, uDept, setUDept, uEmail, uName, uPass, uRole, uSaving, uStatus, userSearch, users, usersLoading, usersError, onlineUsers
+    closeModal, deleteUser, restoreUser, editUser, fetchUsers, filteredUsers, modal, openCreateUser, openEditUser, resendInvitation, roleFilter, saveUser, setRoleFilter,
+    setStatusFilter, setShowArchived, setUEmail, setUName, setURole, setUStatus, setUserSearch,
+    showArchived, statusFilter, uDept, setUDept, uEmail, uName, uRole, uSaving, uStatus, userSearch, users, usersLoading, usersError, onlineUsers
   } = useAdminContext();
 
   // UX-062: the form mixed required and optional fields and distinguished
   // them nowhere, so the only way to learn which was which was to submit.
-  // UX-075: the admin sets another person's password through one masked
-  // field they can neither reveal nor re-enter. A typo becomes that
-  // person's stored credential, and nobody finds out until they cannot log
-  // in. The rules themselves are unchanged and still live in saveUser.
   // R5. 123 rows of five columns is the worst table here on a phone.
   // The card switches to mobile rows at 560px. RowSheet behavior follows
   // that same boundary so a table row never competes with its action buttons.
@@ -58,9 +39,7 @@ const UsersTab = () => {
   const [sheetUser, setSheetUser] = useState(null);
 
   const [tried, setTried] = useState(false);
-  const [uPass2, setUPass2] = useState('');
-  const [revealPass, setRevealPass] = useState(false);
-  const [revealPassConfirm, setRevealPassConfirm] = useState(false);
+  const [resendingId, setResendingId] = useState(null);
   // Reset on CLOSE, not on open. Modal is a child, so its snapshot
   // effect runs before this one — clearing a stale confirm value on open
   // would change a field after the snapshot was taken and the modal would
@@ -68,15 +47,10 @@ const UsersTab = () => {
   useEffect(() => {
     if (modal !== 'user') {
       setTried(false);
-      setUPass2('');
-      setRevealPass(false);
-      setRevealPassConfirm(false);
     }
   }, [modal]);
   const missingName = tried && !uName.trim();
   const missingEmail = tried && !uEmail.trim();
-  const passMismatch = tried && !editUser && !!uPass && uPass !== uPass2;
-  const passwordStrength = getPasswordStrength(uPass);
 
   return (
     <>
@@ -142,10 +116,25 @@ const UsersTab = () => {
                           <td data-cell="value"><span className={`badge ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span></td>
                           <td data-cell="state">{showArchived
                             ? <span className="badge badge-yellow archive-status-badge"><Archive size={12} />Archived</span>
-                            : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-grey'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-neutral'}`} style={{ marginRight: 'var(--space-4)' }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
+                            : u.onboarding_status === 'invitation_pending'
+                              ? <span className="badge badge-yellow">Invitation Pending</span>
+                              : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-grey'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-neutral'}`} style={{ marginRight: 'var(--space-4)' }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
                           </td>
                           <td data-cell="actions">
                             <button className="icon-action edit-action" title="Edit user" aria-label={`Edit ${u.name || u.email}`} onClick={(e) => { e.stopPropagation(); openEditUser(u); }}><Pencil size={16} /></button>
+                            {!showArchived && u.can_resend_invitation && (
+                              <button
+                                className="icon-action edit-action"
+                                title="Resend invitation"
+                                aria-label={`Resend invitation to ${u.name || u.email}`}
+                                disabled={resendingId === u.id}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  setResendingId(u.id);
+                                  try { await resendInvitation(u); } finally { setResendingId(null); }
+                                }}
+                              ><Mail size={16} /></button>
+                            )}
                             <button
                               className={`icon-action ${showArchived ? 'edit-action restore-action' : 'archive-action'}`}
                               title={showArchived ? 'Restore user' : 'Archive user'}
@@ -190,12 +179,18 @@ const UsersTab = () => {
           ['Role', sheetUser ? roleLabel(sheetUser.role) : ''],
           ['Department', sheetUser?.department],
           ['Status', sheetUser
-            ? (showArchived ? 'Archived' : (onlineUsers.has(sheetUser.id) ? 'Online' : 'Offline'))
+            ? (showArchived ? 'Archived' : sheetUser.onboarding_status === 'invitation_pending'
+              ? 'Invitation Pending' : (onlineUsers.has(sheetUser.id) ? 'Online' : 'Offline'))
             : ''],
         ]}
         actions={sheetUser && (
           <>
             <Button variant="ghost" onClick={() => { const u = sheetUser; setSheetUser(null); openEditUser(u); }}>Edit</Button>
+            {!showArchived && sheetUser.can_resend_invitation && (
+              <Button variant="ghost" onClick={async () => { const u = sheetUser; setSheetUser(null); await resendInvitation(u); }}>
+                Resend Invitation
+              </Button>
+            )}
             <Button
               variant={showArchived ? 'primary' : 'danger'}
               onClick={() => {
@@ -224,15 +219,12 @@ const UsersTab = () => {
             <Button
               onClick={() => {
                 setTried(true);
-                // The mismatch is reported on the field, so returning here
-                // is not a silent failure. saveUser keeps its own checks.
-                if (!editUser && uPass && uPass !== uPass2) return;
                 saveUser();
               }}
               busy={uSaving}
-              busyLabel={editUser ? 'Updating…' : 'Creating…'}
+              busyLabel={editUser ? 'Updating…' : 'Sending…'}
             >
-              {editUser ? 'Update' : 'Create'}
+              {editUser ? 'Update' : 'Send Invitation'}
             </Button>
           </>
         )}
@@ -256,13 +248,14 @@ const UsersTab = () => {
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="users-role">Role</label>
-            <select id="users-role" className="form-input" value={uRole} onChange={e => setURole(e.target.value)}>
+            <select id="users-role" className="form-input" value={uRole} onChange={e => setURole(e.target.value)} disabled={editUser?.onboarding_status === 'invitation_pending'}>
               <option value="student">Student</option>
               <option value="teacher">Teacher</option>
               <option value="faculty">Faculty</option>
               <option value="registrar">Registrar</option>
               <option value="main_admin">Admin</option>
             </select>
+            {editUser?.onboarding_status === 'invitation_pending' && <div className="form-hint">The assigned role is locked until password setup completes.</div>}
           </div>
           {(uRole === 'teacher' || uRole === 'faculty') && (
             <div className="form-row">
@@ -270,73 +263,18 @@ const UsersTab = () => {
               <input id="users-department-subject" className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
             </div>
           )}
-          <div className="form-row">
+          {editUser && <div className="form-row">
             <label className="form-label" htmlFor="users-account-status">Account Status</label>
-            <select id="users-account-status" className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)}>
+            <select id="users-account-status" className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)} disabled={editUser.onboarding_status === 'invitation_pending'}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
-          </div>
+            {editUser.onboarding_status === 'invitation_pending' && <div className="form-hint">This account becomes active after the user creates a password.</div>}
+          </div>}
           {!editUser && (
-            <>
-              <div className="form-row">
-                <label className="form-label" htmlFor="users-password">Password<span className="form-req" aria-hidden="true">*</span></label>
-                <div className="form-with-action">
-                  <input id="users-password" className="form-input" type={revealPass ? 'text' : 'password'} value={uPass} onChange={e => setUPass(e.target.value)} placeholder="Min 12 chars, 1 uppercase, 1 number, 1 special char"
-                    aria-required="true" aria-describedby={`users-password-hint${uPass ? ' users-password-strength' : ''}`} />
-                  {/* Reveal, not a permanent unmask: the admin is typing
-                      someone else's credential and may be on a shared
-                      screen, so it starts hidden. */}
-                  <button
-                    type="button"
-                    className="btn btn-ghost password-toggle"
-                    aria-label={revealPass ? 'Hide password' : 'Show password'}
-                    aria-controls="users-password"
-                    aria-pressed={revealPass}
-                    onClick={() => setRevealPass(!revealPass)}
-                  >
-                    {revealPass ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                  </button>
-                </div>
-                {uPass && (
-                  <div
-                    id="users-password-strength"
-                    className={`password-strength password-strength--${passwordStrength.tone}`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <div className="password-strength-label">
-                      <span>Password strength</span>
-                      <strong>{passwordStrength.label}</strong>
-                    </div>
-                    <div className="password-strength-meter" aria-hidden="true">
-                      {[1, 2, 3, 4, 5].map(segment => (
-                        <span key={segment} className={segment <= passwordStrength.score ? 'active' : ''} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="form-hint" id="users-password-hint">This is the password the account holder will sign in with. Tell it to them, and ask them to change it.</div>
-              </div>
-              <div className="form-row">
-                <label className="form-label" htmlFor="users-password-confirm">Confirm Password<span className="form-req" aria-hidden="true">*</span></label>
-                <div className="form-with-action">
-                  <input id="users-password-confirm" className={`form-input${passMismatch ? ' is-invalid' : ''}`} type={revealPassConfirm ? 'text' : 'password'} value={uPass2} onChange={e => setUPass2(e.target.value)} placeholder="Type it again"
-                    aria-required="true" aria-invalid={passMismatch || undefined} aria-describedby={passMismatch ? 'users-password-confirm-error' : undefined} />
-                  <button
-                    type="button"
-                    className="btn btn-ghost password-toggle"
-                    aria-label={revealPassConfirm ? 'Hide confirm password' : 'Show confirm password'}
-                    aria-controls="users-password-confirm"
-                    aria-pressed={revealPassConfirm}
-                    onClick={() => setRevealPassConfirm(!revealPassConfirm)}
-                  >
-                    {revealPassConfirm ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                  </button>
-                </div>
-                {passMismatch && <div className="field-error" id="users-password-confirm-error">The two passwords do not match.</div>}
-              </div>
-            </>
+            <div className="form-hint" role="note">
+              The account will remain pending until the user follows the Supabase invitation and creates their own password. No password is shown to or sent by the administrator.
+            </div>
           )}
       </Modal>
 

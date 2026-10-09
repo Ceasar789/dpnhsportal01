@@ -41,6 +41,7 @@ const AppRoutes = () => {
         <Route path="/faculty-login"   element={<PageTransition><FacultyLogin /></PageTransition>} />
         <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
         <Route path="/reset-password"  element={<PageTransition><ResetPassword /></PageTransition>} />
+        <Route path="/setup-password"  element={<PageTransition><ResetPassword invitation /></PageTransition>} />
         <Route path="/verify-email"    element={<PageTransition><VerifyEmail /></PageTransition>} />
 
         {/* PROTECTED */}

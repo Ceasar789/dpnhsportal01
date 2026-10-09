@@ -25,6 +25,21 @@ const anonClient = () => {
   return anon;
 };
 
+export function requireSession(req, res, next) {
+  const header = req.get('authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : null;
+  if (!token) return res.status(401).json({ error: 'Missing bearer token.' });
+
+  return anonClient().auth.getUser(token).then(({ data, error }) => {
+    if (error || !data?.user) return res.status(401).json({ error: 'Invalid or expired session.' });
+    req.authUser = data.user;
+    next();
+  }).catch((err) => {
+    console.error('[auth] token verification failed —', err.message);
+    res.status(503).json({ error: 'Could not verify your session. Try again.' });
+  });
+}
+
 let admin = null;
 const adminClient = () => {
   if (!admin) {

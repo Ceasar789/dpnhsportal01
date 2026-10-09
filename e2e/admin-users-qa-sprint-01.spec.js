@@ -6,8 +6,8 @@ const WIDTHS = [360, 390, 768, 1024, 1440];
 async function openInterceptedUsers(page, { failUserReads = false } = {}) {
   await loginAsStudent(page);
   const state = {
-    currentId: null, failUserReads, failProfileCreates: false, failProfilePatches: false,
-    profilePatches: 0, profileCreates: 0, lastCreateBody: null,
+    currentId: null, failUserReads, failInvites: false, failProfilePatches: false,
+    profilePatches: 0, invitations: 0, lastInviteBody: null,
   };
   const other = {
     id: 'users-qa-other', name: 'Other User', email: 'other.user@example.com',
@@ -84,21 +84,33 @@ async function openInterceptedUsers(page, { failUserReads = false } = {}) {
     await route.fulfill({ status: 405, body: '' });
   });
 
-  await page.route('**/auth/v1/signup', async (route) => {
-    const submitted = route.request().postDataJSON();
-    const id = `users-qa-created-${state.profileCreates + 1}`;
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        user: {
-          id, email: submitted.email, aud: 'authenticated', role: 'authenticated',
-          app_metadata: {}, user_metadata: {}, identities: [],
-          created_at: '2026-10-09T00:00:00.000Z', updated_at: '2026-10-09T00:00:00.000Z',
-        },
-        session: null,
-      }),
-    });
+  await page.route('**/api/admin/users**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const current = {
+      id: state.currentId, name: 'Current Administrator', email: 'current.admin@example.com',
+      role: 'main_admin', status: 'active', onboarding_status: 'active', created_at: '2026-01-01T00:00:00.000Z',
+    };
+    if (request.method() === 'GET') {
+      if (state.failUserReads) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Users unavailable' }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ users: [current, other] }) });
+    }
+    if (request.method() === 'POST' && url.pathname.endsWith('/invite')) {
+      state.invitations += 1;
+      state.lastInviteBody = request.postDataJSON();
+      if (state.failInvites) return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'The invitation could not be completed. No account was added.' }) });
+      const invited = { id: `invited-${state.invitations}`, ...state.lastInviteBody, status: 'inactive', onboarding_status: 'invitation_pending', can_resend_invitation: true };
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ user: invited }) });
+    }
+    if (request.method() === 'PATCH' && url.pathname.endsWith('/archive-state')) {
+      state.profilePatches += 1;
+      if (state.failProfilePatches) return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'The account status could not be changed.' }) });
+      const archived = request.postDataJSON().archived;
+      other.status = archived ? 'archived' : 'active';
+      other.onboarding_status = archived ? 'archived' : 'active';
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: other }) });
+    }
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
 
   await page.route('**/rest/v1/activity_logs**', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
@@ -174,36 +186,32 @@ test('Users load failure remains visible and Retry uses the existing fetch path'
   await expect(page.getByText('Unable to load users.')).toHaveCount(0);
 });
 
-test('User creation preserves selected status and fails safely when the profile write fails', async ({ page }) => {
+test('User creation sends an invitation and fails without adding local state', async ({ page }) => {
   const state = await openInterceptedUsers(page);
-  state.failProfileCreates = true;
+  state.failInvites = true;
 
   await page.getByRole('button', { name: /Create User/ }).click();
   let dialog = page.getByRole('dialog', { name: 'Create User' });
-  await dialog.getByLabel('Full Name').fill('Failed Profile User');
-  await dialog.getByLabel('Email').fill('failed.profile@example.com');
-  await dialog.getByLabel('Account Status').selectOption('inactive');
-  await dialog.getByLabel(/^Password/).fill('ValidPassword1!');
-  await dialog.getByLabel(/^Confirm Password/).fill('ValidPassword1!');
-  await dialog.getByRole('button', { name: 'Create' }).click();
-  await expect(page.getByText(/Account setup could not be completed/)).toBeVisible();
+  await dialog.getByLabel('Full Name').fill('Failed Invitation User');
+  await dialog.getByLabel('Email').fill('failed.invitation@example.com');
+  await expect(dialog.getByLabel(/^Password/)).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Send Invitation' }).click();
+  await expect(page.getByText(/invitation could not be completed/i)).toBeVisible();
   await expect(dialog).toBeVisible();
-  await expect(page.getByText('Failed Profile User', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Failed Invitation User', { exact: true })).toHaveCount(0);
 
   page.once('dialog', prompt => prompt.accept());
   await dialog.getByRole('button', { name: 'Cancel' }).click();
-  state.failProfileCreates = false;
+  state.failInvites = false;
 
   await page.getByRole('button', { name: /Create User/ }).click();
   dialog = page.getByRole('dialog', { name: 'Create User' });
-  await dialog.getByLabel('Full Name').fill('Inactive User');
-  await dialog.getByLabel('Email').fill('inactive.user@example.com');
-  await dialog.getByLabel('Account Status').selectOption('inactive');
-  await dialog.getByLabel(/^Password/).fill('ValidPassword1!');
-  await dialog.getByLabel(/^Confirm Password/).fill('ValidPassword1!');
-  await dialog.getByRole('button', { name: 'Create' }).click();
+  await dialog.getByLabel('Full Name').fill('Invited User');
+  await dialog.getByLabel('Email').fill('invited.user@example.com');
+  await dialog.getByRole('button', { name: 'Send Invitation' }).click();
 
   await expect(dialog).toHaveCount(0);
-  expect(state.lastCreateBody.status).toBe('inactive');
-  await expect(page.getByText('Inactive User', { exact: true })).toBeVisible();
+  expect(state.lastInviteBody).toEqual({ name: 'Invited User', email: 'invited.user@example.com', role: 'student', department: null });
+  await expect(page.getByText('Invited User', { exact: true })).toBeVisible();
+  await expect(page.getByText('Invitation Pending')).toBeVisible();
 });

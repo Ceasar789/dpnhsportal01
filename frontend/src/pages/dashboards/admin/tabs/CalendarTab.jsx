@@ -4,6 +4,7 @@
 // Includes the EVENT MODAL, which only this tab opens.
 // ============================================
 
+import { useRef, useState } from 'react';
 import { useAdminContext } from '../AdminContext';
 import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
@@ -11,22 +12,46 @@ import { MONTHS, EVENT_TYPES } from '../shared/helpers';
 import Button from '../../../../components/ui/Button';
 import { formatDateLong, formatDateRange } from '../../../../lib/formatDate';
 import { agendaGroups, agendaTimeline } from '../../../../lib/agenda';
+import { isInvalidCalendarRange, matchesCalendarFilter } from '../../../../lib/calendarRules';
 
 const CalendarTab = () => {
   const {
-    calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
+    calError, calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     deleteEvent, editEvent, evDate, evDesc, evEnd, evSaving, evTitle,
     evCustomType, evType, modal, nextMonth, openCreateEvent,
     openEditEvent, prevMonth, saveEvent, setCalFilter, setEvCustomType, setEvDate,
     setCalYear, setEvDesc, setEvEnd, setEvTitle, setEvType, today, typeClass,
-    typeColor, upcomingEvents
+    typeColor, upcomingEvents, fetchCalEvents
   } = useAdminContext();
   const slowCal = useDelayedFlag(calLoading);
+  const endDateRef = useRef(null);
+  const [rangeValidationShown, setRangeValidationShown] = useState(false);
+  const rangeInvalid = isInvalidCalendarRange(evDate, evEnd);
+
+  const beginCreate = () => {
+    setRangeValidationShown(false);
+    openCreateEvent();
+  };
+
+  const beginEdit = (event) => {
+    setRangeValidationShown(false);
+    openEditEvent(event);
+  };
+
+  const submitEvent = () => {
+    if (rangeInvalid) {
+      setRangeValidationShown(true);
+      endDateRef.current?.focus();
+      return;
+    }
+    setRangeValidationShown(false);
+    saveEvent();
+  };
 
   // CAL4. One rule for "what is on this day", used by both views, so the
   // grid and the agenda can never disagree about a month.
   const eventsOn = (ds) => calEvents.filter(e => {
-    if (calFilter && e.event_type !== calFilter) return false;
+    if (!matchesCalendarFilter(e, calFilter)) return false;
     if (e.end_date) return ds >= e.event_date && ds <= e.end_date;
     return e.event_date === ds;
   });
@@ -53,6 +78,12 @@ const CalendarTab = () => {
               </div>
               <div className="cal-layout">
                 <div className="cal-main">
+                  {calError && (
+                    <div className="cal-load-error" role="alert">
+                      <span>Unable to load Calendar.</span>
+                      <Button variant="ghost" size="sm" onClick={fetchCalEvents}>Retry</Button>
+                    </div>
+                  )}
                   <div className="cal-toolbar">
                     <div className="cal-toolbar-group cal-toolbar-period">
                       <button className="cal-nav" type="button" aria-label="Previous month" onClick={prevMonth}>‹</button>
@@ -63,7 +94,7 @@ const CalendarTab = () => {
                       <button className="cal-nav" type="button" aria-label="Next month" onClick={nextMonth}>›</button>
                     </div>
                     <div className="cal-toolbar-group cal-toolbar-actions">
-                      <button className="btn btn-primary cal-add-event" onClick={openCreateEvent}>+ Add Event</button>
+                      <button className="btn btn-primary cal-add-event" onClick={beginCreate}>+ Add Event</button>
                       <select className="cal-filter-select" value={calFilter} onChange={e => setCalFilter(e.target.value)} aria-label="Filter events by type">
                         <option value="">Filter type</option>
                         {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
@@ -87,7 +118,7 @@ const CalendarTab = () => {
                               key={j}
                               type="button"
                               className={`ux-unbutton cal-event ${typeClass(e.event_type)}`}
-                              onClick={() => openEditEvent(e)}
+                              onClick={() => beginEdit(e)}
                               aria-label={`Edit ${e.title}`}
                               /* V2: the title said "Click to edit", which
                                  is the one thing a pointer already knows.
@@ -133,7 +164,7 @@ const CalendarTab = () => {
                                   <button
                                     type="button"
                                     className={`ux-unbutton cal-agenda-item ${typeClass(e.event_type)}`}
-                                    onClick={() => openEditEvent(e)}
+                                    onClick={() => beginEdit(e)}
                                     aria-label={`Edit ${e.title}`}
                                   >
                                     <span className="truncate-1" title={e.title}>{e.title}</span>
@@ -182,8 +213,7 @@ const CalendarTab = () => {
                             : formatDateLong(e.event_date)}
                         </div>
                         <div style={{ display:'flex', gap: 'var(--space-8)', marginTop: 'var(--space-4)' }}>
-                          <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} aria-label={`Edit ${e.title}`} onClick={() => openEditEvent(e)}>Edit</button>
-                          <button className="news-action red" style={{ fontSize: 'var(--font-size-12)' }} aria-label={`Remove ${e.title}`} onClick={() => deleteEvent(e.id)}>Remove</button>
+                          <button className="news-action" style={{ fontSize: 'var(--font-size-12)' }} aria-label={`Edit ${e.title}`} onClick={() => beginEdit(e)}>Edit</button>
                         </div>
                       </div>
                     ))
@@ -199,8 +229,9 @@ const CalendarTab = () => {
         onClose={closeModal}
         footer={(requestClose) => (
           <>
+            {editEvent && <Button variant="danger" onClick={() => deleteEvent(editEvent.id)}>Delete</Button>}
             <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-            <Button onClick={saveEvent} busy={evSaving} busyLabel={editEvent ? 'Updating…' : 'Adding…'}>
+            <Button onClick={submitEvent} busy={evSaving} busyLabel={editEvent ? 'Updating…' : 'Adding…'}>
               {editEvent ? 'Update' : 'Add Event'}
             </Button>
           </>
@@ -212,11 +243,25 @@ const CalendarTab = () => {
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="calendar-start-date">Start Date</label>
-            <input id="calendar-start-date" className="form-input" type="date" value={evDate} onChange={e => setEvDate(e.target.value)} aria-required="true" />
+            <input id="calendar-start-date" className="form-input" type="date" value={evDate} onChange={e => { setEvDate(e.target.value); setRangeValidationShown(false); }} aria-required="true" />
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="calendar-end-date-optional">End Date (optional)</label>
-            <input id="calendar-end-date-optional" className="form-input" type="date" value={evEnd} onChange={e => setEvEnd(e.target.value)} />
+            <input
+              ref={endDateRef}
+              id="calendar-end-date-optional"
+              className="form-input"
+              type="date"
+              value={evEnd}
+              onChange={e => { setEvEnd(e.target.value); setRangeValidationShown(false); }}
+              aria-invalid={rangeValidationShown && rangeInvalid ? 'true' : undefined}
+              aria-describedby={rangeValidationShown && rangeInvalid ? 'calendar-end-date-error' : undefined}
+            />
+            {rangeValidationShown && rangeInvalid && (
+              <span id="calendar-end-date-error" className="field-error" role="alert">
+                End Date cannot be earlier than Start Date.
+              </span>
+            )}
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="calendar-type">Type</label>

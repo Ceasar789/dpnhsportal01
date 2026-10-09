@@ -16,6 +16,11 @@ import { publishedAtPatch } from '../../../lib/newsRules';
 import { validatePassword } from '../../../lib/passwordPolicy';
 import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
 import { currentSchoolYear } from '../../../lib/academicRules';
+import {
+  isInvalidCalendarRange,
+  philippineDateKey,
+  upcomingCalendarEvents as selectUpcomingCalendarEvents,
+} from '../../../lib/calendarRules';
 
 // The three General-card values the UI assumes it has. They are also the
 // fallback when the row does not carry them, which today it does not.
@@ -714,6 +719,7 @@ export const useAdminLogic = (userData) => {
   const [calYear,  setCalYear]  = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const [calEvents, setCalEvents] = useState([]);
+  const [calError, setCalError] = useState(false);
   const [calFilter, setCalFilter] = useState('');
   const [editEvent, setEditEvent] = useState(null); // NEW: event editing
   const [evTitle, setEvTitle]   = useState('');
@@ -727,6 +733,7 @@ export const useAdminLogic = (userData) => {
 
   const fetchCalEvents = useCallback(async () => {
     setCalLoading(true);
+    setCalError(false);
     try {
       const { data, error } = await withRetry(
         () => supabase.from('calendar_events').select('*').order('event_date', { ascending: true }),
@@ -734,10 +741,12 @@ export const useAdminLogic = (userData) => {
       );
       if (error) throw error;
       setCalEvents(data || []);
+      return true;
     } catch (err) {
       console.error('Error loading events:', err);
       showToast('Error loading events: ' + err.message, 'error');
-      setCalEvents([]);
+      setCalError(true);
+      return false;
     } finally {
       setCalLoading(false);
     }
@@ -757,6 +766,7 @@ export const useAdminLogic = (userData) => {
   const saveEvent = async () => {
     if (!evTitle.trim() || !evDate) return showToast('Title and date required', 'error');
     if (evType === 'Custom Type' && !evCustomType.trim()) return showToast('Custom event type required', 'error');
+    if (isInvalidCalendarRange(evDate, evEnd)) return false;
     if (savingEventRef.current) return;   // the second of a double click
     savingEventRef.current = true;
     setEvSaving(true);
@@ -808,10 +818,25 @@ export const useAdminLogic = (userData) => {
       warning: 'This cannot be undone.',
       confirmLabel: 'Yes, Delete',
       onConfirm: async () => {
-        await supabase.from('calendar_events').delete().eq('id', id);
+        try {
+          const { data, error } = await supabase
+            .from('calendar_events')
+            .delete()
+            .eq('id', id)
+            .select('id');
+          if (error) throw error;
+          if (!data?.some((event) => event.id === id)) {
+            throw new Error('The event was not deleted.');
+          }
+        } catch (error) {
+          showToast(`Could not delete event: ${error.message}`, 'error');
+          return false;
+        }
         await logActivity('Deleted event', eventToDelete?.title);
         showToast('Event deleted');
         await fetchCalEvents(); await fetchStats();
+        closeModal();
+        return true;
       },
     });
   };
@@ -830,10 +855,10 @@ export const useAdminLogic = (userData) => {
     return cells;
   }, [calYear, calMonth]);
 
-  const todayDateKey = today.toISOString().slice(0, 10);
+  const todayDateKey = philippineDateKey(today);
   const upcomingEvents = useMemo(
-    () => calEvents.filter(e => e.event_date >= todayDateKey).slice(0, 4),
-    [calEvents, todayDateKey]
+    () => selectUpcomingCalendarEvents(calEvents, calFilter, todayDateKey),
+    [calEvents, calFilter, todayDateKey]
   );
 
   const prevMonth = () => { if(calMonth===0){setCalYear(y=>y-1);setCalMonth(11)}else setCalMonth(m=>m-1); };
@@ -1195,7 +1220,7 @@ export const useAdminLogic = (userData) => {
 
   return {
     activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime,
-    calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
+    calError, calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     darkMode, debounceTimersRef, debouncedFetchRoleDist, debouncedFetchStats, debouncedFetchUsers, deleteConfirm,
     deleteEvent, deleteMemo, deleteNewsItem, deleteUser, editEvent, editMemo,
     editNews, editUser, emailNotifications, evDate, evDesc, evEnd,

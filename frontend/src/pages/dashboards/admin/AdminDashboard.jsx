@@ -121,6 +121,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
   const menuButtonRef = useRef(null);
+  const deleteConfirmRunningRef = useRef(false);
 
   // The drawer is an overlay over the page, so it owes the same contract a
   // dialog does: it takes focus, keeps it, gives it back, and the page
@@ -799,6 +800,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .news-footer { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-16); }
 
         .cal-toolbar { display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-16); flex-wrap: wrap; }
+        .cal-load-error { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); margin-bottom: var(--space-16); padding: var(--space-12) var(--space-16); border: 1px solid var(--red); border-radius: var(--radius-md); color: var(--text); background: var(--card-bg); font-size: var(--font-size-13); }
         .cal-toolbar-group { display: contents; }
         .cal-year-select, .cal-filter-select { width: auto; }
         .cal-add-event { margin-left: auto; }
@@ -1342,8 +1344,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         onCancel={() => setDeleteConfirm(null)}
         onConfirm={async () => {
           const fn = deleteConfirm?.onConfirm;
-          setDeleteConfirm(null);
-          if (fn) await fn();
+          if (!fn) {
+            setDeleteConfirm(null);
+            return;
+          }
+          if (deleteConfirmRunningRef.current) return;
+          deleteConfirmRunningRef.current = true;
+          try {
+            const completed = await fn();
+            if (completed !== false) setDeleteConfirm(null);
+          } finally {
+            deleteConfirmRunningRef.current = false;
+          }
         }}
       />
 

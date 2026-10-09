@@ -16,6 +16,8 @@
 // is the thing a reader needs to know.
 // ============================================
 
+import { matchesCalendarFilter } from './calendarRules';
+
 const pad = (n) => String(n).padStart(2, '0');
 
 /** The yyyy-mm-dd bounds of a month, as the date columns store them. */
@@ -40,7 +42,7 @@ export function agendaGroups(events, year, monthIndex, typeFilter = '') {
 
   for (const e of events) {
     if (!e?.event_date) continue;
-    if (typeFilter && e.event_type !== typeFilter) continue;
+    if (!matchesCalendarFilter(e, typeFilter)) continue;
 
     const from = e.event_date;
     const to = e.end_date || e.event_date;

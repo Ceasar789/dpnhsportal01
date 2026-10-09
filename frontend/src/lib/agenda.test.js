@@ -57,6 +57,16 @@ describe('agendaGroups', () => {
     expect(agendaGroups(rows, ...OCT, '').map((g) => g.day)).toEqual([3, 4]);
   });
 
+  it('uses the shared Custom Type storage rule', () => {
+    const rows = [
+      { ...ev('2026-10-03', null, 'Other'), custom_event_type: 'Assembly' },
+      ev('2026-10-04', null, 'Other'),
+    ];
+    const groups = agendaGroups(rows, ...OCT, 'Custom Type');
+
+    expect(groups.map((group) => group.day)).toEqual([3]);
+  });
+
   it('survives a row with no date and a range stored backwards', () => {
     const out = agendaGroups([{ title: 'junk' }, ev('2026-10-23', '2026-10-19')], ...OCT);
     expect(out).toHaveLength(1);

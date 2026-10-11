@@ -36,7 +36,7 @@
 // screen's job, and it is why an unfilled subject row matters.
 // ============================================
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
@@ -49,7 +49,11 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const SchedulesTab = () => {
   const {
-    schoolYear, teachers, subjects, sections, sectionsError, sectionsLoading, fetchSections, teachingLoad,
+    schoolYear,
+    teachers, teachersError, teachersLoading, fetchTeachers,
+    subjects, subjectsError, subjectsLoading, fetchSubjects,
+    sections, sectionsError, sectionsLoading, fetchSections,
+    teachingLoad, teachingLoadError, teachingLoadLoading, fetchTeachingLoad,
     schedules, schedulesLoading, schedulesError, fetchSchedules,
     scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
     schedTeacher, setSchedTeacher, schedSubject,
@@ -61,18 +65,24 @@ const SchedulesTab = () => {
   // Rule: the skeleton only appears once the wait is long enough to notice.
   const slowSections = useDelayedFlag(sectionsLoading);
   const slowSchedules = useDelayedFlag(schedulesLoading);
+  const slowSubjects = useDelayedFlag(subjectsLoading);
 
   const [grade, setGrade] = useState(GRADE_LEVELS[0]);
   const [openSectionId, setOpenSectionId] = useState(null);
   // Set by pressing Create. Nothing is marked red until then — a form that is
   // red before it has been touched reads as broken, not incomplete.
   const [tried, setTried] = useState(false);
+  const pageHeadingRef = useRef(null);
+  const subjectHeadingRefs = useRef(new Map());
+  const addButtonRefs = useRef(new Map());
 
   const nameOf = (list, id, field = 'name') => list.find(x => x.id === id)?.[field] || '—';
   const dismiss = () => { setTried(false); closeScheduleModal(); };
 
   const badTime = schedEnd <= schedStart;
-  const missingTeacher = tried && !schedTeacher;
+  const eligibilityLoading = teachersLoading || teachingLoadLoading;
+  const eligibilityError = teachersError || teachingLoadError;
+  const missingTeacher = tried && !schedTeacher && !eligibilityLoading && !eligibilityError;
   const missingTime = tried && badTime;
 
   // The Create button stays enabled while the form is incomplete, on purpose.
@@ -81,7 +91,7 @@ const SchedulesTab = () => {
   // not the guard.
   const create = () => {
     setTried(true);
-    if (!schedTeacher || badTime) return;
+    if (eligibilityLoading || eligibilityError || !schedTeacher || badTime) return;
     saveSchedule();
     setTried(false);
   };
@@ -126,34 +136,71 @@ const SchedulesTab = () => {
     if (!openSection) return map;
     for (const row of schedules) {
       if (row.section_id !== openSection.id) continue;
-      if (!map.has(row.subject_id)) map.set(row.subject_id, []);
-      map.get(row.subject_id).push(row);
+      const key = row.subject_id || `unresolved:${row.id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
     }
     return map;
   }, [schedules, openSection]);
+
+  // Active subjects are the normal timetable rows. Saved periods for an
+  // inactive or now-missing subject are authoritative records too, so append
+  // them as read-only legacy rows rather than hiding them.
+  const displaySubjects = useMemo(() => {
+    const known = new Map(subjects.map(subject => [subject.id, subject]));
+    const rows = activeSubjects.map(subject => ({
+      key: subject.id,
+      subject,
+      scheduleRows: rowsBySubject.get(subject.id) || [],
+      legacy: false,
+    }));
+
+    for (const [key, scheduleRows] of rowsBySubject) {
+      const subject = known.get(key);
+      if (subject && subject.is_active !== false) continue;
+      rows.push({ key, subject: subject || null, scheduleRows, legacy: true });
+    }
+    return rows;
+  }, [activeSubjects, rowsBySubject, subjects]);
 
   // Who may hold this subject in this section. The same rule saveSchedule
   // enforces, applied here so an impossible choice is never offered —
   // otherwise the admin picks a name and gets a rejection they cannot act on.
   const eligibleTeachers = useMemo(() => {
-    if (!openSection || !schedSubject) return [];
+    if (!openSection || !schedSubject || eligibilityLoading || eligibilityError) return [];
     return teachers.filter(t => canTeachSection(
       teachingLoad.filter(l => l.teacher_id === t.id), schedSubject, openSection
     ).ok);
-  }, [teachers, teachingLoad, schedSubject, openSection]);
+  }, [teachers, teachingLoad, schedSubject, openSection, eligibilityLoading, eligibilityError]);
 
   const sectionSummary = (section) => {
-    const filled = new Set(
-      schedules.filter(s => s.section_id === section.id).map(s => s.subject_id)
-    ).size;
-    return `${filled}/${activeSubjects.length} subjects`;
+    if (subjectsLoading) return 'Loading subject coverage…';
+    if (subjectsError) return 'Subject coverage unavailable';
+    const sectionRows = schedules.filter(schedule => schedule.section_id === section.id);
+    const activeIds = new Set(activeSubjects.map(subject => subject.id));
+    const filled = new Set(sectionRows.filter(row => activeIds.has(row.subject_id)).map(row => row.subject_id)).size;
+    const legacyPeriods = sectionRows.filter(row => !activeIds.has(row.subject_id)).length;
+    return `${filled}/${activeSubjects.length} active subjects${legacyPeriods ? ` · ${legacyPeriods} legacy period${legacyPeriods === 1 ? '' : 's'}` : ''}`;
+  };
+
+  const focusSubject = (key) => {
+    const add = addButtonRefs.current.get(key);
+    if (add && !add.disabled) { add.focus(); return; }
+    const heading = subjectHeadingRefs.current.get(key);
+    if (heading) { heading.focus(); return; }
+    pageHeadingRef.current?.focus();
+  };
+
+  const retryEligibility = () => {
+    if (teachersError) fetchTeachers();
+    if (teachingLoadError) fetchTeachingLoad();
   };
 
   return (
     <>
       <div>
         <div className="page-header-bar">
-          <div className="page-title">Schedules</div>
+          <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>Schedules</div>
           <div className="page-sub">Who teaches what, to which section, and when — for {schoolYear}.</div>
         </div>
 
@@ -192,6 +239,7 @@ const SchedulesTab = () => {
               {gradeSections.map(s => (
                 <button key={s.id} type="button"
                   className={`section-chip${openSectionId === s.id ? ' active' : ''}`}
+                  aria-pressed={openSectionId === s.id}
                   onClick={() => setOpenSectionId(openSectionId === s.id ? null : s.id)}>
                   <span className="section-chip-name">{s.name}</span>
                   <span className="section-chip-count">{sectionSummary(s)}</span>
@@ -204,7 +252,7 @@ const SchedulesTab = () => {
                 Pick a section above to set its schedule.
               </div>
             ) : (
-              <div className="table-card"><table>
+              <div className="table-card schedule-table-card"><table>
                 <thead>
                   <tr>
                     <th style={{ width: '26%' }}>{openSection.name} — {grade}</th>
@@ -213,24 +261,41 @@ const SchedulesTab = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {schedulesLoading ? (
+                  {subjectsError ? (
+                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
+                      Could not load subjects. Existing subject identities cannot be verified.
+                      <div style={{ marginTop: 'var(--space-12)' }}>
+                        <button className="btn btn-ghost" onClick={() => fetchSubjects()}>Retry subjects</button>
+                      </div>
+                    </td></tr>
+                  ) : subjectsLoading ? (
+                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: 'var(--space-24)', color: 'var(--text-muted)' }}>
+                      {slowSubjects ? 'Loading subjects…' : ''}
+                    </td></tr>
+                  ) : schedulesLoading ? (
                     <tr><td colSpan={3} style={{ textAlign: 'center', padding: 'var(--space-24)' }}>
                       {slowSchedules ? 'Loading schedules…' : ''}
                     </td></tr>
-                  ) : activeSubjects.length === 0 ? (
+                  ) : displaySubjects.length === 0 ? (
                     <tr><td colSpan={3} style={{ textAlign: 'center', padding: 'var(--space-24)', color: 'var(--text-muted)' }}>
                       No active subjects yet — a timetable needs subjects to
                       schedule. Add them in Subjects first.
                     </td></tr>
-                  ) : activeSubjects.map(subject => {
-                    const rows = rowsBySubject.get(subject.id) || [];
+                  ) : displaySubjects.map(({ key, subject, scheduleRows: rows, legacy }) => {
+                    const subjectName = subject?.name || 'Subject reference unavailable';
                     return (
-                      <tr key={subject.id}>
-                        <td>
-                          <div>{subject.name}</div>
-                          <div className="row-sub">{subject.code}</div>
+                      <tr key={key}>
+                        <td data-cell="identity">
+                          <div ref={(node) => {
+                            if (node) subjectHeadingRefs.current.set(key, node);
+                            else subjectHeadingRefs.current.delete(key);
+                          }} tabIndex={legacy ? -1 : undefined}>{subjectName}</div>
+                          <div className="row-sub">
+                            {subject?.code || 'Saved schedule with an unresolved subject reference'}
+                          </div>
+                          {legacy && <span className="badge badge-archived">Inactive · existing periods only</span>}
                         </td>
-                        <td>
+                        <td data-cell="detail">
                           {rows.length === 0 ? (
                             <span style={{ color: 'var(--text-muted)' }}>— nobody scheduled —</span>
                           ) : rows.map(r => (
@@ -243,15 +308,22 @@ const SchedulesTab = () => {
                               <button className="icon-action archive-action"
                                 aria-label={`Delete ${nameOf(teachers, r.teacher_id)}'s ${r.day_of_week} schedule`}
                                 title="Delete"
-                                onClick={() => deleteSchedule(r.id)}><Trash2 size={14} aria-hidden="true" /></button>
+                                onClick={() => deleteSchedule(r.id, () => focusSubject(key))}><Trash2 size={14} aria-hidden="true" /></button>
                             </div>
                           ))}
                         </td>
-                        <td>
-                          <button className="btn btn-ghost btn-sm"
-                            onClick={() => { setTried(false); openCreateSchedule({ sectionId: openSection.id, subjectId: subject.id }); }}>
-                            <Plus size={14} /> Add
-                          </button>
+                        <td data-cell="actions">
+                          {!legacy && (
+                            <button className="btn btn-ghost btn-sm"
+                              ref={(node) => {
+                                if (node) addButtonRefs.current.set(key, node);
+                                else addButtonRefs.current.delete(key);
+                              }}
+                              aria-label={`Add ${subjectName} schedule`}
+                              onClick={() => { setTried(false); openCreateSchedule({ sectionId: openSection.id, subjectId: subject.id }); }}>
+                              <Plus size={14} aria-hidden="true" /> Add
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -278,20 +350,40 @@ const SchedulesTab = () => {
 
             <div className="form-row">
               <label className="form-label" htmlFor="schedules-teacher">Teacher</label>
-              <select id="schedules-teacher" className={`form-input${missingTeacher ? ' is-invalid' : ''}`}
-                value={schedTeacher} onChange={e => setSchedTeacher(e.target.value)}>
+              <select id="schedules-teacher" className={`form-input${missingTeacher || eligibilityError ? ' is-invalid' : ''}`}
+                value={schedTeacher} onChange={e => setSchedTeacher(e.target.value)}
+                required
+                aria-invalid={(missingTeacher || eligibilityError) || undefined}
+                aria-describedby={(missingTeacher || eligibilityLoading || eligibilityError || eligibleTeachers.length === 0) ? 'schedules-teacher-help' : undefined}>
                 <option value="">
-                  {eligibleTeachers.length === 0
+                  {eligibilityLoading
+                    ? 'Loading eligible teachers…'
+                    : eligibilityError
+                      ? 'Teacher eligibility unavailable'
+                      : eligibleTeachers.length === 0
                     ? 'No teacher holds this subject at this grade'
                     : 'Select teacher…'}
                 </option>
                 {eligibleTeachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
               </select>
               {missingTeacher && eligibleTeachers.length > 0 && (
-                <div className="field-error">Select a teacher.</div>
+                <div id="schedules-teacher-help" className="field-error">Select a teacher.</div>
               )}
-              {eligibleTeachers.length === 0 && (
-                <div className="row-sub" style={{ marginTop: 'var(--space-8)' }}>
+              {eligibilityLoading && (
+                <div id="schedules-teacher-help" className="row-sub" role="status" style={{ marginTop: 'var(--space-8)' }}>
+                  Loading teachers and teaching-load assignments…
+                </div>
+              )}
+              {eligibilityError && (
+                <div id="schedules-teacher-help" className="field-error" role="alert">
+                  Teacher eligibility could not be loaded.
+                  <div style={{ marginTop: 'var(--space-8)' }}>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={retryEligibility}>Retry eligibility</button>
+                  </div>
+                </div>
+              )}
+              {!eligibilityLoading && !eligibilityError && eligibleTeachers.length === 0 && (
+                <div id="schedules-teacher-help" className="row-sub" style={{ marginTop: 'var(--space-8)' }}>
                   Assign someone this subject for {grade} in Teaching Load first.
                 </div>
               )}
@@ -299,7 +391,7 @@ const SchedulesTab = () => {
 
             <div className="form-row">
               <label className="form-label" htmlFor="schedules-day">Day</label>
-              <select id="schedules-day" className="form-input" value={schedDay} onChange={e => setSchedDay(e.target.value)}>
+              <select id="schedules-day" className="form-input" value={schedDay} onChange={e => setSchedDay(e.target.value)} required>
                 {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
@@ -308,16 +400,18 @@ const SchedulesTab = () => {
               <div style={{ flex: 1 }}>
                 <label className="form-label" htmlFor="schedules-start">Start</label>
                 <input id="schedules-start" className={`form-input${missingTime ? ' is-invalid' : ''}`}
-                  type="time" value={schedStart} onChange={e => setSchedStart(e.target.value)} />
+                  aria-invalid={missingTime || undefined} aria-describedby={missingTime ? 'schedules-time-error' : undefined}
+                  type="time" value={schedStart} onChange={e => setSchedStart(e.target.value)} required />
               </div>
               <div style={{ flex: 1 }}>
                 <label className="form-label" htmlFor="schedules-end">End</label>
                 <input id="schedules-end" className={`form-input${missingTime ? ' is-invalid' : ''}`}
-                  type="time" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} />
+                  aria-invalid={missingTime || undefined} aria-describedby={missingTime ? 'schedules-time-error' : undefined}
+                  type="time" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required />
               </div>
             </div>
             {missingTime && (
-              <div className="field-error" style={{ marginTop: -8, marginBottom: 'var(--space-12)' }}>
+              <div id="schedules-time-error" className="field-error" role="alert" style={{ marginTop: -8, marginBottom: 'var(--space-12)' }}>
                 End time must be after the start time.
               </div>
             )}

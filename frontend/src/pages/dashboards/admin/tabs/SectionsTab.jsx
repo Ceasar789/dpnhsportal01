@@ -4,7 +4,7 @@
 // what makes a teacher's My Students screen show anything.
 // ============================================
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import RowSheet from '../../../../components/ui/RowSheet';
 import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
@@ -13,13 +13,15 @@ import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import Button from '../../../../components/ui/Button';
+import { isActiveSectionAdviser, validateSectionCapacity } from '../shared/sectionsValidation';
 
 const SectionsTab = () => {
   const {
     schoolYear, teachers, sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,
-    secCapacity, setSecCapacity, secSaving,
+    secCapacity, setSecCapacity, secCapacityError, setSecCapacityError,
+    secAdviserError, setSecAdviserError, secSaving,
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
     activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
@@ -31,28 +33,45 @@ const SectionsTab = () => {
   // produces no visible change at all until the roster reloads.
   const narrow = useIsNarrow();
   const [sheetSection, setSheetSection] = useState(null);
+  const pageRootRef = useRef(null);
+  const pageHeadingRef = useRef(null);
+  const focusAfterDelete = () => {
+    const nextDelete = pageRootRef.current?.querySelector('.archive-action');
+    if (nextDelete) nextDelete.focus();
+    else pageHeadingRef.current?.focus();
+  };
 
   const [adding, setAdding] = useState(false);
+  const [removingStudentId, setRemovingStudentId] = useState(null);
+  const removingStudentRef = useRef(false);
 
   // UX-062: two of these four fields are required and nothing said which.
   // The rules are unchanged and still live in saveSection; this is where
   // the answer is shown.
   const [tried, setTried] = useState(false);
-  useEffect(() => { setTried(false); }, [sectionModal]);
+  const beginCreate = () => { setTried(false); openCreateSection(); };
+  const beginEdit = (section) => { setTried(false); openEditSection(section); };
   const missingName = tried && !secName.trim();
   const missingGrade = tried && !secGrade;
+  const localCapacityError = tried ? validateSectionCapacity(secCapacity).message : '';
+  const capacityError = secCapacityError || localCapacityError;
   const adviserName = (id) => teachers.find(t => t.id === id)?.name || '—';
+  const eligibleTeachers = teachers.filter(isActiveSectionAdviser);
+  const existingAdviser = editingSection?.adviser_id
+    ? teachers.find((teacher) => teacher.id === editingSection.adviser_id)
+    : null;
+  const existingAdviserIsIneligible = existingAdviser && !isActiveSectionAdviser(existingAdviser);
 
   return (
     <>
-      <div>
+      <div ref={pageRootRef}>
         <div className="page-header-bar">
-          <div className="page-title">Sections</div>
+          <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>Sections</div>
           <div className="page-sub">Class sections for {schoolYear}, their advisers, and their student rosters.</div>
         </div>
 
         <div className="toolbar">
-          <button className="btn btn-primary" onClick={openCreateSection}>
+          <button className="btn btn-primary" onClick={beginCreate}>
             <Plus size={15} style={{ marginRight: 'var(--space-8)' }} />
             Add Section
           </button>
@@ -93,8 +112,8 @@ const SectionsTab = () => {
                 <td data-cell="detail">{s.capacity}</td>
                 <td data-cell="actions">
                   <button className="icon-action" aria-label={`Class list for ${s.name}`} title="Class list" onClick={() => openClassList(s)}><Users size={15} aria-hidden="true" /></button>
-                  <button className="icon-action" aria-label={`Edit ${s.name}`} title="Edit" onClick={() => openEditSection(s)}><Pencil size={15} aria-hidden="true" /></button>
-                  <button className="icon-action archive-action" aria-label={`Delete ${s.name}`} title="Delete" onClick={() => deleteSection(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
+                  <button className="icon-action" aria-label={`Edit ${s.name}`} title="Edit" onClick={() => beginEdit(s)}><Pencil size={15} aria-hidden="true" /></button>
+                  <button className="icon-action archive-action" aria-label={`Delete ${s.name}`} title="Delete" onClick={() => deleteSection(s.id, focusAfterDelete)}><Trash2 size={15} aria-hidden="true" /></button>
                 </td>
               </tr>
             ))}
@@ -113,8 +132,8 @@ const SectionsTab = () => {
         actions={sheetSection && (
           <>
             <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); openClassList(s); }}>Class list</Button>
-            <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); openEditSection(s); }}>Edit</Button>
-            <Button variant="danger" onClick={() => { const s = sheetSection; setSheetSection(null); deleteSection(s.id); }}>Delete</Button>
+            <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); beginEdit(s); }}>Edit</Button>
+            <Button variant="danger" onClick={() => { const s = sheetSection; setSheetSection(null); deleteSection(s.id, focusAfterDelete); }}>Delete</Button>
           </>
         )}
         onClose={() => setSheetSection(null)}
@@ -128,7 +147,11 @@ const SectionsTab = () => {
           footer={(requestClose) => (
             <>
               <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-              <Button onClick={() => { setTried(true); saveSection(); }} busy={secSaving} busyLabel={editingSection ? 'Updating…' : 'Creating…'}>
+              <Button onClick={() => {
+                setTried(true);
+                if (!secName.trim() || !secGrade || !validateSectionCapacity(secCapacity).valid) return;
+                saveSection();
+              }} busy={secSaving} busyLabel={editingSection ? 'Updating…' : 'Creating…'}>
                 {editingSection ? 'Update' : 'Create'}
               </Button>
             </>
@@ -156,15 +179,32 @@ const SectionsTab = () => {
 
             <div className="form-row">
               <label className="form-label" htmlFor="sections-adviser">Adviser</label>
-              <select id="sections-adviser" className="form-input" value={secAdviser} onChange={e => setSecAdviser(e.target.value)}>
+              <select id="sections-adviser" className={`form-input${secAdviserError ? ' is-invalid' : ''}`} value={secAdviser}
+                onChange={e => { setSecAdviser(e.target.value); setSecAdviserError(''); }}
+                aria-invalid={Boolean(secAdviserError) || undefined} aria-describedby={secAdviserError ? 'sections-adviser-error' : undefined}>
                 <option value="">No adviser yet</option>
-                {teachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
+                {existingAdviserIsIneligible && (
+                  <option value={existingAdviser.id} disabled>
+                    {existingAdviser.name || existingAdviser.email} ({existingAdviser.status || 'inactive'} — existing adviser)
+                  </option>
+                )}
+                {eligibleTeachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
               </select>
+              {secAdviserError && <div className="field-error" id="sections-adviser-error">{secAdviserError}</div>}
+              {existingAdviserIsIneligible && secAdviser === existingAdviser.id && (
+                <div className="field-help">This adviser is no longer active. The existing assignment will be preserved unless you choose a replacement.</div>
+              )}
+              {eligibleTeachers.length === 0 && <div className="field-help">No active teachers are currently available.</div>}
             </div>
 
             <div className="form-row">
-              <label className="form-label" htmlFor="sections-capacity">Capacity</label>
-              <input id="sections-capacity" className="form-input" type="number" value={secCapacity} onChange={e => setSecCapacity(e.target.value)} />
+              <label className="form-label" htmlFor="sections-capacity">Capacity<span className="form-req" aria-hidden="true">*</span></label>
+              <input id="sections-capacity" className={`form-input${capacityError ? ' is-invalid' : ''}`} type="number" min="1" max="60" step="1" required value={secCapacity}
+                onChange={e => { setSecCapacity(e.target.value); setSecCapacityError(''); }}
+                aria-required="true" aria-invalid={Boolean(capacityError) || undefined} aria-describedby={capacityError ? 'sections-capacity-error' : 'sections-capacity-help'} />
+              {capacityError
+                ? <div className="field-error" id="sections-capacity-error">{capacityError}</div>
+                : <div className="field-help" id="sections-capacity-help">Enter a whole number from 1 to 60.</div>}
             </div>
 
         </Modal>
@@ -181,8 +221,21 @@ const SectionsTab = () => {
           )}
         >
 
+            {!classListLoading && !classListError && (() => {
+              const capacity = validateSectionCapacity(activeSection.capacity);
+              if (!capacity.valid) return <div className="field-error" role="alert">This section has an invalid capacity. Correct it before adding students.</div>;
+              const full = classList.length >= capacity.value;
+              return (
+                <div role="status" aria-live="polite" className={full ? 'field-error' : 'field-help'}>
+                  Enrollment: {classList.length} of {capacity.value}.
+                  {full ? ` This section is ${classList.length > capacity.value ? 'over capacity' : 'full'}; additional enrollment is blocked.` : ''}
+                </div>
+              );
+            })()}
+
             <div className="form-row" style={{ display: 'flex', gap: 'var(--space-8)' }}>
-              <select className="form-input" value={pick} onChange={e => setPick(e.target.value)}>
+              <label className="sr-only" htmlFor="sections-add-student">Add a student</label>
+              <select id="sections-add-student" className="form-input" value={pick} onChange={e => setPick(e.target.value)}>
                 <option value="">Add a student…</option>
                 {unassignedStudents.map(s => <option key={s.id} value={s.id}>{s.name || s.email}</option>)}
               </select>
@@ -196,8 +249,8 @@ const SectionsTab = () => {
                   if (!pick) return showToast('Choose a student to add', 'error');
                   setAdding(true);
                   try {
-                    await addStudentToSection(pick);
-                    setPick('');
+                    const added = await addStudentToSection(pick);
+                    if (added) setPick('');
                   } finally { setAdding(false); }
                 }}
               >Add</Button>
@@ -231,14 +284,23 @@ const SectionsTab = () => {
                       className="icon-action"
                       aria-label={`Remove ${c.name} from this section`}
                       title="Remove"
-                      onClick={(e) => {
+                      disabled={removingStudentId === c.id}
+                      aria-busy={removingStudentId === c.id || undefined}
+                      onClick={async (e) => {
                         // Losing focus here drops the user on the body with
                         // a modal still open over it.
                         const settle = focusAfterRemoval(
                           e.currentTarget, 'table', '.icon-action', '.modal-title',
                         );
-                        removeStudentFromSection(c.id);
-                        settle();
+                        if (removingStudentRef.current) return;
+                        removingStudentRef.current = true;
+                        setRemovingStudentId(c.id);
+                        try {
+                          if (await removeStudentFromSection(c.id)) settle();
+                        } finally {
+                          removingStudentRef.current = false;
+                          setRemovingStudentId(null);
+                        }
                       }}
                     ><X size={15} aria-hidden="true" /></button></td>
                   </tr>

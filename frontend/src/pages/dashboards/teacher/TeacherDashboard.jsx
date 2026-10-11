@@ -4,9 +4,10 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
 import {
   Users, BookOpen, GraduationCap,
   CalendarCheck, Megaphone, Moon, Sun, LogOut, Menu,
@@ -34,6 +35,7 @@ import FlippingLogo from '../../../components/FlippingLogo';
 const TeacherLayout = ({ children }) => {
   const { dark, toggleDark } = useTheme();
   const { logout, userData } = useAuth();
+  const { requestProfileNavigation } = useProfileUnsavedChanges();
   const navigate = useNavigate();
   const location = useLocation();
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
@@ -42,8 +44,10 @@ const TeacherLayout = ({ children }) => {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    requestProfileNavigation(() => {
+      logout();
+      navigate('/login');
+    });
   };
 
   const navItems = [
@@ -211,7 +215,7 @@ const TeacherLayout = ({ children }) => {
 // ============================================
 const TeacherDashboard = () => {
   const navigate = useNavigate();
-  const { isTeacher, userData } = useAuth();
+  const { isTeacher } = useAuth();
   const { darkMode, toggleDarkMode } = useDashboardTheme();
 
   useEffect(() => {

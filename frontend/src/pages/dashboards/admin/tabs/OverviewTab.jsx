@@ -11,7 +11,10 @@ import { formatDateTime } from '../../../../lib/formatDate';
 import { wholePercents } from '../../../../lib/percentages';
 
 const OverviewTab = () => {
-  const { activityLogs, overviewLoading, roleDist, setPage, settings, stats } = useAdminContext();
+  const {
+    activityError = '', activityLogs, fetchLogs, fetchRoleDist, fetchStats, overviewLoading,
+    roleDist, roleDistError = '', setPage, settings, stats, statsErrors = {},
+  } = useAdminContext();
   const slowOverview = useDelayedFlag(overviewLoading);
   const roleColors = { student:'#3b82f6', teacher:'#22c55e', faculty:'#2dd4bf', registrar:'#f59e0b', main_admin:'#ef4444' };
   // P7: the legend read 58 25 9 5 5, which is 102. Each share was rounded
@@ -65,15 +68,21 @@ const OverviewTab = () => {
                   <span className="page-sub-seg">{settings.semester}</span>
                 </span>
               </div>
+              {Object.values(statsErrors).some(Boolean) && (
+                <div className="cal-load-error" role="alert">
+                  <span>Some dashboard totals are unavailable.</span>
+                  <button type="button" className="btn btn-ghost" onClick={fetchStats}>Retry totals</button>
+                </div>
+              )}
               <div className="stat-grid">
                 {/* The per-card colour is gone with the tile it filled. It
                     was decorative: one fixed hue each, carrying nothing a
                     reader could act on. */}
                 {[
-                  { label:'Total Users',    value: stats.users,  icon: Users,     note:'Live from Portal', page:'users', primary: true },
-                  { label:'Published News', value: stats.news,   icon: Newspaper, note:'Published only',   page:'news' },
-                  { label:'Calendar Events',value: stats.events, icon: Calendar,  note:'All events',       page:'calendar' },
-                  { label:'Memos Sent',     value: stats.memos,  icon: FileText,  note:'All memos',        page:'memos' },
+                  { key:'users', label:'Total Users',    value: stats.users,  icon: Users,     note:'Live from Portal', page:'users', primary: true },
+                  { key:'news', label:'Published News', value: stats.news,   icon: Newspaper, note:'Published only',   page:'news' },
+                  { key:'events', label:'Calendar Events',value: stats.events, icon: Calendar,  note:'All events',       page:'calendar' },
+                  { key:'memos', label:'Memos Sent',     value: stats.memos,  icon: FileText,  note:'All memos',        page:'memos' },
                 ].map(s => {
                   const Icon = s.icon;
                   return (
@@ -88,8 +97,8 @@ const OverviewTab = () => {
                         <Icon size={16} aria-hidden="true" strokeWidth={2} />
                         <span className="stat-label">{s.label}</span>
                       </div>
-                      <div className="stat-value">{s.value}</div>
-                      <div className="stat-change">{s.note}</div>
+                      <div className="stat-value">{statsErrors[s.key] ? '—' : s.value}</div>
+                      <div className="stat-change">{statsErrors[s.key] ? 'Unavailable' : s.note}</div>
                     </button>
                   );
                 })}
@@ -103,6 +112,8 @@ const OverviewTab = () => {
                       read as an answer. */}
                   {overviewLoading
                     ? <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>{slowOverview ? 'Loading activity…' : ''}</div>
+                    : activityError
+                    ? <div className="cal-load-error" role="alert"><span>{activityError}</span><button type="button" className="btn btn-ghost" onClick={fetchLogs}>Retry</button></div>
                     : activityLogs.length === 0
                     ? <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>No recent activity</div>
                     : activityLogs.map((l, i) => (
@@ -122,6 +133,8 @@ const OverviewTab = () => {
                 </div>
                 <div className="chart-card">
                   <div className="chart-title">Role Distribution</div>
+                  {roleDistError && <div className="cal-load-error" role="alert"><span>{roleDistError}</span><button type="button" className="btn btn-ghost" onClick={fetchRoleDist}>Retry</button></div>}
+                  {!roleDistError && roleDist.length === 0 && !overviewLoading && <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>No role data available</div>}
                   <div className="role-overview">
                     <div className="role-pie" style={{ background: `conic-gradient(${pieStops})` }} aria-label="Role distribution chart" />
                     <div className="role-legend">

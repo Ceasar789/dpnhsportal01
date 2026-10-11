@@ -4,6 +4,7 @@
 // Includes the MEMO MODAL, which only this tab opens.
 // ============================================
 
+import { useRef } from 'react';
 import { useAdminContext } from '../AdminContext';
 import { composeOptions, filterOptions } from '../../../../lib/memoRecipients';
 import Modal from '../../../../components/ui/Modal';
@@ -13,7 +14,7 @@ import { formatDate, formatDateTime } from '../../../../lib/formatDate';
 const MemosTab = () => {
   const {
     closeModal, deleteMemo, editMemo, filteredMemos, mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos,
-    memosLoading, modal, openCompose, openEditMemo, saveMemo, selMemo,
+    fetchMemos, memosError = '', memosLoading, modal, openCompose, openEditMemo, saveMemo, selMemo,
     setMBody, setMFrom, setMSubj, setMTo, setMemoFilter, setMemoSearch,
     setSelMemo, users
   } = useAdminContext();
@@ -28,12 +29,19 @@ const MemosTab = () => {
   // set to a group that matches nothing — and an old memo addressed to a
   // department since renamed stays findable.
   const recipientFilters = filterOptions(memos);
+  const pageHeadingRef = useRef(null);
+  const pageRootRef = useRef(null);
+  const focusAfterDelete = () => {
+    const nextMemo = pageRootRef.current?.querySelector('.memo-list-item');
+    if (nextMemo) nextMemo.focus();
+    else pageHeadingRef.current?.focus();
+  };
 
   return (
     <>
-            <div>
+            <div ref={pageRootRef}>
               <div className="page-header-bar">
-                <div className="page-title">Memo Management</div>
+                <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>Memo Management</div>
                 <div className="page-sub">Compose and distribute official memos to departments or all users</div>
               </div>
               <div className="toolbar">
@@ -44,6 +52,7 @@ const MemosTab = () => {
                 </select>
                 <button className="btn btn-primary" onClick={openCompose}>+ Compose</button>
               </div>
+              {memosError && <div className="cal-load-error" role="alert"><span>{memosError}</span><button type="button" className="btn btn-ghost" onClick={fetchMemos}>Retry</button></div>}
               <div className="memo-layout">
                 <div className="table-card">
                   {memosLoading
@@ -67,7 +76,7 @@ const MemosTab = () => {
                       </button>
                     ))
                   }
-                  {filteredMemos.length === 0 && !memosLoading && (
+                  {filteredMemos.length === 0 && !memosLoading && !memosError && (
                     <div style={{ textAlign:'center', padding: 'var(--space-32)', color:'var(--text-muted)' }}>No memos found</div>
                   )}
                 </div>
@@ -89,7 +98,7 @@ const MemosTab = () => {
                       <div style={{ marginTop: 'var(--space-16)', lineHeight:1.6, fontSize: 'var(--font-size-13)', whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
                       <div className="memo-actions">
                         <button className="btn btn-ghost" onClick={() => openEditMemo(selMemo)}>Edit</button>
-                        <button className="btn btn-danger" onClick={() => deleteMemo(selMemo.id)}>Delete</button>
+                        <button className="btn btn-danger" onClick={() => deleteMemo(selMemo.id, focusAfterDelete)}>Delete</button>
                       </div>
                     </div>
                   ) : (

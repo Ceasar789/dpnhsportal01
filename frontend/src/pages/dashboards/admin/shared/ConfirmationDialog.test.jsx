@@ -77,4 +77,26 @@ describe('Admin ConfirmationDialog', () => {
     expect(signOut.className).toContain('btn-primary');
     expect(signOut.className).not.toContain('btn-danger-solid');
   });
+
+  it('announces a busy delete and blocks cancellation until it settles', () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmationDialog
+        open
+        title="Delete Schedule?"
+        description="Delete this schedule."
+        confirmLabel="Yes, Delete"
+        destructive
+        busy
+        busyLabel="Deleting…"
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />
+    );
+    const busy = screen.getByRole('button', { name: 'Deleting…' });
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

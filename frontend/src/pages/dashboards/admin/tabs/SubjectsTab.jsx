@@ -3,7 +3,7 @@
 // The subject registry every schedule, lesson plan and worksheet refers to.
 // ============================================
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import RowSheet from '../../../../components/ui/RowSheet';
 import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus } from 'lucide-react';
@@ -28,6 +28,13 @@ const SubjectsTab = () => {
   // sheet the row opens.
   const narrow = useIsNarrow();
   const [sheetSubject, setSheetSubject] = useState(null);
+  const pageRootRef = useRef(null);
+  const pageHeadingRef = useRef(null);
+  const focusAfterDelete = () => {
+    const nextDelete = pageRootRef.current?.querySelector('.archive-action');
+    if (nextDelete) nextDelete.focus();
+    else pageHeadingRef.current?.focus();
+  };
 
   const [tried, setTried] = useState(false);
   useEffect(() => { setTried(false); }, [subjectModal]);
@@ -36,9 +43,9 @@ const SubjectsTab = () => {
 
   return (
     <>
-      <div>
+      <div ref={pageRootRef}>
         <div className="page-header-bar">
-          <div className="page-title">Subjects</div>
+          <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>Subjects</div>
           <div className="page-sub">The subjects taught at this school. Schedules and lesson plans refer to this list.</div>
         </div>
 
@@ -84,7 +91,7 @@ const SubjectsTab = () => {
                 <td data-cell="state">{s.is_active === false ? 'Inactive' : 'Active'}</td>
                 <td data-cell="actions">
                   <button className="icon-action" aria-label={`Edit ${s.code}`} title="Edit" onClick={() => openEditSubject(s)}><Pencil size={15} aria-hidden="true" /></button>
-                  <button className="icon-action archive-action" aria-label={`Delete ${s.code}`} title="Delete" onClick={() => deleteSubject(s.id)}><Trash2 size={15} aria-hidden="true" /></button>
+                  <button className="icon-action archive-action" aria-label={`Delete ${s.code}`} title="Delete" onClick={() => deleteSubject(s.id, focusAfterDelete)}><Trash2 size={15} aria-hidden="true" /></button>
                 </td>
               </tr>
             ))}
@@ -103,7 +110,7 @@ const SubjectsTab = () => {
         actions={sheetSubject && (
           <>
             <Button variant="ghost" onClick={() => { const s = sheetSubject; setSheetSubject(null); openEditSubject(s); }}>Edit</Button>
-            <Button variant="danger" onClick={() => { const s = sheetSubject; setSheetSubject(null); deleteSubject(s.id); }}>Delete</Button>
+            <Button variant="danger" onClick={() => { const s = sheetSubject; setSheetSubject(null); deleteSubject(s.id, focusAfterDelete); }}>Delete</Button>
           </>
         )}
         onClose={() => setSheetSubject(null)}

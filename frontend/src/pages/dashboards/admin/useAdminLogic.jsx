@@ -13,9 +13,20 @@ import { useDashboardTheme } from '../../../styles/dashboardTheme';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { ACTIVITY_SELECT, toActivityRow } from '../../../lib/activityLog';
 import { publishedAtPatch } from '../../../lib/newsRules';
-import { backendRequest } from '../../../lib/backendApi';
+import { backendRequest, isAmbiguousBackendRequestError } from '../../../lib/backendApi';
 import { combineDateAndTime, DEFAULT_DUE_TIME, localNowTimestamp } from '../../../lib/taskFormatting';
 import { currentSchoolYear } from '../../../lib/academicRules';
+import { hasExactDeletedIds } from '../../../lib/deleteVerification';
+import {
+  buildSettingsUpdate,
+  classifySettingsReadError,
+  isActiveMainAdmin,
+  quarterFromNumber,
+  settingsReadMessage,
+  validateSettingsValues,
+  verifyUpdatedSettingsRows,
+} from './shared/settingsRules';
+import { filterAndRankUsers } from './shared/userSearch';
 import {
   isInvalidCalendarRange,
   philippineDateKey,
@@ -30,13 +41,6 @@ import {
 // constraint on it, so 3 and 4 are accepted. The column NAME is the only
 // thing that still says "semester"; renaming it is a migration, and the
 // drift is logged in docs/ux-workarounds.md rather than fixed here.
-const QUARTERS = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
-const quarterToNumber = (label) => {
-  const i = QUARTERS.indexOf(label);
-  return i === -1 ? 1 : i + 1;
-};
-const quarterFromNumber = (n) => QUARTERS[(Number(n) || 1) - 1] || QUARTERS[0];
-
 // Reached only when school_settings has no school_year. Computed rather
 // than frozen: a hardcoded year is the thing that hid the wrong live value
 // for as long as the banner carried one, and currentSchoolYear() is the
@@ -46,6 +50,24 @@ const SETTINGS_DEFAULTS = {
   portal_name: 'EduScribe Portal',
   academic_year: currentSchoolYear(),
   semester: '2nd Quarter',
+};
+
+const diagnoseSettings = (label, error) => {
+  if (import.meta.env.DEV) console.warn(label, error?.message || error);
+};
+
+const safeNewsImageName = (name) => {
+  const safe = String(name || 'news-image')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/\.{2,}/g, '.');
+  return safe || 'news-image';
+};
+
+const isOwnedNewsImagePath = (path, userId) => {
+  if (typeof path !== 'string' || !userId || path.includes('://') || path.includes('\\')) return false;
+  const parts = path.split('/');
+  if (parts.length !== 2 || parts[0] !== userId) return false;
+  return /^\d+-[a-zA-Z0-9._-]+$/.test(parts[1]) && !parts[1].includes('..');
 };
 
 export const useAdminLogic = (userData) => {
@@ -95,6 +117,8 @@ export const useAdminLogic = (userData) => {
   // this one browser's guess is worse than an empty panel.
   const activityStorageKey = 'smartedu-admin-activity-logs';
   const [activityLogs, setActivityLogs] = useState([]);
+  const [activityError, setActivityError] = useState('');
+  const activityRequestRef = useRef(0);
 
   // Clear what previous versions left behind, once. Those rows were never
   // on the server and cannot be recovered to it: they have local- ids and
@@ -123,6 +147,7 @@ export const useAdminLogic = (userData) => {
   }, []);
 
   const fetchLogs = useCallback(async () => {
+    const requestId = ++activityRequestRef.current;
     overviewStarted();
     try {
       const { data, error } = await withRetry(
@@ -131,16 +156,19 @@ export const useAdminLogic = (userData) => {
         { label: 'Activity logs fetch' }
       );
       if (error) {
-        // Say nothing rather than show something invented. The panels
-        // have an empty state and it is honest.
         console.warn('Activity logs unavailable:', error.message);
-        setActivityLogs([]);
-        return;
+        if (requestId === activityRequestRef.current) setActivityError('Recent activity is unavailable.');
+        return false;
       }
-      setActivityLogs((data || []).map(toActivityRow));
+      if (requestId === activityRequestRef.current) {
+        setActivityLogs((data || []).map(toActivityRow));
+        setActivityError('');
+      }
+      return true;
     } catch (e) {
       console.warn('Activity logs fetch error:', e.message);
-      setActivityLogs([]);
+      if (requestId === activityRequestRef.current) setActivityError('Recent activity is unavailable.');
+      return false;
     } finally {
       overviewSettled();
     }
@@ -179,11 +207,14 @@ export const useAdminLogic = (userData) => {
   //  OVERVIEW STATS — Real-time
   // ═══════════════════════════════════════════
   const [stats, setStats] = useState({ users: 0, news: 0, events: 0, memos: 0 });
+  const [statsErrors, setStatsErrors] = useState({ users: false, news: false, events: false, memos: false });
+  const statsRequestRef = useRef(0);
   // UX-047. Without these the Overview's zeros and "No recent activity"
   // were what rendered while the fetches were still in flight — an empty
   // state that looked like an answer.
 
   const fetchStats = useCallback(async () => {
+    const requestId = ++statsRequestRef.current;
     overviewStarted();
     try {
       const results = await Promise.all([
@@ -207,21 +238,30 @@ export const useAdminLogic = (userData) => {
 
       // A failed count keeps its previous value. Rendering "0 Total Users" when
       // the read simply failed reads as data loss and is worse than stale data.
-      setStats(prev => ({
-        users:  usersErr  ? prev.users  : (users  || 0),
-        news:   newsErr   ? prev.news   : (news   || 0),
-        events: eventsErr ? prev.events : (events || 0),
-        memos:  memosErr  ? prev.memos  : (memos  || 0),
-      }));
+      if (requestId === statsRequestRef.current) {
+        setStats(prev => ({
+          users:  usersErr  ? prev.users  : (users  || 0),
+          news:   newsErr   ? prev.news   : (news   || 0),
+          events: eventsErr ? prev.events : (events || 0),
+          memos:  memosErr  ? prev.memos  : (memos || 0),
+        }));
+        setStatsErrors({ users: Boolean(usersErr), news: Boolean(newsErr), events: Boolean(eventsErr), memos: Boolean(memosErr) });
+      }
     } catch (e) {
       console.warn('Stats fetch error:', e);
+      if (requestId === statsRequestRef.current) {
+        setStatsErrors({ users: true, news: true, events: true, memos: true });
+      }
     } finally {
       overviewSettled();
     }
   }, [overviewStarted, overviewSettled]);
 
   const [roleDist, setRoleDist] = useState([]);
+  const [roleDistError, setRoleDistError] = useState('');
+  const roleDistRequestRef = useRef(0);
   const fetchRoleDist = useCallback(async () => {
+    const requestId = ++roleDistRequestRef.current;
     overviewStarted();
     try {
       const { data, error } = await withRetry(
@@ -232,14 +272,24 @@ export const useAdminLogic = (userData) => {
       // chart, which looks like "this school has no users".
       if (error) {
         console.warn('Role distribution fetch failed —', error.message || error);
-        return;
+        if (requestId === roleDistRequestRef.current) setRoleDistError('Role distribution is unavailable.');
+        return false;
       }
-      if (!data) return;
+      if (!data) {
+        if (requestId === roleDistRequestRef.current) setRoleDistError('Role distribution is unavailable.');
+        return false;
+      }
       const counts = {};
       data.forEach(r => { counts[r.role] = (counts[r.role] || 0) + 1; });
-      setRoleDist(Object.entries(counts).map(([role, count]) => ({ role, count })));
+      if (requestId === roleDistRequestRef.current) {
+        setRoleDist(Object.entries(counts).map(([role, count]) => ({ role, count })));
+        setRoleDistError('');
+      }
+      return true;
     } catch (e) {
       console.warn('Role distribution error:', e);
+      if (requestId === roleDistRequestRef.current) setRoleDistError('Role distribution is unavailable.');
+      return false;
     } finally {
       overviewSettled();
     }
@@ -266,19 +316,32 @@ export const useAdminLogic = (userData) => {
   // Guards saveUser against a double click now that Rule B2 has taken the
   // disabled attribute off the button. See the note in saveUser.
   const savingUserRef = useRef(false);
+  const usersRequestRef = useRef(0);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (options = {}) => {
+    const silent = options?.silent === true;
+    const requestId = ++usersRequestRef.current;
     setUL(true);
     setUsersError(null);
     try {
       const { users: directory } = await backendRequest('/api/admin/users');
-      setUsers(directory || []);
+      const nextUsers = directory || [];
+      if (requestId !== usersRequestRef.current) {
+        return { ok: false, users: null, stale: true };
+      }
+      setUsers(nextUsers);
+      return { ok: true, users: nextUsers };
     } catch (e) {
+      if (requestId !== usersRequestRef.current) {
+        return { ok: false, users: null, stale: true };
+      }
       console.error('Users fetch exception:', e);
       setUsersError('Unable to load users.');
-      showToast(e.message || 'Error loading users', 'error');
+      if (!silent) showToast('Unable to load users. Please try again.', 'error');
+      return { ok: false, users: null };
+    } finally {
+      if (requestId === usersRequestRef.current) setUL(false);
     }
-    setUL(false);
   }, []);
 
   const resendInvitation = async (invitedUser) => {
@@ -377,6 +440,52 @@ export const useAdminLogic = (userData) => {
       return;
     }
     const action = archived ? 'Restore' : 'Archive';
+    const desiredArchived = !archived;
+    const expectedStatus = desiredArchived
+      ? 'archived'
+      : (targetUser?.can_resend_invitation ? 'inactive' : 'active');
+    const hasExpectedState = (candidate) => (
+      candidate?.id === id
+      && (candidate.status || '').toLowerCase() === expectedStatus
+    );
+    const completeConfirmedChange = async (updatedUser, reconciled = false) => {
+      if (!reconciled) {
+        await logActivity(`${action}d user`, targetUser?.name || id);
+        setUsers(prev => prev.map(u => u.id === id ? updatedUser : u));
+      }
+      onConfirmStart?.();
+      if (reconciled) {
+        await fetchStats();
+      } else {
+        setStats(prev => ({
+          ...prev,
+          users: archived ? prev.users + 1 : Math.max(0, prev.users - 1),
+        }));
+      }
+      showToast(`User ${action.toLowerCase()}d.`);
+      await fetchRoleDist();
+      return true;
+    };
+    const reconcileAmbiguousChange = async () => {
+      const result = await fetchUsers({ silent: true });
+      if (!result.ok) {
+        showToast('The account change may have succeeded, but its status could not be confirmed. Check the Users or Archive list after your connection returns before trying again.', 'error');
+        return false;
+      }
+
+      const freshUser = result.users.find(user => user.id === id);
+      if (hasExpectedState(freshUser)) {
+        return completeConfirmedChange(freshUser, true);
+      }
+
+      if (freshUser && (freshUser.status || '').toLowerCase() === (targetUser?.status || '').toLowerCase()) {
+        showToast(`The user was not ${action.toLowerCase()}d. You can try again.`, 'error');
+        return false;
+      }
+
+      showToast('The account change could not be confirmed. Refresh the Users and Archive lists before trying again.', 'error');
+      return false;
+    };
     setDeleteConfirm({
       title: `${action} User?`,
       message: archived
@@ -386,24 +495,17 @@ export const useAdminLogic = (userData) => {
       role: targetUser?.role,
       warning: archived ? null : 'The account will not be permanently deleted.',
       confirmLabel: `Yes, ${action}`,
+      busyLabel: archived ? 'Restoring…' : 'Archiving…',
       onConfirm: async () => {
         try {
           const { user: updatedUser } = await backendRequest(`/api/admin/users/${id}/archive-state`, {
-            method: 'PATCH', body: JSON.stringify({ archived: !archived }),
+            method: 'PATCH', body: JSON.stringify({ archived: desiredArchived }),
           });
-          await logActivity(`${action}d user`, targetUser?.name || id);
-          setUsers(prev => prev.map(u => u.id === id ? updatedUser : u));
-          onConfirmStart?.();
-          setStats(prev => ({
-            ...prev,
-            users: archived ? prev.users + 1 : Math.max(0, prev.users - 1),
-          }));
-          showToast(`User ${action.toLowerCase()}d.`);
-          await fetchRoleDist();
-          return true;
+          if (!hasExpectedState(updatedUser)) return reconcileAmbiguousChange();
+          return completeConfirmedChange(updatedUser);
         } catch (e) {
-          showToast(e.message || `Error ${archived ? 'restoring' : 'archiving'} user`, 'error');
-          await fetchUsers();
+          if (isAmbiguousBackendRequestError(e)) return reconcileAmbiguousChange();
+          showToast(`The user could not be ${action.toLowerCase()}d. Please try again.`, 'error');
           return false;
         }
       },
@@ -414,13 +516,14 @@ export const useAdminLogic = (userData) => {
   const restoreUser = (id, onConfirmStart) => setUserArchivedState(id, true, onConfirmStart);
 
   const filteredUsers = useMemo(() => {
-    const s = userSearch.toLowerCase();
-    return users.filter(u =>
-      (showArchived ? (u.status || '').toLowerCase() === 'archived' : (u.status || 'active').toLowerCase() !== 'archived') &&
-      (!s || (u.name || '').toLowerCase().includes(s) || (u.email || '').toLowerCase().includes(s)) &&
-      (!roleFilter || u.role === roleFilter) &&
-      (!statusFilter || (onlineUserIds.has(u.id) ? 'online' : 'offline') === statusFilter)
-    );
+    return filterAndRankUsers({
+      users,
+      query: userSearch,
+      roleFilter,
+      statusFilter,
+      showArchived,
+      onlineUserIds,
+    });
   }, [users, userSearch, roleFilter, showArchived, statusFilter, onlineUserIds]);
 
   // ═══════════════════════════════════════════
@@ -428,6 +531,8 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   const [newsItems, setNewsItems]   = useState([]);
   const [newsLoading, setNL]        = useState(true);
+  const [newsError, setNewsError]   = useState('');
+  const newsRequestRef = useRef(0);
   const [newsSearch, setNewsSearch] = useState('');
   const [newsCatF, setNewsCatF]     = useState('');
   const [newsStatF, setNewsStatF]   = useState('');
@@ -451,19 +556,30 @@ export const useAdminLogic = (userData) => {
   // it is set synchronously, where a state flag would not update until the
   // next render and both clicks would get through.
   const savingNewsRef = useRef(false);
+  const newsSaveOutcomeUncertainRef = useRef(false);
 
   const fetchNews = useCallback(async () => {
+    const requestId = ++newsRequestRef.current;
     setNL(true);
     const { data, error } = await withRetry(
       () => supabase.from('news').select('*').order('created_at', { ascending: false }),
       { label: 'News fetch' }
     );
-    if (error) { showToast('Error loading news: ' + error.message, 'error'); }
-    else setNewsItems(data || []);
+    if (requestId !== newsRequestRef.current) return false;
+    if (error) {
+      console.warn('News fetch failed —', error.message || error);
+      setNewsError('Could not load news. Check your connection and try again.');
+      setNL(false);
+      return false;
+    }
+    setNewsItems(data || []);
+    setNewsError('');
     setNL(false);
+    return true;
   }, []);
 
   const openNewPost = () => {
+    newsSaveOutcomeUncertainRef.current = false;
     const inThirtyDays = new Date();
     inThirtyDays.setDate(inThirtyDays.getDate() + 30);
     setEditNews(null); setNewsReadOnly(false); setNTitle(''); setNCat('Academics'); setNAuthor(''); setNContent(''); setNStatus('Draft'); setNTarget('all'); setNCustomTarget(''); setNImageFile(null); setNImageUrl('');
@@ -471,6 +587,7 @@ export const useAdminLogic = (userData) => {
     openModal('news');
   };
   const openEditNews = (n) => {
+    newsSaveOutcomeUncertainRef.current = false;
     setNewsReadOnly(n.status === 'Published');
     setEditNews(n); setNTitle(n.title || ''); setNCat(n.category || 'Academics');
     setNAuthor(n.author || ''); setNContent(n.content || ''); setNStatus(n.status || 'Draft'); setNImageFile(null); setNImageUrl(n.featured_image_url || '');
@@ -528,16 +645,26 @@ export const useAdminLogic = (userData) => {
     if (newsReadOnly) return showToast('Published news is locked and cannot be edited.', 'error');
     if (!nTitle.trim()) return showToast('Title required', 'error');
     if (nTarget === 'custom' && !nCustomTarget.trim()) return showToast('Custom audience required', 'error');
+    if (newsSaveOutcomeUncertainRef.current) {
+      return showToast('The previous save outcome could not be confirmed. Close and reopen this post before trying again.', 'error');
+    }
     if (savingNewsRef.current) return;   // the second of a double click
     savingNewsRef.current = true;
     setNSaving(true);
+    const ownerId = userData?.uid || userData?.id;
+    let uploadedPath = null;
+    let databaseOutcome = 'not-started';
+    let cleanupFailed = false;
     try {
       let featuredImageUrl = nImageUrl || null;
       if (nImageFile) {
-        const filePath = `${userData?.uid || 'admin'}/${Date.now()}-${nImageFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
+        if (!ownerId) throw new Error('NEWS_IMAGE_OWNER_UNAVAILABLE');
+        const filePath = `${ownerId}/${Date.now()}-${safeNewsImageName(nImageFile.name)}`;
         const { error: uploadError } = await supabase.storage.from('news-images').upload(filePath, nImageFile, { cacheControl: '3600', upsert: false });
         if (uploadError) throw uploadError;
+        uploadedPath = filePath;
         const { data: publicUrlData } = supabase.storage.from('news-images').getPublicUrl(filePath);
+        if (!publicUrlData?.publicUrl) throw new Error('NEWS_IMAGE_URL_UNAVAILABLE');
         featuredImageUrl = publicUrlData.publicUrl;
       }
       const payload = {
@@ -558,14 +685,27 @@ export const useAdminLogic = (userData) => {
       // an already-published post doesn't spam the audience again.
       const becomesPublished = nStatus === 'Published' && editNews?.status !== 'Published';
 
+      let saveResult;
+      try {
+        saveResult = editNews
+          ? await supabase.from('news').update(payload).eq('id', editNews.id)
+          : await supabase.from('news').insert([{ ...payload, created_at: new Date().toISOString() }]);
+      } catch (error) {
+        // A transport failure can arrive after PostgreSQL committed. Deleting
+        // the image here could break a record that actually saved.
+        databaseOutcome = 'ambiguous';
+        throw error;
+      }
+      if (saveResult.error) {
+        databaseOutcome = 'rejected';
+        throw saveResult.error;
+      }
+      databaseOutcome = 'succeeded';
+
       if (editNews) {
-        const { error } = await supabase.from('news').update(payload).eq('id', editNews.id);
-        if (error) throw error;
         await logActivity('Updated news', nTitle);
         showToast('Post updated!');
       } else {
-        const { error } = await supabase.from('news').insert([{ ...payload, created_at: new Date().toISOString() }]);
-        if (error) throw error;
         await logActivity('Created news', `${nTitle} (${nStatus})`);
         showToast('Post created!');
       }
@@ -577,7 +717,36 @@ export const useAdminLogic = (userData) => {
       await fetchNews(); await fetchStats();
       closeModal();
     } catch (e) {
-      showToast(e.message || 'Error', 'error');
+      if (uploadedPath && databaseOutcome !== 'succeeded' && databaseOutcome !== 'ambiguous') {
+        if (isOwnedNewsImagePath(uploadedPath, ownerId)) {
+          try {
+            const { error: removeError } = await supabase.storage
+              .from('news-images')
+              .remove([uploadedPath]);
+            cleanupFailed = Boolean(removeError);
+          } catch {
+            cleanupFailed = true;
+          }
+        } else {
+          cleanupFailed = true;
+        }
+        if (cleanupFailed) {
+          console.warn('A failed News save left its newly uploaded image pending cleanup.');
+        }
+      }
+
+      if (databaseOutcome === 'ambiguous') {
+        newsSaveOutcomeUncertainRef.current = true;
+        showToast('The post save outcome could not be confirmed. The uploaded image was not removed. Close and reopen the post before trying again.', 'error');
+      } else if (cleanupFailed) {
+        showToast('The post could not be saved, and the newly uploaded image could not be removed automatically.', 'error');
+      } else if (uploadedPath) {
+        showToast('The post could not be saved. The newly uploaded image was removed; you can retry.', 'error');
+      } else if (String(e?.message || '') === 'NEWS_IMAGE_OWNER_UNAVAILABLE') {
+        showToast('Your session could not be verified for this image upload. Sign in again, then retry.', 'error');
+      } else {
+        showToast('The post or image could not be saved. Please try again.', 'error');
+      }
     } finally { savingNewsRef.current = false; setNSaving(false); }
   };
 
@@ -638,7 +807,7 @@ export const useAdminLogic = (userData) => {
     await fetchNews(); await fetchStats();
   };
 
-  const deleteNewsItem = (id) => {
+  const deleteNewsItem = (id, focusAfterConfirm) => {
     const newsItem = newsItems.find(n => n.id === id);
     setDeleteConfirm({
       label: newsItem?.title || 'this post',
@@ -646,11 +815,22 @@ export const useAdminLogic = (userData) => {
       message: 'This post will be permanently deleted.',
       warning: 'This cannot be undone.',
       confirmLabel: 'Yes, Delete',
+      requireConfirmedResult: true,
+      focusAfterConfirm,
       onConfirm: async () => {
-        await supabase.from('news').delete().eq('id', id);
+        try {
+          const { data, error } = await supabase.from('news').delete().eq('id', id).select('id');
+          if (error) throw error;
+          if (!hasExactDeletedIds(data, id)) throw new Error('Delete result was not verified');
+        } catch (error) {
+          console.warn('News delete failed —', error?.message || String(error));
+          showToast('Could not delete the post. Please try again.', 'error');
+          return false;
+        }
         await logActivity('Deleted news', newsItem?.title);
         showToast('Post deleted');
         await fetchNews(); await fetchStats();
+        return true;
       },
     });
   };
@@ -819,6 +999,8 @@ export const useAdminLogic = (userData) => {
   // ═══════════════════════════════════════════
   const [memos, setMemos]         = useState([]);
   const [memosLoading, setML]     = useState(true);
+  const [memosError, setMemosError] = useState('');
+  const memosRequestRef = useRef(0);
   const [selMemo, setSelMemo]     = useState(null);
   const [editMemo, setEditMemo]   = useState(null);
   const [mFrom,   setMFrom]       = useState('');
@@ -831,15 +1013,22 @@ export const useAdminLogic = (userData) => {
   const [memoFilter, setMemoFilter] = useState(''); // NEW: filter
 
   const fetchMemos = useCallback(async () => {
+    const requestId = ++memosRequestRef.current;
     setML(true);
     const { data, error } = await withRetry(
       () => supabase.from('memos').select('*').order('created_at', { ascending: false }),
       { label: 'Memos fetch' }
     );
-    if (error) { showToast('Error loading memos: ' + error.message, 'error'); }
-    else {
+    if (requestId !== memosRequestRef.current) return false;
+    if (error) {
+      console.warn('Memos fetch failed —', error.message || error);
+      setMemosError('Could not load memos. Check your connection and try again.');
+      setML(false);
+      return false;
+    } else {
       const nextMemos = data || [];
       setMemos(nextMemos);
+      setMemosError('');
       // RC2: fetchMemos is intentionally stable, so reading selMemo here
       // captured its initial null forever and every refresh selected row one.
       // Reconcile inside the state setter: keep the current id when it still
@@ -850,6 +1039,7 @@ export const useAdminLogic = (userData) => {
       ));
     }
     setML(false);
+    return true;
   }, []);
 
   const openCompose = () => {
@@ -891,7 +1081,7 @@ export const useAdminLogic = (userData) => {
     } finally { savingMemoRef.current = false; setMSaving(false); }
   };
 
-  const deleteMemo = (id) => {
+  const deleteMemo = (id, focusAfterConfirm) => {
     const memoToDelete = memos.find(m => m.id === id);
     setDeleteConfirm({
       label: memoToDelete?.subject || memoToDelete?.title || 'this memo',
@@ -899,12 +1089,23 @@ export const useAdminLogic = (userData) => {
       message: 'This memo will be permanently deleted.',
       warning: 'This cannot be undone.',
       confirmLabel: 'Yes, Delete',
+      requireConfirmedResult: true,
+      focusAfterConfirm,
       onConfirm: async () => {
-        await supabase.from('memos').delete().eq('id', id);
+        try {
+          const { data, error } = await supabase.from('memos').delete().eq('id', id).select('id');
+          if (error) throw error;
+          if (!hasExactDeletedIds(data, id)) throw new Error('Delete result was not verified');
+        } catch (error) {
+          console.warn('Memo delete failed —', error?.message || String(error));
+          showToast('Could not delete the memo. Please try again.', 'error');
+          return false;
+        }
         await logActivity('Deleted memo', memoToDelete?.title);
         if (selMemo?.id === id) setSelMemo(null);
         showToast('Memo deleted');
         await fetchMemos(); await fetchStats();
+        return true;
       },
     });
   };
@@ -933,6 +1134,8 @@ export const useAdminLogic = (userData) => {
   const [backupTime,          setBackupTime]          = useState('00:00');
   const [activityLogsDays,    setActivityLogsDays]    = useState('90 days');
   const [backupHistory,       setBackupHistory]       = useState([]);
+  const [backupHistoryStatus, setBackupHistoryStatus] = useState('idle');
+  const [backupHistoryError, setBackupHistoryError] = useState('');
   const [theme,               setTheme]               = useState('Dark');
   const [language,            setLanguage]            = useState('English');
 
@@ -954,16 +1157,74 @@ export const useAdminLogic = (userData) => {
   // the empty state is on screen at +2600ms and the response arrives at
   // +2657ms. That is how a screenshot caught "No backup history yet" on a
   // database holding ten records.
-  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsStatus, setSettingsStatus] = useState('idle');
+  const [settingsError, setSettingsError] = useState('');
+  const settingsRequestRef = useRef(0);
+  const backupRequestRef = useRef(0);
+  const settingsMountedRef = useRef(true);
+
+  useEffect(() => {
+    settingsMountedRef.current = true;
+    return () => {
+      settingsMountedRef.current = false;
+      settingsRequestRef.current += 1;
+      backupRequestRef.current += 1;
+    };
+  }, []);
 
   const fetchSettings = useCallback(async () => {
-    setSettingsLoading(true);
+    const requestId = ++settingsRequestRef.current;
+    setSettingsStatus('loading');
+    setSettingsError('');
+    setSettingsBaseline(null);
     try {
-      const { data, error } = await withRetry(
-        () => supabase.from('school_settings').select('*').eq('id', 1).single(),
+      const { data, error, status } = await withRetry(
+        () => supabase.from('school_settings')
+          .select('id, school_year, current_semester, session_timeout')
+          .eq('id', 1),
         { label: 'School settings fetch' }
       );
-      if (!error && data) {
+      if (!settingsMountedRef.current || requestId !== settingsRequestRef.current) return;
+      if (error) {
+        const kind = classifySettingsReadError({ ...error, status });
+        diagnoseSettings(`School settings ${kind} error:`, error);
+        setSettingsStatus('error');
+        setSettingsError(settingsReadMessage(kind));
+        return;
+      }
+      if (!Array.isArray(data)) {
+        setSettingsStatus('error');
+        setSettingsError(settingsReadMessage('malformed'));
+        return;
+      }
+      if (data.length === 0) {
+        setSettingsStatus('missing');
+        setSettingsError('System Settings have not been provisioned. A database administrator must create the required settings record.');
+        return;
+      }
+      if (data.length !== 1 || Number(data[0]?.id) !== 1) {
+        setSettingsStatus('error');
+        setSettingsError(settingsReadMessage('malformed'));
+        return;
+      }
+      {
+        const row = data[0];
+        const quarter = quarterFromNumber(row.current_semester);
+        if (!quarter) {
+          setSettingsStatus('error');
+          setSettingsError(settingsReadMessage('invalid_quarter'));
+          return;
+        }
+        const loadedValidation = validateSettingsValues({
+          academicYear: row.school_year,
+          quarter,
+          sessionTimeout: row.session_timeout,
+        });
+        if (loadedValidation.sessionTimeout) {
+          setSettingsStatus('error');
+          setSettingsError(settingsReadMessage('invalid_timeout'));
+          return;
+        }
         // The page's two General fields come from the columns that
         // actually exist: school_year and current_semester. They were read
         // as academic_year and semester for as long as this page has
@@ -973,60 +1234,85 @@ export const useAdminLogic = (userData) => {
         // its default rather than becoming undefined — an undefined value
         // on a controlled input flips it to uncontrolled mid-session, and
         // then Discard has nothing to put back.
-        const academicYear = data.school_year || SETTINGS_DEFAULTS.academic_year;
-        const quarter = quarterFromNumber(data.current_semester);
+        const academicYear = row.school_year ?? '';
         setSettings(prev => ({
           ...prev,
-          ...data,
           portal_name: 'EduScribe Portal',
           academic_year: academicYear,
           semester: quarter,
         }));
-        setTheme(data.theme || 'Dark');
-        setLanguage(data.language || 'English');
-        setAutoSave(data.auto_save || false);
-        setTwoFactorAuth(data.two_factor_auth ?? true);
-        setSessionTimeout(data.session_timeout || '30 min');
-        setLoginAttemptLimit(data.login_attempt_limit ?? true);
-        setEmailNotifications(data.email_notifications || false);
-        setAutoBackup(data.auto_backup ?? true);
-        setBackupFrequency(data.backup_frequency || 'daily');
-        setBackupTime(data.backup_time || '00:00');
-        setActivityLogsDays(data.activity_logs_retention || '90 days');
+        setSessionTimeout(row.session_timeout);
         // The baseline is what the PAGE loaded, not what the row held, so
         // Discard restores what the admin actually saw.
         setSettingsBaseline({
           academic_year: academicYear,
           semester: quarter,
-          session_timeout: data.session_timeout || '30 min',
+          session_timeout: row.session_timeout,
         });
-        const { data: backups } = await withRetry(
-          () => supabase.from('backup_history').select('*').order('started_at', { ascending: false }).limit(10),
-          { label: 'Backup history fetch' }
-        );
-        setBackupHistory(backups || []);
-      } else if (error && (error.code === 'PGRST116' || error.status === 406 || error.status === 400)) {
-        // Table doesn't exist or no settings record - use defaults
-        console.warn('School settings table not available - using defaults');
-        setTheme('Dark');
-        setLanguage('English');
-        setAutoSave(false);
-        setSettingsBaseline({ ...SETTINGS_DEFAULTS, session_timeout: '30 min' });
+        setSettingsStatus('ready');
       }
     } catch (err) {
-      console.warn('Settings fetch error (using defaults):', err.message);
-      // Use defaults if settings don't exist
-      setTheme('Dark');
-      setLanguage('English');
-      setAutoSave(false);
-      setSettingsBaseline({ ...SETTINGS_DEFAULTS, session_timeout: '30 min' });
-    } finally {
-      setSettingsLoading(false);
+      if (!settingsMountedRef.current || requestId !== settingsRequestRef.current) return;
+      diagnoseSettings('Settings fetch threw:', err);
+      setSettingsStatus('error');
+      setSettingsError(settingsReadMessage(err?.offline ? 'network' : 'unknown'));
+    }
+  }, []);
+
+  const fetchBackupHistory = useCallback(async () => {
+    const requestId = ++backupRequestRef.current;
+    setBackupHistoryStatus('loading');
+    setBackupHistoryError('');
+    try {
+      const { data, error } = await withRetry(
+        () => supabase.from('backup_history').select('*').order('started_at', { ascending: false }).limit(10),
+        { label: 'Backup history fetch' }
+      );
+      if (!settingsMountedRef.current || requestId !== backupRequestRef.current) return;
+      if (error) {
+        diagnoseSettings('Backup history read failed:', error);
+        setBackupHistory([]);
+        setBackupHistoryStatus('error');
+        setBackupHistoryError('Backup history is unavailable. Retry the read or contact the database administrator.');
+        return;
+      }
+      if (!Array.isArray(data)) {
+        setBackupHistory([]);
+        setBackupHistoryStatus('error');
+        setBackupHistoryError('Backup history returned an unexpected response. Please retry.');
+        return;
+      }
+      setBackupHistory(data);
+      setBackupHistoryStatus('ready');
+    } catch (err) {
+      if (!settingsMountedRef.current || requestId !== backupRequestRef.current) return;
+      diagnoseSettings('Backup history read threw:', err);
+      setBackupHistory([]);
+      setBackupHistoryStatus('error');
+      setBackupHistoryError('Backup history could not be loaded. Check your connection and retry.');
     }
   }, []);
 
   const saveSettings = async () => {
     if (savingSettingsRef.current) return;   // the second of a double click
+    if (!isActiveMainAdmin(userData)) {
+      showToast('Only an active Main Admin can change system settings.', 'error');
+      return;
+    }
+    if (settingsStatus !== 'ready' || !settingsBaseline) {
+      showToast('System Settings are unavailable. Retry the settings read before saving.', 'error');
+      return;
+    }
+    const { payload, errors } = buildSettingsUpdate({
+      academicYear: settings.academic_year,
+      quarter: settings.semester,
+      sessionTimeout,
+      updatedAt: new Date().toISOString(),
+    });
+    if (!payload) {
+      showToast(errors.academicYear || errors.quarter || errors.sessionTimeout || 'Correct the invalid settings before saving.', 'error');
+      return;
+    }
     savingSettingsRef.current = true;
     setSS(true);
     try {
@@ -1036,41 +1322,38 @@ export const useAdminLogic = (userData) => {
       // PATCH with PGRST204 and nothing was ever written, including
       // session_timeout, the one setting the app actually enforces.
       //
-      // theme, language and auto_save have no column either and are gone
-      // from the payload; theme is a per-device preference in localStorage
-      // now. The rows that are no longer editable still send the value
-      // fetchSettings loaded, so the database is left as it was found.
-      const { error: saveError } = await supabase.from('school_settings').update({
-        school_year: settings.academic_year,
-        current_semester: quarterToNumber(settings.semester),
-        session_timeout: sessionTimeout,
-        two_factor_auth: twoFactorAuth,
-        login_attempt_limit: loginAttemptLimit,
-        email_notifications: emailNotifications,
-        auto_backup: autoBackup,
-        backup_frequency: backupFrequency,
-        backup_time: backupTime,
-        activity_logs_retention: activityLogsDays,
-        updated_at: new Date().toISOString(),
-      }).eq('id', 1);
+      // Theme stays in localStorage. Informational and legacy values are not
+      // resent: this page owns only these three persisted settings.
+      const { data: updatedRows, error: saveError } = await supabase.from('school_settings')
+        .update(payload).eq('id', 1)
+        .select('id, school_year, current_semester, session_timeout');
       // A failed write used to fall straight through to "Settings saved!",
       // because the returned error was never destructured. That is how a
       // page which had never once saved anything went on looking like it
       // worked. On a failure the bar stays up and the edits stay in the
       // fields, so nothing the admin typed is lost.
       if (saveError) {
-        console.warn('Settings save failed:', saveError.message);
-        showToast(`Could not save settings: ${saveError.message}`, 'error');
+        diagnoseSettings('Settings save failed:', saveError);
+        showToast('System Settings could not be saved. Your changes are still available to retry.', 'error');
+        return;
+      }
+      const updated = verifyUpdatedSettingsRows(updatedRows, payload);
+      if (!updated) {
+        diagnoseSettings('Settings save did not return exactly the intended row:', updatedRows);
+        showToast('The settings update could not be verified. Your changes were not marked as saved.', 'error');
         return;
       }
       setSettingsBaseline({
-        academic_year: settings.academic_year,
-        semester: settings.semester,
-        session_timeout: sessionTimeout,
+        academic_year: updated.school_year,
+        semester: quarterFromNumber(updated.current_semester),
+        session_timeout: updated.session_timeout,
       });
       await logActivity('Updated settings');
       showToast('Settings saved!');
-    } catch { showToast('Error saving settings', 'error'); }
+    } catch (err) {
+      diagnoseSettings('Settings save threw:', err);
+      showToast('System Settings could not be saved. Check your connection and retry.', 'error');
+    }
     finally { savingSettingsRef.current = false; setSS(false); }
   };
 
@@ -1088,6 +1371,15 @@ export const useAdminLogic = (userData) => {
     || settings.semester !== settingsBaseline.semester
     || sessionTimeout !== settingsBaseline.session_timeout
   );
+
+  const settingsValidation = validateSettingsValues({
+    academicYear: settings.academic_year,
+    quarter: settings.semester,
+    sessionTimeout,
+  });
+  const settingsAuthorized = isActiveMainAdmin(userData);
+  const settingsCanEdit = settingsStatus === 'ready' && settingsAuthorized && !settingsSaving;
+  const settingsCanSave = settingsCanEdit && settingsDirty && !Object.values(settingsValidation).some(Boolean);
 
   const settingsChangeCount = !settingsBaseline ? 0 : (
     (settings.academic_year !== settingsBaseline.academic_year ? 1 : 0)
@@ -1135,8 +1427,9 @@ export const useAdminLogic = (userData) => {
   //  CLEANUP — Clear debounce timers on unmount
   // ═══════════════════════════════════════════
   useEffect(() => {
+    const timers = debounceTimersRef.current;
     return () => {
-      Object.values(debounceTimersRef.current).forEach(timer => clearTimeout(timer));
+      Object.values(timers).forEach(timer => clearTimeout(timer));
     };
   }, []);
 
@@ -1152,15 +1445,19 @@ export const useAdminLogic = (userData) => {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
     ]).catch(err => console.warn('Fetch timeout:', err));
 
-    timeout(fetchStats());
-    timeout(fetchLogs());
-    timeout(fetchRoleDist());
-    timeout(fetchUsers());
-    timeout(fetchNews());
-    timeout(fetchCalEvents());
-    timeout(fetchMemos());
-    timeout(fetchSettings());
-  }, [fetchStats, fetchLogs, fetchRoleDist, fetchUsers, fetchNews, fetchCalEvents, fetchMemos, fetchSettings]);
+    const startTimer = setTimeout(() => {
+      timeout(fetchStats());
+      timeout(fetchLogs());
+      timeout(fetchRoleDist());
+      timeout(fetchUsers());
+      timeout(fetchNews());
+      timeout(fetchCalEvents());
+      timeout(fetchMemos());
+      timeout(fetchSettings());
+      timeout(fetchBackupHistory());
+    }, 0);
+    return () => clearTimeout(startTimer);
+  }, [fetchStats, fetchLogs, fetchRoleDist, fetchUsers, fetchNews, fetchCalEvents, fetchMemos, fetchSettings, fetchBackupHistory]);
 
   // The shared Toggle that used to live here is gone with its last call
   // site. It was UX-093's fix — a click-only div turned into a real
@@ -1169,7 +1466,7 @@ export const useAdminLogic = (userData) => {
   // inert. The fix outlived the thing it fixed.
 
   return {
-    activeSettingsSub, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupTime,
+    activeSettingsSub, activityError, activityLogs, activityLogsDays, autoBackup, autoSave, backupFrequency, backupHistory, backupHistoryError, backupHistoryStatus, backupTime,
     calError, calEvents, calFilter, calGrid, calLoading, calMonth, calYear, closeModal,
     darkMode, debounceTimersRef, debouncedFetchRoleDist, debouncedFetchStats, debouncedFetchUsers, deleteConfirm,
     deleteEvent, deleteMemo, deleteNewsItem, deleteUser, restoreUser, editEvent, editMemo,
@@ -1178,12 +1475,12 @@ export const useAdminLogic = (userData) => {
     fetchNews, fetchRoleDist, fetchSettings, fetchStats, fetchUsers, filteredMemos,
     filteredNews, filteredUsers, language, logActivity,
     loginAttemptLimit, mBody, mFrom, mSaving, mSubj,
-    mTo, memoFilter, memoSearch, memos, memosLoading, modal,
+    mTo, memoFilter, memoSearch, memos, memosError, memosLoading, modal,
     nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nSaving, nStatus, nTarget,
-    nTitle, nImageFile, nImageUrl, newsReadOnly, newsCatF, newsItems, newsLoading, newsSearch, newsStatF,
+    nTitle, nImageFile, nImageUrl, newsReadOnly, newsCatF, newsError, newsItems, newsLoading, newsSearch, newsStatF,
     nextMonth, notifications, openCompose, openCreateEvent, openCreateUser, openEditEvent,
     openEditMemo, openEditNews, openEditUser, openModal, openNewPost, page,
-    prevMonth, resendInvitation, roleDist, roleFilter, saveEvent, saveMemo, saveNews, saveNewsExpiry,
+    prevMonth, resendInvitation, roleDist, roleDistError, roleFilter, saveEvent, saveMemo, saveNews, saveNewsExpiry,
     saveSettings, saveUser, scrollToSection, selMemo, sessionTimeout, setActiveSettingsSub,
     setActivityLogs, setActivityLogsDays, setAutoBackup, setAutoSave, setBackupFrequency, setBackupTime, setCalEvents, setCalFilter,
     setCalMonth, setCalYear, setDarkMode, setDeleteConfirm, setEditEvent, setEditMemo,
@@ -1197,9 +1494,10 @@ export const useAdminLogic = (userData) => {
     setSettings, setStats, setTheme, setToast, setTwoFactorAuth,
     setUDept, setUEmail, setUL, setUName, setURole,
     setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
-    stats, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
+    stats, statsErrors, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     themePref, setThemePref, settingsDirty, settingsChangeCount, discardSettings,
-    settingsLoading,
+    settingsStatus, settingsLoading: settingsStatus === 'idle' || settingsStatus === 'loading', settingsError,
+    settingsValidation, settingsAuthorized, settingsCanEdit, settingsCanSave, fetchBackupHistory,
     typeClass, typeColor, uDept, uEmail, uName,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading, usersError,

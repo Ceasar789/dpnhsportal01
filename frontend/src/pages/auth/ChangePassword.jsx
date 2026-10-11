@@ -3,7 +3,7 @@
 // PURPOSE: Authenticated user changes password — Supabase
 // ============================================
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Lock, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
@@ -33,7 +33,7 @@ const ChangePassword = () => {
       setIsSuccess(true);
       setMessage('Password changed successfully!');
       setTimeout(() => navigate(-1), 2000);
-    } catch (error) {
+    } catch {
       setMessage('Failed to change password. Please try again.');
     } finally {
       setIsLoading(false);
@@ -41,8 +41,16 @@ const ChangePassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F0F2F5' }}>
-      <div className="w-full max-w-md mx-4">
+    <div
+      className="min-h-screen flex items-center justify-center relative"
+      style={{
+        backgroundImage: 'url(/capstonebackground.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative z-10 w-full max-w-md mx-4">
         <div className="bg-white rounded-lg p-10 shadow-sm">
           <div className="flex flex-col items-center mb-8">
             <FlippingLogo size={60} />

@@ -4,14 +4,27 @@
 // Additions and removals stay local until Save Assignment is pressed.
 // ============================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
 import { CheckCircle2, Copy, Plus, Search, X } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
+import { useTeachingLoadUnsavedChanges } from '../../../../context/TeachingLoadUnsavedChangesContext';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
 import Button from '../../../../components/ui/Button';
+import Modal from '../../../../components/ui/Modal';
+
+const TeachingLoadRouteBlocker = ({ when, onBlocked }) => {
+  const blocker = useBlocker(when);
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') onBlocked(blocker);
+  }, [blocker, onBlocked]);
+
+  return null;
+};
 
 const matchesQuery = (teacher, query) => {
   if (!query?.trim()) return true;
@@ -41,6 +54,8 @@ const statusClass = (status) => {
 };
 
 const TeachingLoadTab = () => {
+  const { registerTeachingLoadGuard } = useTeachingLoadUnsavedChanges();
+  const dataRouter = useContext(UNSAFE_DataRouterContext);
   const {
     schoolYear, setSchoolYear, teachers, teachersError, teachersLoading, subjects,
     subjectsError, fetchSubjects,
@@ -58,6 +73,7 @@ const TeachingLoadTab = () => {
   const [saving, setSaving] = useState(false);
   const [copying, setCopying] = useState(false);
   const [triedAdd, setTriedAdd] = useState(false);
+  const [pendingLeave, setPendingLeave] = useState(null);
   const savingRef = useRef(false);
   const searchRef = useRef(null);
   const subjectSelectRef = useRef(null);
@@ -167,13 +183,68 @@ const TeachingLoadTab = () => {
     settle();
   };
 
-  const discardChanges = () => {
+  const discardChanges = useCallback((restoreFocus = true) => {
     setPendingAdditions([]);
     setPendingRemovalIds([]);
     setSelectedSubjectId('');
     setTriedAdd(false);
-    requestAnimationFrame(() => subjectSelectRef.current?.focus());
-  };
+    if (restoreFocus) requestAnimationFrame(() => subjectSelectRef.current?.focus());
+  }, []);
+
+  const requestLeave = useCallback((action, destination = '') => {
+    setPendingLeave(current => current || {
+      proceed: action,
+      cancel: null,
+      destination,
+      saveInProgress: savingRef.current,
+    });
+  }, []);
+
+  useEffect(() => registerTeachingLoadGuard({
+    shouldBlock: () => isDirty || savingRef.current,
+    requestLeave,
+  }), [isDirty, registerTeachingLoadGuard, requestLeave]);
+
+  useEffect(() => {
+    if (!isDirty && !saving) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty, saving]);
+
+  useEffect(() => {
+    if (!pendingLeave?.saveInProgress || saving) return;
+    pendingLeave.cancel?.();
+    // The dialog mirrors an external async save. Settling that save invalidates
+    // the blocked navigation request and must close its transient UI.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingLeave(null);
+  }, [pendingLeave, saving]);
+
+  const handleRouteBlocked = useCallback((blocker) => {
+    setPendingLeave(current => current || {
+      proceed: blocker.proceed,
+      cancel: blocker.reset,
+      destination: blocker.location?.pathname || 'the requested page',
+      saveInProgress: savingRef.current,
+    });
+  }, []);
+
+  const cancelLeave = useCallback(() => {
+    pendingLeave?.cancel?.();
+    setPendingLeave(null);
+  }, [pendingLeave]);
+
+  const confirmLeave = useCallback(() => {
+    if (!pendingLeave || pendingLeave.saveInProgress) return;
+    const proceed = pendingLeave.proceed;
+    discardChanges(false);
+    setPendingLeave(null);
+    proceed();
+  }, [discardChanges, pendingLeave]);
 
   const saveChanges = async () => {
     if (savingRef.current || !isDirty) return;
@@ -183,7 +254,13 @@ const TeachingLoadTab = () => {
     try {
       if (pendingRemovalIds.length > 0) {
         const removed = await removeLoad(pendingRemovalIds, { refresh: false });
-        if (removed === false) return;
+        if (removed !== true) {
+          if (removed?.deletedIds?.length) {
+            await fetchTeachingLoad();
+            setPendingRemovalIds(previous => previous.filter(id => !removed.deletedIds.includes(id)));
+          }
+          return;
+        }
         await fetchTeachingLoad();
         setPendingRemovalIds([]);
       }
@@ -193,6 +270,7 @@ const TeachingLoadTab = () => {
         if (written === null) return;
         setPendingAdditions([]);
       }
+      requestAnimationFrame(() => subjectSelectRef.current?.focus());
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -208,6 +286,40 @@ const TeachingLoadTab = () => {
 
   return (
     <div className="teaching-load-page">
+      {dataRouter && (
+        <TeachingLoadRouteBlocker
+          when={isDirty || saving}
+          onBlocked={handleRouteBlocked}
+        />
+      )}
+
+      <Modal
+        open={Boolean(pendingLeave)}
+        title={pendingLeave?.saveInProgress ? 'Teaching load save in progress' : 'Leave Teaching Load?'}
+        onClose={cancelLeave}
+        isDirty={() => false}
+        footer={(requestClose) => pendingLeave?.saveInProgress ? (
+          <button type="button" className="btn btn-ghost" onClick={requestClose}>
+            Stay on Teaching Load
+          </button>
+        ) : (
+          <>
+            <button type="button" className="btn btn-ghost" onClick={requestClose}>
+              Stay on Teaching Load
+            </button>
+            <button type="button" className="btn btn-primary" onClick={confirmLeave}>
+              Leave without saving
+            </button>
+          </>
+        )}
+      >
+        <p>
+          {pendingLeave?.saveInProgress
+            ? 'Wait for the current save to finish before leaving this page.'
+            : `You have unsaved teaching load changes. Leaving${pendingLeave?.destination ? ` for ${pendingLeave.destination}` : ''} will discard those changes.`}
+        </p>
+      </Modal>
+
       <div className="page-header-bar">
         <div className="page-title">Teaching Load</div>
         <div className="page-sub">Assign subjects with the teacher and grade always in view.</div>

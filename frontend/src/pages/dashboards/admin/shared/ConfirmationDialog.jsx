@@ -12,6 +12,8 @@ const ConfirmationDialog = ({
   warning,
   confirmLabel,
   destructive = false,
+  busy = false,
+  busyLabel = 'Deleting…',
   onCancel,
   onConfirm,
 }) => {
@@ -21,11 +23,13 @@ const ConfirmationDialog = ({
     <Modal
       open={open}
       title={title}
-      onClose={onCancel}
+      onClose={() => { if (!busy) onCancel(); }}
       footer={(requestClose) => (
         <>
-          <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-          <Button variant={destructive ? 'danger-solid' : 'primary'} onClick={onConfirm}>
+          <Button variant="ghost" aria-disabled={busy || undefined}
+            onClick={() => { if (!busy) requestClose(); }}>Cancel</Button>
+          <Button variant={destructive ? 'danger-solid' : 'primary'} onClick={onConfirm}
+            busy={busy} busyLabel={busyLabel}>
             {confirmLabel}
           </Button>
         </>

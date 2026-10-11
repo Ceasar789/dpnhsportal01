@@ -1,7 +1,8 @@
 // src/components/layout/DashboardLayout.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useProfileUnsavedChanges } from '../../context/ProfileUnsavedChangesContext';
 import Avatar from '../Avatar';
 import NotificationBell from '../NotificationBell';
 import { useSignedPhotoUrl } from '../../hooks/useSignedPhotoUrl';
@@ -16,14 +17,17 @@ const DashboardLayout = ({ role, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, userData } = useAuth();
+  const { requestProfileNavigation } = useProfileUnsavedChanges();
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    requestProfileNavigation(() => {
+      logout();
+      navigate('/login');
+    });
   };
 
   const getNavItems = () => {

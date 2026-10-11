@@ -68,7 +68,18 @@ const stack = [];
  *                              controls but no unsaved work.
  * @param {function} [footer]   (requestClose) => ReactNode, so Cancel shares the guard
  */
-export default function Modal({ open, title, onClose, isDirty, footer, children }) {
+export default function Modal({
+  open,
+  title,
+  onClose,
+  isDirty,
+  footer,
+  children,
+  overlayStyle,
+  cardStyle,
+  titleStyle,
+  footerStyle,
+}) {
   const overlay = useRef(null);
   const card = useRef(null);
   const returnTo = useRef(null);
@@ -140,6 +151,7 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
     <div
       ref={overlay}
       className="modal-overlay open"
+      style={overlayStyle}
       // Only a click that starts AND ends on the backdrop counts: dragging a
       // text selection out of a field and releasing here would otherwise
       // discard the form.
@@ -158,11 +170,12 @@ export default function Modal({ open, title, onClose, isDirty, footer, children 
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        style={cardStyle}
       >
-        <div id={titleId} className="modal-title ux-modal-title">{title}</div>
+        <div id={titleId} className="modal-title ux-modal-title" style={titleStyle}>{title}</div>
         <div className="ux-modal-body">{children}</div>
         {/* eslint-disable-next-line react-hooks/refs -- requestClose is passed here, not called: its refs are read only from event handlers. */}
-        {footer && <div className="modal-actions ux-modal-footer">{footer(requestClose)}</div>}
+        {footer && <div className="modal-actions ux-modal-footer" style={footerStyle}>{footer(requestClose)}</div>}
       </div>
     </div>
   );

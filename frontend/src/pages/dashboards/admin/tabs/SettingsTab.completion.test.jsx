@@ -32,6 +32,16 @@ beforeEach(() => {
     themePref: 'light',
     setThemePref: vi.fn(),
     settingsLoading: false,
+    settingsStatus: 'ready',
+    settingsError: '',
+    settingsValidation: { academicYear: '', quarter: '', sessionTimeout: '' },
+    settingsAuthorized: true,
+    settingsCanEdit: true,
+    settingsCanSave: false,
+    fetchSettings: vi.fn(),
+    backupHistoryStatus: 'ready',
+    backupHistoryError: '',
+    fetchBackupHistory: vi.fn(),
     overviewLoading: false,
   };
 });
@@ -48,6 +58,7 @@ describe('Admin Settings completion', () => {
     expect(screen.getByText(/GitHub Actions backs up the database and uploaded storage files/)).toBeTruthy();
     expect(screen.getByText(/retained for 7 days/)).toBeTruthy();
     expect(screen.getByText(/No automated retention policy is implemented/)).toBeTruthy();
+    expect(screen.getByText(/Subjects are global and are not scoped by year/)).toBeTruthy();
     expect(screen.queryByText(/not available|coming soon/i)).toBeNull();
     expect(screen.queryByRole('switch')).toBeNull();
   });

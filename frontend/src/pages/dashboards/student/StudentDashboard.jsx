@@ -4,9 +4,10 @@
 // Split from the original monolithic StudentDashboard.jsx (1,123 lines)
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
 import {
   LayoutDashboard, CalendarCheck, Megaphone,
   Moon, Sun, LogOut, Menu, ChevronRight, Settings, ClipboardCheck
@@ -68,6 +69,7 @@ const StudentDashboard = () => {
 const StudentLayout = ({ children }) => {
   const { dark, toggleDark } = useTheme();
   const { logout, userData } = useAuth();
+  const { requestProfileNavigation } = useProfileUnsavedChanges();
   const navigate = useNavigate();
   const location = useLocation();
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
@@ -76,8 +78,10 @@ const StudentLayout = ({ children }) => {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    requestProfileNavigation(() => {
+      logout();
+      navigate('/login');
+    });
   };
 
   const navItems = [
@@ -88,8 +92,6 @@ const StudentLayout = ({ children }) => {
   ];
 
   const mainBg = 'var(--bg)';
-  const headerBorder = 'var(--border)';
-  const textPrimary = 'var(--text)';
   const textMuted = 'var(--text-muted)';
 
   return (

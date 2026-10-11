@@ -4,9 +4,10 @@
 // Split from the original monolithic RegistrarDashboard.jsx (2,158 lines)
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
 import {
   LayoutDashboard, Users, ClipboardList, Calendar, FileText,
   Moon, Sun, LogOut, Menu, ChevronRight, School,
@@ -33,6 +34,7 @@ import FlippingLogo from '../../../components/FlippingLogo';
 // ============================================
 const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
   const { logout, userData } = useAuth();
+  const { requestProfileNavigation } = useProfileUnsavedChanges();
   const navigate = useNavigate();
   const location = useLocation();
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
@@ -40,7 +42,10 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => requestProfileNavigation(() => {
+    logout();
+    navigate('/login');
+  });
 
   const navItems = [
     { path: '/registrar-dashboard', icon: LayoutDashboard, label: 'Dashboard' },

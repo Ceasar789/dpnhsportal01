@@ -29,6 +29,7 @@ const GradeTabs = ({ value, onChange, counts, unit = 'item' }) => (
         <button key={g} type="button"
           className={`grade-tab${value === g ? ' active' : ''}`}
           aria-label={named}
+          aria-pressed={value === g}
           title={named}
           onClick={() => onChange(g)}>
           {g}

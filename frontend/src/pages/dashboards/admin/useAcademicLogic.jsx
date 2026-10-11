@@ -9,6 +9,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { canTeachSection, currentSchoolYear } from '../../../lib/academicRules';
+import { hasExactDeletedIds } from '../../../lib/deleteVerification';
+import {
+  validateCapacityAgainstEnrollment,
+  validateSectionAdviser,
+  validateSectionCapacity,
+} from './shared/sectionsValidation';
 
 export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   // ── Subjects ──────────────────────────────────────────────────────────────
@@ -29,6 +35,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const savingSubjectRef = useRef(false);
 
   const fetchSubjects = useCallback(async () => {
+    setSubjectsLoading(true);
     const { data, error } = await withRetry(
       () => supabase.from('subjects').select('*').order('name'),
       { label: 'Subjects fetch' }
@@ -88,7 +95,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     fetchSubjects();
   };
 
-  const deleteSubject = (id) => {
+  const deleteSubject = (id, focusAfterConfirm) => {
     const subject = subjects.find(s => s.id === id);
     setDeleteConfirm({
       label: subject?.name || subject?.code || 'this subject',
@@ -96,16 +103,29 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       message: 'This subject will be permanently deleted.',
       warning: 'Every teaching-load entry for this subject will be deleted along with it. This cannot be undone.',
       confirmLabel: 'Yes, Delete',
+      requireConfirmedResult: true,
+      focusAfterConfirm,
       onConfirm: async () => {
-        const { error } = await supabase.from('subjects').delete().eq('id', id);
-        if (error) return showToast(`Could not delete subject: ${error.message}`, 'error');
+        try {
+          const { data, error } = await supabase.from('subjects').delete().eq('id', id).select('id');
+          if (error) throw error;
+          if (!hasExactDeletedIds(data, id)) throw new Error('Delete result was not verified');
+        } catch (error) {
+          console.warn('Subject delete failed —', error?.message || String(error));
+          showToast('Could not delete the subject. Please try again.', 'error');
+          return false;
+        }
         showToast('Subject deleted');
-        fetchSubjects();
+        await fetchSubjects();
+        return true;
       },
     });
   };
 
-  useEffect(() => { fetchSubjects(); }, [fetchSubjects]);
+  useEffect(() => {
+    const timer = window.setTimeout(fetchSubjects, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchSubjects]);
 
   // ── School year ───────────────────────────────────────────────────────────
   // Every academic record is scoped by year, so one selector drives the
@@ -129,7 +149,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       // department per teacher, "math" narrows 48 teachers to 6 — without it
       // the only thing to search is a name the admin would have to know
       // already.
-      () => supabase.from('profiles').select('id, name, email, department, status').eq('role', 'teacher').order('name'),
+      () => supabase.from('profiles').select('id, name, email, department, role, status').eq('role', 'teacher').order('name'),
       { label: 'Teachers fetch' }
     );
     if (error) {
@@ -144,6 +164,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   }, []);
 
   const fetchTeachingLoad = useCallback(async () => {
+    setTeachingLoadLoading(true);
     const { data, error } = await withRetry(
       () => supabase.from('teacher_subjects').select('*').eq('school_year', schoolYear),
       { label: 'Teaching load fetch' }
@@ -243,12 +264,25 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     if (ids.length === 0) return false;
 
     const deletion = supabase.from('teacher_subjects').delete();
-    const { error } = await (ids.length === 1
-      ? deletion.eq('id', ids[0])
-      : deletion.in('id', ids));
-    if (error) {
-      showToast(`Could not remove: ${error.message}`, 'error');
+    let result;
+    try {
+      result = await (ids.length === 1
+        ? deletion.eq('id', ids[0]).select('id')
+        : deletion.in('id', ids).select('id'));
+    } catch (error) {
+      console.warn('Teaching load removal request failed —', error?.message || String(error));
+      showToast('Could not remove the teaching assignment. Please try again.', 'error');
       return false;
+    }
+    if (result.error) {
+      console.warn('Teaching load removal failed —', result.error.message);
+      showToast('Could not remove the teaching assignment. Please try again.', 'error');
+      return false;
+    }
+    if (!hasExactDeletedIds(result.data, ids)) {
+      const deletedIds = Array.isArray(result.data) ? result.data.map(row => row?.id).filter(Boolean) : [];
+      showToast('The teaching-load removal could not be fully verified. Review the remaining changes and retry.', 'error');
+      return { ok: false, deletedIds };
     }
     showToast(ids.length === 1 ? 'Teaching load removed' : `${ids.length} teaching load entries removed`);
     if (refresh) fetchTeachingLoad();
@@ -277,8 +311,14 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     return rows.length;
   };
 
-  useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
-  useEffect(() => { fetchTeachingLoad(); }, [fetchTeachingLoad]);
+  useEffect(() => {
+    const timer = window.setTimeout(fetchTeachers, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchTeachers]);
+  useEffect(() => {
+    const timer = window.setTimeout(fetchTeachingLoad, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchTeachingLoad]);
 
   // ── Sections ──────────────────────────────────────────────────────────────
   const [sections, setSections] = useState([]);
@@ -290,6 +330,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const [secGrade, setSecGrade] = useState('');
   const [secAdviser, setSecAdviser] = useState('');
   const [secCapacity, setSecCapacity] = useState('40');
+  const [secCapacityError, setSecCapacityError] = useState('');
+  const [secAdviserError, setSecAdviserError] = useState('');
   const [secSaving, setSecSaving] = useState(false);
   const savingSectionRef = useRef(false);
 
@@ -311,7 +353,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
 
   const openCreateSection = () => {
     setEditingSection(null);
-    setSecName(''); setSecGrade(''); setSecAdviser(''); setSecCapacity('40');
+    setSecName(''); setSecGrade(''); setSecAdviser(''); setSecCapacity('');
+    setSecCapacityError(''); setSecAdviserError('');
     setSectionModal('create');
   };
 
@@ -320,7 +363,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     setSecName(section.name || '');
     setSecGrade(section.grade_level || '');
     setSecAdviser(section.adviser_id || '');
-    setSecCapacity(String(section.capacity ?? 40));
+    setSecCapacity(section.capacity == null ? '' : String(section.capacity));
+    setSecCapacityError(''); setSecAdviserError('');
     setSectionModal('edit');
   };
 
@@ -330,15 +374,60 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     const name = secName.trim();
     if (!name) return showToast('Section name is required', 'error');
     if (!secGrade) return showToast('Grade level is required', 'error');
+
+    const capacityResult = validateSectionCapacity(secCapacity);
+    setSecCapacityError(capacityResult.message);
+    if (!capacityResult.valid) return false;
+
+    const adviserResult = validateSectionAdviser({
+      adviserId: secAdviser,
+      teachers,
+      existingAdviserId: editingSection?.adviser_id || null,
+    });
+    setSecAdviserError(adviserResult.message);
+    if (!adviserResult.valid) {
+      showToast(adviserResult.message, 'error');
+      return false;
+    }
     if (savingSectionRef.current) return;   // the second of a double click
     savingSectionRef.current = true;
 
     setSecSaving(true);
+    if (editingSection) {
+      const previousCapacity = validateSectionCapacity(editingSection.capacity);
+      const capacityChanged = !previousCapacity.valid || previousCapacity.value !== capacityResult.value;
+      if (capacityChanged) {
+        const { count, error: countError } = await supabase
+          .from('section_students')
+          .select('id', { count: 'exact' })
+          .eq('section_id', editingSection.id)
+          .eq('status', 'active');
+
+        if (countError || count == null) {
+          const message = 'Could not verify current enrollment. No changes were saved.';
+          setSecCapacityError(message);
+          setSecSaving(false);
+          savingSectionRef.current = false;
+          showToast(message, 'error');
+          return false;
+        }
+
+        const enrollmentResult = validateCapacityAgainstEnrollment(capacityResult.value, count);
+        if (!enrollmentResult.valid) {
+          setSecCapacityError(enrollmentResult.message);
+          setSecSaving(false);
+          savingSectionRef.current = false;
+          showToast(enrollmentResult.message, 'error');
+          return false;
+        }
+      }
+    }
+
     const payload = {
       name,
       grade_level: secGrade,
       adviser_id: secAdviser || null,
-      capacity: parseInt(secCapacity, 10) || 40,
+      capacity: capacityResult.value,
       school_year: schoolYear,
       updated_at: new Date().toISOString(),
     };
@@ -353,16 +442,17 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       return showToast(
         error.code === '23505'
           ? `A section named "${name}" already exists for ${schoolYear}.`
-          : `Could not save section: ${error.message}`,
+          : 'Could not save section. Check your connection and try again.',
         'error'
       );
     }
     showToast(editingSection ? 'Section updated' : 'Section created');
     setSectionModal(null);
     fetchSections();
+    return true;
   };
 
-  const deleteSection = (id) => {
+  const deleteSection = (id, focusAfterConfirm) => {
     const section = sections.find(s => s.id === id);
     setDeleteConfirm({
       label: section?.name || 'this section',
@@ -370,11 +460,21 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       message: 'This section will be permanently deleted, along with its class list and any schedules tied to it.',
       warning: null,
       confirmLabel: 'Yes, Delete',
+      requireConfirmedResult: true,
+      focusAfterConfirm,
       onConfirm: async () => {
-        const { error } = await supabase.from('sections').delete().eq('id', id);
-        if (error) return showToast(`Could not delete section: ${error.message}`, 'error');
+        try {
+          const { data, error } = await supabase.from('sections').delete().eq('id', id).select('id');
+          if (error) throw error;
+          if (!hasExactDeletedIds(data, id)) throw new Error('Delete result was not verified');
+        } catch (error) {
+          console.warn('Section delete failed —', error?.message || String(error));
+          showToast('Could not delete section. Check your connection and try again.', 'error');
+          return false;
+        }
         showToast('Section deleted');
-        fetchSections();
+        await fetchSections();
+        return true;
       },
     });
   };
@@ -446,8 +546,35 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const openClassList = (section) => { setActiveSection(section); loadClassList(section); };
   const closeClassList = () => { setActiveSection(null); setClassList([]); };
 
+  const addingStudentRef = useRef(false);
   const addStudentToSection = async (studentId) => {
-    if (!activeSection) return;
+    if (!activeSection || addingStudentRef.current) return false;
+    addingStudentRef.current = true;
+
+    const capacityResult = validateSectionCapacity(activeSection.capacity);
+    if (!capacityResult.valid) {
+      showToast('This section has an invalid capacity. Correct it before adding students.', 'error');
+      addingStudentRef.current = false;
+      return false;
+    }
+
+    const { count, error: countError } = await supabase
+      .from('section_students')
+      .select('id', { count: 'exact' })
+      .eq('section_id', activeSection.id)
+      .eq('status', 'active');
+
+    if (countError || count == null) {
+      showToast('Could not verify current enrollment. No student was added.', 'error');
+      addingStudentRef.current = false;
+      return false;
+    }
+    if (count >= capacityResult.value) {
+      const state = count > capacityResult.value ? 'over capacity' : 'full';
+      showToast(`This section is ${state} (${count} of ${capacityResult.value}). Remove a student or increase its capacity before adding another.`, 'error');
+      addingStudentRef.current = false;
+      return false;
+    }
 
     // section_students.student_id is a foreign key to students(id), but nothing
     // in this app has ever written that table — a student exists only in
@@ -459,32 +586,55 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       .upsert([{ id: studentId }], { onConflict: 'id', ignoreDuplicates: true });
 
     if (studentRowError) {
-      return showToast(`Could not prepare student record: ${studentRowError.message}`, 'error');
+      showToast('Could not prepare the student record. No student was added.', 'error');
+      addingStudentRef.current = false;
+      return false;
     }
 
     const { error } = await supabase.from('section_students').insert([{
       section_id: activeSection.id, student_id: studentId, status: 'active',
     }]);
     if (error) {
-      return showToast(
+      showToast(
         error.code === '23505'
           ? 'That student is already in this section.'
-          : `Could not add student: ${error.message}`,
+          : 'Could not add the student to this section. Please try again.',
         'error'
       );
+      addingStudentRef.current = false;
+      return false;
     }
     showToast('Student added to section');
     loadClassList(activeSection);
+    addingStudentRef.current = false;
+    return true;
   };
 
   const removeStudentFromSection = async (rowId) => {
-    const { error } = await supabase.from('section_students').delete().eq('id', rowId);
-    if (error) return showToast(`Could not remove student: ${error.message}`, 'error');
+    if (!activeSection) return false;
+    let result;
+    try {
+      result = await supabase.from('section_students').delete()
+        .eq('id', rowId).eq('section_id', activeSection.id).select('id');
+    } catch (error) {
+      console.warn('Student membership removal request failed —', error?.message || String(error));
+      showToast('Could not remove the student from this section. Please try again.', 'error');
+      return false;
+    }
+    if (result.error || !hasExactDeletedIds(result.data, rowId)) {
+      if (result.error) console.warn('Student membership removal failed —', result.error.message);
+      showToast('Could not remove the student from this section. Please try again.', 'error');
+      return false;
+    }
     showToast('Student removed from section');
     loadClassList(activeSection);
+    return true;
   };
 
-  useEffect(() => { fetchSections(); }, [fetchSections]);
+  useEffect(() => {
+    const timer = window.setTimeout(fetchSections, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchSections]);
 
   // ── Schedules ─────────────────────────────────────────────────────────────
   const [schedules, setSchedules] = useState([]);
@@ -502,6 +652,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const savingScheduleRef = useRef(false);
 
   const fetchSchedules = useCallback(async () => {
+    setSchedulesLoading(true);
     const { data, error } = await withRetry(
       () => supabase.from('schedules').select('*').eq('school_year', schoolYear).order('day_of_week').order('start_time'),
       { label: 'Schedules fetch' }
@@ -522,19 +673,37 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   // the admin only the teacher, day and time to fill. Called bare it still
   // opens an empty form.
   const openCreateSchedule = ({ sectionId = '', subjectId = '' } = {}) => {
+    const subject = subjects.find(item => item.id === subjectId);
+    if (subject?.is_active === false) {
+      showToast('New periods cannot be added to an inactive subject.', 'error');
+      return false;
+    }
     setSchedTeacher(''); setSchedSubject(subjectId); setSchedSection(sectionId);
     setSchedDay('Monday'); setSchedStart('08:00'); setSchedEnd('09:00'); setSchedRoom('');
     setScheduleModal('create');
+    return true;
   };
 
   const closeScheduleModal = () => setScheduleModal(null);
 
   const saveSchedule = async () => {
+    if (teachersLoading || teachingLoadLoading || teachersError || teachingLoadError) {
+      showToast('Teacher eligibility is still unavailable. Retry the failed data before creating a schedule.', 'error');
+      return false;
+    }
     if (!schedTeacher || !schedSubject || !schedSection) {
-      return showToast('Teacher, subject and section are all required', 'error');
+      showToast('Teacher, subject and section are all required', 'error');
+      return false;
     }
     if (schedEnd <= schedStart) {
-      return showToast('End time must be after start time', 'error');
+      showToast('End time must be after start time', 'error');
+      return false;
+    }
+
+    const subject = subjects.find(item => item.id === schedSubject);
+    if (!subject || subject.is_active === false) {
+      showToast('New periods cannot be added to an inactive or unavailable subject.', 'error');
+      return false;
     }
 
     const section = sections.find(s => s.id === schedSection);
@@ -543,31 +712,45 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     // The guard: a teacher may only be scheduled to a subject and grade level
     // they actually hold. Tested in src/lib/academicRules.test.js.
     const verdict = canTeachSection(teacherLoad, schedSubject, section);
-    if (!verdict.ok) return showToast(verdict.reason, 'error');
+    if (!verdict.ok) {
+      showToast(verdict.reason, 'error');
+      return false;
+    }
 
-    if (savingScheduleRef.current) return;   // the second of a double click
+    if (savingScheduleRef.current) return false;   // the second of a double click
     savingScheduleRef.current = true;
     setSchedSaving(true);
-    const { error } = await supabase.from('schedules').insert([{
-      section_id: schedSection,
-      teacher_id: schedTeacher,
-      subject_id: schedSubject,
-      day_of_week: schedDay,
-      start_time: schedStart,
-      end_time: schedEnd,
-      room_number: schedRoom.trim() || null,
-      school_year: schoolYear,
-    }]);
-    setSchedSaving(false);
-    savingScheduleRef.current = false;
-
-    if (error) return showToast(`Could not save schedule: ${error.message}`, 'error');
-    showToast('Schedule created');
-    setScheduleModal(null);
-    fetchSchedules();
+    try {
+      const { error } = await supabase.from('schedules').insert([{
+        section_id: schedSection,
+        teacher_id: schedTeacher,
+        subject_id: schedSubject,
+        day_of_week: schedDay,
+        start_time: schedStart,
+        end_time: schedEnd,
+        room_number: schedRoom.trim() || null,
+        school_year: schoolYear,
+      }]);
+      if (error) {
+        console.warn('Schedule create failed —', error.message);
+        showToast('Could not create the schedule. Please review the details and try again.', 'error');
+        return false;
+      }
+      showToast('Schedule created');
+      setScheduleModal(null);
+      await fetchSchedules();
+      return true;
+    } catch (error) {
+      console.warn('Schedule create request failed —', error?.message || String(error));
+      showToast('Could not create the schedule. Check your connection and try again.', 'error');
+      return false;
+    } finally {
+      setSchedSaving(false);
+      savingScheduleRef.current = false;
+    }
   };
 
-  const deleteSchedule = (id) => {
+  const deleteSchedule = (id, focusAfterConfirm) => {
     const schedule = schedules.find(s => s.id === id);
     const sectionName = sections.find(s => s.id === schedule?.section_id)?.name;
     const subjectName = subjects.find(s => s.id === schedule?.subject_id)?.name;
@@ -578,16 +761,37 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
       message: 'This schedule entry will be permanently deleted.',
       warning: null,
       confirmLabel: 'Yes, Delete',
+      busyLabel: 'Deleting…',
+      requireConfirmedResult: true,
+      focusAfterConfirm,
       onConfirm: async () => {
-        const { error } = await supabase.from('schedules').delete().eq('id', id);
-        if (error) return showToast(`Could not delete schedule: ${error.message}`, 'error');
-        showToast('Schedule deleted');
-        fetchSchedules();
+        try {
+          const { data, error } = await supabase.from('schedules').delete().eq('id', id).select('id');
+          if (error) {
+            console.warn('Schedule delete failed —', error.message);
+            showToast('Could not delete the schedule. Please try again.', 'error');
+            return false;
+          }
+          if (!Array.isArray(data) || data.length !== 1 || data[0]?.id !== id) {
+            showToast('The schedule deletion could not be confirmed. It may have already changed; retry or cancel.', 'error');
+            return false;
+          }
+          showToast('Schedule deleted');
+          await fetchSchedules();
+          return true;
+        } catch (error) {
+          console.warn('Schedule delete request failed —', error?.message || String(error));
+          showToast('Could not delete the schedule. Check your connection and try again.', 'error');
+          return false;
+        }
       },
     });
   };
 
-  useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
+  useEffect(() => {
+    const timer = window.setTimeout(fetchSchedules, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchSchedules]);
 
   return {
     subjects, subjectsLoading, subjectsError, fetchSubjects,
@@ -600,7 +804,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,
-    secCapacity, setSecCapacity, secSaving,
+    secCapacity, setSecCapacity, secCapacityError, setSecCapacityError,
+    secAdviserError, setSecAdviserError, secSaving,
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
     activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,

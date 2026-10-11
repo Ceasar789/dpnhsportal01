@@ -23,6 +23,16 @@ beforeEach(() => {
     themePref: 'light',
     setThemePref: vi.fn(),
     settingsLoading: false,
+    settingsStatus: 'ready',
+    settingsError: '',
+    settingsValidation: { academicYear: '', quarter: '', sessionTimeout: '' },
+    settingsAuthorized: true,
+    settingsCanEdit: true,
+    settingsCanSave: false,
+    fetchSettings: vi.fn(),
+    backupHistoryStatus: 'ready',
+    backupHistoryError: '',
+    fetchBackupHistory: vi.fn(),
     overviewLoading: false,
   };
 });

@@ -23,8 +23,7 @@
 //     "this is a setting, you just can't reach it", and that is the claim
 //     being withdrawn.
 //
-// Nothing was dropped from the database. saveSettings still sends every
-// column it always sent, carrying the value fetchSettings loaded.
+// The save contract owns only the three editable database-backed values.
 // ============================================
 
 import { useEffect } from 'react';
@@ -54,15 +53,18 @@ const SettingsTab = () => {
     saveSettings, sessionTimeout, setSessionTimeout,
     setSettings, settings, settingsSaving,
     settingsDirty, settingsChangeCount, discardSettings,
-    themePref, setThemePref, settingsLoading,
+    themePref, setThemePref, settingsStatus, settingsError,
+    settingsValidation, settingsAuthorized, settingsCanEdit, settingsCanSave,
+    fetchSettings, backupHistoryStatus, backupHistoryError, fetchBackupHistory,
     overviewLoading,
   } = useAdminContext();
 
   // The 300ms rule, as everywhere else: a read that returns quickly shows
   // no spinner at all, and a slow one says it is working rather than
   // claiming there is nothing to show.
-  const slowSettings = useDelayedFlag(settingsLoading);
   const slowActivity = useDelayedFlag(overviewLoading);
+  const slowBackup = useDelayedFlag(backupHistoryStatus === 'idle' || backupHistoryStatus === 'loading');
+  const settingsReady = settingsStatus === 'ready';
 
   // The sidebar guard covers leaving the page. This covers leaving the tab.
   useEffect(() => {
@@ -82,6 +84,26 @@ const SettingsTab = () => {
       <div id="sec-general" className="settings-section">
         <div className="settings-section-title">General</div>
         <div className="settings-card">
+          {(settingsStatus === 'idle' || settingsStatus === 'loading') && (
+            <div className="settings-state" role="status" aria-live="polite">
+              <span className="spin" aria-hidden="true" />
+              <span>Loading system settings…</span>
+            </div>
+          )}
+          {(settingsStatus === 'missing' || settingsStatus === 'error') && (
+            <div className="settings-state settings-state-error" role="alert">
+              <div>
+                <div className="settings-label">System Settings unavailable</div>
+                <div className="settings-hint">{settingsError}</div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={fetchSettings}>Retry</Button>
+            </div>
+          )}
+          {settingsReady && !settingsAuthorized && (
+            <div className="settings-state settings-state-error" role="alert">
+              Only an active Main Admin can change database-backed Settings.
+            </div>
+          )}
           <div className="settings-input-row">
             <label className="settings-input-label" htmlFor="settings-portal-name">Portal Name</label>
             <div style={{ flex: 1 }}>
@@ -94,18 +116,28 @@ const SettingsTab = () => {
           <div className="settings-input-row">
             <label className="settings-input-label" htmlFor="settings-academic-year">Academic Year</label>
             <div style={{ flex: 1 }}>
-              <input id="settings-academic-year" value={settings.academic_year} onChange={e => setSettings({ ...settings, academic_year: e.target.value })} style={{ width: '100%' }} aria-describedby="settings-academic-year-hint" />
+              <input
+                id="settings-academic-year"
+                value={settingsReady ? settings.academic_year : ''}
+                onChange={e => setSettings({ ...settings, academic_year: e.target.value })}
+                disabled={!settingsCanEdit}
+                aria-invalid={settingsReady && Boolean(settingsValidation.academicYear)}
+                aria-describedby={`settings-academic-year-hint${settingsReady && settingsValidation.academicYear ? ' settings-academic-year-error' : ''}`}
+                style={{ width: '100%' }}
+              />
               {/* Narrower than the label suggests. The academic tabs take
                   their year from currentSchoolYear() in academicRules.js,
                   not from this row. Backlogged as a one-source-of-truth
                   question in docs/ux-workarounds.md. */}
-              <div className="form-hint" id="settings-academic-year-hint">Shown on the Overview banner. Subjects, sections, schedules and grades use the school year from the calendar, which rolls over every June.</div>
+              <div className="form-hint" id="settings-academic-year-hint">The institution's official default year, shown on the Overview banner. Subjects are global and are not scoped by year. Other academic workflows keep their existing current/historical year selectors until a later reconciliation.</div>
+              {settingsReady && settingsValidation.academicYear && <div className="field-error" id="settings-academic-year-error">{settingsValidation.academicYear}</div>}
             </div>
           </div>
           <div className="settings-input-row">
             <label className="settings-input-label" htmlFor="settings-quarter">Quarter</label>
             <div style={{ flex: 1 }}>
-              <select id="settings-quarter" value={settings.semester} onChange={e => setSettings({ ...settings, semester: e.target.value })} style={{ width: '100%' }} aria-describedby="settings-quarter-hint">
+              <select id="settings-quarter" value={settingsReady ? settings.semester : ''} onChange={e => setSettings({ ...settings, semester: e.target.value })} disabled={!settingsCanEdit} style={{ width: '100%' }} aria-describedby="settings-quarter-hint">
+                {!settingsReady && <option value="">Unavailable</option>}
                 <option>1st Quarter</option><option>2nd Quarter</option><option>3rd Quarter</option><option>4th Quarter</option>
               </select>
               <div className="form-hint" id="settings-quarter-hint">Shown on the Overview banner.</div>
@@ -131,7 +163,8 @@ const SettingsTab = () => {
               <div className="settings-label">Session Timeout</div>
               <div className="settings-hint">After this setting is saved, each browser applies it on its next portal load and signs the user out after this long without mouse, keyboard, scroll or touch activity.</div>
             </div>
-            <select value={sessionTimeout} onChange={e => setSessionTimeout(e.target.value)} aria-label="Session Timeout">
+            <select value={settingsReady ? sessionTimeout : ''} onChange={e => setSessionTimeout(e.target.value)} aria-label="Session Timeout" disabled={!settingsCanEdit}>
+              {!settingsReady && <option value="">Unavailable</option>}
               <option>15 min</option><option>30 min</option><option>1 hour</option><option>2 hours</option>
             </select>
           </div>
@@ -190,10 +223,15 @@ const SettingsTab = () => {
                 <div className="settings-hint">The 10 most recent runs recorded by the backup workflow.</div>
               </div>
             </div>
-            {settingsLoading
-              ? <div className="settings-history-empty">{slowSettings ? 'Loading backup history…' : ''}</div>
+            {(backupHistoryStatus === 'idle' || backupHistoryStatus === 'loading')
+              ? <div className="settings-history-empty" role="status">{slowBackup ? 'Loading backup history…' : ''}</div>
+              : backupHistoryStatus === 'error'
+                ? <div className="settings-history-empty settings-state-error" role="alert">
+                    <span>{backupHistoryError}</span>
+                    <Button variant="ghost" size="sm" onClick={fetchBackupHistory}>Retry backup history</Button>
+                  </div>
               : backupHistory.length === 0 && <div className="settings-history-empty">No backup runs have been recorded.</div>}
-            {!settingsLoading && backupHistory.length > 0 && (
+            {backupHistoryStatus === 'ready' && backupHistory.length > 0 && (
               <ul className="settings-history-list" aria-labelledby="backup-history-heading">
                 {backupHistory.map(backup => (
                   <li className="settings-history-item" key={backup.id}>
@@ -276,8 +314,8 @@ const SettingsTab = () => {
             {settingsChangeCount} unsaved change{settingsChangeCount === 1 ? '' : 's'}
           </span>
           <div className="settings-savebar-actions">
-            <Button variant="ghost" onClick={discardSettings}>Discard</Button>
-            <Button onClick={saveSettings} busy={settingsSaving}>Save Changes</Button>
+            <Button variant="ghost" onClick={discardSettings} disabled={!settingsReady || !settingsAuthorized || settingsSaving}>Discard</Button>
+            <Button onClick={saveSettings} busy={settingsSaving} disabled={!settingsCanSave}>Save Changes</Button>
           </div>
         </div>
       )}

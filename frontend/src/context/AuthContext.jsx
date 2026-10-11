@@ -8,6 +8,7 @@ import {
   recordLoginFailure,
   remainingLockSeconds,
 } from '../lib/loginAttemptLimit';
+import { isActiveAccount, normalizeAccountStatus } from '../lib/accountStatus';
 
 const AuthContext = createContext(null);
 
@@ -25,7 +26,7 @@ const normalizeRole = (role) => {
   return roleMap[normalized] || 'student';
 };
 
-const isArchivedProfile = (profile) => profile?.status?.toString().trim().toLowerCase() === 'archived';
+const isArchivedProfile = (profile) => normalizeAccountStatus(profile?.status) === 'archived';
 
 const buildUserData = (user, profile, role) => ({
   uid: user.id,
@@ -37,7 +38,8 @@ const buildUserData = (user, profile, role) => ({
     user.email?.split('@')[0] ||
     'User',
   role,
-  status: profile?.status || 'active',
+  // Missing or unrecognised status must never inherit active privileges.
+  status: normalizeAccountStatus(profile?.status),
   profile: profile || null,
   // Convenience role flags
   isMainAdmin: role === 'main_admin',
@@ -230,6 +232,12 @@ export const AuthProvider = ({ children }) => {
 
             if (isArchivedProfile(profile)) {
               await supabase.auth.signOut({ scope: 'local' });
+              if (profileOpSeqRef.current === opSeq) {
+                setUser(null);
+                setUserData(null);
+                userDataRef.current = null;
+                setIsAuthenticated(false);
+              }
               return;
             }
             // Role comes ONLY from the profiles row. user_metadata is writable
@@ -265,7 +273,7 @@ export const AuthProvider = ({ children }) => {
               setUser(session.user);
               setUserData(built);
               userDataRef.current = built;
-              setIsAuthenticated(true);
+              setIsAuthenticated(isActiveAccount(profile?.status));
             }
           } else if (!loginInProgressRef.current) {
             setUser(null);
@@ -354,6 +362,15 @@ export const AuthProvider = ({ children }) => {
           throw archivedErr;
         }
 
+        if (!isActiveAccount(profile?.status)) {
+          await supabase.auth.signOut();
+          const statusErr = new Error('ACCOUNT_NOT_ACTIVE');
+          statusErr.userMessage = profile
+            ? 'This account is not active. Please contact the administrator.'
+            : 'Could not verify an active account profile. Please contact the administrator.';
+          throw statusErr;
+        }
+
         // Profiles row only — never user_metadata (self-writable, see above).
         const role = normalizeRole(profile?.role);
 
@@ -392,7 +409,8 @@ export const AuthProvider = ({ children }) => {
             || err.code === 'over_request_rate_limit'
             || /too many requests/i.test(err.message || '')
             || err.message?.startsWith('ROLE_MISMATCH:')
-            || err.message === 'ARCHIVED_ACCOUNT') break;
+            || err.message === 'ARCHIVED_ACCOUNT'
+            || err.message === 'ACCOUNT_NOT_ACTIVE') break;
 
         if (attempt < MAX_RETRIES) {
           await new Promise((r) => setTimeout(r, 500 * attempt));
@@ -486,6 +504,7 @@ export const AuthProvider = ({ children }) => {
     if (profileOpSeqRef.current === opSeq) {
       setUserData(built);
       userDataRef.current = built;
+      setIsAuthenticated(isActiveAccount(profile?.status));
     }
   };
 

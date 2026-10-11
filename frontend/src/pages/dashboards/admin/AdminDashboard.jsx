@@ -7,6 +7,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
+import { useTeachingLoadUnsavedChanges } from '../../../context/TeachingLoadUnsavedChangesContext';
 import { Sun, Moon, LogOut, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings, ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, CalendarClock } from 'lucide-react';
 import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
@@ -104,6 +106,8 @@ const AdminDashboard = () => {
 // SHELL: style block, toast, nav, sidebar, page-switch
 // ============================================
 const AdminDashboardShell = ({ navigate, logout, userData }) => {
+  const { requestProfileNavigation } = useProfileUnsavedChanges();
+  const { requestTeachingLoadNavigation } = useTeachingLoadUnsavedChanges();
   // Collapsed/expanded is a DESKTOP preference and is remembered. Below
   // the drawer breakpoint it means nothing — the sidebar is off-canvas and
   // 256px wide either way — so the stored value is only ever applied at
@@ -122,6 +126,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
   const sidebarRef = useRef(null);
   const menuButtonRef = useRef(null);
   const deleteConfirmRunningRef = useRef(false);
+  const pendingDeleteFocusRef = useRef(null);
+  const [deleteConfirmBusy, setDeleteConfirmBusy] = useState(false);
 
   // The drawer is an overlay over the page, so it owes the same contract a
   // dialog does: it takes focus, keeps it, gives it back, and the page
@@ -158,13 +164,40 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
     activeSettingsSub, scrollToSection, deleteConfirm, setDeleteConfirm,
     settingsDirty } = useAdminContext();
 
+  // A successful delete can unmount the invoking control before Modal gets
+  // its normal chance to restore focus. The schedule flow supplies a stable
+  // related destination; run it only after the confirmation has unmounted.
+  useEffect(() => {
+    if (deleteConfirm || !pendingDeleteFocusRef.current) return undefined;
+    const restore = pendingDeleteFocusRef.current;
+    pendingDeleteFocusRef.current = null;
+    const run = () => restore();
+    if (typeof window.requestAnimationFrame === 'function') {
+      const frame = window.requestAnimationFrame(run);
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const timer = window.setTimeout(run, 0);
+    return () => window.clearTimeout(timer);
+  }, [deleteConfirm]);
+
   // UX-028 — leaving System Settings with the save bar up throws the work
   // away, and a sidebar click is one keystroke. Same prompt the dialogs
   // use, for the same reason: an untouched page never sees it.
-  const leaveSettings = (go) => {
+  const requestPageChange = (go, destination = '') => {
     if (page === 'settings' && settingsDirty
       && !window.confirm('You have unsaved settings. Discard them?')) return;
-    go();
+    requestTeachingLoadNavigation(() => requestProfileNavigation(go), destination);
+  };
+  const requestSidebarNavigation = (go, destination) => {
+    if (!sidebarOpen) {
+      requestPageChange(go, destination);
+      return;
+    }
+    // Let the drawer release its focus trap before the Teaching Load dialog
+    // opens. Its cleanup restores focus to the menu button, which then becomes
+    // the dialog's stable return target if the admin chooses to stay.
+    setSidebarOpen(false);
+    window.setTimeout(() => requestPageChange(go, destination), 0);
   };
   const openSettingsSection = (id) => {
     if (!sidebarOpen) {
@@ -718,6 +751,27 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .sched-line { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-4) 0; font-size: var(--font-size-13); }
         .sched-teacher { font-weight: 600; color: var(--text); white-space: nowrap; }
         .sched-when { color: var(--text-muted); font-size: var(--font-size-12); flex: 1; }
+        /* Schedule rows keep their detail and actions at narrow card widths:
+           unlike the row-sheet tables, this table has no secondary surface
+           that could safely own a period's Delete action. */
+        @container (max-width: 560px) {
+          .schedule-table-card td[data-cell="identity"],
+          .schedule-table-card td[data-cell="detail"],
+          .schedule-table-card td[data-cell="actions"] { display: block; grid-column: 1 / -1; justify-self: stretch; }
+          .schedule-table-card td[data-cell="detail"] { margin-top: var(--space-8); min-width: 0; }
+          .schedule-table-card td[data-cell="actions"] { margin-top: var(--space-8); }
+          .schedule-table-card .sched-line {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-2) var(--space-8);
+            align-items: center;
+            padding: var(--space-8) 0;
+          }
+          .schedule-table-card .sched-teacher,
+          .schedule-table-card .sched-when { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+          .schedule-table-card .sched-when { grid-column: 1; }
+          .schedule-table-card .sched-line .icon-action { grid-column: 2; grid-row: 1 / span 2; }
+        }
 
         .row-sub { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-2); }
 
@@ -984,6 +1038,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .settings-history-detail { color: var(--text-muted); font-size: var(--font-size-12); line-height: 1.5; margin-top: var(--space-4); overflow-wrap: anywhere; }
         .settings-history-meta { color: var(--text-dim); font-size: var(--font-size-12); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-top: var(--space-4); }
         .settings-history-item > .badge { flex-shrink: 0; }
+        .settings-state { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); padding: var(--space-12); margin-bottom: var(--space-12); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card2); color: var(--text-muted); font-size: var(--font-size-13); }
+        .settings-state-error { border-color: var(--badge-red-border); background: var(--badge-red-bg); color: var(--text); }
+        .settings-state-error .settings-hint { color: var(--text-muted); }
         .settings-hint a { color: var(--accent); text-decoration: none; }
         .settings-input-row { display: flex; align-items: flex-start; gap: var(--space-12); padding: var(--space-12) 0; border-bottom: 1px solid var(--border); }
         /* The field and its hint share a column, capped. These inputs held
@@ -1255,7 +1312,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
             </button>
             {profileOpen && !sidebarCollapsed && (
               <button
-                onClick={() => leaveSettings(() => { setPage('profile'); setProfileOpen(false); })}
+                onClick={() => requestSidebarNavigation(() => { setPage('profile'); setProfileOpen(false); }, 'Profile Settings')}
                 style={{ width: '100%', marginTop: 'var(--space-12)', padding: 'var(--space-8) var(--space-12)', display: 'flex', alignItems: 'center', gap: 'var(--space-8)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', background: 'var(--card2)', textAlign: 'left', fontSize: 'var(--font-size-13)', fontWeight: 600 }}
               >
                 <Settings size={15} />
@@ -1285,7 +1342,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
               // carries the destination on its own.
               aria-label={sidebarCollapsed ? v : undefined}
               title={sidebarCollapsed ? v : undefined}
-              onClick={() => leaveSettings(() => { setPage(k); setSidebarOpen(false); })}
+              onClick={() => requestSidebarNavigation(() => setPage(k), v)}
             >
               <span className="sidebar-icon"><Icon size={16} aria-hidden="true" /></span>
               {!sidebarCollapsed && <span>{v}</span>}
@@ -1321,7 +1378,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
                 No colour overrides now, and no red: red is reserved for
                 destructive actions (Rule B4), and signing out is reversible
                 by signing back in. The button says what it does. */}
-            <button className="nav-logout-btn nav-logout-btn--sidebar" aria-label="Logout" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }} onClick={() => setLogoutConfirmOpen(true)}>
+            <button className="nav-logout-btn nav-logout-btn--sidebar" aria-label="Logout" style={{ width:'100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }} onClick={() => requestSidebarNavigation(() => setLogoutConfirmOpen(true), 'Logout')}>
               <LogOut size={15} />
               {!sidebarCollapsed && 'Logout'}
             </button>
@@ -1361,7 +1418,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         warning={deleteConfirm?.warning === null ? null : deleteConfirm?.warning || 'The account will not be permanently deleted.'}
         confirmLabel={deleteConfirm?.confirmLabel || 'Yes, Archive'}
         destructive
-        onCancel={() => setDeleteConfirm(null)}
+        busy={deleteConfirmBusy}
+        busyLabel={deleteConfirm?.busyLabel || 'Deleting…'}
+        onCancel={() => { if (!deleteConfirmBusy) setDeleteConfirm(null); }}
         onConfirm={async () => {
           const fn = deleteConfirm?.onConfirm;
           if (!fn) {
@@ -1370,11 +1429,19 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           }
           if (deleteConfirmRunningRef.current) return;
           deleteConfirmRunningRef.current = true;
+          setDeleteConfirmBusy(true);
           try {
             const completed = await fn();
-            if (completed !== false) setDeleteConfirm(null);
+            const shouldClose = deleteConfirm?.requireConfirmedResult
+              ? completed === true
+              : completed !== false;
+            if (shouldClose) {
+              pendingDeleteFocusRef.current = deleteConfirm?.focusAfterConfirm || null;
+              setDeleteConfirm(null);
+            }
           } finally {
             deleteConfirmRunningRef.current = false;
+            setDeleteConfirmBusy(false);
           }
         }}
       />

@@ -15,7 +15,7 @@ import { formatDate } from '../../../../lib/formatDate';
 const NewsTab = () => {
   const {
     closeModal, deleteNewsItem, editNews, filteredNews, modal, nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
-    newsCatF, newsItems, newsLoading, newsSearch, newsStatF, openEditNews,
+    fetchNews, newsCatF, newsError = '', newsItems, newsLoading, newsSearch, newsStatF, openEditNews,
     openNewPost, saveNews, saveNewsExpiry, setNAuthor, setNCat, setNContent, setNExpiresDate, setNStatus,
     setNCustomTarget, setNImageFile, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
   } = useAdminContext();
@@ -51,6 +51,13 @@ const NewsTab = () => {
   // like a press that did nothing. One id at a time is enough — these are
   // single-card actions, and the id is what tells the other cards apart.
   const [statusBusy, setStatusBusy] = useState(null);
+  const pageHeadingRef = useRef(null);
+  const pageRootRef = useRef(null);
+  const focusAfterDelete = () => {
+    const nextDelete = pageRootRef.current?.querySelector('.news-action.red');
+    if (nextDelete) nextDelete.focus();
+    else pageHeadingRef.current?.focus();
+  };
   const changeStatus = async (id, status) => {
     setStatusBusy(id);
     try { await updateNewsStatus(id, status); } finally { setStatusBusy(null); }
@@ -58,9 +65,9 @@ const NewsTab = () => {
 
   return (
     <>
-            <div>
+            <div ref={pageRootRef}>
               <div className="page-header-bar">
-                <div className="page-title">News Management</div>
+                <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>News Management</div>
                 <div className="page-sub">Create, edit, archive, and publish portal announcements</div>
               </div>
               <div className="toolbar">
@@ -75,6 +82,7 @@ const NewsTab = () => {
                 </select>
                 <button className="btn btn-primary" onClick={openNewPost}>+ New Post</button>
               </div>
+              {newsError && <div className="cal-load-error" role="alert"><span>{newsError}</span><button type="button" className="btn btn-ghost" onClick={fetchNews}>Retry</button></div>}
               {newsLoading
                 ? <div className="loading-row"><div className="spin"></div></div>
                 : <div className="news-grid">
@@ -116,17 +124,17 @@ const NewsTab = () => {
                                                             <button className="news-action green archive-news-action" aria-label={`Restore ${n.title}`} aria-busy={statusBusy === n.id || undefined} onClick={() => changeStatus(n.id,'Published')}><ArchiveRestore size={14} /> {statusBusy === n.id ? 'Restoring…' : 'Restore'}</button>
                             </>
                           )}
-                          <button className="news-action red" style={{ marginLeft: n.status === 'Draft' ? 0 : 'auto' }} aria-label={`Delete ${n.title}`} onClick={() => deleteNewsItem(n.id)}>Delete</button>
+                          <button className="news-action red" style={{ marginLeft: n.status === 'Draft' ? 0 : 'auto' }} aria-label={`Delete ${n.title}`} onClick={() => deleteNewsItem(n.id, focusAfterDelete)}>Delete</button>
                         </div>
                       </div>
                     );
                   })}
-                  {filteredNews.length === 0 && <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>No posts found</div>}
+                  {filteredNews.length === 0 && !newsError && <div style={{ color:'var(--text-muted)', fontSize: 'var(--font-size-13)' }}>No posts found</div>}
                 </div>
               }
-              <div className="news-footer">
+              {(!newsError || newsItems.length > 0) && <div className="news-footer">
                 {newsItems.length} total posts · {newsItems.filter(x=>x.status==='Published').length} published · {newsItems.filter(x=>x.status==='Draft').length} drafts · {newsItems.filter(x=>x.status==='Archived').length} archived
-              </div>
+              </div>}
             </div>
 
       {/* NEWS MODAL */}

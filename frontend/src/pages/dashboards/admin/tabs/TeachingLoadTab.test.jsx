@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
+import { StrictMode, useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  TeachingLoadUnsavedChangesProvider,
+  useTeachingLoadUnsavedChanges,
+} from '../../../../context/TeachingLoadUnsavedChangesContext';
 
 const h = vi.hoisted(() => ({ ctx: {} }));
 vi.mock('../AdminContext', () => ({ useAdminContext: () => h.ctx }));
@@ -50,6 +55,32 @@ const assignedSubjects = () => screen.getByLabelText(/Subjects assigned to/);
 const addSubject = (id) => {
   fireEvent.change(subjectSelect(), { target: { value: id } });
   fireEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
+};
+
+const GuardAction = ({ destination = 'Overview', onNavigate }) => {
+  const { requestTeachingLoadNavigation } = useTeachingLoadUnsavedChanges();
+  return (
+    <button type="button" onClick={() => requestTeachingLoadNavigation(onNavigate, destination)}>
+      Go to {destination}
+    </button>
+  );
+};
+
+const GuardHarness = ({ destination, onNavigate, strict = false }) => {
+  const [showTeachingLoad, setShowTeachingLoad] = useState(true);
+  const tree = (
+    <TeachingLoadUnsavedChangesProvider>
+      {showTeachingLoad && <TeachingLoadTab />}
+      <GuardAction
+        destination={destination}
+        onNavigate={() => {
+          onNavigate();
+          setShowTeachingLoad(false);
+        }}
+      />
+    </TeachingLoadUnsavedChangesProvider>
+  );
+  return strict ? <StrictMode>{tree}</StrictMode> : tree;
 };
 
 beforeEach(() => { h.ctx = baseCtx(); });
@@ -195,5 +226,121 @@ describe('TeachingLoadTab teacher-centred workflow', () => {
     expect(screen.getByText(/Could not load teaching assignments/)).toBeTruthy();
     expect(screen.getByText(/Could not load subjects/)).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Retry' })).toHaveLength(2);
+  });
+});
+
+describe('Teaching Load unsaved navigation protection', () => {
+  it('allows clean navigation without a confirmation', () => {
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('blocks dirty navigation and cancel preserves staged additions', () => {
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Leave Teaching Load?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Stay on Teaching Load' }));
+
+    expect(within(assignedSubjects()).getByText('English')).toBeTruthy();
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+  });
+
+  it('cancel preserves staged removals', () => {
+    h.ctx = baseCtx({ teachingLoad: [load('l1', ANA, ENG)] });
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    fireEvent.click(screen.getByRole('button', { name: /Remove English from Ana Cruz/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stay on Teaching Load' }));
+
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+    expect(h.ctx.removeLoad).not.toHaveBeenCalled();
+  });
+
+  it('confirms one destination once and never saves while leaving', () => {
+    const navigate = vi.fn();
+    render(<GuardHarness destination="User Management" onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to User Management' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to User Management' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(screen.getByText(/Leaving for User Management/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Leave without saving' }));
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(h.ctx.addLoadEntries).not.toHaveBeenCalled();
+    expect(h.ctx.removeLoad).not.toHaveBeenCalled();
+  });
+
+  it('guards logout through the same destination-aware contract', () => {
+    const logout = vi.fn();
+    render(<GuardHarness destination="Logout" onNavigate={logout} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Logout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stay on Teaching Load' }));
+    expect(logout).not.toHaveBeenCalled();
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Logout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Leave without saving' }));
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers beforeunload only while dirty and removes it after Discard', async () => {
+    const add = vi.spyOn(window, 'addEventListener');
+    const remove = vi.spyOn(window, 'removeEventListener');
+    render(<TeachingLoadTab />);
+    expect(add.mock.calls.some(([type]) => type === 'beforeunload')).toBe(false);
+
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+    await waitFor(() => expect(add.mock.calls.some(([type]) => type === 'beforeunload')).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(remove.mock.calls.some(([type]) => type === 'beforeunload')).toBe(true));
+  });
+
+  it('retains unresolved removals and the guard after a partial save', async () => {
+    h.ctx = baseCtx({
+      teachingLoad: [load('l1', ANA, ENG), load('l2', ANA, SCI)],
+      removeLoad: vi.fn().mockResolvedValue({ ok: false, deletedIds: ['l1'] }),
+    });
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    fireEvent.click(screen.getByRole('button', { name: /Remove English from Ana Cruz/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Remove Science from Ana Cruz/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Assignment' }));
+    await waitFor(() => expect(h.ctx.fetchTeachingLoad).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    expect(screen.getByRole('dialog', { name: 'Leave Teaching Load?' })).toBeTruthy();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not leave duplicate active beforeunload listeners in StrictMode', async () => {
+    const add = vi.spyOn(window, 'addEventListener');
+    const remove = vi.spyOn(window, 'removeEventListener');
+    const view = render(<GuardHarness strict onNavigate={vi.fn()} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+    await waitFor(() => expect(add.mock.calls.filter(([type]) => type === 'beforeunload').length).toBeGreaterThan(0));
+    view.unmount();
+
+    expect(remove.mock.calls.filter(([type]) => type === 'beforeunload')).toHaveLength(
+      add.mock.calls.filter(([type]) => type === 'beforeunload').length,
+    );
   });
 });

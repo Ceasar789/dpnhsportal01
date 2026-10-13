@@ -77,8 +77,8 @@ const AttendanceTab = () => {
       <div className="flex items-center justify-between mb-6 rounded-lg px-4 py-3"
         style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
         <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>My Attendance</h1>
-        <button onClick={fetchAttendance} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-          <RefreshCw size={16} />
+        <button aria-label="Refresh attendance" onClick={fetchAttendance} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+          <RefreshCw size={16} aria-hidden="true" />
         </button>
       </div>
 

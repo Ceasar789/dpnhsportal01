@@ -4,58 +4,80 @@
 // Includes the MEMO MODAL, which only this tab opens.
 // ============================================
 
-import React from 'react';
-import { Search } from 'lucide-react';
+import { useRef } from 'react';
 import { useAdminContext } from '../AdminContext';
+import { composeOptions, filterOptions } from '../../../../lib/memoRecipients';
+import Modal from '../../../../components/ui/Modal';
+import Button from '../../../../components/ui/Button';
+import { formatDate, formatDateTime } from '../../../../lib/formatDate';
 
 const MemosTab = () => {
   const {
-    closeModal, deleteMemo, editMemo, filteredMemos, handleOverlayClick,
-    mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos,
-    memosLoading, modal, openCompose, openEditMemo, saveMemo, selMemo,
+    closeModal, deleteMemo, editMemo, filteredMemos, mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos,
+    fetchMemos, memosError = '', memosLoading, modal, openCompose, openEditMemo, saveMemo, selMemo,
     setMBody, setMFrom, setMSubj, setMTo, setMemoFilter, setMemoSearch,
-    setSelMemo, stats, users
+    setSelMemo, users
   } = useAdminContext();
+
+  // 7D. Both of these lists used to be hardcoded, twice over, and the
+  // two departments in them — "Science Dept" and "Math Dept" — match
+  // nothing in profiles.department, where the real values are "Science"
+  // and "Mathematics". A memo addressed through that form went to a
+  // department with no members, and nobody found out.
+  const recipientOptions = composeOptions(users);
+  // The filter offers what the memos actually hold, so it can never be
+  // set to a group that matches nothing — and an old memo addressed to a
+  // department since renamed stays findable.
+  const recipientFilters = filterOptions(memos);
+  const pageHeadingRef = useRef(null);
+  const pageRootRef = useRef(null);
+  const focusAfterDelete = () => {
+    const nextMemo = pageRootRef.current?.querySelector('.memo-list-item');
+    if (nextMemo) nextMemo.focus();
+    else pageHeadingRef.current?.focus();
+  };
 
   return (
     <>
-            <div>
+            <div ref={pageRootRef}>
               <div className="page-header-bar">
-                <div className="page-title">Memo Management</div>
+                <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>Memo Management</div>
                 <div className="page-sub">Compose and distribute official memos to departments or all users</div>
               </div>
               <div className="toolbar">
                 <input placeholder="Search memos..." value={memoSearch} onChange={e => setMemoSearch(e.target.value)} style={{ flex:1, maxWidth:240 }} />
-                <select value={memoFilter} onChange={e => setMemoFilter(e.target.value)} style={{ width:'auto' }}>
+                <select value={memoFilter} onChange={e => setMemoFilter(e.target.value)} style={{ width:'auto' }} aria-label="Filter by recipient">
                   <option value="">All Recipients</option>
-                  <option>All Faculty</option>
-                  <option>All Students</option>
-                  <option>All</option>
-                  <option>Registrar Office</option>
-                  <option>Science Dept</option>
-                  <option>Math Dept</option>
+                  {recipientFilters.map(r => <option key={r}>{r}</option>)}
                 </select>
                 <button className="btn btn-primary" onClick={openCompose}>+ Compose</button>
               </div>
+              {memosError && <div className="cal-load-error" role="alert"><span>{memosError}</span><button type="button" className="btn btn-ghost" onClick={fetchMemos}>Retry</button></div>}
               <div className="memo-layout">
                 <div className="table-card">
                   {memosLoading
                     ? <div className="loading-row"><div className="spin"></div></div>
                     : filteredMemos.map(m => (
-                      <div key={m.id} className={`memo-list-item ${selMemo?.id === m.id ? 'active' : ''}`} onClick={() => setSelMemo(m)}>
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`ux-unbutton memo-list-item ${selMemo?.id === m.id ? 'active' : ''}`}
+                        aria-current={selMemo?.id === m.id ? 'true' : undefined}
+                        onClick={() => setSelMemo(m)}
+                      >
                         <div className="memo-title-item">{m.subject}</div>
                         <div className="memo-meta">
                           <span>{m.from_office || '—'}</span>
                           <span>→</span>
                           <span>{m.recipient || 'All'}</span>
-                          <span style={{ color:'var(--text-dim)' }}>{new Date(m.created_at).toLocaleDateString()}</span>
+                          <span style={{ color:'var(--text-dim)' }}>{formatDate(m.created_at)}</span>
                         </div>
                         <div className="memo-snippet">{m.content?.slice(0,60)}...</div>
-                      </div>
+                      </button>
                     ))
                   }
-                  {filteredMemos.length === 0 && !memosLoading && (
-                    <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)' }}>No memos found</div>
+                  {filteredMemos.length === 0 && !memosLoading && !memosError && (
+                    <div style={{ textAlign:'center', padding: 'var(--space-32)', color:'var(--text-muted)' }}>No memos found</div>
                   )}
                 </div>
                 <div>
@@ -71,16 +93,16 @@ const MemosTab = () => {
                       </div>
                       <div className="memo-field">
                         <span className="memo-field-label">Date</span>
-                        <span className="memo-field-val">{new Date(selMemo.created_at).toLocaleString()}</span>
+                        <span className="memo-field-val">{formatDateTime(selMemo.created_at)}</span>
                       </div>
-                      <div style={{ marginTop:16, lineHeight:1.6, fontSize:13, whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
+                      <div style={{ marginTop: 'var(--space-16)', lineHeight:1.6, fontSize: 'var(--font-size-13)', whiteSpace:'pre-wrap' }}>{selMemo.content}</div>
                       <div className="memo-actions">
                         <button className="btn btn-ghost" onClick={() => openEditMemo(selMemo)}>Edit</button>
-                        <button className="btn btn-danger" onClick={() => deleteMemo(selMemo.id)}>Delete</button>
+                        <button className="btn btn-danger" onClick={() => deleteMemo(selMemo.id, focusAfterDelete)}>Delete</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="memo-preview" style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>
+                    <div className="memo-preview" style={{ textAlign:'center', color:'var(--text-muted)', padding: 'var(--space-48)' }}>
                       Select a memo to view
                     </div>
                   )}
@@ -94,41 +116,43 @@ const MemosTab = () => {
             </div>
 
       {/* MEMO MODAL */}
-      <div className={`modal-overlay ${modal === 'memo' ? 'open' : ''}`} onClick={handleOverlayClick}>
-        <div className="modal">
-          <div className="modal-title">{editMemo ? 'Edit Memo' : 'Compose Memo'}</div>
+      <Modal
+        open={modal === 'memo'}
+        title={editMemo ? 'Edit Memo' : 'Compose Memo'}
+        onClose={closeModal}
+        footer={(requestClose) => (
+          <>
+            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+            <Button onClick={saveMemo} busy={mSaving} busyLabel={editMemo ? 'Updating…' : 'Sending…'}>
+              {editMemo ? 'Update' : 'Send'}
+            </Button>
+          </>
+        )}
+      >
           <div className="form-row">
-            <label className="form-label">From Office</label>
-            <input className="form-input" value={mFrom} onChange={e => setMFrom(e.target.value)} placeholder="e.g. Principal's Office" />
+            <label className="form-label" htmlFor="memos-from-office">From Office</label>
+            <input id="memos-from-office" className="form-input" value={mFrom} onChange={e => setMFrom(e.target.value)} placeholder="e.g. Principal's Office" />
           </div>
           <div className="form-row">
-            <label className="form-label">Recipient</label>
-            <select className="form-input" value={mTo} onChange={e => setMTo(e.target.value)}>
-              <option>All Faculty</option>
-              <option>All Students</option>
-              <option>All</option>
-              <option>Registrar Office</option>
-              <option>Science Dept</option>
-              <option>Math Dept</option>
+            <label className="form-label" htmlFor="memos-recipient">Recipient</label>
+            <select id="memos-recipient" className="form-input" value={mTo} onChange={e => setMTo(e.target.value)}>
+              {/* A memo being EDITED may be addressed to something no
+                  longer offered — a renamed department, say. Keep its own
+                  value selectable so opening the form does not silently
+                  re-address it. */}
+              {mTo && !recipientOptions.includes(mTo) && <option>{mTo}</option>}
+              {recipientOptions.map(r => <option key={r}>{r}</option>)}
             </select>
           </div>
           <div className="form-row">
-            <label className="form-label">Subject</label>
-            <input className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" />
+            <label className="form-label" htmlFor="memos-subject">Subject</label>
+            <input id="memos-subject" className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" aria-required="true" />
           </div>
           <div className="form-row">
-            <label className="form-label">Body</label>
-            <textarea className="form-input" rows={6} value={mBody} onChange={e => setMBody(e.target.value)} placeholder="Write your memo..." />
+            <label className="form-label" htmlFor="memos-body">Body</label>
+            <textarea id="memos-body" className="form-input" rows={6} value={mBody} onChange={e => setMBody(e.target.value)} placeholder="Write your memo..." />
           </div>
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn btn-primary" onClick={saveMemo} disabled={mSaving}>
-              {mSaving ? <span className="spin" style={{width:16,height:16,marginRight:6}}></span> : null}
-              {editMemo ? 'Update' : 'Send'}
-            </button>
-          </div>
-        </div>
-      </div>
+      </Modal>
     </>
   );
 };

@@ -1,26 +1,11 @@
 // @vitest-environment jsdom
-// ============================================
-// FILE: src/pages/dashboards/admin/tabs/TeachingLoadTab.test.jsx
-// Interaction tests for the Teaching Load screen.
-//
-// The render smoke test only proves a tab does not throw on first paint. It
-// cannot tell you whether pressing a button does anything, and every rule
-// this screen enforces — one teacher per subject per grade, the draft, the
-// red fields — lives in exactly that gap. None of it is in the database, so
-// if it breaks here it breaks silently.
-//
-// The environment docblock above is per-file on purpose: vitest.config.js
-// runs in node so the pure-logic suites stay fast, and only the handful of
-// files that need a DOM pay for one.
-//
-// useAdminContext is mocked rather than wrapped in a real AdminProvider:
-// the provider would fetch, and what is under test is this component's own
-// logic, not Supabase.
-// ============================================
-
-import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { StrictMode, useState } from 'react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  TeachingLoadUnsavedChangesProvider,
+  useTeachingLoadUnsavedChanges,
+} from '../../../../context/TeachingLoadUnsavedChangesContext';
 
 const h = vi.hoisted(() => ({ ctx: {} }));
 vi.mock('../AdminContext', () => ({ useAdminContext: () => h.ctx }));
@@ -29,159 +14,333 @@ const TeachingLoadTab = (await import('./TeachingLoadTab')).default;
 
 const MATH = { id: 'sub-math', name: 'Mathematics', code: 'MATH' };
 const ENG = { id: 'sub-eng', name: 'English', code: 'ENG' };
+const SCI = { id: 'sub-sci', name: 'Science', code: 'SCI' };
 
-const ANA = { id: 't-ana', name: 'Ana Cruz', email: 'ana@example.com', department: 'English' };
-const RAMON = { id: 't-ramon', name: 'Ramon Delgado', email: 'ramon@example.com', department: 'Mathematics' };
+const ANA = {
+  id: 't-ana', name: 'Ana Cruz', email: 'ana@example.com', department: 'English', status: 'active',
+};
+const RAMON = {
+  id: 't-ramon', name: 'Ramon Delgado', email: 'ramon@example.com', department: 'Mathematics', status: 'active',
+};
+
+const load = (id, teacher, subject, grade = 'Grade 7') => ({
+  id, teacher_id: teacher.id, subject_id: subject.id,
+  grade_level: grade, school_year: '2026-2027',
+});
 
 const baseCtx = (over = {}) => ({
   schoolYear: '2026-2027',
   setSchoolYear: vi.fn(),
   teachers: [ANA, RAMON],
   teachersError: false,
-  subjects: [MATH, ENG],
+  teachersLoading: false,
+  subjects: [MATH, ENG, SCI],
+  subjectsError: false,
+  fetchSubjects: vi.fn(),
   teachingLoad: [],
   teachingLoadLoading: false,
   teachingLoadError: false,
   fetchTeachingLoad: vi.fn(),
   fetchTeachers: vi.fn(),
   addLoadEntries: vi.fn().mockResolvedValue(1),
-  removeLoad: vi.fn(),
+  removeLoad: vi.fn().mockResolvedValue(true),
   copyLoadFromYear: vi.fn(),
   showToast: vi.fn(),
   ...over,
 });
 
-const addButton = () => screen.getByRole('button', { name: /add to list/i });
+const chooseTeacher = name => fireEvent.click(screen.getByRole('button', { name: new RegExp(name, 'i') }));
+const subjectSelect = () => screen.getByLabelText('Add Subject');
+const assignedSubjects = () => screen.getByLabelText(/Subjects assigned to/);
+const addSubject = (id) => {
+  fireEvent.change(subjectSelect(), { target: { value: id } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add Subject' }));
+};
+
+const GuardAction = ({ destination = 'Overview', onNavigate }) => {
+  const { requestTeachingLoadNavigation } = useTeachingLoadUnsavedChanges();
+  return (
+    <button type="button" onClick={() => requestTeachingLoadNavigation(onNavigate, destination)}>
+      Go to {destination}
+    </button>
+  );
+};
+
+const GuardHarness = ({ destination, onNavigate, strict = false }) => {
+  const [showTeachingLoad, setShowTeachingLoad] = useState(true);
+  const tree = (
+    <TeachingLoadUnsavedChangesProvider>
+      {showTeachingLoad && <TeachingLoadTab />}
+      <GuardAction
+        destination={destination}
+        onNavigate={() => {
+          onNavigate();
+          setShowTeachingLoad(false);
+        }}
+      />
+    </TeachingLoadUnsavedChangesProvider>
+  );
+  return strict ? <StrictMode>{tree}</StrictMode> : tree;
+};
 
 beforeEach(() => { h.ctx = baseCtx(); });
 afterEach(cleanup);
 
-describe('TeachingLoadTab', () => {
-  it('opens on Grade 7 and scopes the subject label to it', () => {
+describe('TeachingLoadTab teacher-centred workflow', () => {
+  it('keeps the school-year and grade selectors and starts with guided teacher selection', () => {
     render(<TeachingLoadTab />);
-    expect(screen.getByText('Subject for Grade 7')).toBeTruthy();
+
+    expect(screen.getByLabelText('School Year').value).toBe('2026-2027');
+    expect(screen.getByRole('button', { name: /^Grade 7/ }).classList.contains('active')).toBe(true);
+    expect(screen.getByText('Select a teacher to begin assigning subjects.')).toBeTruthy();
   });
 
-  // The whole point of enabling the button while incomplete: a disabled
-  // button cannot say what it is waiting for.
-  it('names both missing fields when Add is pressed with nothing chosen', () => {
+  it('keeps the selected teacher, grade, status, and assigned count visible', () => {
+    h.ctx = baseCtx({ teachingLoad: [load('l1', ANA, ENG), load('l2', ANA, SCI)] });
     render(<TeachingLoadTab />);
-    expect(screen.queryByText(/pick a teacher from the list/i)).toBeNull();
+    chooseTeacher('Ana Cruz');
 
-    fireEvent.click(addButton());
-
-    expect(screen.getByText(/pick a teacher from the list/i)).toBeTruthy();
-    expect(screen.getByText(/choose a subject for grade 7/i)).toBeTruthy();
+    const detail = screen.getByRole('heading', { name: 'Ana Cruz' }).closest('.teaching-detail');
+    expect(within(assignedSubjects()).getByText('English')).toBeTruthy();
+    expect(within(assignedSubjects()).getByText('Science')).toBeTruthy();
+    expect(within(detail).getAllByText('Grade 7').length).toBeGreaterThan(0);
+    expect(within(detail).getAllByText('Active').length).toBeGreaterThan(0);
+    expect(within(detail).getAllByText('2').length).toBeGreaterThan(0);
   });
 
-  it('stages an entry instead of writing it', async () => {
-    const { container } = render(<TeachingLoadTab />);
+  it('searches teachers by department and reports the filtered count', () => {
+    render(<TeachingLoadTab />);
+    fireEvent.change(screen.getByLabelText('Search teachers'), { target: { value: 'mathemat' } });
 
-    fireEvent.click(screen.getByLabelText(/Ana Cruz/));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: ENG.id } });
-    fireEvent.click(addButton());
+    expect(screen.getByRole('button', { name: /Ramon Delgado/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Ana Cruz/ })).toBeNull();
+    expect(screen.getByText('1 of 2 shown')).toBeTruthy();
+  });
 
-    // In the draft, under its grade, and NOT sent anywhere. Scoped to the
-    // draft's own row: the name is also still in the picker, and getByText
-    // would match both.
-    expect(screen.getByText('To be assigned')).toBeTruthy();
-    expect(container.querySelector('.draft-grade').textContent).toBe('Grade 7');
-    expect(container.querySelector('.draft-teacher').textContent).toBe('Ana Cruz');
-    expect(container.querySelector('.draft-subject').textContent).toBe('English');
+  it('adds multiple subjects for one teacher without losing teacher context', () => {
+    render(<TeachingLoadTab />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+    addSubject(SCI.id);
+
+    expect(screen.getByRole('heading', { name: 'Ana Cruz' })).toBeTruthy();
+    expect(within(assignedSubjects()).getByText('English')).toBeTruthy();
+    expect(within(assignedSubjects()).getByText('Science')).toBeTruthy();
+    expect(screen.getByText('2 changes across this teaching load')).toBeTruthy();
     expect(h.ctx.addLoadEntries).not.toHaveBeenCalled();
   });
 
-  it('writes the whole draft on Assign, once', async () => {
+  it('keeps the school-year context fixed until staged changes are saved or discarded', () => {
     render(<TeachingLoadTab />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
 
-    fireEvent.click(screen.getByLabelText(/Ana Cruz/));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: ENG.id } });
-    fireEvent.click(addButton());
-    fireEvent.click(screen.getByRole('button', { name: /assign 1 entry/i }));
+    expect(screen.getByLabelText('School Year').disabled).toBe(true);
+    expect(screen.getByRole('button', { name: /Copy from 2025-2026/ }).disabled).toBe(true);
+    expect(screen.getByText('Save or discard changes before changing the school year.')).toBeTruthy();
 
-    expect(h.ctx.addLoadEntries).toHaveBeenCalledTimes(1);
-    expect(h.ctx.addLoadEntries).toHaveBeenCalledWith([
-      { teacher_id: ANA.id, grade_level: 'Grade 7', subject_id: ENG.id },
-    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(screen.getByLabelText('School Year').disabled).toBe(false);
   });
 
-  // A failed write must not empty the draft — rebuilding eight lines before
-  // you can retry is worse than the failure.
-  it('keeps the draft when the write fails', async () => {
+  it('allows another teacher to hold a subject already used in the grade', () => {
+    h.ctx = baseCtx({ teachingLoad: [load('l1', RAMON, MATH)] });
+    render(<TeachingLoadTab />);
+    chooseTeacher('Ana Cruz');
+    addSubject(MATH.id);
+
+    expect(within(assignedSubjects()).getByText('Mathematics')).toBeTruthy();
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+    expect(h.ctx.showToast).not.toHaveBeenCalled();
+  });
+
+  it('blocks only the same subject for the same teacher and grade with friendly copy', () => {
+    h.ctx = baseCtx({ teachingLoad: [load('l1', ANA, SCI)] });
+    render(<TeachingLoadTab />);
+    chooseTeacher('Ana Cruz');
+    addSubject(SCI.id);
+
+    expect(h.ctx.showToast).toHaveBeenCalledWith(
+      'Science is already assigned to Ana Cruz for Grade 7.', 'error',
+    );
+    expect(screen.queryByText('Unsaved changes')).toBeNull();
+  });
+
+  it('stages saved-subject removal until Save Assignment', async () => {
+    h.ctx = baseCtx({ teachingLoad: [load('l1', ANA, ENG)] });
+    render(<TeachingLoadTab />);
+    chooseTeacher('Ana Cruz');
+
+    fireEvent.click(screen.getByRole('button', { name: /Remove English from Ana Cruz/ }));
+    expect(h.ctx.removeLoad).not.toHaveBeenCalled();
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Assignment' }));
+    await waitFor(() => expect(h.ctx.removeLoad).toHaveBeenCalledWith(['l1'], { refresh: false }));
+    await waitFor(() => expect(screen.getByText('All changes saved')).toBeTruthy());
+  });
+
+  it('saves all staged subjects in one existing batch call', async () => {
+    h.ctx = baseCtx({ addLoadEntries: vi.fn().mockResolvedValue(2) });
+    render(<TeachingLoadTab />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+    addSubject(SCI.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Assignment' }));
+    await waitFor(() => expect(h.ctx.addLoadEntries).toHaveBeenCalledWith([
+      { teacher_id: ANA.id, subject_id: ENG.id, grade_level: 'Grade 7' },
+      { teacher_id: ANA.id, subject_id: SCI.id, grade_level: 'Grade 7' },
+    ]));
+    await waitFor(() => expect(screen.getByText('All changes saved')).toBeTruthy());
+  });
+
+  it('keeps unsaved changes when a save fails', async () => {
     h.ctx = baseCtx({ addLoadEntries: vi.fn().mockResolvedValue(null) });
     render(<TeachingLoadTab />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+    fireEvent.click(screen.getByRole('button', { name: 'Save Assignment' }));
 
-    fireEvent.click(screen.getByLabelText(/Ana Cruz/));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: ENG.id } });
-    fireEvent.click(addButton());
-    await screen.findByText('To be assigned');
-    fireEvent.click(screen.getByRole('button', { name: /assign 1 entry/i }));
-
-    expect(await screen.findByText('To be assigned')).toBeTruthy();
+    await waitFor(() => expect(h.ctx.addLoadEntries).toHaveBeenCalled());
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+    expect(within(assignedSubjects()).getByText('English')).toBeTruthy();
   });
 
-  // Rule the database cannot enforce: teacher_subjects is UNIQUE on
-  // (teacher, subject, grade, year), so it would take a second teacher on
-  // the same subject and grade without complaint.
-  it('disables a teacher who already holds something at this grade', () => {
-    h.ctx = baseCtx({
-      teachingLoad: [{
-        id: 'l1', teacher_id: RAMON.id, subject_id: MATH.id,
-        grade_level: 'Grade 7', school_year: '2026-2027',
-      }],
-    });
+  it('keeps the selected teacher while changing grade context', () => {
+    h.ctx = baseCtx({ teachingLoad: [load('l1', ANA, ENG, 'Grade 8')] });
     render(<TeachingLoadTab />);
-
-    expect(screen.getByLabelText(/Ramon Delgado/).disabled).toBe(true);
-    expect(screen.getByLabelText(/Ana Cruz/).disabled).toBe(false);
-  });
-
-  it('disables a subject already taken at this grade', () => {
-    h.ctx = baseCtx({
-      teachingLoad: [{
-        id: 'l1', teacher_id: RAMON.id, subject_id: MATH.id,
-        grade_level: 'Grade 7', school_year: '2026-2027',
-      }],
-    });
-    render(<TeachingLoadTab />);
-
-    const taken = screen.getByRole('option', { name: /Mathematics — Ramon Delgado/ });
-    expect(taken.disabled).toBe(true);
-  });
-
-  // Grade 7's load must not follow you to Grade 8.
-  it('scopes the picker and the saved list to the grade tab', () => {
-    h.ctx = baseCtx({
-      teachingLoad: [{
-        id: 'l1', teacher_id: RAMON.id, subject_id: MATH.id,
-        grade_level: 'Grade 7', school_year: '2026-2027',
-      }],
-    });
-    render(<TeachingLoadTab />);
-    expect(screen.getByLabelText(/Ramon Delgado/).disabled).toBe(true);
-
+    chooseTeacher('Ana Cruz');
     fireEvent.click(screen.getByRole('button', { name: /^Grade 8/ }));
 
-    expect(screen.getByLabelText(/Ramon Delgado/).disabled).toBe(false);
-    expect(screen.getByText('Nothing assigned for Grade 8 yet.')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Ana Cruz' })).toBeTruthy();
+    expect(within(assignedSubjects()).getByText('English')).toBeTruthy();
+    expect(screen.getAllByText('Grade 8').length).toBeGreaterThan(0);
   });
 
-  it('searches teachers by department, not just by name', () => {
+  it('reports teaching-load and subject read failures with the correct retry', () => {
+    h.ctx = baseCtx({ teachingLoadError: true, subjectsError: true });
     render(<TeachingLoadTab />);
-    fireEvent.change(screen.getByPlaceholderText(/search by name/i), {
-      target: { value: 'mathemat' },
+    chooseTeacher('Ana Cruz');
+
+    expect(screen.getByText(/Could not load teaching assignments/)).toBeTruthy();
+    expect(screen.getByText(/Could not load subjects/)).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Retry' })).toHaveLength(2);
+  });
+});
+
+describe('Teaching Load unsaved navigation protection', () => {
+  it('allows clean navigation without a confirmation', () => {
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('blocks dirty navigation and cancel preserves staged additions', () => {
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Leave Teaching Load?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Stay on Teaching Load' }));
+
+    expect(within(assignedSubjects()).getByText('English')).toBeTruthy();
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+  });
+
+  it('cancel preserves staged removals', () => {
+    h.ctx = baseCtx({ teachingLoad: [load('l1', ANA, ENG)] });
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    fireEvent.click(screen.getByRole('button', { name: /Remove English from Ana Cruz/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stay on Teaching Load' }));
+
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+    expect(h.ctx.removeLoad).not.toHaveBeenCalled();
+  });
+
+  it('confirms one destination once and never saves while leaving', () => {
+    const navigate = vi.fn();
+    render(<GuardHarness destination="User Management" onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to User Management' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to User Management' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(screen.getByText(/Leaving for User Management/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Leave without saving' }));
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(h.ctx.addLoadEntries).not.toHaveBeenCalled();
+    expect(h.ctx.removeLoad).not.toHaveBeenCalled();
+  });
+
+  it('guards logout through the same destination-aware contract', () => {
+    const logout = vi.fn();
+    render(<GuardHarness destination="Logout" onNavigate={logout} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Logout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stay on Teaching Load' }));
+    expect(logout).not.toHaveBeenCalled();
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Logout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Leave without saving' }));
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers beforeunload only while dirty and removes it after Discard', async () => {
+    const add = vi.spyOn(window, 'addEventListener');
+    const remove = vi.spyOn(window, 'removeEventListener');
+    render(<TeachingLoadTab />);
+    expect(add.mock.calls.some(([type]) => type === 'beforeunload')).toBe(false);
+
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+    await waitFor(() => expect(add.mock.calls.some(([type]) => type === 'beforeunload')).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(remove.mock.calls.some(([type]) => type === 'beforeunload')).toBe(true));
+  });
+
+  it('retains unresolved removals and the guard after a partial save', async () => {
+    h.ctx = baseCtx({
+      teachingLoad: [load('l1', ANA, ENG), load('l2', ANA, SCI)],
+      removeLoad: vi.fn().mockResolvedValue({ ok: false, deletedIds: ['l1'] }),
     });
+    const navigate = vi.fn();
+    render(<GuardHarness onNavigate={navigate} />);
+    chooseTeacher('Ana Cruz');
+    fireEvent.click(screen.getByRole('button', { name: /Remove English from Ana Cruz/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Remove Science from Ana Cruz/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Assignment' }));
+    await waitFor(() => expect(h.ctx.fetchTeachingLoad).toHaveBeenCalled());
 
-    expect(screen.getByLabelText(/Ramon Delgado/)).toBeTruthy();
-    expect(screen.queryByLabelText(/Ana Cruz/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Overview' }));
+    expect(screen.getByRole('dialog', { name: 'Leave Teaching Load?' })).toBeTruthy();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
-  // A failed read must never render as an empty school.
-  it('offers a retry when the load could not be read', () => {
-    h.ctx = baseCtx({ teachingLoadError: true });
-    render(<TeachingLoadTab />);
+  it('does not leave duplicate active beforeunload listeners in StrictMode', async () => {
+    const add = vi.spyOn(window, 'addEventListener');
+    const remove = vi.spyOn(window, 'removeEventListener');
+    const view = render(<GuardHarness strict onNavigate={vi.fn()} />);
+    chooseTeacher('Ana Cruz');
+    addSubject(ENG.id);
+    await waitFor(() => expect(add.mock.calls.filter(([type]) => type === 'beforeunload').length).toBeGreaterThan(0));
+    view.unmount();
 
-    expect(screen.getByText(/could not load/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy();
+    expect(remove.mock.calls.filter(([type]) => type === 'beforeunload')).toHaveLength(
+      add.mock.calls.filter(([type]) => type === 'beforeunload').length,
+    );
   });
 });

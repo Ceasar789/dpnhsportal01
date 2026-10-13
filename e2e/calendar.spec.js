@@ -4,11 +4,12 @@
 // claimed aria-modal but never touched focus, every event chip opened the
 // first event on the day, and the error state had no way out.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 test.describe('public calendar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('a day with events exposes one control per event, not one per day', async ({ page }) => {
@@ -66,7 +67,7 @@ test.describe('public calendar on small screens', () => {
     test(`${label} ${w}x${h}: no sideways scroll and no sub-24px targets`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/calendar');
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
 
       const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(scrollW, `${label} scrolls sideways`).toBeLessThanOrEqual(w + 1);
@@ -78,14 +79,18 @@ test.describe('public calendar on small screens', () => {
         .map(x => `${x.n} ${Math.round(x.b.width)}x${Math.round(x.b.height)}`));
       expect(small, 'targets under the 24x24 minimum').toEqual([]);
 
-      // The grid stops pretending 43px can hold an event name; the list does.
-      await expect(page.getByRole('button', { name: /^Open / })).not.toHaveCount(0);
+      // The grid stops pretending 43px can hold an event name; the list
+      // does. Only meaningful when the month HAS an event: with none
+      // seeded this asserted that an empty calendar is broken.
+      const openers = page.getByRole('button', { name: /^Open / });
+      test.skip(await openers.count() === 0, 'no events this month — no names to list');
+      await expect(openers).not.toHaveCount(0);
     });
   }
 
   test('the colours in the grid are named somewhere', async ({ page }) => {
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     // Event type is carried by hue in the grid; a legend keeps that readable
     // for anyone who cannot separate the hues.
     for (const label of ['Event', 'Deadline', 'Holiday', 'Other']) {
@@ -95,7 +100,7 @@ test.describe('public calendar on small screens', () => {
 
   test('a start time reads as a clock time, not a database value', async ({ page }) => {
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     const body = await page.locator('main').innerText();
     // "13:00:00" came straight out of the Postgres TIME column.
     expect(body).not.toMatch(/\bat \d{1,2}:\d{2}:\d{2}\b/);
@@ -104,7 +109,7 @@ test.describe('public calendar on small screens', () => {
 
 test('the dialog badge says what its colour says', async ({ page }) => {
   await page.goto('/calendar');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
   const chips = page.getByRole('button', { name: /^Open / });
   test.skip(await chips.count() === 0, 'no events this month');
 
@@ -127,10 +132,20 @@ test('the dialog badge says what its colour says', async ({ page }) => {
 });
 
 test('an event name is readable at every width, not truncated to "PERIODIC ..."', async ({ page }) => {
+  // Settle whether this month has any events before measuring how its
+  // event names render. Desktop is the width where every event is listed,
+  // so it is the honest place to ask. With none, there is nothing this
+  // test can observe and a failure would name the fixture, not a defect.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/calendar');
+  await appReady(page);
+  test.skip(await page.getByRole('button', { name: /^Open / }).count() === 0,
+    'no events this month — no event names to measure');
+
   for (const [w, h] of [[390, 844], [768, 1024], [1440, 900]]) {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/calendar');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // A 97px cell truncated "PERIODIC EXAM" to a word and an ellipsis; a 43px
     // one cut it to a letter. Nothing that names an event may be clipped.
@@ -140,7 +155,9 @@ test('an event name is readable at every width, not truncated to "PERIODIC ..."'
         .map(e => e.textContent.trim()));
     expect(clipped, `event labels clipped at ${w}px`).toEqual([]);
 
-    // On a phone the grid carries dots, so the names have to live somewhere.
+    // On a phone the grid carries dots, so the names have to live
+    // somewhere — when there are names. An empty month has nothing to
+    // list and is not evidence of a layout fault.
     if (w < 640) {
       const named = await page.getByRole('button', { name: /^Open / }).count();
       expect(named, 'a phone needs the event names listed somewhere').toBeGreaterThan(0);
@@ -151,26 +168,59 @@ test('an event name is readable at every width, not truncated to "PERIODIC ..."'
 test('the type filter narrows the grid, not just the lists', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/calendar');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
 
-  const before = await page.getByRole('button', { name: /^Open / }).count();
-  test.skip(before === 0, 'no events this month');
+  // role=group is the day cell, so this counts GRID chips only. Counting
+  // every 'Open ...' on the page measures the month and upcoming lists too,
+  // and those read filteredEvents correctly — the first rewrite of this test
+  // did exactly that and still passed with the bug deliberately put back.
+  const chips = page.getByRole('group').getByRole('button', { name: /^Open / });
+  // The month the suite happens to run in may be empty — October 2026 is —
+  // and a test that skips forever looks like it is working. Walk forward
+  // until a month has grid chips, up to a year, and only give up then.
+  let all = await chips.count();
+  for (let hop = 0; all === 0 && hop < 12; hop++) {
+    await page.getByRole('button', { name: 'Next month' }).click();
+    await page.waitForTimeout(200);
+    all = await chips.count();
+  }
+  test.skip(all === 0, 'no month in the next year has a calendar event');
 
-  // getEventsForDate read `events` rather than `filteredEvents`, so tapping
-  // Deadline narrowed the lists and left every Event chip on the calendar.
-  const deadline = page.getByRole('button', { name: 'Deadline', exact: true }).first();
-  test.skip(await deadline.count() === 0, 'no Deadline filter offered');
-  await deadline.click();
-  await page.waitForTimeout(300);
+  // The first version of this test clicked Deadline and asserted the count
+  // dropped. That holds only while the visible month happens to carry more
+  // than one type, and it went red on 1 October for a calendar that was
+  // behaving correctly: October's single event IS a Deadline, so filtering
+  // to Deadline rightly changed nothing.
+  //
+  // The invariant that does not depend on this month's data: the filter
+  // buttons are built from the types actually present, so the per-type
+  // counts have to partition the unfiltered count. The bug this guards —
+  // getEventsForDate reading `events` instead of `filteredEvents`, so the
+  // grid ignored the filter — would make every type return the full count,
+  // and the sum would overshoot.
+  const names = (await page.locator('button[aria-pressed]').allInnerTexts())
+    .map((t) => t.trim())
+    .filter((t) => t && t !== 'All');
+  test.skip(names.length === 0, 'no type filters offered');
 
-  const after = await page.getByRole('button', { name: /^Open / }).count();
-  expect(after, 'the grid ignored the filter').toBeLessThan(before);
+  let summed = 0;
+  for (const name of names) {
+    await page.getByRole('button', { name, exact: true }).first().click();
+    await page.waitForTimeout(300);
+    const n = await chips.count();
+    expect(n, `"${name}" alone shows more chips than the unfiltered month`)
+      .toBeLessThanOrEqual(all);
+    summed += n;
+  }
+
+  expect(summed, `the per-type counts (${summed}) should partition the month (${all})`)
+    .toBe(all);
 });
 
 test('a phone sees the filter result without scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/calendar');
-  await page.waitForLoadState('networkidle');
+  await appReady(page);
 
   // The banner was 184px and the cells 96px, which put the event names at
   // y=840 on an 844px screen: tapping a filter changed nothing visible.

@@ -102,8 +102,8 @@ const MobileDrawer = ({ role, isOpen, onClose }) => {
                role === 'faculty' ? 'Faculty Portal' : 'Registrar Portal'}
             </span>
           </div>
-          <button onClick={onClose} className="text-white p-1">
-            <X size={24} />
+          <button onClick={onClose} aria-label="Close navigation menu" className="text-white p-1">
+            <X size={24} aria-hidden="true" />
           </button>
         </div>
 

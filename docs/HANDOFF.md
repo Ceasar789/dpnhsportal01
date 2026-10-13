@@ -126,25 +126,48 @@ recent submission and works backwards to whoever owns it.
 
 Almost everything that stood here is now done. What remains:
 
-**1. The end-to-end suite has never run.** Fifteen Playwright specs in
-`e2e/`. They parse and list, and not one has executed — the machine they
-were written on could not download a browser binary.
+**1. Forty-four places still render text at 11px.** WCAG sets no minimum
+font size, so this is a convention rather than a failure, and raising them
+is a visual decision rather than a repair. `e2e/text-size.spec.js` holds the
+floor at 11px to match; raise the floor with them if they ever move.
 
-    npx playwright install chromium
-    npm run test:e2e
+**2. The restyle script cannot help the auth pages**, and the reason is a
+real gap. Its refusals there are `scoped-token`: the nearest match for a
+field background is `--sidebar-bg` and for a muted label a dashboard text
+token, so taking either would tie a login page to the dashboard sidebar's
+next redesign. The system has no neutral token for those roles. Adding
+`--field-bg` and `--label` would close it.
 
-Read-only by design: there is no test database, so they run against the
-live one and nothing creates, edits or deletes a row.
+**3. The e2e suite has no admin or registrar fixture.** `e2e/helpers.js`
+seeds a student and a teacher only, so the admin tables and the registrar's
+screens are reasoned about rather than measured — including the phone-width
+admin calendar, whose font size was raised without a browser to check it in.
 
-**2. `profiles` still exposes columns a student should not see.** The RLS
-audit narrowed WHICH ROWS a student may read — themselves, staff, their own
-classmates — but Row Level Security cannot hide `phone`, `date_of_birth` or
-`address` while showing `name`. A student can still read those for a
-classmate.
+## The profiles column exposure
 
-Closing it needs a view with a named column list and a change at every
-`select('*')` on profiles — five of them. Bigger than a policy change, and
-worth doing before this holds real students' data.
+Closed in `phase5-04`, and **run against the database on 2026-10-01** — five
+checks, five PASS, no SKIP: a student cannot read another student's row or a
+teacher's, can still read their own, sees exactly one row in the whole table,
+and staff still have the directory. The e2e suite was re-run against the
+tightened policy afterwards: 111 passed, nothing broke. Recorded here because the shape of
+the fix is not what this file previously predicted.
+
+RLS is row-level: it cannot show `name` while hiding `phone`. The proposal
+was a view with a named column list plus a change at every `select('*')` on
+profiles. Reading the application first showed that was more machinery than
+the problem needed. Nothing a student can reach reads another person's
+profile at all — the student dashboard queries five tables and profiles is
+not among them, AuthContext reads only `.eq('id', userId)`, and news carries
+its author as a column rather than a join.
+
+The five `select('*')` calls were in `src/lib/db.js`, which turned out to be
+**entirely unreferenced** — 77 exported query helpers, no importers. Deleted.
+
+So the fix is one narrowed policy: a student reads their own row and nothing
+else, staff keep the directory and the phone numbers they need to call a
+parent. If a later screen genuinely needs a classmate's or teacher's name,
+the answer is the view — `phase5-04` carries the exact DDL in a comment —
+not widening the policy back.
 
 ## Done since this file was last rewritten
 

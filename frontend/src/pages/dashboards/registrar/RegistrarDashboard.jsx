@@ -4,9 +4,10 @@
 // Split from the original monolithic RegistrarDashboard.jsx (2,158 lines)
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
 import {
   LayoutDashboard, Users, ClipboardList, Calendar, FileText,
   Moon, Sun, LogOut, Menu, ChevronRight, School,
@@ -33,6 +34,7 @@ import FlippingLogo from '../../../components/FlippingLogo';
 // ============================================
 const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
   const { logout, userData } = useAuth();
+  const { requestProfileNavigation } = useProfileUnsavedChanges();
   const navigate = useNavigate();
   const location = useLocation();
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
@@ -40,7 +42,10 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => requestProfileNavigation(() => {
+    logout();
+    navigate('/login');
+  });
 
   const navItems = [
     { path: '/registrar-dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -70,10 +75,12 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
 
         <button
           onClick={() => setSidebarCollapsed(c => !c)}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!sidebarCollapsed}
           className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full items-center justify-center shadow-md z-10"
           style={{ backgroundColor: 'var(--sidebar-bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
         >
-          {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronRight size={13} className="rotate-180" />}
+          {sidebarCollapsed ? <ChevronRight size={13} aria-hidden="true" /> : <ChevronRight size={13} className="rotate-180" aria-hidden="true" />}
         </button>
 
         <div className="p-5 border-b" style={{ borderColor: 'var(--border)' }}>
@@ -135,10 +142,10 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
             {!sidebarCollapsed && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>All systems online</span>}
           </div>
           {!sidebarCollapsed && <div className="mt-3 px-2">
-            <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
               Academic Year 2025–2026
             </p>
-            <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
               Semester: 2nd Semester
             </p>
           </div>}
@@ -148,6 +155,7 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
             onClick={handleLogout}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
             style={{ color: '#dc2626', borderColor: '#f3b9ba', backgroundColor: 'var(--sidebar-bg)' }}
+            aria-label="Logout"
             title={sidebarCollapsed ? 'Logout' : undefined}
           >
             <LogOut size={15} />
@@ -159,7 +167,7 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30"
           style={{ backgroundColor: '#003b7a' }}>
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0"><Menu size={20} /></button>
+          <button onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu" className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0"><Menu size={20} aria-hidden="true" /></button>
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
             <FlippingLogo className="w-12 h-12 sm:w-16 sm:h-16" />
             <div className="hidden sm:block leading-tight">
@@ -171,8 +179,8 @@ const RegistrarLayout = ({ children, darkMode, setDarkMode }) => {
           <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
             <NotificationBell />
 
-            <button onClick={() => setDarkMode(!darkMode)} className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors">
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+            <button onClick={() => setDarkMode(!darkMode)} aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors">
+              {darkMode ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
             </button>
 
             <Avatar

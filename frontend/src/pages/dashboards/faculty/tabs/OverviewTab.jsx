@@ -90,7 +90,7 @@ const OverviewTab = () => {
         </div>
         <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,.75)', border: '1px solid rgba(25,8,223,.16)' }}>
           <div>
-            <p className="text-[10px] font-bold tracking-wide uppercase" style={{ color: '#4d5b8a' }}>Academic Year</p>
+            <p className="text-xs font-bold tracking-wide uppercase" style={{ color: '#4d5b8a' }}>Academic Year</p>
             <p className="text-lg font-extrabold" style={{ color: '#1a2b4a' }}>2025–2026</p>
           </div>
         </div>

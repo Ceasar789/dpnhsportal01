@@ -6,9 +6,20 @@
 //
 // These run against whatever database your .env points at. There is no test
 // instance, so that is your LIVE one. Every spec under e2e/ is therefore
-// READ-ONLY by design: it logs in, navigates and asserts, and never creates,
-// edits or deletes a row. The moment a spec needs to write, give it its own
-// Supabase project — do not let it write here.
+// READ-ONLY by default: it logs in, navigates and asserts, and never creates,
+// edits or deletes a row.
+//
+// Three tests cannot prove what they prove without a write — that a setting
+// survives a reload, and that an action reaches the audit log. Faking those
+// with an intercepted response tests the mock. They are skipped unless
+// E2E_ALLOW_WRITES=1 is set:
+//
+//   E2E_ALLOW_WRITES=1 npx playwright test
+//
+// Each restores what it changed in a finally. The audit rows cannot be
+// restored — an audit table has no DELETE policy, correctly — so an opted-in
+// run leaves them behind. The fix is a separate Supabase project for e2e;
+// see "Next infrastructure task" in docs/ux-workarounds.md.
 //
 // They need the seeded accounts from archives/phase4-03 and phase4-05, and
 // they need `npx playwright install chromium` once per machine.
@@ -18,7 +29,24 @@
 // suite that blames the app for its own load teaches nothing.
 // ============================================
 
+import { readFileSync, existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+
+// The admin specs need a real admin login, and those credentials must never
+// reach the repository. They come from .env, which .gitignore covers, and
+// from the shell before it — so CI can export them instead of writing a file.
+//
+// Parsed here rather than with dotenv: it is nine lines against a dependency,
+// and this file is the only thing that needs it.
+for (const file of ['.env', 'frontend/.env', 'backend/.env']) {
+  if (!existsSync(file)) continue;
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (!m) continue;
+    const value = m[2].replace(/^['"]|['"]$/g, '');
+    if (process.env[m[1]] === undefined) process.env[m[1]] = value;
+  }
+}
 
 const PORT = 5173;
 

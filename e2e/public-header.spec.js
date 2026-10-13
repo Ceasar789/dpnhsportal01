@@ -4,6 +4,7 @@
 // being applied four times — and why rebuilding it on Home alone left News,
 // Calendar and Login with a hamburger and a 90px bar while Home had neither.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 const PAGES = [['/', 'Home'], ['/news', 'News'], ['/calendar', 'Calendar'], ['/login', null]];
 
@@ -21,7 +22,7 @@ for (const [path, active] of PAGES) {
   test(`${path} carries the shared header on a phone`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // No hamburger: the destinations stay on screen.
     await expect(page.getByRole('button', { name: 'Toggle navigation menu' })).toHaveCount(0);
@@ -54,7 +55,7 @@ test('the header is one component, not four copies', async ({ page }) => {
   for (const [path] of PAGES) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     const nav = await page.locator('nav').boundingBox();
     sameEverywhere('desktop', Math.round(nav.height), `${path} (desktop)`);
   }

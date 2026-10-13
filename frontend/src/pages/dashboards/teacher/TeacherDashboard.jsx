@@ -4,9 +4,10 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
 import {
   Users, BookOpen, GraduationCap,
   CalendarCheck, Megaphone, Moon, Sun, LogOut, Menu,
@@ -34,6 +35,7 @@ import FlippingLogo from '../../../components/FlippingLogo';
 const TeacherLayout = ({ children }) => {
   const { dark, toggleDark } = useTheme();
   const { logout, userData } = useAuth();
+  const { requestProfileNavigation } = useProfileUnsavedChanges();
   const navigate = useNavigate();
   const location = useLocation();
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
@@ -42,8 +44,10 @@ const TeacherLayout = ({ children }) => {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    requestProfileNavigation(() => {
+      logout();
+      navigate('/login');
+    });
   };
 
   const navItems = [
@@ -68,8 +72,8 @@ const TeacherLayout = ({ children }) => {
     <div className="dashboard-shell flex flex-col h-screen overflow-hidden" style={{ backgroundColor: mainBg }}>
       {/* ===== HEADER ===== */}
       <header className="flex items-center gap-4 px-4 sm:px-5 py-3 flex-shrink-0 shadow-sm z-30" style={{ backgroundColor: brandBackground }}>
-        <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
-          <Menu size={20} />
+        <button onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu" className="lg:hidden p-2 rounded-full text-white/90 hover:bg-white/10 transition-colors flex-shrink-0">
+          <Menu size={20} aria-hidden="true" />
         </button>
 
         <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
@@ -82,7 +86,7 @@ const TeacherLayout = ({ children }) => {
               <p className="font-work text-sm text-white/85">Teacher Dashboard</p>
               {userData?.profile?.department && (
                 <span
-                  className="px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide leading-none"
+                  className="px-2 py-0.5 rounded-full text-xs font-bold tracking-wide leading-none"
                   style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: '#ffffff' }}
                 >
                   {userData.profile.department.toUpperCase()}
@@ -93,8 +97,8 @@ const TeacherLayout = ({ children }) => {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-          <button onClick={toggleDark} className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors">
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
+          <button onClick={toggleDark} aria-label={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'} className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors">
+            {dark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
           </button>
           <NotificationBell />
         </div>
@@ -117,10 +121,12 @@ const TeacherLayout = ({ children }) => {
         >
           <button
             onClick={() => setSidebarCollapsed(c => !c)}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!sidebarCollapsed}
             className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full items-center justify-center shadow-md z-10 transition-transform"
             style={{ backgroundColor: sidebarBg, border: `1px solid ${borderColor}`, color: textMuted }}
           >
-            {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+            {sidebarCollapsed ? <ChevronRight size={13} aria-hidden="true" /> : <ChevronLeft size={13} aria-hidden="true" />}
           </button>
 
           <div className="p-5 border-b" style={{ borderColor }}>
@@ -185,7 +191,7 @@ const TeacherLayout = ({ children }) => {
           </nav>
 
           <div className="p-4 border-t" style={{ borderColor }}>
-            <button
+            <button aria-label="Logout"
               onClick={handleLogout}
               className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors border ${sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
               style={{ color: '#dc2626', borderColor: '#f3b9ba', backgroundColor: dark ? 'rgba(220,38,38,.12)' : '#fdf1f1' }}
@@ -209,7 +215,7 @@ const TeacherLayout = ({ children }) => {
 // ============================================
 const TeacherDashboard = () => {
   const navigate = useNavigate();
-  const { isTeacher, userData } = useAuth();
+  const { isTeacher } = useAuth();
   const { darkMode, toggleDarkMode } = useDashboardTheme();
 
   useEffect(() => {

@@ -5,6 +5,7 @@
 // announced, and five colour pairs sat under 4.5:1. The design is unchanged;
 // these are the defects.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 // sRGB relative luminance, WCAG 2.1 formula. Takes "rgb(r, g, b)".
 const CONTRAST = `(fg, bg) => {
@@ -24,7 +25,7 @@ const CONTRAST = `(fg, bg) => {
 test.describe('student login', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/student-login');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
   });
 
   test('both fields are reachable by their label, and autofillable', async ({ page }) => {

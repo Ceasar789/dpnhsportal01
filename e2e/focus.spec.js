@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 // A focus indicator counts only if a sighted keyboard user can see it. An
 // outline whose colour is transparent is not one — that is Tailwind's ring
@@ -10,7 +11,7 @@ const indicator = el => {
     parseFloat(c.outlineWidth) >= 2 &&
     !/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)|transparent/.test(c.outlineColor);
   const ringVisible = c.boxShadow !== 'none' && c.boxShadow.trim() !== '';
-  return { outlineVisible, ringVisible, outline: `${c.outlineWidth} ${c.outlineStyle} ${c.outlineColor}`, boxShadow: c.boxShadow };
+  return { focused: el.isConnected && document.activeElement === el, outlineVisible, ringVisible, outline: `${c.outlineWidth} ${c.outlineStyle} ${c.outlineColor}`, boxShadow: c.boxShadow };
 };
 
 const CASES = [
@@ -23,10 +24,27 @@ const CASES = [
 for (const [path, role, name, note] of CASES) {
   test(`${name} shows a visible focus indicator (${note})`, async ({ page }) => {
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     const el = page.getByRole(role, { name });
-    await el.focus();
-    const r = await el.evaluate(indicator);
+    // NEWS HISTORY only exists when the news page has history to show. A
+    // focus-indicator test cannot say anything about a control that is not
+    // on the page, and failing here would report a missing ring rather
+    // than a missing section.
+    test.skip(await el.count() === 0, `"${name}" is not on ${path} with the current data`);
+    await expect(el).toBeVisible();
+
+    // A data-loading render can replace the button between focus and
+    // measurement. The replacement has nonempty styles but is unfocused;
+    // checking only for empty styles misses that race. Measure an actually
+    // focused node and allow its focus transition to paint. A persistently
+    // missing indicator still fails, with the last measurement attached.
+    await page.keyboard.press('Tab');
+    let r;
+    await expect.poll(async () => {
+      await el.focus();
+      r = await el.evaluate(indicator);
+      return r.focused && (r.outlineVisible || r.ringVisible);
+    }, { message: `${name}: no visible indicator on the focused control` }).toBe(true);
     console.log(`  ${name.padEnd(15)} outline=${r.outline}  ring=${r.ringVisible}`);
     expect(r.outlineVisible || r.ringVisible,
       `${name} has no visible focus indicator: ${JSON.stringify(r)}`).toBe(true);

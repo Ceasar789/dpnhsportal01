@@ -6,6 +6,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isActiveAccount } from '../lib/accountStatus';
 
 const normalizeRole = (role) => {
   if (!role) return 'student';
@@ -30,6 +31,14 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
   if (!isAuthenticated) {
     console.log('🔐 ProtectedRoute: User not authenticated - redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
+
+  // Role answers what an account may do; status answers whether the account
+  // may enter a normal application route at all. Invitation/password setup is
+  // outside ProtectedRoute, so this does not interrupt onboarding callbacks.
+  if (!isActiveAccount(userData?.status)) {
+    console.warn('ProtectedRoute: account is not active - redirecting to login');
     return <Navigate to="/login" replace />;
   }
 

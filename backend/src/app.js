@@ -13,6 +13,7 @@
 import express from 'express';
 import cors from 'cors';
 import aiRoutes from './routes/ai.js';
+import { adminUsersRouter, onboardingRouter } from './routes/onboarding.js';
 
 // localhost, 127.x, ::1, and the three private IPv4 ranges — on any port.
 const PRIVATE_HOST = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/;
@@ -90,6 +91,8 @@ export function createApp() {
   app.get('/api/health', health);
 
   app.use('/api/ai', aiRoutes);
+  app.use('/api/admin/users', adminUsersRouter);
+  app.use('/api/onboarding', onboardingRouter);
 
   app.use((_req, res) => res.status(404).json({ error: 'Not found.' }));
 

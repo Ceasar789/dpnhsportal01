@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../config/supabase';
 import { Eye, EyeOff, Mail, Lock, ChevronDown, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
+import { loginErrorMessage } from '../../lib/loginAttemptLimit';
 
 const ROLE_OPTIONS = [
   { value: 'main_admin', label: 'Admin',      color: '#b91c1c', route: '/admin-dashboard' },
@@ -141,18 +142,11 @@ const FacultyLogin = () => {
         const actualRole = error.actualRole || error.message.split(':')[1];
         setErrorMessage(`Role mismatch.\n\nYour account is registered as: "${actualRole}"\n\nPlease select the CORRECT role above.`);
       } else {
-        setErrorMessage(getErrorMessage(error.message));
+        setErrorMessage(loginErrorMessage(error));
       }
       setLoginAttempted(false);
       setIsLoading(false);
     }
-  };
-
-  const getErrorMessage = (message) => {
-    if (message?.includes('Invalid login credentials')) return 'Invalid email or password';
-    if (message?.includes('Email not confirmed')) return 'Please verify your email first';
-    if (message?.includes('Too many requests')) return 'Too many attempts. Please try again later';
-    return 'Login failed. Please try again.';
   };
 
   const currentRole = ROLE_OPTIONS.find(r => r.value === selectedRole);

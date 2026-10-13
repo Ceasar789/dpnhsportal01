@@ -6,7 +6,7 @@
 // mechanical restyles could only ever report "0 substitutions". This spec is
 // the guard: it fails if the declaration moves back into a component.
 import { test, expect } from '@playwright/test';
-import { login, STUDENT, STUDENT_LOGIN } from './helpers.js';
+import { login, STUDENT, STUDENT_LOGIN, appReady } from './helpers.js';
 
 const PUBLIC_PAGES = ['/', '/news', '/calendar', '/login', '/student-login', '/faculty-login'];
 
@@ -20,7 +20,7 @@ test.describe('design tokens', () => {
   for (const path of PUBLIC_PAGES) {
     test(`${path} resolves every token`, async ({ page }) => {
       await page.goto(path);
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
 
       const values = await page.evaluate(read, TOKENS);
       for (const name of TOKENS) {
@@ -48,7 +48,7 @@ test.describe('design tokens', () => {
 
     // Leaving the dashboard must not leave the public pages themed.
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     const after = await page.evaluate(() => ({
       dark: document.documentElement.classList.contains('dark'),
       text: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
@@ -89,7 +89,7 @@ test.describe('token contrast', () => {
   for (const [label, path, setDark] of [['light', '/', false], ['dark', '/', true]]) {
     test(`${label}: every text token clears 4.5:1 on every surface`, async ({ page }) => {
       await page.goto(path);
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
       if (setDark) await page.evaluate(() => document.documentElement.classList.add('dark'));
 
       const rows = await page.evaluate(

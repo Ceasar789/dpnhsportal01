@@ -538,7 +538,7 @@ const StudentTasksTab = () => {
       <div className="flex items-center justify-between mb-6 rounded-lg px-4 py-3"
         style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
         <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>Tasks</h1>
-        <button onClick={fetchTasks} className="p-1.5 rounded-lg" style={muted}><RefreshCw size={16} /></button>
+        <button onClick={fetchTasks} aria-label="Refresh tasks" className="p-1.5 rounded-lg" style={muted}><RefreshCw size={16} aria-hidden="true" /></button>
       </div>
 
       {loading ? (

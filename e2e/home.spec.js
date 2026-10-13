@@ -5,6 +5,7 @@
 // pause control WCAG 2.2.2 asks for, off-screen — and the vision card was cut
 // in half. These guard the fix without pinning the large-monitor layout.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 const below = (box, h) => box.y + box.height > h;
 
@@ -12,7 +13,7 @@ test.describe('home page', () => {
   test('the hero fits a 1366x768 laptop', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     for (const [name, locator] of [
       ['headline', page.locator('h2').first()],
@@ -29,7 +30,7 @@ test.describe('home page', () => {
     for (const [w, h] of [[1200, 700], [1366, 768], [1920, 1080]]) {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
 
       // A block <h2> is full-width whatever its text measures, so compare the
       // glyph rectangles rather than the element box.
@@ -49,7 +50,7 @@ test.describe('home page', () => {
 
   test('the hero CTA names where it goes', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // It used to say "Apply for Admission" and navigate to /student-login.
     // There is no admission route in this app.
@@ -60,7 +61,7 @@ test.describe('home page', () => {
 
   test('the brand is spelled the same as the logo', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     const body = await page.locator('body').innerText();
     expect(body).not.toContain('Edu Scribe');
   });
@@ -76,7 +77,7 @@ test.describe('home page on small screens', () => {
     test(`${label} ${w}x${h}: no sideways scroll, and Our Vision is there`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
 
       const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(scrollW, `${label} scrolls sideways`).toBeLessThanOrEqual(w + 1);
@@ -87,7 +88,7 @@ test.describe('home page on small screens', () => {
   test('About us actually scrolls on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     await page.getByRole('button', { name: /About us/ }).click();
     await page.waitForTimeout(700);
@@ -97,7 +98,7 @@ test.describe('home page on small screens', () => {
   test('every tap target clears 24px on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     const small = await page.locator('button, a').evaluateAll(els => els
       .map(e => ({ name: (e.textContent || e.getAttribute('aria-label') || '?').trim().slice(0, 20),

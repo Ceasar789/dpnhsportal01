@@ -5,22 +5,54 @@
 // dashboard's header/sidebar, and the dark/light toggle hook that drives it.
 // ============================================
 
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 
 const THEME_STORAGE_KEY = 'smartedu-theme';
 
-// Dark mode is the default (matches Admin's original behavior); toggling adds
-// a `.dark` class to <html>, which src/styles/index.css keys off. Light is the
-// bare :root so that pages outside a dashboard still have usable tokens.
+// The stored value is a PREFERENCE, not a resolved appearance: 'dark',
+// 'light' or 'auto'. Only 'dark' and 'light' were ever written before, and
+// both are still valid, so an existing browser carries straight over.
+const PREFS = ['dark', 'light', 'auto'];
+
+const prefersDark = () => {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } catch {
+    // No matchMedia (old browser, jsdom without a stub) — fall back to the
+    // project's default rather than throwing during render.
+    return true;
+  }
+};
+
+// Dark mode is the default; the resolved value adds a `.dark` class to
+// <html>, which src/styles/index.css keys off. Light is the bare :root so
+// that pages outside a dashboard still have usable tokens.
+//
+// One hook instance per dashboard, shared through that dashboard's context.
+// That is what makes the admin's header button and its Settings dropdown
+// the same control: they read and write one state, so they cannot disagree.
 export const useDashboardTheme = () => {
-  const [darkMode, setDarkMode] = useState(() => {
+  const [themePref, setThemePrefState] = useState(() => {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === 'light') return false;
-      if (stored === 'dark') return true;
+      if (PREFS.includes(stored)) return stored;
     } catch { /* localStorage unavailable */ }
-    return true;
+    return 'dark';
   });
+
+  // Tracked separately so that 'auto' follows the OS while the page is open,
+  // not only at load. Someone whose machine switches at sunset should see
+  // the portal switch with it.
+  const [systemDark, setSystemDark] = useState(prefersDark);
+  useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia('(prefers-color-scheme: dark)'); } catch { return undefined; }
+    const onChange = (e) => setSystemDark(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const darkMode = themePref === 'auto' ? systemDark : themePref === 'dark';
 
   // Layout effect, not effect: the class has to be on <html> before the
   // browser paints, or a dark-mode user sees a light frame on every load.
@@ -33,13 +65,30 @@ export const useDashboardTheme = () => {
 
   useEffect(() => {
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, darkMode ? 'dark' : 'light');
+      localStorage.setItem(THEME_STORAGE_KEY, themePref);
     } catch { /* localStorage unavailable */ }
-  }, [darkMode]);
+  }, [themePref]);
 
-  const toggleDarkMode = () => setDarkMode(d => !d);
+  const setThemePref = useCallback((next) => {
+    if (PREFS.includes(next)) setThemePrefState(next);
+  }, []);
 
-  return { darkMode, setDarkMode, toggleDarkMode };
+  // Kept for the four call sites that predate 'auto' and think in booleans.
+  // Both forms still work — setDarkMode(true) and setDarkMode(d => !d) — and
+  // either one commits to an explicit preference, which is the right reading
+  // of "I pressed the dark-mode button": it is a choice, not a request to
+  // follow the system.
+  const setDarkMode = useCallback((next) => {
+    setThemePrefState((prev) => {
+      const wasDark = prev === 'auto' ? prefersDark() : prev === 'dark';
+      const wantDark = typeof next === 'function' ? next(wasDark) : !!next;
+      return wantDark ? 'dark' : 'light';
+    });
+  }, []);
+
+  const toggleDarkMode = useCallback(() => setDarkMode((d) => !d), [setDarkMode]);
+
+  return { darkMode, setDarkMode, toggleDarkMode, themePref, setThemePref };
 };
 
 // Shell-only styles: header/nav, sidebar, main layout, toast + spinner
@@ -52,9 +101,13 @@ export const DashboardThemeStyles = () => (
     .dashboard-shell .sidebar {
       transition: width .3s ease, transform .3s ease;
     }
+    /* Named properties, not the all keyword. These two animated their own
+       padding and border width, which is why a sidebar entry was never
+       "stable" for Playwright and needed force: true for three phases.
+       Nothing here needs layout to animate. */
     .dashboard-shell .sidebar-item,
     .dashboard-shell .sidebar-icon {
-      transition: all .3s ease;
+      transition: background-color .15s ease, color .15s ease, border-color .15s ease;
     }
     .dashboard-shell .icon-action {
       transition: transform .15s, background-color .15s, color .15s;
@@ -64,10 +117,11 @@ export const DashboardThemeStyles = () => (
     .dashboard-shell .clickable-stat {
       transition: transform .15s, border-color .15s, box-shadow .15s;
     }
+    /* D3: the 3px lift and the dark drop shadow were decoration on a
+       control whose only job is to navigate. The border colour already says
+       it is interactive, and it does not move the page under the pointer. */
     .dashboard-shell .clickable-stat:hover {
-      transform: translateY(-3px);
       border-color: var(--accent);
-      box-shadow: 0 8px 20px rgba(0,0,0,.18);
     }
 
     .dashboard-shell .toast {

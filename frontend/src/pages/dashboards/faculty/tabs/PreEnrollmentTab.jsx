@@ -5,6 +5,7 @@
 // ============================================
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { formatDate } from '../../../../lib/formatDate';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import {
@@ -213,7 +214,7 @@ const PreEnrollmentTab = () => {
                 <tr key={enrollment.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <p className="font-semibold text-sm text-[#1a2b4a]">{enrollment.student_name}</p>
-                    <p className="text-xs text-[#94A3B8]">Submitted {new Date(enrollment.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-[#94A3B8]">Submitted {formatDate(enrollment.created_at)}</p>
                   </td>
                   <td className="px-6 py-4 text-sm text-[#64748B]">{enrollment.parent_name}</td>
                   <td className="px-6 py-4 text-sm text-[#64748B]">Grade {enrollment.grade_level}</td>
@@ -240,26 +241,29 @@ const PreEnrollmentTab = () => {
                           setSelectedEnrollment(enrollment);
                           setShowDetailModal(true);
                         }}
+                        aria-label={`View ${enrollment.student_name}'s documents`}
                         className="p-2 hover:bg-blue-50 rounded-md transition-colors"
                       >
-                        <Eye size={18} className="text-blue-600" />
+                        <Eye size={18} className="text-blue-600" aria-hidden="true" />
                       </button>
                       {enrollment.status !== 'approved' && (
                         <button
                           onClick={() => handleApprove(enrollment.id)}
                           className="p-2 hover:bg-green-50 rounded-md transition-colors"
+                          aria-label={`Approve ${enrollment.student_name}`}
                           title="Approve"
                         >
-                          <Check size={18} className="text-green-600" />
+                          <Check size={18} className="text-green-600" aria-hidden="true" />
                         </button>
                       )}
                       {enrollment.status !== 'rejected' && (
                         <button
                           onClick={() => handleReject(enrollment.id)}
                           className="p-2 hover:bg-red-50 rounded-md transition-colors"
+                          aria-label={`Reject ${enrollment.student_name}`}
                           title="Reject"
                         >
-                          <X size={18} className="text-red-600" />
+                          <X size={18} className="text-red-600" aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -285,9 +289,10 @@ const PreEnrollmentTab = () => {
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
+                aria-label="Close document checklist"
                 className="p-1 hover:bg-gray-100 rounded-md"
               >
-                <X size={24} className="text-[#64748B]" />
+                <X size={24} className="text-[#64748B]" aria-hidden="true" />
               </button>
             </div>
 

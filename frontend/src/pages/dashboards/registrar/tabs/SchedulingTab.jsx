@@ -177,8 +177,8 @@ const SchedulingTab = () => {
                   )}
                   <td className="px-5 py-3.5">
                     <div className="flex gap-2">
-                      <button className="p-1.5 rounded-md transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20" style={{ color: 'var(--reg-blue)' }} title="View">
-                        <Eye size={14} />
+                      <button className="p-1.5 rounded-md transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20" style={{ color: 'var(--reg-blue)' }} aria-label={`View ${item.subject} for ${item.section}`} title="View">
+                        <Eye size={14} aria-hidden="true" />
                       </button>
                     </div>
                   </td>

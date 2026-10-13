@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../config/supabase';
+import {
+  clearLoginAttempts,
+  isCredentialFailure,
+  LOGIN_ATTEMPT_LIMIT,
+  readLoginAttempts,
+  recordLoginFailure,
+  remainingLockSeconds,
+} from '../lib/loginAttemptLimit';
+import { isActiveAccount, normalizeAccountStatus } from '../lib/accountStatus';
 
 const AuthContext = createContext(null);
 
@@ -17,19 +26,7 @@ const normalizeRole = (role) => {
   return roleMap[normalized] || 'student';
 };
 
-const isArchivedProfile = (profile) => profile?.status?.toString().trim().toLowerCase() === 'archived';
-const loginAttemptKey = (email) => `smartedu-login-attempts:${email.trim().toLowerCase()}`;
-const readLoginAttempts = (email) => {
-  try { return JSON.parse(localStorage.getItem(loginAttemptKey(email)) || '{"count":0}'); }
-  catch { return { count: 0 }; }
-};
-const clearLoginAttempts = (email) => localStorage.removeItem(loginAttemptKey(email));
-const recordLoginFailure = (email) => {
-  const attempts = readLoginAttempts(email);
-  const next = { count: Math.min(5, (attempts.count || 0) + 1), updatedAt: Date.now() };
-  localStorage.setItem(loginAttemptKey(email), JSON.stringify(next));
-  return next.count;
-};
+const isArchivedProfile = (profile) => normalizeAccountStatus(profile?.status) === 'archived';
 
 const buildUserData = (user, profile, role) => ({
   uid: user.id,
@@ -41,7 +38,8 @@ const buildUserData = (user, profile, role) => ({
     user.email?.split('@')[0] ||
     'User',
   role,
-  status: profile?.status || 'active',
+  // Missing or unrecognised status must never inherit active privileges.
+  status: normalizeAccountStatus(profile?.status),
   profile: profile || null,
   // Convenience role flags
   isMainAdmin: role === 'main_admin',
@@ -234,6 +232,12 @@ export const AuthProvider = ({ children }) => {
 
             if (isArchivedProfile(profile)) {
               await supabase.auth.signOut({ scope: 'local' });
+              if (profileOpSeqRef.current === opSeq) {
+                setUser(null);
+                setUserData(null);
+                userDataRef.current = null;
+                setIsAuthenticated(false);
+              }
               return;
             }
             // Role comes ONLY from the profiles row. user_metadata is writable
@@ -269,7 +273,7 @@ export const AuthProvider = ({ children }) => {
               setUser(session.user);
               setUserData(built);
               userDataRef.current = built;
-              setIsAuthenticated(true);
+              setIsAuthenticated(isActiveAccount(profile?.status));
             }
           } else if (!loginInProgressRef.current) {
             setUser(null);
@@ -306,9 +310,11 @@ export const AuthProvider = ({ children }) => {
 
     await supabase.auth.signOut({ scope: 'local' });
 
-    if (readLoginAttempts(email).count >= 5) {
+    const loginAttempts = readLoginAttempts(email);
+    const secondsRemaining = remainingLockSeconds(loginAttempts);
+    if (secondsRemaining > 0) {
       const lockedErr = new Error('LOGIN_ATTEMPTS_EXCEEDED');
-      lockedErr.userMessage = 'Too many failed login attempts. Please contact the administrator.';
+      lockedErr.userMessage = `Too many incorrect sign-in attempts. Try again in ${secondsRemaining} second${secondsRemaining === 1 ? '' : 's'}.`;
       setError(lockedErr.userMessage);
       setLoading(false);
       loginInProgressRef.current = false;
@@ -331,6 +337,10 @@ export const AuthProvider = ({ children }) => {
 
         if (!data?.user) throw new Error('No user returned from Supabase');
 
+        // A correct password ends the sequence even if a later profile or
+        // role check rejects this portal choice.
+        clearLoginAttempts(email);
+
         console.log('✅ Supabase Auth login successful:', data.user.email);
 
         const { profile, fetchFailed } = await fetchProfile(data.user.id);
@@ -350,6 +360,15 @@ export const AuthProvider = ({ children }) => {
           const archivedErr = new Error('ARCHIVED_ACCOUNT');
           archivedErr.userMessage = 'This account has been archived. Please contact the administrator.';
           throw archivedErr;
+        }
+
+        if (!isActiveAccount(profile?.status)) {
+          await supabase.auth.signOut();
+          const statusErr = new Error('ACCOUNT_NOT_ACTIVE');
+          statusErr.userMessage = profile
+            ? 'This account is not active. Please contact the administrator.'
+            : 'Could not verify an active account profile. Please contact the administrator.';
+          throw statusErr;
         }
 
         // Profiles row only — never user_metadata (self-writable, see above).
@@ -383,8 +402,15 @@ export const AuthProvider = ({ children }) => {
         lastError = err;
         console.warn(`⚠️ Login attempt ${attempt} failed:`, err.message);
 
-        // Don't retry on role mismatch — retrying won't change the account's role.
-        if (err.message?.startsWith('ROLE_MISMATCH:') || err.message === 'ARCHIVED_ACCOUNT') break;
+        // Wrong credentials, a server rate limit, a role mismatch and an
+        // archived account cannot improve half a second later. Retrying
+        // them would turn five user submissions into ten backend attempts.
+        if (isCredentialFailure(err)
+            || err.code === 'over_request_rate_limit'
+            || /too many requests/i.test(err.message || '')
+            || err.message?.startsWith('ROLE_MISMATCH:')
+            || err.message === 'ARCHIVED_ACCOUNT'
+            || err.message === 'ACCOUNT_NOT_ACTIVE') break;
 
         if (attempt < MAX_RETRIES) {
           await new Promise((r) => setTimeout(r, 500 * attempt));
@@ -394,13 +420,15 @@ export const AuthProvider = ({ children }) => {
 
     // All retries failed (or role mismatch short-circuited the loop)
     const msg = lastError?.userMessage || lastError?.message || 'Login failed. Please try again.';
-    // A connection failure is not a wrong password — it must not count toward
-    // the lockout, or a flaky network would lock a legitimate user out.
-    if (lastError?.message !== 'ARCHIVED_ACCOUNT'
-        && lastError?.message !== 'PROFILE_UNAVAILABLE'
-        && !lastError?.message?.startsWith('ROLE_MISMATCH:')) {
-      const failures = recordLoginFailure(email);
-      if (failures >= 5) lastError.userMessage = 'Too many failed login attempts. The next login attempt is blocked.';
+    // Only an incorrect credential response counts. Network failures,
+    // server rate limits, archived accounts and role/profile checks do not
+    // punish the user as though they typed a wrong password.
+    if (isCredentialFailure(lastError)) {
+      const attempts = recordLoginFailure(email);
+      if (attempts.count >= LOGIN_ATTEMPT_LIMIT) {
+        const seconds = remainingLockSeconds(attempts);
+        lastError.userMessage = `Too many incorrect sign-in attempts. Try again in ${seconds} seconds.`;
+      }
     }
     loginInProgressRef.current = false;
     setError(lastError?.userMessage || msg);
@@ -476,6 +504,7 @@ export const AuthProvider = ({ children }) => {
     if (profileOpSeqRef.current === opSeq) {
       setUserData(built);
       userDataRef.current = built;
+      setIsAuthenticated(isActiveAccount(profile?.status));
     }
   };
 

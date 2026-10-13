@@ -8,6 +8,7 @@
 // ============================================
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { formatDateTime } from '../lib/formatDate';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
@@ -28,7 +29,7 @@ const dotColor = (type) => {
   return 'bg-blue-500';
 };
 
-const NotificationBell = () => {
+const NotificationBell = ({ className = '' }) => {
   const { userData } = useAuth();
   const uid = userData?.uid;
 
@@ -172,16 +173,16 @@ const NotificationBell = () => {
   }, [open, markAllRead]);
 
   return (
-    <div className="relative">
+    <div className={`notification-bell relative ${className}`.trim()}>
       <button
         onClick={toggleOpen}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors relative"
+        className="notification-bell-button w-10 h-10 rounded-full flex items-center justify-center text-white/90 bg-white/10 hover:bg-white/20 transition-colors relative"
         aria-label="Notifications"
       >
-        <Bell size={18} />
+        <Bell size={18} aria-hidden="true" />
         {unreadCount > 0 && (
           <span
-            className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center"
+            className="notification-badge absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center"
             style={{ boxShadow: '0 0 0 2px #003b7a' }}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -193,7 +194,7 @@ const NotificationBell = () => {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-xl shadow-xl border z-50 overflow-hidden"
+            className="notification-panel absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-xl shadow-xl border z-50 overflow-hidden"
             style={{ backgroundColor: v('--card-bg', '#ffffff'), borderColor: v('--border', '#e2e8f0') }}
           >
             <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: v('--border', '#e2e8f0') }}>
@@ -224,7 +225,7 @@ const NotificationBell = () => {
                         <p className="text-base font-semibold" style={{ color: v('--text', '#1a2b4a') }}>{n.title}</p>
                         <p className="text-sm mt-1" style={{ color: v('--text-muted', '#64748b') }}>{n.message}</p>
                         <p className="text-xs mt-1.5" style={{ color: v('--text-dim', '#94a3b8') }}>
-                          {new Date(n.created_at).toLocaleString()}
+                          {formatDateTime(n.created_at)}
                         </p>
                       </div>
                     </div>

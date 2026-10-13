@@ -5,6 +5,7 @@
 // 844px screen. The card is gone and the choice sits under "Welcome Back."
 // in one full-width panel.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 const SIZES = [[390, 844, 'phone'], [768, 1024, 'tablet'], [1000, 900, 'small laptop'], [1440, 900, 'desktop']];
 
@@ -13,7 +14,7 @@ test.describe('portal chooser', () => {
     test(`${label} ${w}x${h}: both roles on screen, side by side`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/login');
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
 
       const main = page.locator('main');
       const student = await main.getByRole('button', { name: 'Student' }).boundingBox();
@@ -32,19 +33,19 @@ test.describe('portal chooser', () => {
 
   test('each role goes where it says', async ({ page }) => {
     await page.goto('/login');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     await page.locator('main').getByRole('button', { name: 'Student' }).click();
     await expect(page).toHaveURL(/\/student-login/);
 
     await page.goBack();
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
     await page.locator('main').getByRole('button', { name: 'Faculty' }).click();
     await expect(page).toHaveURL(/\/faculty-login/);
   });
 
   test('one heading, and the scrim carries the text', async ({ page }) => {
     await page.goto('/login');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     // "Hi, DPNHSian!" competed with "Welcome Back." from the deleted card.
     await expect(page.locator('main h1, main h2')).toHaveCount(1);

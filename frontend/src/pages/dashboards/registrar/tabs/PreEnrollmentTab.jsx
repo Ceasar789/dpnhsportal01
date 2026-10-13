@@ -332,7 +332,7 @@ const PreEnrollmentTab = () => {
                       </div>
                       <div>
                         <span className="text-sm font-medium" style={{ color: selected.documents?.[key] ? 'var(--reg-green)' : 'var(--reg-muted)' }}>{label}</span>
-                        {required && <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--reg-red)', color: '#fff' }}>Required</span>}
+                        {required && <span className="text-xs ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--reg-red)', color: '#fff' }}>Required</span>}
                       </div>
                     </div>
                     <Badge color={selected.documents?.[key] ? 'var(--reg-green)' : 'var(--reg-amber)'} 

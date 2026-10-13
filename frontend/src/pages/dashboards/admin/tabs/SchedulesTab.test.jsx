@@ -14,7 +14,6 @@
 // VARCHAR — 'Grade 7', 'grade 7' and '7' all reach it.
 // ============================================
 
-import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
@@ -25,6 +24,7 @@ const SchedulesTab = (await import('./SchedulesTab')).default;
 
 const MATH = { id: 'sub-math', name: 'Mathematics', code: 'MATH' };
 const ENG = { id: 'sub-eng', name: 'English', code: 'ENG' };
+const OLD = { id: 'sub-old', name: 'Legacy Arts', code: 'ARTS', is_active: false };
 
 const ANA = { id: 't-ana', name: 'Ana Cruz', email: 'ana@example.com' };
 const RAMON = { id: 't-ramon', name: 'Ramon Delgado', email: 'ramon@example.com' };
@@ -44,10 +44,21 @@ const LOAD = [
 const baseCtx = (over = {}) => ({
   schoolYear: YEAR,
   teachers: [ANA, RAMON],
+  teachersLoading: false,
+  teachersError: false,
+  fetchTeachers: vi.fn(),
   subjects: [MATH, ENG],
+  subjectsLoading: false,
+  subjectsError: false,
+  fetchSubjects: vi.fn(),
   sections: [MADRID, RIZAL, SLOPPY],
+  sectionsLoading: false,
   sectionsError: false,
+  fetchSections: vi.fn(),
   teachingLoad: LOAD,
+  teachingLoadLoading: false,
+  teachingLoadError: false,
+  fetchTeachingLoad: vi.fn(),
   schedules: [],
   schedulesLoading: false,
   schedulesError: false,
@@ -96,7 +107,7 @@ describe('SchedulesTab — sections', () => {
       }],
     });
     render(<SchedulesTab />);
-    expect(screen.getByText('1/2 subjects')).toBeTruthy();
+    expect(screen.getByText('1/2 active subjects')).toBeTruthy();
   });
 
   it('asks for a section before showing anything to fill in', () => {
@@ -134,6 +145,49 @@ describe('SchedulesTab — inside a section', () => {
       sectionId: MADRID.id, subjectId: MATH.id,
     });
   });
+
+  it('keeps inactive and unresolved saved periods visible without an Add action', () => {
+    h.ctx = baseCtx({
+      subjects: [MATH, ENG, OLD],
+      schedules: [
+        { id: 'old-row', section_id: MADRID.id, subject_id: OLD.id, teacher_id: ANA.id, day_of_week: 'Tuesday', start_time: '10:00', end_time: '11:00' },
+        { id: 'missing-row', section_id: MADRID.id, subject_id: 'deleted-subject', teacher_id: RAMON.id, day_of_week: 'Friday', start_time: '13:00', end_time: '14:00' },
+      ],
+    });
+    render(<SchedulesTab />);
+    fireEvent.click(screen.getByText('Madrid'));
+
+    expect(screen.getByText('Legacy Arts')).toBeTruthy();
+    expect(screen.getByText('Subject reference unavailable')).toBeTruthy();
+    expect(screen.getAllByText(/existing periods only/i)).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /Add Legacy Arts schedule/i })).toBeNull();
+    expect(screen.getByText('0/2 active subjects · 2 legacy periods')).toBeTruthy();
+  });
+
+  it('exposes selected grade, selected section and subject-specific Add names', () => {
+    render(<SchedulesTab />);
+    expect(screen.getByRole('button', { name: /^Grade 7/ }).getAttribute('aria-pressed')).toBe('true');
+    const madrid = screen.getByRole('button', { name: /Madrid/ });
+    expect(madrid.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(madrid);
+    expect(madrid.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Add Mathematics schedule' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add English schedule' })).toBeTruthy();
+  });
+
+  it('marks narrow-layout cells with persistent identity, detail and action semantics', () => {
+    h.ctx = baseCtx({ schedules: [{
+      id: 's1', section_id: MADRID.id, subject_id: ENG.id, teacher_id: ANA.id,
+      day_of_week: 'Monday', start_time: '08:00', end_time: '09:00', room_number: 'Room 201',
+    }] });
+    const { container } = render(<SchedulesTab />);
+    fireEvent.click(screen.getByText('Madrid'));
+    const englishRow = screen.getByText('English').closest('tr');
+    expect(englishRow.querySelector('[data-cell="identity"]')).toBeTruthy();
+    expect(englishRow.querySelector('[data-cell="detail"]')).toBeTruthy();
+    expect(englishRow.querySelector('[data-cell="actions"]')).toBeTruthy();
+    expect(container.querySelector('.schedule-table-card')).toBeTruthy();
+  });
 });
 
 describe('SchedulesTab — the form', () => {
@@ -164,11 +218,25 @@ describe('SchedulesTab — the form', () => {
     expect(screen.getByText(/in Teaching Load first/i)).toBeTruthy();
   });
 
+  it('does not misreport loading or failed eligibility as no teaching load', () => {
+    const view = openForm({ schedSubject: ENG.id, teachersLoading: true });
+    expect(screen.getByText(/loading teachers and teaching-load assignments/i)).toBeTruthy();
+    expect(screen.queryByText(/assign someone/i)).toBeNull();
+
+    Object.assign(h.ctx, { teachersLoading: false, teachingLoadError: true });
+    view.rerender(<SchedulesTab />);
+    expect(screen.getByText(/eligibility could not be loaded/i)).toBeTruthy();
+    expect(screen.queryByText(/assign someone/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /retry eligibility/i }));
+    expect(h.ctx.fetchTeachingLoad).toHaveBeenCalledOnce();
+  });
+
   it('marks the teacher field and refuses to save when it is empty', () => {
     openForm({ schedSubject: ENG.id });
     fireEvent.click(screen.getByRole('button', { name: /create/i }));
 
     expect(screen.getByText('Select a teacher.')).toBeTruthy();
+    expect(screen.getByLabelText('Teacher').required).toBe(true);
     expect(h.ctx.saveSchedule).not.toHaveBeenCalled();
   });
 
@@ -181,6 +249,9 @@ describe('SchedulesTab — the form', () => {
 
     expect(screen.getByText(/end time must be after the start time/i)).toBeTruthy();
     expect(container.querySelectorAll('input.is-invalid').length).toBe(2);
+    expect(screen.getByLabelText('Start').getAttribute('aria-describedby')).toBe('schedules-time-error');
+    expect(screen.getByLabelText('End').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByLabelText('Start').required).toBe(true);
     expect(h.ctx.saveSchedule).not.toHaveBeenCalled();
   });
 
@@ -192,6 +263,25 @@ describe('SchedulesTab — the form', () => {
 });
 
 describe('SchedulesTab — failures', () => {
+  it('distinguishes subject loading, failure and a genuine empty result', () => {
+    const view = render(<SchedulesTab />);
+    fireEvent.click(screen.getByText('Madrid'));
+
+    Object.assign(h.ctx, { subjectsLoading: true });
+    view.rerender(<SchedulesTab />);
+    expect(screen.queryByText(/No active subjects yet/i)).toBeNull();
+
+    Object.assign(h.ctx, { subjectsLoading: false, subjectsError: true });
+    view.rerender(<SchedulesTab />);
+    expect(screen.getByText(/Could not load subjects/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Retry subjects/i }));
+    expect(h.ctx.fetchSubjects).toHaveBeenCalledOnce();
+
+    Object.assign(h.ctx, { subjectsError: false, subjects: [] });
+    view.rerender(<SchedulesTab />);
+    expect(screen.getByText(/No active subjects yet/i)).toBeTruthy();
+  });
+
   it('offers a retry instead of an empty school', () => {
     h.ctx = baseCtx({ schedulesError: true });
     render(<SchedulesTab />);

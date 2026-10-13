@@ -4,6 +4,7 @@
 // own surfaces, and a scroll reset. Leaving a scrolled /news for /calendar
 // opened the calendar halfway down itself.
 import { test, expect } from '@playwright/test';
+import { appReady } from './helpers.js';
 
 const PUBLIC = ['/', '/news', '/calendar', '/login'];
 
@@ -11,7 +12,7 @@ test.describe('public navigation', () => {
   for (const path of PUBLIC) {
     test(`${path} animates its surfaces instead of snapping`, async ({ page }) => {
       await page.goto(path);
-      await page.waitForLoadState('networkidle');
+      await appReady(page);
 
       const shell = page.locator('.public-shell');
       await expect(shell).toHaveCount(1);
@@ -23,7 +24,7 @@ test.describe('public navigation', () => {
 
   test('a route change starts the new page at the top', async ({ page }) => {
     await page.goto('/news');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     await page.evaluate(() => window.scrollTo(0, 1200));
     // Only meaningful if the page is actually long enough to scroll.
@@ -32,14 +33,14 @@ test.describe('public navigation', () => {
 
     await page.getByRole('link', { name: 'Calendar' }).first().click();
     await expect(page).toHaveURL(/\/calendar/);
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     expect(await page.evaluate(() => window.scrollY), 'the calendar opened mid-page').toBe(0);
   });
 
   test('the footer no longer repeats the header navigation', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await appReady(page);
 
     const footer = page.locator('footer');
     await expect(footer.getByText('NAVIGATION')).toHaveCount(0);

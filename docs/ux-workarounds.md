@@ -1,0 +1,1143 @@
+# Admin Dashboard workaround and recovery notebook
+
+> **RC4 release status (8 October 2026):** This file is a chronological
+> engineering and recovery notebook. Its `pending`, `deferred`, and `not
+> verified` labels belong to the dated sections where they appear and are not
+> the current Admin release checklist. See
+> [admin-dashboard-release-summary.md](admin-dashboard-release-summary.md) for
+> final status and the genuine work that remains outside this release pass.
+
+## Original workaround inventory (historical)
+
+The original inventory follows for chronology. Its removal targets describe
+the phase plan at the time; completed or reclassified rows elsewhere in this
+notebook supersede it.
+
+| # | Where | What | Why it is there | Removed by |
+|---|---|---|---|---|
+| 1 | ~~`e2e/helpers.js` · `openAdminTab`~~ | ~~`item.click({ force: true })`~~ | **REMOVED in Phase 4f.** It existed because `.sidebar-item` carried `transition: all .3s ease` and the active entry animates its own padding and left border, so Playwright waited out its stability timeout on an element that was only changing appearance. 4f put the duration on the motion scale: 300ms to 150ms, confirmed by `getComputedStyle` rather than assumed. The removal condition said 150ms **and** `all` banned; half of it was enough. 43 admin tests pass without the force. | — done |
+
+Things that exist only because an earlier phase could not reach the code that
+really causes them. Each row names what removes it. Nothing here is a design
+decision; if a row survives Phase 5, it has become one by accident.
+
+| # | Where | What | Why it is there | Removed by |
+|---|---|---|---|---|
+| 1 | `e2e/helpers.js` · `openAdminTab` | `item.click({ force: true })` | `.sidebar-item` carries `transition: all .3s ease` and the active entry animates its padding and left border, so Playwright's stability check waits out its own timeout on an element that is only animating its own appearance. | **Rule L5** — transitions capped at 150ms and `all` banned. Drop `force` and confirm the click still lands. |
+| 2 | `components/ui/Modal.jsx` | Reuses `.modal-overlay`, `.modal`, `.modal-title`, `.modal-actions` | Those classes live inside `AdminDashboard.jsx`'s injected `<style>`, so `<Modal>` currently renders correctly **only inside the admin shell**. Reusing them was deliberate: migrating a tab is then a behaviour diff a reviewer can read, with no visual change to eyeball. | **Phase 5**, when the modal's styling moves to `index.css` and stops depending on where it is mounted. Until then, do not use `<Modal>` in the student, teacher, registrar or faculty dashboards. |
+| 3 | `styles/index.css` · `.ux-modal*` | A second set of classes layered over `.modal` | Adds the structure the originals never had — a body that scrolls on its own, a footer that stays put, the mobile sheet — without touching the originals. | **Phase 5** merges the two into one rule set. |
+| 4 | `e2e/helpers.js` · `openAdminTab` | Reopens the drawer before every tab click | Not a workaround for a defect — clicking a tab calls `setSidebarOpen(false)`, so the drawer genuinely has to be reopened. It stays. | — |
+| ~~5~~ | ~~`e2e/admin.spec.js` · `FLOOR = 11`~~ **DONE (4c)** — the floor is 12. `text-size.spec.js` stays at 11 and says why: it covers the public pages and the student and teacher dashboards, which the overhaul has not reached. Old text: `e2e/admin.spec.js` · `FLOOR = 11` | The text-size floor is 11px, not 12px | Writing 12 before Phase 4 raises the type scale would make the suite red before any work started. | **Phase 4**, together with `e2e/text-size.spec.js`. |
+
+| ~~6~~ | `styles/index.css` · `.ux-unbutton` **RECLASSIFIED (5)** — not a workaround. The four controls it serves (sidebar item, settings jump link, memo row, calendar event) all carry real styling now, and what the reset removes is what a `<button>` brings of its own: a background, a border, a centred text alignment. That is an ordinary reset and it stays. The `:not(.toggle)` exception IS gone — the shared Toggle was deleted in Phase 3b along with the three inert settings it switched, so nothing carries the class and `width: 100%` folds back into the base rule. Old text | A reset that strips a button back to looking like a div | Phase 2 turned five click-only divs into real buttons, and a button brings its own background, border, font and centred text. Condition 1 said Phase 2 must not move anything. `:not(.toggle)` is part of it: a blanket `width: 100%` beat `.toggle`'s own `width: 44px` and flattened all three switches to 0px. | **Phase 5**, when these controls get real styling and stop needing to impersonate a div. |
+
+## Deferred out of Phase 2 by condition 1
+
+- **UX-014** — the destructive row actions in SubjectsTab and SectionsTab
+  should take the `.archive-action` variant per Rule B4. That variant is
+  `color: var(--red)`, so applying it turns two grey icons red. Condition 1
+  forbids visual change in Phase 2, so it moves to **Phase 5**. It was
+  applied, measured and reverted rather than argued about.
+- **UX-107** — `formatDate()` exists and is deliberately still unused.
+  Applying it changes how every date on the dashboard reads, which is again
+  a visual change. **Phase 5**.
+
+## UX-054 — fixed, with two things it did not reach
+
+`withRetry` now catches. A thrown error becomes the same `{ data, error }`
+an HTTP failure produces, retried the same number of times, and every
+caller reports it without being changed. Ten unit tests;
+five of them fail with the `try`/`catch` removed.
+
+Two things that fix does **not** cover, both found while testing it:
+
+**1. Some aborted queries never settle at all.** A probe inside `attempt_`
+showed `PROBE_ENTER Sections fetch` four times and `PROBE_CAUGHT` zero
+times: on `route.abort()` the supabase promise sometimes neither resolves
+nor rejects, so there is nothing to catch and the screen stays on its
+loading state forever while the fetch is re-issued. It is also
+non-deterministic — the same abort test passed on one run and hung on the
+next, which is why every UI test in `e2e/network-failure.spec.js` uses an
+HTTP 500 and the mechanism is proven in unit tests instead.
+
+The obvious remedy is a **timeout** in `withRetry` — race `queryFn()` against
+a deadline and treat the deadline as an error. It was scoped, measured and
+then **dropped to stay inside the admin dashboard's scope**. No code was
+written; what follows is the analysis, so the next person does not have to
+redo it.
+
+**`withRetry` wraps reads only.** Every call site under `frontend/src`,
+excluding `archives/` and test files, was walked with a brace-matching parser
+that reads the whole balanced argument rather than a fixed line window:
+
+| | |
+|---|---|
+| call sites | 104 |
+| first supabase verb is `.select` | 103 |
+| no verb (the definition itself, `supabaseRetry.js:58`) | 1 |
+| `insert` / `update` / `delete` / `upsert` / `rpc` | **0** |
+| storage `.upload()` calls in the app | 4, **none** inside `withRetry` |
+
+So the two hardest parts of a timeout design have **no call sites to protect
+today**: there is no write to leave in doubt, and no upload to exempt. The
+four uploads — `useAdminLogic.jsx:550`, `LessonPlansTab.jsx:263`,
+`WorksheetsTab.jsx:164`, `ProfileTab.jsx:78` — call supabase storage
+directly.
+
+If it is picked up later, the shape that was agreed:
+
+- **Reads** — 15s deadline, then retry as normal.
+- **Writes** — 15s deadline, **no** automatic retry: the write may have
+  landed on the server and a retry would duplicate it. Report
+  "Couldn't confirm the save. Refresh to check."
+- **Uploads** — no deadline, or a far longer one, and cancel for real with
+  `AbortController` via supabase-js `.abortSignal()` rather than just
+  abandoning the wait.
+- Unit tests: a read timeout retries, a write timeout does not, an upload
+  running past 15s is not cut off.
+
+Until then the failure mode in note 1 above stands: an aborted query can
+hang the screen on its loading state, and nothing times it out.
+
+## Out of scope — logged, not fixed
+
+Found while working on the admin dashboard; none of it is admin code, so by
+standing instruction it is recorded here and left alone.
+
+| What | Where | Why it is parked |
+|---|---|---|
+| A failed read renders the empty state | `teacher/tabs/WorksheetsTab.jsx` | With `/rest/v1/worksheets` returning 500 the tab shows "No worksheets found" — no message, no retry. That is UX-048 in a dashboard this overhaul has not reached. `e2e/network-failure.spec.js` asserts the **current** behaviour so the suite stays a signal; invert that assertion when the teacher dashboard is done. |
+| Registrar and faculty have no e2e fixture | `e2e/helpers.js` | There is a student, a teacher and an admin. No registrar or faculty test account exists and none is being created now, so `E2E_REGISTRAR_*` / `E2E_FACULTY_*` stay unset. Their fetchers go through the same `withRetry`, so the UX-054 fix reaches them — but that is reasoning, not measurement, and it is written down here rather than claimed in a test name. |
+
+## Not a workaround, but owed
+
+- **Drawer breakpoint is 900px**, not the 1024px Rule X2 asks for
+  (`AdminDashboard.jsx:531`). Recorded as a **Phase 6** item rather than
+  patched around in the test helper.
+- **`handleOverlayClick`** is still exported from `useAdminLogic` and still
+  destructured by some tabs, but every overlay is now a `<Modal>` and
+  nothing calls it. Dead; delete it in **Phase 3** when those files are open
+  anyway.
+
+## Feature backlog — NOT part of this overhaul
+
+The Settings page used to offer these as switches. Every column was
+grepped across the frontend, the backend, the SQL and the GitHub
+workflow: nothing reads them. UX-028 replaced each one with a read-only
+statement of what the system actually does, because a switch that does
+nothing is a worse lie than an absent feature. If any of these is built
+later, the statement becomes a control again.
+
+| Feature | What exists today | What building it would take |
+|---|---|---|
+| Two-factor authentication | Nothing. No `mfa`, `factor` or `otp` call anywhere. Sign-in is email + password; the password-reset email is a link, sent by SMTP configured in the Supabase dashboard. | Supabase MFA enrolment and challenge, plus a per-role policy for who must use it. |
+| Login attempt limiting | Nothing counts or limits failed sign-ins. The only rate limiter in the repo is `express-rate-limit` on the AI route (`backend/src/routes/ai.js:34`). | An auth hook or edge function that counts failures per identifier and locks out, plus an unlock path. |
+| Activity log retention | Nothing deletes old rows. Logs accumulate forever regardless of the 30 days / 90 days / 1 year that used to be selectable. | A scheduled job (pg_cron or an edge function) reading the retention setting and deleting past it. |
+| Configurable backup schedule | `.github/workflows/supabase-backup.yml` runs on a hardcoded `30 16 * * *` (00:30 Manila) and never reads `auto_backup`, `backup_frequency` or `backup_time`. | Either a workflow that reads the setting before deciding to run, or moving the schedule into pg_cron where the setting lives. |
+| One source of truth for the school year | Settings has an Academic Year field. The academic tabs ignore it and compute the year from the clock in `currentSchoolYear()` (`frontend/src/lib/academicRules.js:27`), rolling over every June. Two answers to one question, and only the computed one is load-bearing. **Visible today:** Overview reads `2025-2026` from Settings while Sections reads `Class sections for 2026-2027` from the calendar, on the same screen, one click apart. | Decide which wins. If Settings wins, the academic queries read it and the June rollover becomes a default rather than the rule; if the calendar wins, the Settings field is a banner caption and should be named as one. The hints on both rows say which it is today. |
+| Email notifications | The portal sends no email of its own — no nodemailer, Resend, SendGrid or SMTP client in the repo. | A sender, templates, and a decision about what is worth emailing. |
+
+## Test infrastructure — `networkidle` is not reliable here
+
+Two specs have now failed a full-suite run on
+`page.waitForLoadState('networkidle')` and passed on their own:
+`polish.spec.js` (`/`) and `admin-a11y.spec.js` (its `beforeEach`).
+Nothing in either spec relates to the change that was running at the
+time.
+
+The cause is that the app holds Supabase realtime websockets open, so
+"no network activity for 500ms" is a condition the page does not
+reliably reach under load — and a second Playwright process on the same
+machine is enough load. It is a flaky wait, not a flaky application.
+
+Replace those waits with a wait for the thing the test actually needs
+(an element, a response) rather than for the network to go quiet.
+Not done here: it touches specs this phase did not otherwise open.
+
+## Schema drift — `school_settings`
+
+Found while building the UX-028 save bar, by watching the request rather
+than reading the code. **No setting on the admin Settings page had ever
+saved**, including Session Timeout, which is the one setting the app
+genuinely enforces.
+
+`saveSettings` spread the whole fetched row back into its `update`, which
+carried `academic_year`, `semester` and `portal_name` — none of which are
+columns — plus `theme`, `language` and `auto_save`, which are not either.
+PostgREST rejects a PATCH naming an unknown column outright:
+
+```
+PATCH /rest/v1/school_settings?id=eq.1  →  400
+{"code":"PGRST204","message":"Could not find the 'academic_year' column
+ of 'school_settings' in the schema cache"}
+```
+
+`saveSettings` never destructured the returned error, so it fell through
+to `showToast('Settings saved!')` every time. That is why a page which had
+never once written a row looked like it worked.
+
+**Fixed** by writing the columns that exist (`school_year`,
+`current_semester`) and reporting a failed write. What remains is the
+drift itself, which is not fixed:
+
+| Name | Where it exists | Where it does not |
+|---|---|---|
+| `academic_year` | nowhere | the UI read and wrote it for the life of this page |
+| `semester` | nowhere | same |
+| `portal_name` | nowhere | same; the UI also hardcodes its value |
+| `theme` | nowhere | written on every save; now a localStorage preference instead |
+| `language` | nowhere | written on every save; now a read-only row |
+| `auto_save` | nowhere | written on every save; the toggle is gone |
+| `school_year` | the live row, `database-schema.sql`, `COMPLETE_DATABASE_SCHEMA_v2.sql`, `setup-database.js` | the UI, until now |
+| `current_semester` | same four | the UI, until now |
+| `two_factor_auth`, `session_timeout`, `login_attempt_limit`, `email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`, `activity_logs_retention` | the live row and `legacy/add-settings-backup-history.sql` | **none of the three canonical schema files.** They exist only because that legacy ALTER was run by hand. |
+
+So the drift runs both ways: the UI invented six columns that were never
+created, and a legacy migration created eight that the canonical schema
+does not describe. A fresh database built from
+`backend/database/schema/database-schema.sql` would **not** have
+`session_timeout`, and the idle-logout timer would silently fall back to
+its 30-minute default.
+
+**Two follow-ups, neither taken here.** Fold the legacy ALTER into the
+canonical schema so a fresh database matches production. And
+`current_semester` is an INT holding a quarter number 1-4 — nothing reads
+it and there is no CHECK constraint, so it works, but the name now lies.
+Renaming it is a migration.
+
+## Migrations owed — not part of this overhaul
+
+Both came out of the `school_settings` work. Neither is urgent, and
+neither is UI, so neither was taken here.
+
+**Rename `current_semester`.** It is an `INT` that now holds a quarter
+number, 1-4. Nothing reads it, there is no CHECK constraint, and the
+round trip is tested — so it works. The name is what is wrong:
+`current_quarter` is what it holds. A rename is a migration plus the two
+helpers in `useAdminLogic.jsx` that translate it.
+
+**Move the legacy settings columns into the canonical schema.**
+`session_timeout`, `two_factor_auth`, `login_attempt_limit`,
+`email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`
+and `activity_logs_retention` exist in the live database only because
+`backend/database/legacy/add-settings-backup-history.sql` was run by
+hand. They appear in none of `database-schema.sql`,
+`COMPLETE_DATABASE_SCHEMA_v2.sql` or `backend/scripts/setup-database.js`.
+
+A database built fresh from those files would have no `session_timeout`,
+so the idle-logout timer in `AuthContext.jsx:107` would find nothing and
+silently fall back to 30 minutes — and the Settings save would fail on an
+unknown column again, exactly the way it did before this phase. This is
+the one of the three with a real failure mode behind it.
+
+## Phase 5: dark-mode bugs
+
+Found during Phase 4 while deciding which colour literals could be
+replaced by a token. None of them is a token problem — each is a colour
+that was picked for one theme and is being shown in both. Phase 4 gave
+them names at their current values and changed nothing; Phase 5 is where
+the second value gets chosen.
+
+| # | Where | What is wrong |
+|---|---|---|
+| 1 | `AdminDashboard.jsx:40-90` — the session-loading and access-denied screens | A fixed dark panel that ignores the theme entirely: `#1a1d23` background, `#f1f5f9` text, `#8b92a5` muted. A light-mode admin whose session is loading, or who lands on access-denied, gets a dark screen with no warning. Now `--gate-*`. |
+| 2 | `AdminDashboard.jsx:67, 78, 79` | `#f1f5f9` used as a **text** colour. It is `--card2`'s light value — a surface — so the distance metric reports a perfect match while the role is wrong. Any future tool will keep offering that substitution; it would make the text invisible on its own panel. |
+| 3 | `AdminDashboard.jsx:228` — `.nav-logout-btn:hover` | `#dc2626` text on a hardcoded `#fee2e2` pink. Both are light-mode values, so in dark mode the logout button flashes a pale pink panel out of nowhere. The pair has to move together or neither should. |
+| 4 | `AdminDashboard.jsx:278-286` — the six badge variants | One definition each, used in both themes, and the values are dark-tuned: `#4ade80` on `rgba(34,197,94,0.1)`. On a white card in light mode that is a pale green on near-white. Now `--badge-{hue}-{fg,border,bg}`, identical in both themes, so light can be given its own set in one place. |
+| 5 | `AdminDashboard.jsx:461-478` — the calendar | `.cal-head` is `#f8fafc` and `.cal-cell:hover` is `#f1f5f9`, both hardcoded light surfaces. In dark mode the calendar keeps a light header strip. The event chips (`.ev-blue` and friends) are the same story. |
+| 6 | `AdminDashboard.jsx:241` — `.sidebar-item.active` | `background: #eef0f5`, a light grey, on a sidebar that is `#1e2128` in dark mode. The active item is a bright block in a dark rail. |
+
+**Not in this list, and not a bug:** `--on-accent`, `--brand-gold`,
+`--brand-cyan` and the white-on-navy header colours are white in both
+themes **on purpose**. What they sit on is the accent or the brand navy,
+neither of which follows the theme.
+
+## Colour literals Phase 4b did not name
+
+Left as literals, with the reason, so the next pass does not re-derive it:
+
+- **The JS colour palettes** — `shared/helpers.js:11` (avatar colours) and
+  `tabs/OverviewTab.jsx:15` (role colours) are arrays of hex strings used
+  as data, not styling. A CSS variable cannot be indexed, so these need a
+  palette exported beside the tokens, not `var()`.
+- **`<Icon color="#ffffff">`** (`OverviewTab.jsx:70`) — lucide passes
+  `color` straight to the SVG's `stroke` **attribute**, and a `var()` does
+  not resolve in a presentation attribute. It would render unstroked.
+- **One-off tints** — `rgba(99,102,241,.12)`, `rgba(148,163,184,0.12)`,
+  `rgba(59,130,246,0.08)` and about twenty more, each used once or twice
+  for a single hover or highlight. Naming each one produces a token nobody
+  reuses. They want grouping into a small set of interaction tints, which
+  is a design decision.
+- **The white-on-navy header family** — `rgba(255,255,255,.12/.22/.3/.5/
+  .72/.85)` and `#ffffff` across the nav. A coherent `--on-brand-*` set,
+  but it was not in Phase 4b's agreed list.
+
+## Phase 6: responsive bugs
+
+Found by review of the Phase 4c before/after screenshots. All of them are
+present in BOTH sides, so none was introduced by the token work.
+
+| Pri | Where | What |
+|---|---|---|
+| **High** | Overview banner at 360 | The title and school name wrap one word per line, and the Academic Year box overlaps the title and overflows past the right edge — "1st Quarter" is cut off. The banner has to stack vertically below the drawer breakpoint. |
+| **High** | Every tab at 360 | The sidebar collapse `<` button sticks out of the left edge. `.sidebar-collapse` is absolutely positioned at `right: -14px` and is never hidden on mobile. Hide it below the breakpoint — there is no sidebar to collapse when it is a drawer. |
+| **High** | System Settings at 360 | `.settings-input-row` keeps label and control side by side, which squeezes the hints into a narrow column — the Academic Year hint runs to six lines. Rule X4: stack label above control on mobile. |
+| **High** | User Management at 360 | The full 123-row table renders at mobile width with tiny text. Rules R1/R2: the two-line row treatment. |
+| **High** | Subjects and Sections at 360 | Both tables overflow their card. Measured either side of Phase 4d: 57 elements already painted past the right edge at 360 before the spacing scale, and rounding widened two of them - Subjects now clips by 17px where it did not, and the Sections delete icon pokes 5-12px out of a table that was already 48px too wide. The rounding was kept: un-rounding table cell padding alone would leave 10px inside tables and 12px everywhere else, and would not help a table 332px too wide. Same R1/R2 treatment as User Management. |
+| **High** | Teaching Load at 360 | The whole builder overflows the right edge: the teacher picker and its search box, the department label beside each name, the subject select, the Add-to-list row and the "Nothing is saved until you press Assign below" hint are all cut off. The bulk-grid is two columns down to 860px and never stacks for a phone. |
+| Medium | Overview at 360 | The four stat cards stack as four tall cards. A 2×2 grid would halve the scroll. |
+
+## Phase 6 batch C: small polish
+
+At 768 the Overview’s Role Distribution card stretches too wide: the
+legend percentages sit far from the labels they belong to, and the bars
+run the full width of the card. Cap the legend, or put the donut and the
+bars side by side at tablet widths.
+
+## Phase 5: restyle items from the 4c review
+
+- **Gradient stat-card headers** on Overview — the blue, green, orange and
+  red gradient blocks.
+- **Lavender gradient** on the System Settings page header in light mode.
+
+Both are Rule D-series "remove the AI look" judgements, not token work,
+and Phase 4 deliberately left them alone.
+
+## activity_logs — why both panels are empty
+
+Asked during Phase 4: is `activity_logs` empty, or is the read failing or
+filtered by RLS? Measured rather than reasoned, by watching the requests.
+
+**Neither. The read works and the table is genuinely empty, because every
+write has always been rejected.**
+
+```
+GET  /rest/v1/activity_logs?...  →  200  []
+POST /rest/v1/activity_logs      →  400
+{"code":"PGRST204","message":"Could not find the 'details' column of
+ 'activity_logs' in the schema cache"}
+```
+
+RLS is not involved: a policy denial returns `200 []` on a read but a
+`401`/`403` on a write, and this is a `400` naming a missing column.
+
+The cause is the same drift that broke `school_settings`, and the two
+schema files disagree:
+
+| Column | `database-schema.sql` | `COMPLETE_DATABASE_SCHEMA_v2.sql` | Live |
+|---|---|---|---|
+| `details JSONB` | yes | **no** | **no** |
+| `description TEXT` | no | yes | ? |
+| `entity_name`, `old_values`, `new_values`, `status`, `error_message` | no | yes | ? |
+
+`logActivity` writes `details`, so it was written against
+`database-schema.sql` while the live database matches v2. Every call has
+failed since the feature was built.
+
+It is invisible because `logActivity` is deliberately forgiving: it writes
+a copy to `localStorage` first, `console.warn`s the failure, and returns.
+So the Overview's "Recent Activity" and Settings' "Activity Log History"
+show the local cache — which is empty in a browser that has not performed
+an admin action, and never contains anything another admin did.
+
+**Not fixed here.** It is a data-layer change, and the fix is a decision
+between two options: write `description` instead of `details`, or add
+`details` to the live table. It also belongs with the other two schema
+items above — one reconciliation of the canonical schema files against
+production would settle `school_settings`, `activity_logs` and the
+`session_timeout` gap together.
+
+## Phase 7: data reconciliation
+
+**Scheduled: after Phase 6, before any feature-backlog work.** Not to be
+done during the UI overhaul.
+
+Three findings of one kind, each found the same way — by watching the
+request rather than reading the code — and each invisible because the
+code that fails is written to keep going quietly:
+
+| # | What | Evidence |
+|---|---|---|
+| 1 | **`school_settings` wrote six columns that do not exist** — `academic_year`, `semester`, `portal_name`, `theme`, `language`, `auto_save`. Every PATCH was rejected whole, so no setting on that page had ever saved, including `session_timeout`, the one the app enforces. `saveSettings` never destructured the error and said "Settings saved!" every time. | `PATCH → 400 PGRST204`. **Fixed in Phase 3b** by writing `school_year` and `current_semester`; the drift itself is not reconciled. |
+| 2 | **The eight settings columns that DO exist are in no canonical schema file.** `session_timeout`, `two_factor_auth`, `login_attempt_limit`, `email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`, `activity_logs_retention` live in production only because `legacy/add-settings-backup-history.sql` was run by hand. | A database built fresh from `database-schema.sql` has no `session_timeout`, so idle logout silently falls back to 30 minutes **and** the Settings save breaks again exactly as in 1. |
+| 3 | **`activity_logs` has no `details` column**, which is what `logActivity` writes. Every write has failed since the feature was built, so the table is empty and both activity panels show a `localStorage` cache. | `POST → 400 PGRST204`; `GET → 200 []`. Not RLS: a policy denial reads as `200 []` but writes as 401/403. |
+
+**A fourth case, and the clearest one.** The Overview banner hardcoded
+`Dela Paz National High School` while `school_settings.school_name` held
+`Dr. Paulino Ng National High School` and `school_year` held `2025-2026`.
+Both live values were wrong and nobody could tell, because the screen was
+showing a string from the source instead. Phase 5 pointed the subtitle at
+the column, the wrong data became visible immediately, and it was
+corrected in Supabase the same day — to `Delapaz National High School`
+and `2026-2027`. That is the whole argument for this phase: a hardcoded
+UI does not just duplicate data, it hides the data being wrong.
+
+The two schema files disagree with each other as well as with
+production: `database-schema.sql` has `activity_logs.details JSONB`,
+`COMPLETE_DATABASE_SCHEMA_v2.sql` has `description TEXT` and no
+`details`, and the live database matches v2.
+
+One pass should settle all of it: decide which schema file is canonical,
+reconcile it against production, fold the legacy ALTER in, and pick
+`details` or `description` for `activity_logs`. Also in scope, because
+it is the same conversation: renaming `current_semester`, which now
+holds a quarter number 1-4.
+
+## If the suite goes flaky again — options not taken
+
+Phase 4's `networkidle` replacement got two consecutive full runs green
+with no reruns, so neither of these was needed. They are written down so
+the next person does not have to rediscover them.
+
+- **One authenticated `storageState` instead of sixty logins.** The suite
+  signs in to Supabase afresh in most specs. Capturing a signed-in state
+  once in a global setup and reusing it would cut both the wall-clock and
+  the dependence on auth latency, which is the most likely cause of the
+  load-dependent failures seen during Phase 4. The cost is that tests
+  stop exercising the login path, so the handful that are *about* logging
+  in must keep doing it for real.
+- **`retries: 1` in `playwright.config.js`.** Currently 0, deliberately —
+  a retry hides a flake rather than reporting it. Worth turning on only
+  with `--fail-on-flaky-tests` or an equivalent report, so a test that
+  passes on retry is still visible rather than silently green.
+
+Neither is in place. If a flake returns, start with the first: it removes
+a cause, where the second only masks one.
+
+### Flake log
+
+Tests that have failed once inside a full or multi-spec run and passed
+on repeat in isolation. Logged rather than chased, per the Phase 5 rule.
+If one of these starts failing *reproducibly*, it is no longer a flake.
+
+| Date | Test | Seen |
+|---|---|---|
+| Phase 5, step 1 | `admin-modal.spec.js` · "the destructive confirm button uses the named variant" | Failed once in an 8-spec admin run; passed alone and twice more across the whole spec (21/21 each). |
+| Phase 6, batch B | `admin-drawer.spec.js` · "collapsed/expanded persists across a reload" | Failed once in an 11-spec admin run; passed 3/3 on its own spec immediately after. Writes localStorage then reloads, so a slow reload under load is the likely cause. |
+
+## The grade-tab badge counts two different things
+
+Asked during Phase 5 batch 1: Schedules shows Grade 7 (8) and Grades
+8-12 (0), while Sections has a section in every grade. Measured, by
+reading the rows the page fetched rather than the code alone:
+
+```
+SCHEDULES badges        Grade 7 8 · Grade 8 0 · 9 0 · 10 0 · 11 0 · 12 0
+sections per grade      one in every grade, six in total
+schedule rows per grade Grade 7: 8 — and nothing anywhere else
+TEACHING LOAD badges    8 in every grade
+teacher_subjects rows   48, eight per grade
+```
+
+**The zeros are correct and not a bug.** The Schedules badge counts
+rows in `schedules` — scheduled periods — not sections. There really
+are eight scheduled periods in Grade 7 and none in any other grade. A
+section existing does not mean a timetable exists for it.
+
+**What is wrong is that the badge never says so.** `GradeTabs` is one
+component used by two tabs, and it counts a different thing in each:
+
+| Tab | What the badge counts | Source |
+|---|---|---|
+| Schedules | scheduled periods | `schedules` rows whose section is in that grade |
+| Teaching Load | teacher-subject assignments | `teacher_subjects` rows for that grade |
+
+Same component, same pill, two meanings, neither stated. An admin who
+has just created a section in every grade reads "Grade 8 0" as "my
+section is missing", which is exactly what happened here.
+
+**Proposed, not done** (reported for a decision): give the pill an
+accessible name that carries the unit — `aria-label="Grade 8, 0
+scheduled periods"` on Schedules and `"Grade 8, 0 teaching
+assignments"` on Teaching Load — and a visible `title` to match. It is
+text rather than layout, so it fits Phase 5 if wanted; it is listed
+here rather than done because the review said report first.
+
+## Withdrawn: Overview's counts did NOT disagree with the tabs
+
+Reported during Phase 5 batch 2 as a real discrepancy — Overview
+showing "Published News 4" and "Memos Sent 2" while both tabs showed
+zero. **That conclusion was wrong, and the way it was reached is the
+lesson.**
+
+Re-measured afterwards, with the count header and the list request read
+in the same run:
+
+```
+HEAD /rest/v1/news?select=*&status=eq.Published&or=(...)   content-range: */0
+GET  /rest/v1/news?select=*&order=created_at.desc          []
+cards: Published News 0 · Memos Sent 0
+```
+
+Everything agrees. `fetchStats` reads `count: 'exact', head: true` from
+the same tables the tabs list, `stats` starts at zero, and a failed
+count keeps its previous value rather than inventing one. There was
+never a second source.
+
+**What actually happened** is that two observations taken at different
+times were compared as if they were simultaneous:
+
+1. The batch-2 screenshots caught the News and Memos **lists before
+   they had loaded** — the shot harness waits 500ms after opening a
+   tab, while Overview's counts had been fetched much earlier during
+   login. So "Overview 4, tab 0" in one image was a render race, not a
+   contradiction.
+2. The follow-up probe that waited four seconds and still read 0 ran
+   **after the rows had been deleted**, which made the race look
+   confirmed.
+
+The four-second wait felt like it ruled out a race, and it did — for
+the second observation. It said nothing about the first, which is the
+one the claim rested on. Two sound measurements, one unsound
+comparison.
+
+Nothing to fix here. Kept rather than deleted because the failure mode
+is worth recognising: when a screenshot and a probe disagree, the
+cheapest explanation is usually that they are describing different
+moments.
+
+## Moved out of Phase 5: the modal's CSS lives in the wrong file
+
+Workarounds 2 and 3 were booked for Phase 5 and are **moved to a pass of
+their own after Phase 6**, with the reason rather than a shrug.
+
+| # | What | Why it is not a Phase 5 job |
+|---|---|---|
+| 2 | `components/ui/Modal.jsx` reuses `.modal-overlay`, `.modal`, `.modal-title` and `.modal-actions`, which live inside `AdminDashboard.jsx`'s injected `<style>` — so `<Modal>` renders correctly **only inside the admin shell**. | Moving them is a change of *where the CSS lives*, not of how anything looks. Phase 5 is a visual phase, and this one has no visual output to review: done right, every screenshot is identical. |
+| 3 | `styles/index.css` · `.ux-modal*` is a second rule set layered over `.modal`, adding the scrolling body, the fixed footer and the mobile sheet the originals never had. | Merging the two into one set touches every dialog on the dashboard at once. The nine modals are the most-tested surface in the suite, and the risk is concentrated entirely in a refactor whose benefit is reuse by *other* dashboards — none of which this overhaul has reached. |
+
+Both are worth doing, and both are cheaper and safer once Phase 6 has
+settled the responsive rules the mobile sheet depends on. Doing them now
+would mean rewriting the same rules twice.
+
+**The condition for picking them up:** `<Modal>` is needed outside the
+admin dashboard. Until then the coupling costs nothing but a comment.
+
+## Phase 6 batch D: left alone by decision
+
+Three things the batch D review named and explicitly set aside. They are
+design questions, not defects, and none of them is holding anything up.
+
+| What | Where | Why it is here |
+| --- | --- | --- |
+| The blue top bar on news cards | `NewsTab.jsx`, `.news-card` | A 4px accent stripe on every card. It reads as a status indicator and is not one — every card has it. Removing it is a visual decision about the card, so it waits for one. |
+| Role Distribution is drawn three times | `OverviewTab.jsx` | A pie, a legend with percentages, and a stacked bar row, all of the same five numbers. P7 at least made all three agree; which two to drop is a design call. |
+| The year dropdown beside the month title | `CalendarTab.jsx`, `.cal-toolbar` | The toolbar shows "October 2026" next to a year `<select>` holding the same year, plus arrows that already move through years. Two controls and a label for one value. |
+
+## P6, second half: "30 min" is not read-only
+
+Batch D asked that the read-only "30 min" on System Settings stop looking
+editable. It is not read-only. Session Timeout is one of the three settings
+that save, and the one the app actually enforces — `useIdleLogout` reads it,
+and `admin-settings.spec.js` saves it, reloads, and asserts it came back.
+
+What makes it *look* static is the opposite problem: the admin stylesheet
+sets `select { appearance: none }` with no replacement, so no select on the
+page has a dropdown indicator. A `<select>` with no chevron reads as a label.
+
+So the fix pointing the other way — give selects a chevron, so the editable
+ones look editable — is the one the code supports. Not applied: batch D
+asked for the opposite, and reversing the direction of a review item is not
+mine to decide.
+
+Affected: every `<select>` in the admin, not only this row.
+
+## Flake log — a Playwright worker aborting
+
+`e2e/admin-polish.spec.js` exited `code=134` (SIGABRT) twice in a row on a
+single-test run, then passed unchanged on the third, and has passed every
+run since. No assertion failed; the worker process itself died. Logged, not
+chased, per the standing rule.
+
+## Reverted: the DepEd lesson plan's dates
+
+Item 4 routed every bare `toLocaleDateString()` through the shared
+`formatDate` helper so that one date does not read two ways on two
+devices. Four of those call sites were in
+`frontend/src/components/ilaw/utils/depedFormatter.js`, and they have
+been **reverted**.
+
+Where each one ends up — all four are inside `formatDepEdLessonPlan`,
+which builds a DepEd lesson plan:
+
+| Line | Field | Appears as |
+| --- | --- | --- |
+| 26 | `formatHeader().date` | the date on the lesson plan's header block |
+| 122 | `formatFooter().preparedBy.date` | date beside the teacher's signature |
+| 127 | `formatFooter().checkedBy.date` | date beside the master teacher's signature |
+| 132 | `formatFooter().approvedBy.date` | date beside the principal's signature |
+
+That is an official form with a signature block, not UI chrome.
+
+The output did change, for the same date (3 October 2026):
+
+```
+before   new Date().toLocaleDateString()   ->  "10/3/2026"
+after    formatDate(new Date())            ->  "Oct 3, 2026"
+```
+
+Numeric to month-name is not a cosmetic difference on a document someone
+signs, and the required format is DepEd's to specify, not this overhaul's.
+Reverted all four.
+
+**What is still wrong, and whose call it is.** The reverted code takes the
+*device's* locale, so the same lesson plan prints `10/3/2026` on one
+laptop and `03/10/2026` on another — on an official form, where those two
+strings mean different days. The fix is to pin whatever format DepEd
+actually requires, which needs someone who knows the requirement.
+
+`formatDepEdLessonPlan` has no call site in the app today; it is exported
+from `components/ilaw/index.js` as public API, so it is reachable but
+currently unused. Only `validateDepEdFormat` from this module is imported
+anywhere.
+
+Not scheduled: it belongs to whoever owns the DepEd forms, not to Phase 6.
+
+## Lint baseline
+
+ESLint had a config in this repo and no ESLint: no dependency, no script,
+nothing installed. **No phase of this overhaul ever ran it**, and no phase
+report claimed to — every commit message and this file were searched for
+the word before that sentence was written. What each phase actually ran
+was Playwright, Vitest and `npm run build`.
+
+Installed at the root, which is where `eslint.config.js` lives, with a
+`lint` script. Two config corrections came with it, neither of which
+touches a finding:
+
+* `globalIgnores(['dist'])` matches a `dist` at the repo **root**, and
+  there is none — the build output is `frontend/dist`, which was being
+  linted as source. One minified bundle accounted for 196 of the first
+  run's 526 problems. Widened to `**/dist/**`, plus `node_modules`, the
+  archives, and the `zz-*` scratch cameras.
+* Everything was linted as browser code, including the backend server,
+  its scripts, the Playwright config and the e2e helpers. That is where
+  27 `'process' is not defined` errors came from. A `globals.node` block
+  for those paths cleared 25 of them.
+
+### Where it stands
+
+| | errors | warnings | files |
+| --- | ---: | ---: | ---: |
+| First run, config as found | 507 | 19 | 101 |
+| After the two config corrections | 311 → 263 | 19 | 89 |
+| **Files this overhaul touched** | **14** | **4** | **11** |
+
+From here, every phase report carries the touched-file count, and it does
+not go up.
+
+### By rule
+
+| Count | Rule | |
+| ---: | --- | --- |
+| 159 | `no-unused-vars` | error |
+| 46 | `react-hooks/set-state-in-effect` | error |
+| 19 | `react-hooks/exhaustive-deps` | **warning** |
+| 10 | `react-refresh/only-export-components` | error |
+| 6 | `react-hooks/static-components` | error |
+| 6 | `react-hooks/preserve-manual-memoization` | error |
+| 3 | `preserve-caught-error` | error |
+| 3 | `react-hooks/immutability` | error |
+| 2 | `no-undef` | error |
+| 2 | `no-useless-assignment` | error |
+| 1 each | `react-hooks/refs`, `use-memo`, `purity` | error |
+
+The two remaining `no-undef` are not config noise and should keep
+failing: `backend/scripts/diagnose-login-issue.js:55-56` reference a
+`user` that is never declared. A real bug in a script, left alone because
+it is backend, not UI.
+
+### By file — the worst 18
+
+| File | Problems | Rules |
+| --- | ---: | --- |
+| `frontend/src/pages/dashboards/teacher/tabs/LessonPlansTab.jsx` | 23 | no-unused-vars ×19, preserve-caught-error ×2, react-hooks/preserve-manual-memoization ×1, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/AnnouncementsTab.jsx` | 12 | no-unused-vars ×11, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/WorksheetsTab.jsx` | 12 | no-unused-vars ×11, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/AnalyticsTab.jsx` | 11 | no-unused-vars ×9, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/DocumentsTab.jsx` | 10 | no-unused-vars ×8, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/PreEnrollmentTab.jsx` | 10 | no-unused-vars ×7, react-hooks/exhaustive-deps ×2, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/context/AuthContext.jsx` | 8 | no-unused-vars ×4, react-hooks/set-state-in-effect ×1, react-hooks/immutability ×1, react-hooks/exhaustive-deps ×1, react-refresh/only-export-components ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/DashboardTab.jsx` | 8 | no-unused-vars ×6, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/GradesTab.jsx` | 8 | no-unused-vars ×7, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/teacher/worksheets/useWorksheetAssessment.jsx` | 8 | react-hooks/set-state-in-effect ×4, react-hooks/preserve-manual-memoization ×3, no-useless-assignment ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/OverviewTab.jsx` | 7 | no-unused-vars ×5, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/StudentsTab.jsx` | 7 | no-unused-vars ×5, react-hooks/set-state-in-effect ×1, react-hooks/exhaustive-deps ×1 |
+| `frontend/src/pages/dashboards/teacher/tabs/AttendanceTab.jsx` | 7 | no-unused-vars ×6, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/components/PublicHeader.jsx` | 6 | react-hooks/static-components ×4, no-unused-vars ×1, react-refresh/only-export-components ×1 |
+| `frontend/src/pages/dashboards/registrar/tabs/SchedulingTab.jsx` | 6 | no-unused-vars ×5, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/admin/useAcademicLogic.jsx` | 5 | react-hooks/set-state-in-effect ×5 |
+| `frontend/src/pages/dashboards/admin/useAdminLogic.jsx` | 5 | react-hooks/exhaustive-deps ×3, no-unused-vars ×1, react-hooks/set-state-in-effect ×1 |
+| `frontend/src/pages/dashboards/student/tabs/AnnouncementsTab.jsx` | 5 | no-unused-vars ×3, react-hooks/exhaustive-deps ×1, react-hooks/set-state-in-effect ×1 |
+
+The remaining 71 files hold 124 problems between them.
+
+### Fixed
+
+23 unused bindings in files this overhaul touched, by hand, no `--fix`:
+12 unused default `React` imports, 6 unused imports (`Sun`, `Search` ×2,
+`initials` ×2, `avatarColor`), the 4 `close*Overlay` backdrop handlers the
+Modal migration left behind, and 1 unused `catch` binding.
+
+### Held back — five unused values that may be a symptom
+
+These are the ones that look like the bug that produced the hardcoded
+school name and year: a real value sitting unused next to a UI that
+hardcodes what it should be showing. **Not deleted.**
+
+| Where | Unused | Why it is suspicious |
+| --- | --- | --- |
+| `tabs/MemosTab.jsx:19` | `users` | The recipient filter is a hardcoded list of seven options — `All Faculty`, `All Students`, `Registrar Office`, `Science Dept`, `Math Dept`. Real user data is destructured right there and never read. Whether those departments exist in the data at all is unknown. |
+| `tabs/MemosTab.jsx:19` | `stats` | Related: the memo counters filter on the same hardcoded strings (`m.recipient === 'All Faculty'`). They are computed from real memos, so this is not itself a fake number, but it shares the hardcoded vocabulary above. |
+| `AdminDashboard.jsx:159` | `settings` | The shell prints `Admin Portal` as fixed text while `school_settings` carries a portal name the Settings page displays as a real field. Probably deliberate product branding, but it is the same shape as the bug. |
+| `tabs/NewsTab.jsx:17` | `nImageFile` | The file input is uncontrolled and the preview renders `nImageUrl`, the *saved* image. So after choosing a file, nothing on screen confirms which file is staged — the value exists and the UI does not show it. |
+| `useAdminLogic.jsx:342` | `adminUid` | Captured from the admin's session inside `saveUser` and never used. The access and refresh tokens beside it are both used. This looks like a dropped intention — an unrecorded `created_by` — rather than an accident, and deleting it would erase the evidence. |
+
+### Investigated, not fixed
+
+**`Modal.jsx:164` — `react-hooks/refs`, "Cannot access refs during render"**
+
+Column 75 is `footer(requestClose)`: a render prop, called during render,
+handed a callback that transitively reads `card.current` and
+`openedWith.current` through its dirty check.
+
+*Actual risk: none today.* Nothing reads a ref during render. The ref is
+read when `requestClose` RUNS, and it only runs from an event handler —
+Escape, the backdrop, or Cancel. The rule cannot see that a function
+passed during render is not called during render, so it assumes the worst.
+
+*The fix I would make:* none to the behaviour. The honest options are to
+leave it, or to silence it with a scoped
+`// eslint-disable-next-line react-hooks/refs` naming the reason. I would
+not restructure working focus-trap code to satisfy a rule that is wrong
+about it. **No dependency array changes.**
+
+**`useMediaQuery.js:29` — `set-state-in-effect`**
+
+```js
+setMatches(mq.matches);   // on mount, inside the effect
+```
+
+*Actual risk: low but real.* Every component using the hook renders
+twice on mount. The line is deliberate — a resize between the first
+render and the effect would otherwise be missed, which is exactly what a
+test does when it sets the viewport right after load — so it cannot
+simply be deleted.
+
+*The fix I would make:* `useSyncExternalStore`, which is the API built
+for this.
+
+```js
+export function useMediaQuery(query) {
+  const subscribe = useCallback((notify) => {
+    let mq;
+    try { mq = window.matchMedia(query); } catch { return () => {}; }
+    mq.addEventListener('change', notify);
+    return () => mq.removeEventListener('change', notify);
+  }, [query]);
+  return useSyncExternalStore(subscribe, () => read(query), () => false);
+}
+```
+
+The effect goes away, so the double render goes with it, and the snapshot
+is re-read on every render — strictly better than the mount-time catch-up
+it replaces, and tear-free under concurrent rendering.
+
+**Dependency arrays:** this does not change one, but it does ADD a new
+`useCallback([query])`. Flagging it rather than assuming it is covered.
+
+**`useAdminLogic.jsx:1118` — ref read in effect cleanup**
+
+```js
+useEffect(() => () => {
+  Object.values(debounceTimersRef.current).forEach(clearTimeout);
+}, []);
+```
+
+*Actual risk: none today, and a timer leak the day someone changes one
+line.* `debounceTimersRef` is `useRef({})` and `.current` is never
+reassigned anywhere — only its properties are set. So reading it at
+cleanup gets the same object and the latest timers, which is what the
+cleanup wants. But the ref is exported through the admin context, so a
+future `debounceTimersRef.current = {}` anywhere would make the cleanup
+clear an object that no longer holds the live timers, and they would
+survive unmount.
+
+*The fix I would make:* capture it where the effect runs.
+
+```js
+useEffect(() => {
+  const timers = debounceTimersRef.current;
+  return () => Object.values(timers).forEach(clearTimeout);
+}, []);
+```
+
+Identical behaviour today, and it stops depending on a promise the
+codebase does not enforce. **The dependency array stays `[]`.**
+
+### Not scheduled
+
+The teacher and registrar tabs hold most of what is left: 23 problems in
+`LessonPlansTab.jsx` alone, and 124 across 71 files outside the worst 18.
+None of it is in the admin dashboard and none of it is this overhaul's.
+A separate task.
+
+## Data integrity findings
+
+Four values that lint reported as unused, investigated rather than
+deleted, because an unused value is sometimes the symptom of a UI showing
+something fixed where it should be showing something real. Read-only: no
+code was changed for any of these.
+
+### 1. Who created this? — and why both activity panels are empty
+
+**Two separate questions that look like one.** They are not connected,
+and treating them as one would hide the simpler of the two.
+
+**Does the app record who made a thing?** Two out of three:
+
+| Insert | Records the author | Column |
+| --- | --- | --- |
+| `news` | yes | `author_id: userData?.uid` |
+| `memos` | yes | `sender_id: userData?.uid` |
+| `calendar_events` | **no** | — |
+
+`calendar_events.created_by UUID REFERENCES profiles(id)` exists in
+**both** schema files — `database-schema.sql:53` and
+`COMPLETE_DATABASE_SCHEMA_v2.sql:447` — and `saveEvent` never writes it.
+Every event in the system is anonymous, and the column is sitting there
+waiting for it. This is a one-key payload addition, not a migration.
+
+**And `adminUid`?** A false alarm, and the opposite of a dropped
+intention. `saveUser` captures `adminUid` from the admin's own session,
+but the two things that need the admin's identity already use
+`userData?.uid` — the `logActivity('Created user', …)` call at the end of
+the same function, and the news and memo payloads above. It is a
+duplicate of a value already in scope. Safe to delete; held back only
+because it was on the list.
+
+**Why Overview says "No recent activity" while reporting 4 news and 3
+memos.** Not a contradiction, and not the same bug as the above. Those
+counts are read from the `news` and `memos` tables, which work. The
+activity panel reads `activity_logs`, which is empty because **every
+write to it has always been rejected** — measured in Phase 4 and already
+recorded above under "activity_logs — why both panels are empty":
+
+```
+POST /rest/v1/activity_logs  ->  400
+{"code":"PGRST204","message":"Could not find the 'details' column of
+ 'activity_logs' in the schema cache"}
+```
+
+`logActivity` is called from 14 places and already sends
+`user_id: userData?.uid`, so the "who" is not what is missing. The whole
+row is rejected on a different column. Settings' "No activity logs yet"
+is the same table and the same cause.
+
+So: **Overview's empty activity and Settings' empty activity are the same
+bug. Neither is connected to the missing `created_by` on events.** The
+first is schema drift on `activity_logs.details`; the second is a payload
+that omits a column that exists.
+
+### 2. MemosTab — where the recipient list should come from
+
+The same six options are hardcoded **twice**: in the compose form
+(`MemosTab.jsx:123-128`) and in the filter above the list (`:31-37`).
+
+```
+All Faculty · All Students · All · Registrar Office · Science Dept · Math Dept
+```
+
+That is three different vocabularies in one list:
+
+| Kind | Options | Where it should come from |
+| --- | --- | --- |
+| Role groups | `All Faculty`, `All Students`, `All` | Legitimately fixed. Roles are a closed set the app defines. |
+| An office | `Registrar Office` | Fixed is defensible; it is a role in this school, not a department. |
+| **Departments** | `Science Dept`, `Math Dept` | **`profiles.department`.** A real column, written by `saveUser` and already read elsewhere — `useAcademicLogic.jsx:132` selects it so the teacher picker can search on it. |
+
+Nothing guarantees a department named "Science Dept" exists, and nothing
+stops an admin typing "Science Department" into a profile.
+`memos.recipient` is a plain `VARCHAR` with no CHECK constraint, so the
+two can drift silently and a memo can be addressed to a department with
+no members.
+
+**The filter has a second problem the compose form does not.** A filter
+should offer what is *there*, not what is *possible* — the distinct
+`recipient` values actually present in `memos`. As written it can filter
+to a guaranteed-empty list.
+
+`users` is destructured in `MemosTab` and never read, two lines above all
+of this.
+
+### 3. NewsTab — what you see after choosing an image
+
+Today, on edit, you see the **wrong image**.
+
+```jsx
+<input type="file" onChange={e => setNImageFile(e.target.files?.[0] || null)} />
+{nImageUrl && <img src={nImageUrl} … />}
+```
+
+The input is uncontrolled and the preview renders `nImageUrl`, the
+**already-saved** image. Pick a replacement and the preview keeps showing
+the old one; the only feedback is the browser's own filename text beside
+the button. On a new post there is no preview at all, so nothing confirms
+the file was accepted. `nImageFile` holds the answer and is never read.
+
+A staged-file indicator needs three things, none of them large:
+
+1. A preview of the staged file — `URL.createObjectURL(nImageFile)`,
+   shown in place of `nImageUrl` whenever a file is staged.
+2. `URL.revokeObjectURL` when the file changes or the modal closes;
+   without it every pick leaks a blob for the page's lifetime.
+3. A way back — choosing a file should be undoable without reopening the
+   form, since right now there is no route back to the saved image.
+
+### 4. The shell's "Admin Portal" — not the same bug
+
+Checked because it has the shape of the hardcoded-school-name bug. It is
+not one.
+
+`AdminDashboard.jsx:1118-1119` renders `EduScribe` over `Admin Portal`:
+the product name and the name of this dashboard. Neither is school data.
+The Settings page's **Portal Name** is a separate thing, shown as a
+disabled field reading "Set by the developer. Not editable here." — so
+the portal name is deliberately a constant, and the shell agreeing with
+that is correct.
+
+**What the shell should show instead: nothing different.** The `settings`
+value is unused there because the welcome banner that used it was removed
+in Phase 5, not because anything is hardcoded in its place. It is safe to
+delete whenever the next lint pass runs.
+
+### 5. `diagnose-login-issue.js` — an undeclared variable
+
+`backend/scripts/diagnose-login-issue.js:55-56` reference a `user` that is
+never declared. These are the two surviving `no-undef` errors in the lint
+baseline. A real bug in a backend script, logged only — not UI, and not
+this overhaul's.
+
+## Phase 6 leftovers
+
+Found in the review of the 86 batch D shots at `7d0543b`, after Phase 6
+closed. Logged, not fixed.
+
+| # | What | Where | First guess at the cause |
+| --- | --- | --- | --- |
+| L1 | A thin accent line above the save bar, under the Security heading, at 360 in both themes | `AdminDashboard.jsx`, `.settings-savebar` | Probably the bar's own `border: 1px solid var(--accent)`. V4 removed `border-bottom` and squared the bottom corners, but the top border now reads as a stray rule across the page because the bar is full width against the `::before` backing. Check whether the top border is wanted at all now that the backing and the shadow already separate it. |
+| L2 | Chips still truncate after two lines at 768 — "Midterm Examinati..." | `AdminDashboard.jsx`, `.cal-event` | V2 fixed 1440 (nothing truncates) and improved 768, but a 99–104px column cannot hold "Midterm Examinations" in two lines at `--font-size-12`. Options: a third line at this width, a smaller chip font below 1024, or accept it since the title and the agenda both carry the full name. |
+| L3 | The agenda lost its Today marker | `CalendarTab.jsx` + `lib/agenda.js` | A real consequence of V1, not a separate bug. The Today marker hangs off the day heading, and V1 made each event appear once on its FIRST day. Today (3 Oct) falls inside the 3–4 Oct Faculty Meeting, which is listed on 3 Oct — but if today had fallen on the 4th, no heading for today would exist at all and nothing would mark it. The marker needs to stop depending on an event happening to start today. |
+| L4 | The Filter type select wraps to its own row at 360, making the calendar toolbar three rows | `AdminDashboard.jsx`, `.cal-toolbar` | The mobile `.toolbar > *` full-width rule does not cover `.cal-toolbar`, which has its own layout. Three rows of controls above a month is a lot of a 780px screen. |
+
+None of these blocks anything. L3 is the one with a real behavioural
+edge: on a day when nothing starts, the agenda has no way to say "today".
+
+## Next infrastructure task: a separate Supabase project for e2e
+
+`playwright.config.js` has always said it: *"These run against whatever
+database your .env points at. There is no test instance, so that is your
+LIVE one… The moment a spec needs a write, give it its own Supabase
+project — do not let it write here."*
+
+Two specs now need writes to prove what they prove, so that moment has
+arrived. Until the project exists they are gated behind
+`E2E_ALLOW_WRITES=1` (see below), which keeps a routine run off the
+school's data but does not solve the problem — an opted-in run still
+writes to the real database.
+
+### What writes today, and what it touches
+
+| Spec | Test | Writes |
+| --- | --- | --- |
+| `admin-settings.spec.js` | Save persists it | `school_settings.session_timeout`, `.updated_at` |
+| `admin-settings.spec.js` | Year and Quarter round-trip | `school_settings.current_semester`, `.updated_at` |
+| `admin-settings.spec.js` | 360: value survives a save and a reload | `school_settings.school_year`, `.updated_at` |
+| `admin-activity-log.spec.js` | an action reaches the database | `school_settings.school_year`, `.updated_at`, **and appends to `activity_logs`** |
+
+All three `school_settings` values are restored in a `finally`, to the
+value read at the start of the test. The `activity_logs` rows are not
+removed and cannot be: the table has no DELETE policy, which is correct
+for an audit trail.
+
+Every other spec that looks like it writes does not. `admin-double-click`
+intercepts each POST and answers 201; `admin-modal` intercepts signup
+with a 500; `admin-forms` submits deliberately empty forms that fail
+validation before any request, and aborts the one signup it triggers.
+
+### What the separate project needs
+
+1. **The project itself**, on the same Postgres version, with the schema
+   applied from `backend/database/schema/COMPLETE_DATABASE_SCHEMA_v2.sql`
+   — the file the live database actually matches — plus every migration
+   in `backend/database/migrations/` in order, including
+   `phase7-01-activity-logs-rls-record.sql`.
+2. **A seed script.** The suite needs the accounts from
+   `backend/database/seeds/phase4-03-seed-test-students.sql` and
+   `phase4-05-seed-test-teachers-by-grade.sql`, one `main_admin` for
+   `E2E_ADMIN_EMAIL`, a `school_settings` row with id 1, and enough
+   news, memos and calendar events that the data-conditional skips do
+   not fire. Several specs currently skip when a month has no events.
+3. **Env files.** A `.env.e2e` holding `VITE_SUPABASE_URL`,
+   `VITE_SUPABASE_ANON_KEY`, `E2E_ADMIN_EMAIL` and
+   `E2E_ADMIN_PASSWORD` for the test project, gitignored like the rest.
+4. **Config changes.** `playwright.config.js` parses `.env`,
+   `frontend/.env` and `backend/.env` by hand; it would read `.env.e2e`
+   first when present. The dev server it starts (`npm run dev`) reads
+   `frontend/.env` through Vite, so the webServer needs those variables
+   passed through its own `env` block — otherwise the browser talks to
+   the live project while the test's REST calls talk to the test one,
+   which is worse than either.
+5. **Drop the gate.** Once the suite cannot reach the school's data,
+   `E2E_ALLOW_WRITES` and its skips come out, and the config header's
+   rule is true again rather than aspirational.
+
+### Why not just clean up after each run
+
+Considered and rejected for `activity_logs`: a sweep needs a DELETE
+policy on an audit table, or a service-role key in the test environment.
+Adding either to make the tests tidier is a worse trade than keeping a
+handful of honest rows.
+
+## Recovery verification — 8 October 2026 (Checkpoint B)
+
+This supplements the historical record. Recovery began on `ux-overhaul` at
+`75b8ed116f809e5d50a37ac6594e4678e40f0b5f`, with no later commits or tracked
+changes. Existing untracked `AGENTS.md` and `PROJECT_CONTEXT.md` were preserved.
+The original UX brief/session, Phase 6 screenshot manifest, current tokens,
+components and responsive rules were inspected. The approved Admin remains the
+baseline: existing patterns, keyboard accessibility, both themes, and
+360/390/768/1024/1440px BEFORE → CHANGE → AFTER verification.
+
+### Current verification, not historical results
+
+Browser commands used PowerShell `$env:E2E_ALLOW_WRITES='0'`, one Chrome worker
+and zero configured retries. Reports/captures are local ignored artifacts under
+`screenshots/admin-recovery-2026-10-08/`.
+
+| Check | Current result |
+| --- | --- |
+| `npm test` before application changes | 15 files, 188 passed, 38.09s |
+| `npm run test:e2e -- --reporter=list,json --output=screenshots/admin-recovery-2026-10-08/test-results` | 265 total: 254 passed, 1 failed, 10 skipped; 787.343s |
+| New `NewsTab.test.jsx` before/after fix | Three failures before; three passes after (3.81s after) |
+| `npm test` after fix | 16 files, 191 passed; 6.26s |
+| `npm run build` after fix | Passed, 10.06s; existing >500kB bundle warning remains |
+| Targeted browser command below | 43 total: 41 passed, 0 failed, 2 write-gated skips; 148.949s |
+| `npm run test:e2e -- e2e/focus.spec.js --repeat-each=5 --reporter=list,json --output=screenshots/admin-recovery-2026-10-08/focus-repeat-test-results` | 20 passed; 33.612s |
+| `npm run lint -- --format json --output-file screenshots/admin-recovery-2026-10-08/lint-final.json` | Exit 1: 256 errors, 19 warnings; unchanged diagnostic totals |
+
+```powershell
+$env:E2E_ALLOW_WRITES='0'
+$env:PLAYWRIGHT_JSON_OUTPUT_NAME='screenshots/admin-recovery-2026-10-08/targeted-results.json'
+npm run test:e2e -- e2e/admin-activity-log.spec.js e2e/admin-event-author.spec.js e2e/admin-news-image.spec.js e2e/admin-memo-recipients.spec.js e2e/admin-modal.spec.js e2e/admin-double-click.spec.js e2e/focus.spec.js --reporter=list,json --output=screenshots/admin-recovery-2026-10-08/targeted-test-results
+```
+
+The full-run JSON filename was `e2e-results.json`; repeated-focus output was
+`focus-repeat-results.json`. Initial sandbox `spawn EPERM` attempts were
+environment failures; approved reruns produced the results above. The full
+265-test run has NOT been relabelled a pass or rerun in full after the fixes.
+Relevant follow-up suites passed.
+
+**Full-run failure:** `e2e/focus.spec.js`, “NEWS HISTORY shows a visible focus
+indicator (has its own ring)”, reported `3px none rgb(71, 85, 105)` and
+`boxShadow: none`. Classification: **test defect / timing failure**. The public
+News section can remount during loading. A read-only browser probe observed
+detached measurements; the old test also accepted nonempty styles on a newly
+resolved, unfocused replacement. The test now establishes keyboard modality
+and polls for a connected, currently focused control with an indicator.
+No public-page application/style change was made. Targeted coverage and five
+repeats pass. This does not certify focus preservation through every later
+public-page data refresh.
+
+The ten full-run skips: five write gates (activity log, event author, three
+Settings persistence cases), three horizontal-table-scroll conditions (rows
+fit at 360px), and two public-news content conditions (no sufficiently long
+article and fewer than two visible articles). Skips are not passes.
+
+### Database comparison and safety correction
+
+**VERIFIED:** Before the full run (2026-10-07 17:01:23 UTC) and immediately after
+(17:16:53 UTC), all 33 readable application tables had identical counts and
+SHA-256 content fingerprints, including `activity_logs` 55 → 55,
+`notifications` 508 → 508 and `backup_history` 36 → 36. Fingerprints cover all
+returned rows/columns, not just counts; raw rows and credentials were not saved.
+`teacher_load_summary` returned 404 in both snapshots. These were paginated
+PostgREST GETs using existing server credentials, never SQL or mutations.
+Snapshots were sequential, not atomic; Auth audit/session records and Storage
+were outside this comparison.
+
+`75b8ed1` is supported by seven passing double-click cases and the unchanged
+activity-log fingerprint. Inspection found an additional default-suite write
+path: opening the student/teacher notification panel marks notifications read.
+Both specs now intercept only that PATCH, preserving live GETs. Local commit
+**`efaa0e9`** contains this safety fix. Their browser cases passed and notification
+contents stayed unchanged. No inbox cleanup or app behavior change occurred.
+
+**Later observation:** a final GET snapshot at 2026-10-08 00:46:55 UTC still
+matched 32 tables, but `backup_history` had 37 rows. The latest completed row
+started at 2026-10-07 21:27:29 UTC and completed at 21:30:11 UTC, hours after the
+last browser tests ended around 17:28:50 UTC. The repository backup workflow
+invokes `backend/scripts/backup-history.mjs`, which writes this table. External
+backup activity is **INFERRED**; the specific remote workflow run was not
+verified. No test writes this table, no backup was triggered here, and no row
+was altered or removed. Do not call the whole elapsed session DB-unchanged.
+
+### Phase 7 status
+
+- **7A VERIFIED within read-only scope:** insert names `description`; live
+  OpenAPI exposes it and no `details`. `activityLog.test.js` covers archived
+  names, deleted actors and missing descriptions. Empty/error-backed activity
+  and all double-click cases pass. Actual insert persistence/RLS acceptance
+  remains write-gated and NOT VERIFIED in this continuation.
+- **7B VERIFIED request/read behavior (`effa33c`):** a new intercepted-request test checks
+  `created_by` against the signed-in auth user ID. Event/audit POSTs are fulfilled
+  locally. All five existing NULL-creator events remain readable. Real insert
+  persistence remains gated.
+- **7C VERIFIED FIXED (`dc7667a`):** `useMemo` URL allocation leaked during
+  StrictMode replay; modal close retained the staged file after its preview
+  disappeared. One effect now owns allocation/assignment/revocation by modal
+  and file. Three regression tests went red → green. Existing preview, undo,
+  saved-image and modal browser cases pass. Browser instrumentation before:
+  four allocations/one revocation after pick, replace, cancel. After: two/two,
+  zero live URLs across all five widths/both themes. There are 30 before and
+  10 after captures, with representative images visually reviewed. Layout is
+  preserved. Capture contexts blocked REST mutations; none were attempted.
+- **7D VERIFIED:** three recipient tests pass for real departments,
+  memo-derived filters and their shared source.
+- **7E VERIFIED by source/diff review and regression coverage:** removed
+  `adminUid`, `MemosTab.stats` and shell `settings` bindings were unused;
+  dashboard smoke/default-browser coverage passes. No further deletions.
+
+Recovery commits are `efaa0e9` (notification test write protection), `dc7667a`
+(preview URL lifetime), `af20034` (focus timing), and `effa33c` (event-author
+payload verification). Nothing was pushed.
+
+### Reconciliation, lint and future E2E readiness
+
+**PARTIAL / DEFERRED:** live OpenAPI is column evidence, not a complete catalog,
+constraint or RLS inventory. Activity-log columns match v2; the older
+`database-schema.sql` is stale there. V2 Settings lacks eight live legacy
+columns: `two_factor_auth`, `session_timeout`, `login_attempt_limit`,
+`email_notifications`, `auto_backup`, `backup_frequency`, `backup_time`,
+`activity_logs_retention`. Calendar's `custom_event_type` comes from legacy SQL.
+The earlier claim that v2 plus migrations alone reconstructs live schema is
+insufficiently supported. Five registrar relations were absent from the exposed
+API inventory, not proved absent from every database schema.
+
+`phase7-01-activity-logs-rls-record.sql` was NOT executed. Assumed
+`TO authenticated`, actual live policy role targets and later migration
+application remain NOT VERIFIED. No schema consolidation occurred.
+
+Lint: 14 errors/4 warnings in overhaul-touched files; 242/15 elsewhere.
+Applying current rules to `09b3252` source identifies four introduced
+set-state-in-effect diagnostics (`useDelayedFlag`, Users, Subjects, Sections);
+several other touched-file findings predate the overhaul. This is attribution
+under current rules, not a historical lint run. All six code/test files changed
+in recovery have zero findings. Broad cleanup remains deferred.
+
+Separate E2E infrastructure is unstarted. Prerequisites: reconcile reproducible
+schema/legacy dependency order and policy targets; provision only an isolated
+project; seed representative content/roles; pass dedicated ignored `.env.e2e`
+consistently to Playwright and Vite; prove tests cannot reach school data before
+removing write gates. Do not blindly apply every historical migration. No new
+project, package, live SQL or migration execution was introduced.

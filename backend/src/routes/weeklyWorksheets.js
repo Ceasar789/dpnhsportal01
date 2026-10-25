@@ -91,7 +91,7 @@ export async function weeklyWorksheetHandler(req, res, { loadPlan = async (id, t
       operationId, log, debugCapture: localClient,
       progress: ({ day, batch, completed, providerCalls: calls }) => {
         providerCalls = calls;
-        log.info?.(`[weekly-worksheets] operation=${operationId} stage=generation day=${day} batch=${batch} progress=${completed ? 'completed' : 'started'} providerCalls=${calls} plannedCalls=${plannedCalls}`);
+        log.info?.(`[weekly-worksheets] operation=${operationId} stage=generation day=${day} batch=${batch} progress=${completed ? 'completed' : 'started'} providerCalls=${calls} plannedCalls=${plannedCalls + Math.max(0, calls - (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].indexOf(day) * questionCount / 10 + batch))}`);
       } }); }
     catch (error) { error.providerCalls ??= providerCalls; throw error; }
     finally { activeGenerations.delete(operationKey); }
@@ -155,7 +155,7 @@ export async function weeklyWorksheetHandler(req, res, { loadPlan = async (id, t
     providerCalls = Number.isInteger(error?.providerCalls) ? error.providerCalls : providerCalls;
     const retryAfterSeconds = Number.isInteger(error?.retryAfterSeconds) && error.retryAfterSeconds > 0
       && error.retryAfterSeconds <= 86400 ? error.retryAfterSeconds : undefined;
-    log.error(`[weekly-worksheets] operation=${operationId} stage=generation code=${code}${diagnostic}${safeSubreason ? ` subreason=${safeSubreason}` : ''}${batch}${received}${validated}${questionType}${finish}${truncated} providerCalls=${providerCalls}`);
+    log.error(`[weekly-worksheets] operation=${operationId} stage=generation code=${code}${Number.isInteger(error?.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599 ? ` status=${error.httpStatus}` : ''}${code.startsWith('PROVIDER_') && typeof error?.providerErrorCode === 'string' && /^[a-z0-9_.-]{1,64}(?:\/[a-z0-9_.-]{1,64})?$/i.test(error.providerErrorCode) ? ` providerErrorCode=${error.providerErrorCode}` : ''}${code.startsWith('PROVIDER_') && typeof error?.providerErrorReason === 'string' && error.providerErrorReason.length <= 200 && /^[a-z0-9 .,;:!?()/_-]+$/i.test(error.providerErrorReason) ? ` providerErrorReason=${JSON.stringify(error.providerErrorReason)}` : ''}${diagnostic}${safeSubreason ? ` subreason=${safeSubreason}` : safeCategory === 'invalid_answer_key' && /^questions\[\d{1,2}\]\.correct_answer$/.test(safePath) && detail?.questionType === 'true_false' && ['true_false_options_present', 'true_false_answer_invalid'].includes(detail?.subreason) ? ` subreason=${detail.subreason}` : ''}${batch}${received}${validated}${questionType}${finish}${truncated} providerCalls=${providerCalls}`);
     if (retryAfterSeconds) res.set?.('Retry-After', String(retryAfterSeconds));
     return res.status(status).json({ code, retryable, ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
       providerCalls, error: code === 'AI_RESPONSE_INVALID' && safeDay

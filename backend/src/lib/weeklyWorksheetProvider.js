@@ -8,6 +8,18 @@ const providerError = (code, message, details = {}) => Object.assign(new Error(m
 const nonnegativeInteger = value => Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 const tokenHeader = value => typeof value === 'string' && /^\d+$/.test(value.trim())
   ? nonnegativeInteger(Number(value.trim())) : undefined;
+const safeErrorLabel = (value, prompt, apiKey) => typeof value === 'string'
+  && /^[a-z][a-z0-9_.-]{0,63}$/i.test(value)
+  && !prompt.toLowerCase().includes(value.toLowerCase().replace(/[_-]+/g, ' '))
+  && !apiKey.toLowerCase().includes(value.toLowerCase()) ? value : undefined;
+const safeErrorReason = (value, prompt, apiKey) => {
+  if (typeof value !== 'string' || /["'`<>{}\r\n]|\[|\]|\\|https?:\/\/|api.?key|authorization|bearer/i.test(value)) return undefined;
+  const reason = value.trim().replace(/\s+/g, ' ').slice(0, 200);
+  if (!reason || !/^[a-z0-9 .,;:!?()/_-]+$/i.test(reason) || /[a-z0-9_-]{24,}/i.test(reason)) return undefined;
+  const requestWords = new Set(`${prompt} ${apiKey}`.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
+  return (reason.toLowerCase().match(/[a-z0-9]{4,}/g) || []).some(word => requestWords.has(word))
+    ? undefined : reason;
+};
 const resetMilliseconds = value => {
   const text = typeof value === 'string' ? value.trim() : '';
   const millisecondsMatch = /^(\d+(?:\.\d+)?)ms$/.exec(text);
@@ -70,8 +82,17 @@ export async function requestWorksheetJsonFromGroq(prompt, { fetchImpl = fetch, 
           : response.status === 503 ? 'PROVIDER_OVERLOADED'
             : response.status >= 500 ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_REJECTED';
     const retryAfter = retryAfterSeconds(response);
+    let failure;
+    try { failure = (await response.json())?.error; } catch { /* Unreadable provider bodies are never logged. */ }
+    const providerErrorCode = [...new Set([safeErrorLabel(failure?.code, prompt, apiKey),
+      safeErrorLabel(failure?.type, prompt, apiKey)])]
+      .filter(Boolean).join('/') || undefined;
+    const providerErrorReason = safeErrorReason(failure?.message, prompt, apiKey);
     throw providerError(code, 'Groq could not complete worksheet generation.',
-      retryAfter ? { retryAfterSeconds: retryAfter } : {});
+      { ...(Number.isInteger(response.status) && response.status >= 100 && response.status <= 599
+        ? { httpStatus: response.status } : {}), ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}),
+      ...(providerErrorCode ? { providerErrorCode } : {}),
+      ...(providerErrorReason ? { providerErrorReason } : {}) });
   }
   let data;
   try { data = await response.json(); }

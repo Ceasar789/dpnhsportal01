@@ -123,6 +123,22 @@ test('true/false, identification, enumeration, and essay match the current edito
   await assert.rejects(run(context(), output([{ ...questions[3], correct_answer: 'Guess' }])), /invalid answer key/);
 });
 
+test('true/false answer-key failures identify options or answer without exposing text', () => {
+  for (const [change, subreason] of [
+    [item => { item.options = ['private option']; }, 'true_false_options_present'],
+    [item => { item.correct_answer = 'private answer'; }, 'true_false_answer_invalid'],
+  ]) {
+    const item = { question: 'Plants have cells.', item_type: 'true_false', points: 1,
+      options: [], correct_answer: 'True' };
+    change(item);
+    assert.throws(() => parseWorksheetResponse(output([item]), context()), error =>
+      error.validation?.category === 'invalid_answer_key'
+      && error.validation.path === 'questions[0].correct_answer'
+      && error.validation.subreason === subreason
+      && !JSON.stringify(error.validation).includes('private'));
+  }
+});
+
 test('blank enumeration answer with populated alternatives keeps rejection and identifies the missing key', () => {
   for (const correct_answer of ['', '  ']) {
     const questions = [choice(),

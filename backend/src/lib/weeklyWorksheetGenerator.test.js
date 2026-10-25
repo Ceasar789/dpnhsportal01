@@ -290,6 +290,24 @@ test('Gemini selection keeps the original one-call fail-closed path', async () =
     else process.env.WEEKLY_WORKSHEET_PROVIDER = previous; }
 });
 
+test('Gemini does not regenerate an invalid true/false batch', async () => {
+  const previous = process.env.WEEKLY_WORKSHEET_PROVIDER; let calls = 0;
+  process.env.WEEKLY_WORKSHEET_PROVIDER = 'gemini';
+  try {
+    await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      generateText: async (prompt, options) => {
+        calls += 1;
+        const value = JSON.parse(await fakeProvider(prompt, options));
+        value.questions[4].correct_answer = 'Tama';
+        return JSON.stringify(value);
+      },
+    }), error => error.code === 'AI_RESPONSE_INVALID' && error.providerCalls === 1
+      && error.validation?.subreason === 'true_false_answer_invalid');
+    assert.equal(calls, 1);
+  } finally { if (previous === undefined) delete process.env.WEEKLY_WORKSHEET_PROVIDER;
+    else process.env.WEEKLY_WORKSHEET_PROVIDER = previous; }
+});
+
 test('enumeration metadata keeps the schema contract and optional non-enumeration fields do not affect parsing', () => {
   const schema = RESPONSE_SCHEMA.properties.questions.items.properties.enumeration;
   assert.deepEqual(schema.required, ['alternatives', 'orderSensitive']);
@@ -499,6 +517,85 @@ test('cross-batch duplicate fails at collection path after preserving the first 
       && error.validation.duplicates?.[1]?.priorIndex === 1);
   assert.equal(calls, 2);
 });
+
+test('local Groq regenerates one duplicate batch with rejected questions excluded', async () => withLocalGroq(async () => {
+  let calls = 0; let retryPrompt;
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    generateText: async (prompt, options) => {
+      calls += 1;
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (prompt.includes('Monday, batch 2.')) {
+        if (retryPrompt === undefined && calls === 2) value.questions[0].question = item('Monday', 1, 0).question;
+        else retryPrompt = prompt;
+      }
+      return JSON.stringify(value);
+    },
+  });
+  assert.equal(calls, 11);
+  assert.equal(drafts.length, 5);
+  assert.match(retryPrompt, /Rejected batch questions \(do not repeat these\):/);
+  assert.ok(retryPrompt.includes(JSON.stringify(item('Monday', 1, 0).question)));
+}));
+
+test('local Groq stops after a second duplicate without returning partial worksheets', async () => withLocalGroq(async () => {
+  let calls = 0;
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    generateText: async (prompt, options) => {
+      calls += 1;
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (prompt.includes('Monday, batch 2.')) value.questions[0].question = item('Monday', 1, 0).question;
+      return JSON.stringify(value);
+    },
+  }), error => error.code === 'AI_RESPONSE_INVALID' && error.validation?.subreason === 'duplicate_prior_batch'
+    && error.validation.path === 'questions' && error.providerCalls === 3);
+  assert.equal(calls, 3);
+}));
+
+test('local Groq regenerates one invalid true/false batch and counts the retry', async () => withLocalGroq(async () => {
+  let calls = 0; const progress = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    progress: event => progress.push(event), generateText: async (prompt, options) => {
+      calls += 1;
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (calls === 1) value.questions[4].correct_answer = 'Tama';
+      return JSON.stringify(value);
+    },
+  });
+  assert.equal(calls, 11);
+  assert.equal(progress.at(-1).providerCalls, 11);
+  assert.equal(drafts.length, 5);
+}));
+
+test('local Groq rejects a second invalid true/false answer with its safe subreason', async () => withLocalGroq(async () => {
+  let calls = 0;
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    generateText: async (prompt, options) => {
+      calls += 1;
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      value.questions[4].correct_answer = 'Tama';
+      return JSON.stringify(value);
+    },
+  }), error => error.code === 'AI_RESPONSE_INVALID' && error.providerCalls === 2
+    && error.validation?.path === 'questions[4].correct_answer'
+    && error.validation.subreason === 'true_false_answer_invalid');
+  assert.equal(calls, 2);
+}));
+
+test('a 429 retry uses the same batch retry budget as answer-key regeneration', async () => withLocalGroq(async () => {
+  const clock = fakeClock(); let calls = 0;
+  await assert.rejects(settleWithClock(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    pacingClock: clock, log: { info() {} }, generateText: async (prompt, options) => {
+      calls += 1;
+      if (calls === 1) throw Object.assign(new Error('rate limit'),
+        { code: 'PROVIDER_RATE_LIMIT', retryAfterSeconds: 1 });
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      value.questions[4].correct_answer = 'Tama';
+      return JSON.stringify(value);
+    },
+  }), clock), error => error.code === 'AI_RESPONSE_INVALID' && error.providerCalls === 2
+    && error.validation?.subreason === 'true_false_answer_invalid');
+  assert.equal(calls, 2);
+}));
 
 test('duplicate capture is off by default and records one local Groq failure only when enabled', async () => withLocalGroq(async () => {
   const previous = process.env.WEEKLY_DEBUG_CAPTURE;

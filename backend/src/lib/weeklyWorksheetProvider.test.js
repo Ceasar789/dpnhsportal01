@@ -217,9 +217,10 @@ test('Groq failures preserve safe codes, retry guidance and one-request behavior
     let calls = 0;
     await assert.rejects(requestWorksheetJsonFromGroq('prompt', { apiKey: 'synthetic-key', responseSchema: RESPONSE_SCHEMA,
       fetchImpl: async () => { calls += 1; return { ok: false, status,
-        headers: { get: () => '45' }, json: async () => ({ error: { message: 'private provider detail' } }) }; } }),
+        headers: { get: () => '45' }, json: async () => ({ error: { message: '"private provider detail"' } }) }; } }),
     error => error.code === code && error.retryAfterSeconds === 45
-      && !error.message.includes('private provider detail'));
+      && error.httpStatus === status && !error.message.includes('private provider detail')
+      && !JSON.stringify(error).includes('private provider detail'));
     assert.equal(calls, 1);
   }
   await assert.rejects(requestWorksheetJsonFromGroq('prompt', { apiKey: 'synthetic-key', responseSchema: RESPONSE_SCHEMA,
@@ -235,6 +236,56 @@ test('Groq failures preserve safe codes, retry guidance and one-request behavior
   await assert.rejects(requestWorksheetJsonFromGroq('prompt', { apiKey: 'synthetic-key', responseSchema: RESPONSE_SCHEMA,
     fetchImpl: async () => groqResponse('{', 'length') }),
   error => error.code === 'PROVIDER_TRUNCATED' && error.finishReason === 'LENGTH');
+});
+
+test('Groq 400 keeps safe code, type and a 200-character reason without request content', async () => {
+  const message = `Unable to complete structured output. ${'Try again. '.repeat(30)}`;
+  let failure;
+  try {
+    await requestWorksheetJsonFromGroq('private lesson prompt', { apiKey: 'synthetic-key',
+      responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => ({ ok: false, status: 400,
+        headers: { get: () => null }, json: async () => ({ error: {
+          code: 'json_validate_failed', type: 'invalid_request_error', message } }) }) });
+  } catch (error) { failure = error; }
+  assert.equal(failure?.code, 'PROVIDER_REJECTED');
+  assert.equal(failure.httpStatus, 400);
+  assert.equal(failure.providerErrorCode, 'json_validate_failed/invalid_request_error');
+  assert.equal(failure.providerErrorReason, message.slice(0, 200));
+  assert.doesNotMatch(JSON.stringify(failure), /private lesson prompt|synthetic-key/);
+});
+
+test('Groq 400 suppresses quoted prompt content and ignores unreadable error bodies', async () => {
+  const failures = [];
+  for (const json of [async () => ({ error: { code: 'invalid_request_error',
+    type: 'invalid_request_error', message: 'Rejected "private lesson prompt" from synthetic-key' } }),
+  async () => { throw new SyntaxError('private non-JSON body'); }]) {
+    try {
+      await requestWorksheetJsonFromGroq('private lesson prompt', { apiKey: 'synthetic-key',
+        responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => ({ ok: false, status: 400,
+          headers: { get: () => null }, json }) });
+    } catch (error) { failures.push(error); }
+  }
+  assert.equal(failures[0].providerErrorCode, 'invalid_request_error');
+  assert.equal(failures[0].providerErrorReason, undefined);
+  assert.equal(failures[1].httpStatus, 400);
+  assert.equal(failures[1].providerErrorCode, undefined);
+  assert.equal(failures[1].providerErrorReason, undefined);
+  assert.ok(failures.every(error => !JSON.stringify(error).includes('private lesson prompt')
+    && !JSON.stringify(error).includes('synthetic-key')));
+});
+
+test('Groq error code and type cannot echo the prompt or API key', async () => {
+  for (const echoedCode of ['private_lesson_prompt', 'synthetic-key']) {
+    let failure;
+    try {
+      await requestWorksheetJsonFromGroq('private lesson prompt', { apiKey: 'synthetic-key',
+        responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => ({ ok: false, status: 400,
+          headers: { get: () => null }, json: async () => ({ error: {
+            code: echoedCode, type: 'invalid_request_error', message: 'Unable to complete structured output.' } }) }) });
+    } catch (error) { failure = error; }
+    assert.equal(failure.providerErrorCode, 'invalid_request_error');
+    assert.doesNotMatch(JSON.stringify(failure), /private_lesson_prompt|synthetic-key/);
+  }
 });
 
 test('Groq mocked transport preserves five-day 20/30/40 validation and rejects bad content', async () => {

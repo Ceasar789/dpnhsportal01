@@ -243,89 +243,106 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
     const distributionNotes = [];
     for (let batch = 1; batch <= questionCount / BATCH_SIZE; batch += 1) {
       if (signal?.aborted) throw Object.assign(new Error('Generation cancelled.'), { code: 'GENERATION_CANCELLED' });
-      let parsed;
       let raw;
-      let priorQuestions = [];
-      try {
-        const waitMs = await pacing?.pauseBefore() || 0;
-        priorQuestions = questions.map(item => item.question);
-        const prompt = buildWeeklyWorksheetPrompt(plan, source, BATCH_SIZE, batch, priorQuestions);
-        let priorWaitMs = waitMs;
-        for (let attempt = 0; attempt < (pacing ? 2 : 1); attempt += 1) {
-          let usage;
-          let callEnded;
-          const attemptWaitMs = priorWaitMs;
-          if (attemptWaitMs > 0) pacedCalls += 1;
-          const callStarted = pacing ? pacingClock.now() : 0;
-          providerCalls += 1;
-          progress?.({ day: source.day, batch, completed: false, providerCalls });
-          try {
-            raw = await generateText(prompt, { maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA,
-              signal: pacing?.signal || signal, ...(pacing ? { operationId: logOperationId, log,
-                onGroqUsage: value => { usage = value; pacing.record(value); } } : {}) });
-            pacing?.check();
-            break;
-          } catch (error) {
-            callEnded = pacing ? pacingClock.now() : 0;
-            pacing?.check();
-            if (!pacing || error.code !== 'PROVIDER_RATE_LIMIT' || attempt !== 0
-              || !Number.isInteger(error.retryAfterSeconds) || error.retryAfterSeconds < 1
-              || error.retryAfterSeconds > 60) throw error;
-            priorWaitMs = await pacing.wait(error.retryAfterSeconds * 1000);
-          } finally {
-            if (pacing) {
-              const tokens = ['promptTokens', 'completionTokens', 'totalTokens', 'reasoningTokens']
-                .filter(name => Number.isSafeInteger(usage?.[name]) && usage[name] >= 0)
-                .map(name => ` ${name}=${usage[name]}`).join('');
-              log.info?.(`[weekly-worksheets] operation=${logOperationId} day=${source.day} batch=${batch} durationMs=${Math.max(0, Math.round((callEnded ?? pacingClock.now()) - callStarted))} waitMs=${Math.round(attemptWaitMs)}${tokens} retry=${attempt ? 'yes' : 'no'}`);
-            }
-          }
-        }
-        if (signal?.aborted) throw Object.assign(new Error('Generation cancelled.'), { code: 'GENERATION_CANCELLED' });
-        if (captureEnabled) {
-          captureContext = { day: source.day, batch, rawResponse: raw, priorQuestions };
-          batchCaptures.push(captureContext);
-        }
-        parsed = parseDailyBatch(raw, plan, source, BATCH_SIZE, batch);
-        progress?.({ day: source.day, batch, completed: true, providerCalls });
-      } catch (error) {
-        if (error.validation?.subreason === 'duplicate_within_batch')
-          Object.assign(error.validation, duplicateMetadata(raw, priorQuestions, true));
-        let receivedCount;
-        let questionType;
+      const priorQuestions = questions.map(item => item.question);
+      let retryInstruction = '';
+      let nextWaitMs = await pacing?.pauseBefore() || 0;
+      for (let attempt = 0; attempt < (pacing ? 2 : 1); attempt += 1) {
+        let usage;
+        let callEnded;
+        const attemptWaitMs = nextWaitMs;
+        if (attemptWaitMs > 0) pacedCalls += 1;
+        const callStarted = pacing ? pacingClock.now() : 0;
+        const prompt = buildWeeklyWorksheetPrompt(plan, source, BATCH_SIZE, batch, priorQuestions) + retryInstruction;
+        providerCalls += 1;
+        progress?.({ day: source.day, batch, completed: false, providerCalls });
+        raw = undefined;
         try {
-          const response = JSON.parse(raw);
-          if (Array.isArray(response?.questions)) {
-            receivedCount = response.questions.length;
-            const index = /^questions\[(\d+)\]/.exec(error.validation?.path)?.[1];
-            if (index !== undefined) questionType = response.questions[Number(index)]?.item_type;
+          raw = await generateText(prompt, { maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA,
+            signal: pacing?.signal || signal, ...(pacing ? { operationId: logOperationId, log,
+              onGroqUsage: value => { usage = value; pacing.record(value); } } : {}) });
+          callEnded = pacing ? pacingClock.now() : 0;
+          pacing?.check();
+          if (signal?.aborted) throw cancelled();
+          if (captureEnabled) {
+            captureContext = { day: source.day, batch, rawResponse: raw, priorQuestions };
+            if (batchCaptures.at(-1)?.day === source.day && batchCaptures.at(-1)?.batch === batch)
+              batchCaptures[batchCaptures.length - 1] = captureContext;
+            else batchCaptures.push(captureContext);
           }
-        } catch { /* Invalid JSON is recorded as syntax only. */ }
-        error.validation = { ...error.validation, day: source.day, batch, requestedCount: BATCH_SIZE,
-          validatedCount: 0, ...(receivedCount === undefined ? {} : { receivedCount }),
-          ...(questionType ? { questionType } : {}) };
-        error.providerCalls = providerCalls;
-        throw error;
-      }
-      title ||= parsed.title;
-      instructions ||= parsed.instructions;
-      if (parsed.distributionNote) distributionNotes.push(parsed.distributionNote);
-      for (const item of parsed.questions) {
-        const normalized = item.question.toLocaleLowerCase().replace(/\s+/g, ' ');
-        if (seen.has(normalized)) {
-          const error = invalidWeekly(`${source.day} repeated a question.`, 'duplicate_question', 'questions', source.day);
-          error.validation.subreason = 'duplicate_prior_batch';
-          error.validation = { ...error.validation, batch, requestedCount: BATCH_SIZE,
-            receivedCount: parsed.questions.length, validatedCount: questions.length,
-            ...duplicateMetadata(raw, priorQuestions, false) };
+          const parsed = parseDailyBatch(raw, plan, source, BATCH_SIZE, batch);
+          const batchSeen = new Set(seen);
+          let validatedCount = questions.length;
+          for (const item of parsed.questions) {
+            const normalized = item.question.toLocaleLowerCase().replace(/\s+/g, ' ');
+            if (batchSeen.has(normalized)) {
+              const error = invalidWeekly(`${source.day} repeated a question.`, 'duplicate_question', 'questions', source.day);
+              error.validation.subreason = 'duplicate_prior_batch';
+              error.validation = { ...error.validation, batch, requestedCount: BATCH_SIZE,
+                receivedCount: parsed.questions.length, validatedCount,
+                ...duplicateMetadata(raw, priorQuestions, false) };
+              throw error;
+            }
+            batchSeen.add(normalized);
+            validatedCount += 1;
+          }
+          title ||= parsed.title;
+          instructions ||= parsed.instructions;
+          if (parsed.distributionNote) distributionNotes.push(parsed.distributionNote);
+          for (const item of parsed.questions) {
+            seen.add(item.question.toLocaleLowerCase().replace(/\s+/g, ' '));
+            const localId = `draft-${questions.length + 1}`;
+            const key = parsed.answerKey.find(entry => entry.localId === item.localId);
+            questions.push({ ...item, localId });
+            if (key) answerKey.push({ ...key, localId });
+          }
+          progress?.({ day: source.day, batch, completed: true, providerCalls });
+          break;
+        } catch (error) {
+          callEnded ??= pacing ? pacingClock.now() : 0;
+          pacing?.check();
+          if (error.validation?.subreason === 'duplicate_within_batch')
+            Object.assign(error.validation, duplicateMetadata(raw, priorQuestions, true));
+          let receivedCount;
+          let questionType;
+          try {
+            const response = JSON.parse(raw);
+            if (Array.isArray(response?.questions)) {
+              receivedCount = response.questions.length;
+              const index = /^questions\[(\d+)\]/.exec(error.validation?.path)?.[1];
+              if (index !== undefined) questionType = response.questions[Number(index)]?.item_type;
+            }
+          } catch { /* Invalid JSON is recorded as syntax only. */ }
+          error.validation = { ...error.validation, day: source.day, batch, requestedCount: BATCH_SIZE,
+            validatedCount: error.validation?.validatedCount ?? 0,
+            ...(receivedCount === undefined ? {} : { receivedCount }),
+            ...(questionType ? { questionType } : {}) };
           error.providerCalls = providerCalls;
+          if (pacing && attempt === 0 && error.code === 'PROVIDER_RATE_LIMIT'
+            && Number.isInteger(error.retryAfterSeconds) && error.retryAfterSeconds >= 1
+            && error.retryAfterSeconds <= 60) {
+            nextWaitMs = await pacing.wait(error.retryAfterSeconds * 1000);
+            continue;
+          }
+          if (pacing && attempt === 0 && error.code === 'AI_RESPONSE_INVALID'
+            && (error.validation.subreason === 'duplicate_prior_batch'
+              || (error.validation.category === 'invalid_answer_key'
+                && error.validation.questionType === 'true_false'))) {
+            retryInstruction = error.validation.subreason === 'duplicate_prior_batch'
+              ? `\nRejected batch questions (do not repeat these): ${JSON.stringify(JSON.parse(raw).questions.map(item => item.question))}`
+              : '\nRetry this batch: true_false options must be [] and correct_answer exactly True or False.';
+            nextWaitMs = await pacing.pauseBefore();
+            continue;
+          }
           throw error;
+        } finally {
+          if (pacing) {
+            const tokens = ['promptTokens', 'completionTokens', 'totalTokens', 'reasoningTokens']
+              .filter(name => Number.isSafeInteger(usage?.[name]) && usage[name] >= 0)
+              .map(name => ` ${name}=${usage[name]}`).join('');
+            log.info?.(`[weekly-worksheets] operation=${logOperationId} day=${source.day} batch=${batch} durationMs=${Math.max(0, Math.round((callEnded ?? pacingClock.now()) - callStarted))} waitMs=${Math.round(attemptWaitMs)}${tokens} retry=${attempt ? 'yes' : 'no'}`);
+          }
         }
-        seen.add(normalized);
-        const localId = `draft-${questions.length + 1}`;
-        const key = parsed.answerKey.find(entry => entry.localId === item.localId);
-        questions.push({ ...item, localId });
-        if (key) answerKey.push({ ...key, localId });
       }
     }
     const typeDistribution = Object.fromEntries(['multiple_choice', 'true_false', 'enumeration', 'essay'].map(type =>
@@ -363,6 +380,7 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
   succeeded = true;
   return drafts;
   } catch (error) {
+    error.providerCalls ??= providerCalls;
     if (captureEnabled && error.validation?.category === 'duplicate_question' && captureContext
       && typeof captureContext.rawResponse === 'string') {
       try {

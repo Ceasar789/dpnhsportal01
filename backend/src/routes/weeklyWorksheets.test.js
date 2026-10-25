@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateWeeklyWorksheetDrafts } from '../lib/weeklyWorksheetGenerator.js';
+import { generateWeeklyWorksheetDrafts, RESPONSE_SCHEMA } from '../lib/weeklyWorksheetGenerator.js';
+import { requestWorksheetJsonFromGroq } from '../lib/weeklyWorksheetProvider.js';
 import { weeklyWorksheetHandler } from './weeklyWorksheets.js';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => ({ day,
@@ -62,6 +63,19 @@ test('weekly route reports batch progress and attempted provider calls on succes
   assert.equal(result.body.providerCalls, 15);
   assert.equal(result.logs.length, 15);
   assert.match(result.logs.at(-1), /progress=completed providerCalls=15 plannedCalls=15/);
+});
+
+test('weekly progress raises plannedCalls for a retried batch', async () => {
+  const result = await invoke({ body: { lessonPlanId: plan.id, sourceHtml: plan.objectives, days, questionCount: 20 },
+    generate: ({ progress, questionCount }) => {
+      progress({ day: 'Monday', batch: 1, completed: false, providerCalls: 1 });
+      progress({ day: 'Monday', batch: 1, completed: false, providerCalls: 2 });
+      progress({ day: 'Monday', batch: 1, completed: true, providerCalls: 2 });
+      return days.map(day => ({ day: day.day, questions: Array.from({ length: questionCount }) }));
+    } });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.providerCalls, 2);
+  assert.match(result.logs[1], /providerCalls=2 plannedCalls=11/);
 });
 
 test('weekly worksheet route rejects foreign, changed, and incomplete sources before AI', async () => {
@@ -140,6 +154,53 @@ test('weekly route logs only allowlisted validation diagnostics', async () => {
   }) });
   assert.equal(result.status, 502);
   assert.match(result.logs[0], /category=invalid_answer_key path=days\[2\]\.questions\[0\]\.correct_answer/);
+  assert.doesNotMatch(JSON.stringify(result), /private answer/);
+});
+
+test('weekly route logs numeric provider status without exposing provider content', async () => {
+  const result = await invoke({ generationError: Object.assign(new Error('private provider body'), {
+    code: 'PROVIDER_REJECTED', httpStatus: 422,
+  }) });
+  assert.equal(result.status, 502);
+  assert.match(result.logs[0], /code=PROVIDER_REJECTED.*status=422/);
+  assert.doesNotMatch(JSON.stringify(result), /private provider body/);
+  assert.equal(result.body.httpStatus, undefined);
+});
+
+test('weekly route logs only sanitized Groq 400 code and reason from a mocked response', async () => {
+  const safe = await invoke({ generate: () => requestWorksheetJsonFromGroq('private lesson prompt', {
+    apiKey: 'synthetic-key', responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => ({
+      ok: false, status: 400, headers: { get: () => null }, json: async () => ({ error: {
+        code: 'json_validate_failed', type: 'invalid_request_error',
+        message: 'Unable to complete structured output.' } }),
+    }),
+  }) });
+  assert.match(safe.logs[0], /status=400.*providerErrorCode=json_validate_failed\/invalid_request_error/);
+  assert.match(safe.logs[0], /providerErrorReason="Unable to complete structured output\."/);
+  assert.doesNotMatch(JSON.stringify(safe), /private lesson prompt|synthetic-key/);
+  assert.equal(safe.body.providerErrorCode, undefined);
+  assert.equal(safe.body.providerErrorReason, undefined);
+
+  for (const json of [async () => ({ error: { code: 'invalid_request_error',
+    message: 'Rejected "private lesson prompt" from synthetic-key' } }),
+  async () => { throw new SyntaxError('private non-JSON body'); }]) {
+    const result = await invoke({ generate: () => requestWorksheetJsonFromGroq('private lesson prompt', {
+      apiKey: 'synthetic-key', responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => ({
+        ok: false, status: 400, headers: { get: () => null }, json,
+      }),
+    }) });
+    assert.match(result.logs[0], /status=400/);
+    assert.doesNotMatch(result.logs[0], /providerErrorReason=|private lesson prompt|synthetic-key/);
+  }
+});
+
+test('weekly route logs a safe true/false subreason without answer text', async () => {
+  const result = await invoke({ generationError: Object.assign(new Error('private answer'), {
+    code: 'AI_RESPONSE_INVALID', validation: { category: 'invalid_answer_key',
+      path: 'questions[4].correct_answer', questionType: 'true_false',
+      subreason: 'true_false_answer_invalid', answer: 'private answer' },
+  }) });
+  assert.match(result.logs[0], /subreason=true_false_answer_invalid/);
   assert.doesNotMatch(JSON.stringify(result), /private answer/);
 });
 

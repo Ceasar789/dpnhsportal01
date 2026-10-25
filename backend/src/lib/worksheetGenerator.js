@@ -148,6 +148,8 @@ export function parseWorksheetResponse(raw, context) {
         'invalid_answer_key', `questions[${index}].correct_answer`);
       if (itemType === 'enumeration' && typeof answer === 'string' && !answer.trim())
         error.validation.subreason = 'enumeration_answer_missing';
+      if (itemType === 'true_false') error.validation.subreason = cleanOptions.length
+        ? 'true_false_options_present' : 'true_false_answer_invalid';
       throw error;
     }
     if (itemType === 'true_false') answer = /^true$/i.test(answer.trim()) ? 'True' : 'False';

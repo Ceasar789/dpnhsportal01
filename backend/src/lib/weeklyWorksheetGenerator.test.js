@@ -37,6 +37,20 @@ const withLocalGroq = async run => {
   }
 };
 
+const withProviderChain = run => withLocalGroq(async () => {
+  const previous = { chain: process.env.WEEKLY_WORKSHEET_PROVIDERS,
+    groq: process.env.GROQ_API_KEY, mistral: process.env.MISTRAL_API_KEY };
+  process.env.WEEKLY_WORKSHEET_PROVIDERS = 'groq:openai/gpt-oss-120b,groq:llama-3.3-70b-versatile,mistral:mistral-small-latest';
+  process.env.GROQ_API_KEY = 'synthetic-groq-key';
+  process.env.MISTRAL_API_KEY = 'synthetic-mistral-key';
+  try { return await run(); } finally {
+    for (const [name, value] of [['WEEKLY_WORKSHEET_PROVIDERS', previous.chain],
+      ['GROQ_API_KEY', previous.groq], ['MISTRAL_API_KEY', previous.mistral]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+});
+
 const fakeClock = (initialNow = 0) => {
   let now = initialNow; let nextId = 0;
   const timers = new Map();
@@ -85,6 +99,22 @@ test('local Groq waits on low tokens and retries one 429 while counting both att
   assert.ok(logs.some(value => /waitMs=7000 .*retry=yes/.test(value)));
   assert.ok(logs.some(value => /promptTokens=900 completionTokens=1100 totalTokens=2000/.test(value)));
   assert.ok(logs.every(value => !/Filipino|panitikan|taludtod|answer/i.test(value)));
+}));
+
+test('local Groq logs only sanitized 429 code and numeric reset hints before a successful retry', async () => withLocalGroq(async () => {
+  const clock = fakeClock(); const logs = []; let calls = 0;
+  const drafts = await settleWithClock(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    pacingClock: clock, log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+      calls += 1;
+      if (calls === 1) throw Object.assign(new Error('synthetic prompt and secret'), {
+        code: 'PROVIDER_RATE_LIMIT', httpStatus: 429, providerErrorCode: 'rate_limit',
+        retryAfterSeconds: 1, resetTokensMs: 250, resetRequestsMs: 500 });
+      return fakeProvider(prompt, options);
+    } }), clock);
+  assert.equal(drafts.length, 5);
+  assert.equal(calls, 11);
+  assert.ok(logs.some(value => /status=429 providerErrorCode=rate_limit retryAfterSeconds=1 resetTokensMs=250 resetRequestsMs=500/.test(value)));
+  assert.ok(logs.every(value => !/synthetic prompt and secret|panitikan|taludtod/.test(value)));
 }));
 
 test('local Groq call and request timing logs contain only safe numbers and an operation ID', async () => withLocalGroq(async () => {
@@ -409,6 +439,7 @@ test('invalid and ambiguous enumeration answer keys still fail before metadata v
   }
 });
 const fakeProvider = async (prompt, options) => {
+  options.onHttpStatus?.(200);
   assert.equal(options.maxOutputTokens, 8192);
   assert.equal(options.responseSchema.properties.questions.maxItems, 10);
   const day = days.find(value => prompt.includes(`Daily source: {"day":"${value}"`));
@@ -419,6 +450,479 @@ const fakeProvider = async (prompt, options) => {
   assert.ok(days.filter(other => other !== day).every(other => !prompt.includes(`Analyze ${other} panitikan`)));
   return response(day, batch);
 };
+
+test('chain falls from a primary 429 to the second Groq model and skips cooldown later', async () => withProviderChain(async () => {
+  const models = []; const logs = []; const progress = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, progress: value => progress.push(value),
+    generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model);
+      if (options.providerConfig.model === 'openai/gpt-oss-120b')
+        throw Object.assign(new Error('synthetic rate limit'), { code: 'PROVIDER_RATE_LIMIT',
+          httpStatus: 429, retryAfterSeconds: 60, resetTokensMs: 12000, resetRequestsMs: 3000,
+          providerErrorCode: 'rate_limit' });
+      return fakeProvider(prompt, options);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.deepEqual(models.slice(0, 2), ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile']);
+  assert.equal(models.filter(model => model === 'openai/gpt-oss-120b').length, 1);
+  assert.equal(progress.at(-1).providerCalls, 11);
+  assert.ok(logs.some(value => /provider=groq model=openai\/gpt-oss-120b .*status=429/.test(value)));
+  assert.ok(logs.some(value => /status=429 .*providerErrorCode=rate_limit retryAfterSeconds=60 resetTokensMs=12000 resetRequestsMs=3000/.test(value)));
+  assert.ok(logs.some(value => /provider=groq model=llama-3\.3-70b-versatile .*status=200/.test(value)));
+  assert.ok(logs.every(value => !/synthetic-groq-key|synthetic-mistral-key|panitikan|taludtod/.test(value)));
+}));
+
+test('provider timeout fails over for one batch without disabling that entry', async () => withProviderChain(async () => {
+  const models = []; const logs = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model);
+      if (models.length === 1) throw Object.assign(new Error('synthetic timeout'), { code: 'PROVIDER_TIMEOUT' });
+      return fakeProvider(prompt, options);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.deepEqual(models.slice(0, 3), ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile',
+    'openai/gpt-oss-120b']);
+  assert.equal(models.length, 11);
+  assert.ok(logs.some(value => /model=openai\/gpt-oss-120b .*status=unknown .*code=PROVIDER_TIMEOUT/.test(value)));
+  assert.ok(logs.every(value => !/synthetic timeout|synthetic-groq-key|panitikan/.test(value)));
+}));
+
+test('multiple-choice invalid key retries the same model then fails over with a fresh prompt', async () => withProviderChain(async () => {
+  const models = []; const prompts = []; const logs = []; const progress = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, progress: value => progress.push(value),
+    generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model); prompts.push(prompt);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (models.length <= 2) value.questions[0].correct_answer = 'A';
+      return JSON.stringify(value);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.deepEqual(models.slice(0, 3), ['openai/gpt-oss-120b', 'openai/gpt-oss-120b',
+    'llama-3.3-70b-versatile']);
+  assert.match(prompts[1], /correct_answer must exactly match one option text/);
+  assert.doesNotMatch(prompts[2], /Retry this batch:/);
+  assert.equal(progress.at(-1).providerCalls, 12);
+  assert.equal(logs.filter(value => /stage=answer-key-shape/.test(value)).length, 2);
+  assert.ok(logs.some(value => /answerType=string answerLength=1 singleLetterAD=true matchesOptionText=false/.test(value)));
+  assert.ok(logs.every(value => !/synthetic-groq-key|panitikan|taludtod|correct_answer":"A"/.test(value)));
+}));
+
+test('invalid_field gets one same-model retry before another chain entry', async () => withProviderChain(async () => {
+  const models = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (models.length === 1) value.questions[0].points = 0;
+      return JSON.stringify(value);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.deepEqual(models.slice(0, 2), ['openai/gpt-oss-120b', 'openai/gpt-oss-120b']);
+  assert.equal(models.length, 11);
+}));
+
+test('invalid options retry once on the same model and then succeed', async () => withProviderChain(async () => {
+  const models = []; const prompts = []; const logs = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model); prompts.push(prompt);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (models.length === 1) value.questions[3].options[1] = null;
+      return JSON.stringify(value);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.equal(models.length, 11);
+  assert.deepEqual(models.slice(0, 2), ['openai/gpt-oss-120b', 'openai/gpt-oss-120b']);
+  assert.ok(prompts[1].includes('Retry this batch: options must be arrays'));
+  assert.ok(logs.some(value => /stage=options-shape .*questionIndex=3 optionsType=object optionsIsArray=true arrayLength=3/.test(value)));
+}));
+
+test('invalid options retry once then fail over with a fresh prompt', async () => withProviderChain(async () => {
+  const models = []; const prompts = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model); prompts.push(prompt);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (models.length <= 2) value.questions[3].options[1] = null;
+      return JSON.stringify(value);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.equal(models.length, 12);
+  assert.deepEqual(models.slice(0, 3), ['openai/gpt-oss-120b', 'openai/gpt-oss-120b',
+    'llama-3.3-70b-versatile']);
+  assert.ok(prompts[1].includes('Retry this batch: options must be arrays'));
+  assert.ok(!prompts[2].includes('Retry this batch:'));
+}));
+
+test('invalid options log only bounded shape, including the failed element index', async () => withLocalGroq(async () => {
+  const logs = []; let calls = 0;
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+      calls += 1;
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      value.questions[3].options = calls === 1
+        ? ['A. PRIVATE_OPTION', 'A. PRIVATE_OPTION', '', 'B) medium text', `C) ${'x'.repeat(100)}`, 42]
+        : null;
+      return JSON.stringify(value);
+    } }), error => error.code === 'AI_RESPONSE_INVALID' && error.validation.category === 'invalid_field'
+      && error.validation.path === 'questions[3].options' && error.providerCalls === 2);
+  assert.ok(logs.some(value => /questionIndex=3 optionsType=object optionsIsArray=true arrayLength=6 elementTypes=string,string,string,string,string,number lengthBuckets=10-99,10-99,0,10-99,100\+,na letterLabels=true,true,false,true,true,false duplicateExact=true invalidOptionIndex=2 shapeTruncated=false/.test(value)));
+  assert.ok(logs.some(value => /questionIndex=3 optionsType=object optionsIsArray=false elementTypes=none lengthBuckets=none letterLabels=none duplicateExact=false invalidOptionIndex=none/.test(value)));
+  assert.ok(logs.every(value => !/PRIVATE_OPTION|B\) medium text|Tula|Awit|Dula|panitikan|taludtod/.test(value)));
+}));
+
+test('multiple-choice validation exhausts the chain after at most two calls per entry', async () => withProviderChain(async () => {
+  const models = [];
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      value.questions[0].correct_answer = 'A';
+      return JSON.stringify(value);
+    } }), error => error.code === 'AI_RESPONSE_INVALID'
+      && error.validation.category === 'invalid_answer_key'
+      && error.validation.questionType === 'multiple_choice' && error.providerCalls === 6);
+  assert.deepEqual(models, ['openai/gpt-oss-120b', 'openai/gpt-oss-120b',
+    'llama-3.3-70b-versatile', 'llama-3.3-70b-versatile', 'mistral-small-latest', 'mistral-small-latest']);
+}));
+
+test('chain exhaustion preserves the validation error when the next entry has no key', async () => withProviderChain(async () => {
+  const previousChain = process.env.WEEKLY_WORKSHEET_PROVIDERS;
+  const previousKey = process.env.MISTRAL_API_KEY;
+  process.env.WEEKLY_WORKSHEET_PROVIDERS = 'groq:openai/gpt-oss-120b,mistral:mistral-small-latest';
+  delete process.env.MISTRAL_API_KEY;
+  try {
+    await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info() {} }, generateText: async (prompt, options) => {
+        const value = JSON.parse(await fakeProvider(prompt, options));
+        value.questions[0].correct_answer = 'A';
+        return JSON.stringify(value);
+      } }), error => error.code === 'AI_RESPONSE_INVALID'
+        && error.validation.category === 'invalid_answer_key' && error.providerCalls === 2);
+  } finally {
+    process.env.WEEKLY_WORKSHEET_PROVIDERS = previousChain;
+    if (previousKey === undefined) delete process.env.MISTRAL_API_KEY;
+    else process.env.MISTRAL_API_KEY = previousKey;
+  }
+}));
+
+test('answer-key shape logs distinguish an option match from a non-string without exposing either', async () => withLocalGroq(async () => {
+  const logs = []; let calls = 0;
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+      calls += 1;
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (calls === 1) value.questions[0].options[1] = value.questions[0].options[0];
+      else value.questions[0].correct_answer = 7;
+      return JSON.stringify(value);
+    } }), error => error.code === 'AI_RESPONSE_INVALID' && error.providerCalls === 2);
+  assert.ok(logs.some(value => /answerType=string answerLength=4 singleLetterAD=false matchesOptionText=true/.test(value)));
+  assert.ok(logs.some(value => /answerType=number singleLetterAD=false matchesOptionText=false/.test(value)));
+  assert.ok(logs.every(value => !/Tula|Awit|Dula|panitikan|taludtod/.test(value)));
+}));
+
+test('chain reaches Mistral after both Groq entries fail', async () => withProviderChain(async () => {
+  const models = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, generateText: async (prompt, options) => {
+      const { model, name } = options.providerConfig;
+      models.push(`${name}:${model}`);
+      if (prompt.includes('Monday, batch 1.') && name === 'groq')
+        throw Object.assign(new Error('synthetic rejection'), { code: 'PROVIDER_REJECTED', httpStatus: 400 });
+      return fakeProvider(prompt, options);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.deepEqual(models.slice(0, 3), ['groq:openai/gpt-oss-120b',
+    'groq:llama-3.3-70b-versatile', 'mistral:mistral-small-latest']);
+}));
+
+test('chain falls through 5xx and disables both Groq models after authentication fails', async () => withProviderChain(async () => {
+  const models = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model);
+      if (models.length === 1) throw Object.assign(new Error('synthetic server error'), {
+        code: 'PROVIDER_UNAVAILABLE', httpStatus: 500 });
+      if (models.length === 2) throw Object.assign(new Error('synthetic auth error'), {
+        code: 'PROVIDER_AUTH_FAILED', httpStatus: 401 });
+      return fakeProvider(prompt, options);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.deepEqual(models.slice(0, 3), ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'mistral-small-latest']);
+  assert.ok(models.slice(2).every(model => model === 'mistral-small-latest'));
+}));
+
+test('chain paces only the entry whose reported token budget is low', async () => withProviderChain(async () => {
+  const clock = fakeClock(); const models = [];
+  const drafts = await settleWithClock(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    pacingClock: clock, log: { info() {} }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model);
+      if (options.providerConfig.name === 'groq') throw Object.assign(new Error('synthetic rate limit'), {
+        code: 'PROVIDER_RATE_LIMIT', httpStatus: 429, retryAfterSeconds: 60 });
+      options.onGroqUsage?.({ remainingTokens: models.length === 3 ? 100 : 8000,
+        resetTokensMs: 10_000, totalTokens: 2000 });
+      return fakeProvider(prompt, options);
+    } }), clock);
+  assert.equal(drafts.length, 5);
+  assert.equal(clock.now(), 10_000);
+  assert.equal(models.length, 12);
+  assert.deepEqual(models.slice(0, 3), ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'mistral-small-latest']);
+}));
+
+test('chain keeps fallbacks idle when primary succeeds and retries validation on that provider', async () => withProviderChain(async () => {
+  const models = []; let calls = 0;
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, generateText: async (prompt, options) => {
+      calls += 1;
+      models.push(options.providerConfig.model);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (calls === 1) value.questions[4].correct_answer = 'Tama';
+      return JSON.stringify(value);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.equal(calls, 11);
+  assert.ok(models.every(model => model === 'openai/gpt-oss-120b'));
+}));
+
+test('chain fails closed after all providers fail and skips missing keys by name', async () => withProviderChain(async () => {
+  const logs = []; const models = [];
+  const generateText = async (_prompt, options) => {
+    models.push(options.providerConfig.model);
+    throw Object.assign(new Error('synthetic failure'), { code: 'PROVIDER_REJECTED', httpStatus: 400 });
+  };
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, generateText }), error =>
+    error.providerChainExhausted === true && error.providerCalls === 3 && error.code === 'PROVIDER_REJECTED');
+  assert.equal(models.length, 3);
+  delete process.env.MISTRAL_API_KEY;
+  models.length = 0;
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: value => logs.push(value) }, generateText }), error =>
+    error.providerChainExhausted === true && error.providerCalls === 2);
+  assert.equal(models.length, 2);
+  assert.ok(logs.some(value => /provider=mistral model=mistral-small-latest skip=key_not_set/.test(value)));
+}));
+
+test('chain skips NVIDIA with no key and uses the next configured entry', async () => withProviderChain(async () => {
+  const previousChain = process.env.WEEKLY_WORKSHEET_PROVIDERS;
+  const previousKey = process.env.NVIDIA_API_KEY;
+  process.env.WEEKLY_WORKSHEET_PROVIDERS = 'nvidia:nvidia/nemotron-3-ultra-550b-a55b,groq:openai/gpt-oss-120b';
+  delete process.env.NVIDIA_API_KEY;
+  try {
+    const logs = []; const models = [];
+    const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+        models.push(options.providerConfig.model);
+        return fakeProvider(prompt, options);
+      } });
+    assert.equal(drafts.length, 5);
+    assert.ok(models.every(model => model === 'openai/gpt-oss-120b'));
+    assert.ok(logs.some(value => /provider=nvidia .*skip=key_not_set/.test(value)));
+    assert.ok(logs.every(value => !/synthetic-groq-key|synthetic-mistral-key|panitikan|taludtod/.test(value)));
+    process.env.WEEKLY_WORKSHEET_PROVIDERS = 'nvidia:nvidia/nemotron-3-ultra-550b-a55b';
+    await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info() {} }, generateText: async () => { throw new Error('must not call provider'); } }),
+    error => error.code === 'PROVIDER_NOT_CONFIGURED' && error.providerCalls === 0);
+  } finally {
+    process.env.WEEKLY_WORKSHEET_PROVIDERS = previousChain;
+    if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
+    else process.env.NVIDIA_API_KEY = previousKey;
+  }
+}));
+
+test('chain skips Cloudflare if token or account ID is missing or the account ID is invalid', async () => withProviderChain(async () => {
+  const previous = { chain: process.env.WEEKLY_WORKSHEET_PROVIDERS,
+    token: process.env.CLOUDFLARE_API_TOKEN, account: process.env.CLOUDFLARE_ACCOUNT_ID };
+  const accountId = '0123456789abcdef0123456789abcdef';
+  const token = 'synthetic-cloudflare-token';
+  process.env.WEEKLY_WORKSHEET_PROVIDERS = 'cloudflare:@cf/openai/gpt-oss-120b,groq:openai/gpt-oss-120b';
+  try {
+    for (const [setToken, account, skip] of [
+      [false, accountId, 'key_not_set'], [true, undefined, 'key_not_set'],
+      [true, 'invalid-account-id', 'invalid_account_id'],
+    ]) {
+      if (setToken) process.env.CLOUDFLARE_API_TOKEN = token;
+      else delete process.env.CLOUDFLARE_API_TOKEN;
+      if (account === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+      else process.env.CLOUDFLARE_ACCOUNT_ID = account;
+      const logs = []; const models = [];
+      const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+        log: { info: line => logs.push(line) }, generateText: async (prompt, options) => {
+          models.push(options.providerConfig.model);
+          return fakeProvider(prompt, options);
+        } });
+      assert.equal(drafts.length, 5);
+      assert.ok(models.every(model => model === 'openai/gpt-oss-120b'));
+      assert.ok(logs.some(line => line.includes(`provider=cloudflare model=@cf/openai/gpt-oss-120b skip=${skip}`)));
+      assert.ok(logs.every(line => !line.includes(token) && !line.includes(accountId)
+        && !line.includes('invalid-account-id') && !line.includes('api.cloudflare.com')));
+    }
+    process.env.CLOUDFLARE_API_TOKEN = token;
+    process.env.CLOUDFLARE_ACCOUNT_ID = accountId;
+    const models = [];
+    const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info() {} }, generateText: async (prompt, options) => {
+        models.push(options.providerConfig.model);
+        return fakeProvider(prompt, options);
+      } });
+    assert.equal(drafts.length, 5);
+    assert.ok(models.every(model => model === '@cf/openai/gpt-oss-120b'));
+  } finally {
+    for (const [name, value] of [['WEEKLY_WORKSHEET_PROVIDERS', previous.chain],
+      ['CLOUDFLARE_API_TOKEN', previous.token], ['CLOUDFLARE_ACCOUNT_ID', previous.account]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+}));
+
+test('Cloudflare call logs cannot echo account ID or token through model or error metadata', async () => withProviderChain(async () => {
+  const previous = { chain: process.env.WEEKLY_WORKSHEET_PROVIDERS,
+    token: process.env.CLOUDFLARE_API_TOKEN, account: process.env.CLOUDFLARE_ACCOUNT_ID };
+  const accountId = 'abcdef0123456789abcdef0123456789';
+  const token = 'synthetic-cloudflare-token';
+  process.env.WEEKLY_WORKSHEET_PROVIDERS = `cloudflare:${accountId},groq:openai/gpt-oss-120b`;
+  process.env.CLOUDFLARE_ACCOUNT_ID = accountId;
+  process.env.CLOUDFLARE_API_TOKEN = token;
+  try {
+    const logs = [];
+    const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info: line => logs.push(line) }, generateText: async (prompt, options) => {
+        if (options.provider === 'cloudflare') throw Object.assign(new Error('synthetic failure'), {
+          code: 'PROVIDER_REJECTED', httpStatus: 400, providerErrorCode: accountId,
+        });
+        return fakeProvider(prompt, options);
+      } });
+    assert.equal(drafts.length, 5);
+    assert.ok(logs.some(line => /provider=cloudflare model=redacted .*status=400/.test(line)));
+    assert.ok(logs.every(line => !line.includes(accountId) && !line.includes(token)
+      && !line.includes('api.cloudflare.com')));
+  } finally {
+    for (const [name, value] of [['WEEKLY_WORKSHEET_PROVIDERS', previous.chain],
+      ['CLOUDFLARE_API_TOKEN', previous.token], ['CLOUDFLARE_ACCOUNT_ID', previous.account]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+}));
+
+test('truncated and empty provider responses fail over directly and log safe finish reasons', async () => withProviderChain(async () => {
+  for (const [code, reportedReason, loggedReason] of [
+    ['PROVIDER_TRUNCATED', 'LENGTH', 'LENGTH'], ['PROVIDER_INVALID_RESPONSE', 'STOP', 'STOP'],
+    ['PROVIDER_INVALID_RESPONSE', 'PRIVATE_REASON', 'UNKNOWN'],
+  ]) {
+    const models = []; const logs = [];
+    const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info: line => logs.push(line) }, generateText: async (prompt, options) => {
+        models.push(options.providerConfig.model);
+        options.onHttpStatus?.(200);
+        options.onFinishReason?.(models.length === 1 ? reportedReason : 'STOP');
+        if (models.length === 1) throw Object.assign(new Error('synthetic response failure'), { code });
+        return fakeProvider(prompt, options);
+      } });
+    assert.equal(drafts.length, 5);
+    assert.deepEqual(models.slice(0, 3), ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile',
+      'openai/gpt-oss-120b']);
+    assert.equal(models.length, 11);
+    assert.ok(logs.some(line => line.includes(`finishReason=${loggedReason}`)
+      && line.includes(`code=${code}`)));
+    assert.equal(logs.filter(line => /provider=.*finishReason=/.test(line)).length, 11);
+    assert.ok(logs.every(line => !line.includes('synthetic response failure')
+      && !line.includes('PRIVATE_REASON')));
+  }
+}));
+
+test('truncation exhausts the chain without same-model retries or partial drafts', async () => withProviderChain(async () => {
+  const models = []; const logs = [];
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info: line => logs.push(line) }, generateText: async (_prompt, options) => {
+      models.push(options.providerConfig.model);
+      options.onHttpStatus?.(200);
+      options.onFinishReason?.('LENGTH');
+      throw Object.assign(new Error('synthetic truncation'), { code: 'PROVIDER_TRUNCATED',
+        finishReason: 'LENGTH' });
+    } }), error => error.code === 'PROVIDER_TRUNCATED' && error.providerChainExhausted === true
+      && error.providerCalls === 3);
+  assert.deepEqual(models, ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'mistral-small-latest']);
+  assert.equal(logs.filter(line => /provider=.*finishReason=LENGTH/.test(line)).length, 3);
+}));
+
+test('chain selects NVIDIA when its key is configured', async () => withProviderChain(async () => {
+  const previousChain = process.env.WEEKLY_WORKSHEET_PROVIDERS;
+  const previousKey = process.env.NVIDIA_API_KEY;
+  process.env.WEEKLY_WORKSHEET_PROVIDERS = 'nvidia:nvidia/nemotron-3-ultra-550b-a55b,groq:openai/gpt-oss-120b';
+  process.env.NVIDIA_API_KEY = 'synthetic-nvidia-key';
+  try {
+    const models = []; const logs = [];
+    const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+        models.push(options.providerConfig.model);
+        return fakeProvider(prompt, options);
+      } });
+    assert.equal(drafts.length, 5);
+    assert.equal(models.length, 10);
+    assert.ok(models.every(model => model === 'nvidia/nemotron-3-ultra-550b-a55b'));
+    assert.ok(logs.every(value => !/synthetic-nvidia-key|panitikan|taludtod/.test(value)));
+  } finally {
+    process.env.WEEKLY_WORKSHEET_PROVIDERS = previousChain;
+    if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
+    else process.env.NVIDIA_API_KEY = previousKey;
+  }
+}));
+
+test('NVIDIA call log includes thinking state and numeric usage without content', async () => withProviderChain(async () => {
+  const previousChain = process.env.WEEKLY_WORKSHEET_PROVIDERS;
+  const previousKey = process.env.NVIDIA_API_KEY;
+  process.env.WEEKLY_WORKSHEET_PROVIDERS = 'nvidia:nvidia/nemotron-3-ultra-550b-a55b';
+  process.env.NVIDIA_API_KEY = 'synthetic-nvidia-key';
+  try {
+    const logs = [];
+    const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+      log: { info: value => logs.push(value) }, generateText: async (prompt, options) => {
+        options.onRequestMetadata?.({ thinking: 'false' });
+        options.onGroqUsage?.({ promptTokens: 120, completionTokens: 45, totalTokens: 165,
+          reasoningTokens: 30 });
+        return fakeProvider(prompt, options);
+      } });
+    assert.equal(drafts.length, 5);
+    assert.equal(logs.filter(value => /provider=nvidia .*thinking=false promptTokens=120 completionTokens=45 totalTokens=165 reasoningTokens=30/.test(value)).length, 10);
+    assert.ok(logs.every(value => !/synthetic-nvidia-key|panitikan|taludtod|synthetic private reasoning/.test(value)));
+  } finally {
+    process.env.WEEKLY_WORKSHEET_PROVIDERS = previousChain;
+    if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
+    else process.env.NVIDIA_API_KEY = previousKey;
+  }
+}));
+
+test('short batch retries once on the same model with the exact count instruction', async () => withProviderChain(async () => {
+  const models = []; const prompts = []; const progress = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, progress: value => progress.push(value), generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model); prompts.push(prompt);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (models.length === 1) value.questions.pop();
+      return JSON.stringify(value);
+    } });
+  assert.equal(drafts.length, 5);
+  assert.equal(progress.at(-1).providerCalls, 11);
+  assert.ok(models.every(model => model === 'openai/gpt-oss-120b'));
+  assert.match(prompts[1], /Retry this batch: return exactly 10 questions/);
+}));
+
+test('extra questions are not truncated and a second count failure returns no drafts', async () => withProviderChain(async () => {
+  const models = [];
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    log: { info() {} }, generateText: async (prompt, options) => {
+      models.push(options.providerConfig.model);
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      value.questions.push({ ...value.questions[0], question: 'Synthetic extra question.' });
+      return JSON.stringify(value);
+    } }), error => error.code === 'AI_RESPONSE_INVALID' && error.validation.category === 'question_count'
+      && error.providerCalls === 6 && error.validation.receivedCount === 11);
+  assert.deepEqual(models, ['openai/gpt-oss-120b', 'openai/gpt-oss-120b',
+    'llama-3.3-70b-versatile', 'llama-3.3-70b-versatile', 'mistral-small-latest', 'mistral-small-latest']);
+}));
 
 const fridayFailure = async (batch, change, questionCount = 20) => {
   const calls = [];

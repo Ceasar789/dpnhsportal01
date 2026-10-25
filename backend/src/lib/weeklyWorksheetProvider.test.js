@@ -1,7 +1,290 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RESPONSE_SCHEMA, generateWeeklyWorksheetDrafts } from './weeklyWorksheetGenerator.js';
-import { requestWeeklyWorksheetJson, requestWorksheetJsonFromGroq } from './weeklyWorksheetProvider.js';
+import { parseWeeklyWorksheetProviders, requestOpenAICompatibleWorksheetJson,
+  requestWeeklyWorksheetJson, requestWorksheetJsonFromGroq, weeklyProviderTimeoutMs } from './weeklyWorksheetProvider.js';
+
+test('worksheet chain accepts registered Groq, Mistral and NVIDIA models but never Gemini', () => {
+  assert.deepEqual(parseWeeklyWorksheetProviders('groq:openai/gpt-oss-120b,groq:llama-3.3-70b-versatile,mistral:mistral-small-latest,nvidia:nvidia/nemotron-3-ultra-550b-a55b')
+    .map(entry => [entry.name, entry.model]), [
+    ['groq', 'openai/gpt-oss-120b'], ['groq', 'llama-3.3-70b-versatile'], ['mistral', 'mistral-small-latest'],
+    ['nvidia', 'nvidia/nemotron-3-ultra-550b-a55b'],
+  ]);
+  for (const value of ['gemini:gemini-2.5-flash', 'groq:gemini-2.5-flash', 'mistral:gemini-2.5-flash',
+    'nvidia:gemini-2.5-flash', 'constructor:some-model', 'unknown:some-model', 'groq:', ''])
+    assert.throws(() => parseWeeklyWorksheetProviders(value));
+});
+
+test('worksheet chain accepts Cloudflare model IDs with @ and / after the first colon', () => {
+  assert.deepEqual(parseWeeklyWorksheetProviders('cloudflare:@cf/openai/gpt-oss-120b'),
+    [{ name: 'cloudflare', model: '@cf/openai/gpt-oss-120b' }]);
+  assert.throws(() => parseWeeklyWorksheetProviders('cloudflare:@cf/openai:gpt-oss-120b'));
+});
+
+test('Cloudflare uses the account URL and content only, without unverified request parameters', async () => {
+  const previous = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const previousMax = process.env.CLOUDFLARE_MAX_TOKENS;
+  const accountId = '0123456789abcdef0123456789abcdef';
+  process.env.CLOUDFLARE_ACCOUNT_ID = accountId;
+  delete process.env.CLOUDFLARE_MAX_TOKENS;
+  try {
+    const content = fixture('Monday', 1);
+    const result = await requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+      provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b', apiKey: 'synthetic-cloudflare-token',
+      responseSchema: RESPONSE_SCHEMA, maxOutputTokens: 8192, fetchImpl: async (url, options) => {
+        assert.equal(url, `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`);
+        assert.equal(options.headers.Authorization, 'Bearer synthetic-cloudflare-token');
+        assert.deepEqual(JSON.parse(options.body), { model: '@cf/openai/gpt-oss-120b',
+          messages: [{ role: 'user', content: 'synthetic prompt' }], max_tokens: 4096 });
+        return { ok: true, status: 200, headers: new Headers(), json: async () => ({
+          choices: [{ finish_reason: 'stop', message: { content, reasoning_content: 'PRIVATE_REASONING' } }],
+        }) };
+      },
+    });
+    assert.equal(result, content);
+    for (const empty of [null, '', '   ']) {
+      await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+        provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b', apiKey: 'synthetic-cloudflare-token',
+        fetchImpl: async () => ({ ok: true, status: 200, headers: new Headers(), json: async () => ({
+          choices: [{ finish_reason: 'stop', message: { content: empty, reasoning_content: 'PRIVATE_REASONING' } }],
+        }) }),
+      }), error => error.code === 'PROVIDER_INVALID_RESPONSE'
+        && !JSON.stringify(error).includes('PRIVATE_REASONING'));
+    }
+  } finally {
+    if (previous === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = previous;
+    if (previousMax === undefined) delete process.env.CLOUDFLARE_MAX_TOKENS;
+    else process.env.CLOUDFLARE_MAX_TOKENS = previousMax;
+  }
+});
+
+test('Cloudflare max_tokens accepts bounded integer overrides and warns safely on invalid values', async () => {
+  const previous = { account: process.env.CLOUDFLARE_ACCOUNT_ID,
+    max: process.env.CLOUDFLARE_MAX_TOKENS };
+  process.env.CLOUDFLARE_ACCOUNT_ID = '0123456789abcdef0123456789abcdef';
+  try {
+    for (const [setting, expected, warning] of [
+      ['512', 512, false], ['16384', 16384, false],
+      ['511', 4096, true], ['16385', 4096, true], ['512.5', 4096, true],
+      ['secret-invalid-setting', 4096, true], ['', 4096, true],
+    ]) {
+      process.env.CLOUDFLARE_MAX_TOKENS = setting;
+      const warnings = [];
+      await requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+        provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b', apiKey: 'synthetic-token',
+        log: { warn: line => warnings.push(line) }, operationId: 'synthetic-operation',
+        fetchImpl: async (_url, options) => {
+          const body = JSON.parse(options.body);
+          assert.equal(body.max_tokens, expected);
+          assert.equal(Object.hasOwn(body, 'max_completion_tokens'), false);
+          assert.equal(Object.hasOwn(body, 'response_format'), false);
+          return groqResponse(fixture('Monday', 1));
+        },
+      });
+      assert.equal(warnings.length, warning ? 1 : 0);
+      assert.ok(warnings.every(line => line.includes('code=invalid_cloudflare_max_tokens')
+        && (!setting || !line.includes(setting)) && !line.includes('synthetic-token')));
+    }
+  } finally {
+    if (previous.account === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = previous.account;
+    if (previous.max === undefined) delete process.env.CLOUDFLARE_MAX_TOKENS;
+    else process.env.CLOUDFLARE_MAX_TOKENS = previous.max;
+  }
+});
+
+test('generic adapter reports only allowlisted finish reasons before rejecting truncated or empty content', async () => {
+  const previous = process.env.CLOUDFLARE_ACCOUNT_ID;
+  process.env.CLOUDFLARE_ACCOUNT_ID = '0123456789abcdef0123456789abcdef';
+  try {
+    for (const [finish, content, code, expected] of [
+      ['length', 'incomplete', 'PROVIDER_TRUNCATED', 'LENGTH'],
+      ['stop', null, 'PROVIDER_INVALID_RESPONSE', 'STOP'],
+      ['private-reason-text', null, 'PROVIDER_INVALID_RESPONSE', 'UNKNOWN'],
+    ]) {
+      let loggedFinish;
+      await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+        provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b', apiKey: 'synthetic-token',
+        onFinishReason: value => { loggedFinish = value; },
+        fetchImpl: async () => ({ ok: true, status: 200, headers: new Headers(), json: async () => ({
+          choices: [{ finish_reason: finish, message: { content } }],
+        }) }),
+      }), error => error.code === code && !error.message.includes(content || 'private-reason-text'));
+      assert.equal(loggedFinish, expected);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = previous;
+  }
+});
+
+test('Cloudflare errors never expose account ID, URL, or token', async () => {
+  const previous = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const accountId = '0123456789abcdef0123456789abcdef';
+  const token = 'synthetic-cloudflare-token';
+  process.env.CLOUDFLARE_ACCOUNT_ID = accountId;
+  try {
+    for (const [fetchImpl, expectedCode] of [
+      [async url => { throw new Error(`request failed for ${url} with ${token}`); }, 'PROVIDER_INTERRUPTED'],
+      [async () => ({ ok: false, status: 400, headers: new Headers(), json: async () => ({
+        error: { code: accountId, type: 'invalid_request_error', message: `account ${accountId} rejected` },
+      }) }), 'PROVIDER_REJECTED'],
+    ]) {
+      await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+        provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b', apiKey: token,
+        fetchImpl,
+      }), error => {
+        assert.equal(error.code, expectedCode);
+        const exposed = `${error.message} ${JSON.stringify(error)}`;
+        assert.doesNotMatch(exposed, new RegExp(`${accountId}|${token}|api\\.cloudflare\\.com`));
+        return true;
+      });
+    }
+  } finally {
+    if (previous === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = previous;
+  }
+});
+
+test('Cloudflare rejects an invalid account ID before transport without exposing it', async () => {
+  const previous = process.env.CLOUDFLARE_ACCOUNT_ID;
+  process.env.CLOUDFLARE_ACCOUNT_ID = 'invalid-account-id';
+  try {
+    await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+      provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b', apiKey: 'synthetic-cloudflare-token',
+      fetchImpl: async () => { assert.fail('transport must not run'); },
+    }), error => error.code === 'PROVIDER_NOT_CONFIGURED'
+      && !error.message.includes('invalid-account-id'));
+  } finally {
+    if (previous === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = previous;
+  }
+});
+
+test('generic worksheet adapter uses each provider endpoint and strongest documented JSON mode', async () => {
+  for (const [provider, model, expectedUrl, format] of [
+    ['groq', 'openai/gpt-oss-120b', 'https://api.groq.com/openai/v1/chat/completions', 'json_schema'],
+    ['groq', 'llama-3.3-70b-versatile', 'https://api.groq.com/openai/v1/chat/completions', 'json_object'],
+    ['mistral', 'mistral-small-latest', 'https://api.mistral.ai/v1/chat/completions', 'json_schema'],
+    ['nvidia', 'nvidia/nemotron-3-ultra-550b-a55b', 'https://integrate.api.nvidia.com/v1/chat/completions', 'json_object'],
+  ]) {
+    const raw = fixture('Monday', 1);
+    let status;
+    const result = await requestOpenAICompatibleWorksheetJson('synthetic worksheet prompt', {
+      provider, model, apiKey: 'synthetic-key', responseSchema: RESPONSE_SCHEMA,
+      onHttpStatus: value => { status = value; },
+      fetchImpl: async (url, options) => {
+        assert.equal(url, expectedUrl);
+        const body = JSON.parse(options.body);
+        assert.equal(body.model, model);
+        assert.equal(body.response_format.type, format);
+        assert.equal(body.messages[0].content, 'synthetic worksheet prompt');
+        assert.equal(body[provider === 'groq' ? 'max_completion_tokens' : 'max_tokens'], 4096);
+        if (provider === 'nvidia') assert.equal(body.stream, false);
+        return { ...groqResponse(raw), status: 200 };
+      },
+    });
+    assert.equal(result, raw);
+    assert.equal(status, 200);
+  }
+});
+
+test('NVIDIA thinking control is optional and only accepts 0 or 1', async () => {
+  const previous = process.env.NVIDIA_ENABLE_THINKING;
+  try {
+    for (const [setting, expected] of [[undefined, undefined], ['0', false], ['1', true], ['invalid', undefined]]) {
+      if (setting === undefined) delete process.env.NVIDIA_ENABLE_THINKING;
+      else process.env.NVIDIA_ENABLE_THINKING = setting;
+      let thinking;
+      await requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+        provider: 'nvidia', model: 'nvidia/nemotron-3-ultra-550b-a55b', apiKey: 'synthetic-key',
+        responseSchema: RESPONSE_SCHEMA, onRequestMetadata: value => { thinking = value.thinking; },
+        fetchImpl: async (_url, options) => {
+          const body = JSON.parse(options.body);
+          assert.equal(body.stream, false);
+          assert.equal(body.chat_template_kwargs?.enable_thinking, expected);
+          assert.equal(Object.hasOwn(body, 'extra_body'), false);
+          return groqResponse(fixture('Monday', 1));
+        },
+      });
+      assert.equal(thinking, expected === undefined ? 'unset' : String(expected));
+    }
+  } finally {
+    if (previous === undefined) delete process.env.NVIDIA_ENABLE_THINKING;
+    else process.env.NVIDIA_ENABLE_THINKING = previous;
+  }
+});
+
+test('worksheet provider timeout defaults to 90000 ms and accepts bounded integer configuration', () => {
+  const previous = process.env.WEEKLY_WORKSHEET_PROVIDER_TIMEOUT_MS;
+  try {
+    for (const [setting, expected] of [[undefined, 90000], ['120000', 120000],
+      ['0', 90000], ['900000', 90000], ['invalid', 90000]]) {
+      if (setting === undefined) delete process.env.WEEKLY_WORKSHEET_PROVIDER_TIMEOUT_MS;
+      else process.env.WEEKLY_WORKSHEET_PROVIDER_TIMEOUT_MS = setting;
+      assert.equal(weeklyProviderTimeoutMs(), expected);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.WEEKLY_WORKSHEET_PROVIDER_TIMEOUT_MS;
+    else process.env.WEEKLY_WORKSHEET_PROVIDER_TIMEOUT_MS = previous;
+  }
+});
+
+test('generic adapter reports a transport timeout without an HTTP status', async () => {
+  await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+    provider: 'nvidia', model: 'nvidia/nemotron-3-ultra-550b-a55b', apiKey: 'synthetic-key',
+    responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => {
+      throw new DOMException('synthetic timeout', 'TimeoutError');
+    },
+  }), error => error.code === 'PROVIDER_TIMEOUT' && error.httpStatus === undefined
+    && !JSON.stringify(error).includes('synthetic timeout'));
+});
+
+test('generic adapter forwards only numeric usage and never reasoning content', async () => {
+  let usage;
+  const content = fixture('Monday', 1);
+  const result = await requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+    provider: 'nvidia', model: 'nvidia/nemotron-3-ultra-550b-a55b', apiKey: 'synthetic-key',
+    responseSchema: RESPONSE_SCHEMA, onGroqUsage: value => { usage = value; },
+    fetchImpl: async () => ({ ok: true, status: 200, headers: new Headers(),
+      json: async () => ({ choices: [{ finish_reason: 'stop', message: {
+        content, reasoning_content: 'synthetic private reasoning',
+      } }], usage: { prompt_tokens: 120, completion_tokens: 45, total_tokens: 165,
+        completion_tokens_details: { reasoning_tokens: 30 } } }),
+    }),
+  });
+  assert.equal(result, content);
+  assert.deepEqual([usage.promptTokens, usage.completionTokens, usage.totalTokens, usage.reasoningTokens],
+    [120, 45, 165, 30]);
+  assert.ok(!JSON.stringify(usage).includes('synthetic private reasoning'));
+});
+
+test('NVIDIA never substitutes reasoning content for an empty answer', async () => {
+  for (const content of [null, '', '   ']) {
+    await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+      provider: 'nvidia', model: 'nvidia/nemotron-3-ultra-550b-a55b', apiKey: 'synthetic-key',
+      responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => ({ ok: true, status: 200,
+        json: async () => ({ choices: [{ finish_reason: 'stop', message: {
+          content, reasoning_content: 'synthetic private reasoning',
+        } }] }) }),
+    }), error => error.code === 'PROVIDER_INVALID_RESPONSE'
+      && !JSON.stringify(error).includes('synthetic private reasoning'));
+  }
+});
+
+test('generic adapter preserves sanitized 429 code and numeric reset hints', async () => {
+  await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+    provider: 'nvidia', model: 'nvidia/nemotron-3-ultra-550b-a55b', apiKey: 'synthetic-key',
+    responseSchema: RESPONSE_SCHEMA, fetchImpl: async () => ({ ok: false, status: 429,
+      headers: new Headers({ 'retry-after': '7', 'x-ratelimit-reset-tokens': '250ms',
+        'x-ratelimit-reset-requests': '2m59.56s' }),
+      json: async () => ({ error: { code: 'rate_limit', type: 'quota', message: 'synthetic prompt' } }),
+    }),
+  }), error => error.code === 'PROVIDER_RATE_LIMIT' && error.httpStatus === 429
+    && error.providerErrorCode === 'rate_limit/quota' && error.providerErrorReason === undefined
+    && error.retryAfterSeconds === 7 && error.resetTokensMs === 250 && error.resetRequestsMs === 179560);
+});
 
 const groqResponse = (content, finish_reason = 'stop') => ({ ok: true,
   json: async () => ({ choices: [{ finish_reason, message: { content } }] }) });
@@ -314,16 +597,17 @@ test('Groq mocked transport preserves five-day 20/30/40 validation and rejects b
       assert.ok(drafts.every(draft => draft.questions.filter(item => item.item_type === 'essay')
         .every(item => item.essay.referenceAnswer && item.essay.rubric[0].points === item.points)));
     }
-    for (const change of [value => { value.questions[7].enumeration.alternatives = ['one']; },
-      value => { value.questions[1].question = value.questions[0].question; },
-      value => { value.questions[0].correct_answer = 'missing'; }]) {
+    for (const [change, expectedCalls] of [
+      [value => { value.questions[7].enumeration.alternatives = ['one']; }, 2],
+      [value => { value.questions[1].question = value.questions[0].question; }, 2],
+      [value => { value.questions[0].correct_answer = 'missing'; }, 2]]) {
       let calls = 0;
       await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20, log: { info() {} },
         generateText: (prompt, options) => requestWeeklyWorksheetJson(prompt, { ...options, apiKey: 'synthetic-key',
           fetchImpl: async () => { calls += 1; const value = JSON.parse(fixture('Monday', 1));
             change(value); return groqResponse(JSON.stringify(value)); } }),
-      }), error => error.code === 'AI_RESPONSE_INVALID' && error.providerCalls === 1);
-      assert.equal(calls, 1);
+      }), error => error.code === 'AI_RESPONSE_INVALID' && error.providerCalls === expectedCalls);
+      assert.equal(calls, expectedCalls);
     }
   } finally {
     if (previous.provider === undefined) delete process.env.WEEKLY_WORKSHEET_PROVIDER;

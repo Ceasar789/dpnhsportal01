@@ -3,9 +3,49 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseWorksheetResponse } from './worksheetGenerator.js';
-import { isLocalGroqProvider, requestWeeklyWorksheetJson } from './weeklyWorksheetProvider.js';
+import { isLocalGroqProvider, configuredWeeklyWorksheetProviders, requestOpenAICompatibleWorksheetJson,
+  requestWeeklyWorksheetJson, weeklyProviderKeyEnv, weeklyProviderAccountIdEnv } from './weeklyWorksheetProvider.js';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const SAFE_PROVIDER_CALL_CODES = new Set(['PROVIDER_RATE_LIMIT', 'PROVIDER_OVERLOADED',
+  'PROVIDER_UNAVAILABLE', 'PROVIDER_REJECTED', 'PROVIDER_AUTH_FAILED', 'PROVIDER_ACCESS_DENIED',
+  'PROVIDER_TIMEOUT', 'PROVIDER_INTERRUPTED', 'PROVIDER_INVALID_RESPONSE', 'PROVIDER_TRUNCATED',
+  'GENERATION_CANCELLED']);
+const safeFinishReason = value => ['STOP', 'LENGTH', 'CONTENT_FILTER', 'TOOL_CALLS', 'FUNCTION_CALL'].includes(value)
+  ? value : 'UNKNOWN';
+const safeProviderFailureLog = (error, prompt, apiKey, accountId) => {
+  const code = typeof error?.providerErrorCode === 'string'
+    && /^[a-z0-9_.-]{1,64}(?:\/[a-z0-9_.-]{1,64})?$/i.test(error.providerErrorCode)
+    && !prompt.toLowerCase().includes(error.providerErrorCode.toLowerCase())
+    && !apiKey?.toLowerCase().includes(error.providerErrorCode.toLowerCase())
+    && (!accountId || !error.providerErrorCode.toLowerCase().includes(accountId.toLowerCase()))
+    ? error.providerErrorCode : 'none';
+  const hints = ['retryAfterSeconds', 'resetTokensMs', 'resetRequestsMs']
+    .filter(name => Number.isSafeInteger(error?.[name]) && error[name] >= 0)
+    .map(name => ` ${name}=${error[name]}`).join('');
+  return ` providerErrorCode=${code}${hints}`;
+};
+const optionsShapeLog = (options, questionIndex) => {
+  const isArray = Array.isArray(options);
+  const elements = isArray ? options.slice(0, 20) : [];
+  const bucket = value => typeof value !== 'string' ? 'na' : value.length === 0 ? '0'
+    : value.length < 10 ? '1-9' : value.length < 100 ? '10-99' : '100+';
+  const seen = new Set();
+  const duplicateExact = isArray && options.some(value => {
+    if (seen.has(value)) return true;
+    seen.add(value);
+    return false;
+  });
+  const invalidIndex = isArray ? options.findIndex(value => typeof value !== 'string'
+    || !value.trim() || value.trim().length > 500 || /[<>]/.test(value)) : -1;
+  return ` questionIndex=${questionIndex} optionsType=${typeof options} optionsIsArray=${isArray}`
+    + `${isArray ? ` arrayLength=${options.length}` : ''}`
+    + ` elementTypes=${elements.map(value => typeof value).join(',') || 'none'}`
+    + ` lengthBuckets=${elements.map(bucket).join(',') || 'none'}`
+    + ` letterLabels=${elements.map(value => typeof value === 'string' && /^\s*[A-D][.)]/i.test(value)).join(',') || 'none'}`
+    + ` duplicateExact=${duplicateExact} invalidOptionIndex=${invalidIndex < 0 ? 'none' : invalidIndex}`
+    + ` shapeTruncated=${isArray && options.length > elements.length}`;
+};
 export const WEEKLY_QUESTION_COUNTS = [20, 30, 40];
 const BATCH_SIZE = 10;
 const CAPTURE_DIRECTORY = fileURLToPath(new URL('../../node_modules/.cache/', import.meta.url));
@@ -59,8 +99,7 @@ function createGroqPacing(signal, clock) {
   const deadlineTimer = clock.setTimeout(() => deadline.abort(), 600_000);
   const combinedSignal = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal;
   let waited = 0;
-  let lastUsage;
-  let resetAt;
+  const usageByProvider = new Map();
   const check = () => {
     if (signal?.aborted) throw cancelled();
     if (deadline.signal.aborted || clock.now() - started >= 600_000) throw pacingDeadline();
@@ -88,9 +127,11 @@ function createGroqPacing(signal, clock) {
     return clock.now() - before;
   };
   return { signal: combinedSignal, check, wait, get waited() { return waited; },
-    record: usage => { lastUsage = usage; resetAt = clock.now() + (usage.resetTokensMs || 0); },
-    pauseBefore: async () => {
+    record: (usage, provider = 'default') => usageByProvider.set(provider,
+      { usage, resetAt: clock.now() + (usage.resetTokensMs || 0) }),
+    pauseBefore: async (provider = 'default') => {
       check();
+      const { usage: lastUsage, resetAt } = usageByProvider.get(provider) || {};
       if (Number.isSafeInteger(lastUsage?.remainingTokens) && Number.isSafeInteger(lastUsage?.totalTokens)
         && lastUsage.remainingTokens < Math.ceil(lastUsage.totalTokens * 1.15) && resetAt > clock.now()) {
         const remainingMs = Math.ceil(resetAt - clock.now());
@@ -225,7 +266,8 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
   const days = validateWeeklySources(sources);
   const drafts = [];
   let providerCalls = 0;
-  const pacing = isLocalGroqProvider() ? createGroqPacing(signal, pacingClock) : null;
+  const providerChain = configuredWeeklyWorksheetProviders();
+  const pacing = providerChain || isLocalGroqProvider() ? createGroqPacing(signal, pacingClock) : null;
   const logOperationId = pacing ? operationId || randomUUID() : undefined;
   const captureEnabled = Boolean(pacing && debugCapture && ['1', 'true'].includes(process.env.WEEKLY_DEBUG_CAPTURE));
   const batchCaptures = captureEnabled ? [] : undefined;
@@ -233,6 +275,89 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
   const started = pacing?.signal ? pacingClock.now() : 0;
   let pacedCalls = 0;
   let succeeded = false;
+  const cooldownUntil = new Map();
+  const disabledProviders = new Set();
+  let lastChainError;
+  const requestFromChain = async (prompt, source, batch, fromIndex, retryProviderIndex,
+    batchStartCalls, maxBatchCalls, fallbackError) => {
+    let lastError;
+    for (let index = fromIndex; index < providerChain.length; index += 1) {
+      const entry = providerChain[index];
+      const providerId = `${entry.name}:${entry.model}`;
+      const apiKey = process.env[weeklyProviderKeyEnv(entry.name)]?.trim();
+      const accountIdEnv = weeklyProviderAccountIdEnv(entry.name);
+      const accountId = accountIdEnv ? process.env[accountIdEnv]?.trim() : undefined;
+      const logModel = [apiKey, accountId].some(secret => secret
+        && entry.model.toLowerCase().includes(secret.toLowerCase())) ? 'redacted' : entry.model;
+      if (!apiKey || (accountIdEnv && !accountId)) {
+        log.info?.(`[weekly-worksheets] operation=${logOperationId} provider=${entry.name} model=${logModel} skip=key_not_set`);
+        continue;
+      }
+      if (accountIdEnv && !/^[0-9a-f]{32}$/i.test(accountId)) {
+        log.info?.(`[weekly-worksheets] operation=${logOperationId} provider=${entry.name} model=${logModel} skip=invalid_account_id`);
+        continue;
+      }
+      if (disabledProviders.has(entry.name) || (cooldownUntil.get(providerId) || 0) > pacingClock.now()) {
+        log.info?.(`[weekly-worksheets] operation=${logOperationId} provider=${entry.name} model=${logModel} skip=${disabledProviders.has(entry.name) ? 'disabled' : 'cooldown'}`);
+        continue;
+      }
+      const waitMs = await pacing.pauseBefore(providerId);
+      if (waitMs > 0) pacedCalls += 1;
+      const startedCall = pacingClock.now();
+      let status;
+      let failedError;
+      let usage;
+      let thinking;
+      let callFinishReason = 'UNKNOWN';
+      if (providerCalls - batchStartCalls >= maxBatchCalls) {
+        const error = lastError || fallbackError || lastChainError || Object.assign(new Error('Provider call limit reached.'), {
+          code: 'PROVIDER_NOT_CONFIGURED',
+        });
+        error.providerChainExhausted = true;
+        throw error;
+      }
+      providerCalls += 1;
+      progress?.({ day: source.day, batch, completed: false, providerCalls });
+      try {
+        const request = generateText === requestWeeklyWorksheetJson
+          ? requestOpenAICompatibleWorksheetJson : generateText;
+        const raw = await request(prompt, { providerConfig: entry, provider: entry.name, model: entry.model,
+          apiKey, maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA, signal: pacing.signal,
+          operationId: logOperationId, log, onHttpStatus: value => { status = value; },
+          onFinishReason: value => { callFinishReason = safeFinishReason(value); },
+          onRequestMetadata: metadata => { thinking = metadata?.thinking; },
+          onGroqUsage: value => { usage = value; pacing.record(value, providerId); } });
+        return { raw, entry, index };
+      } catch (error) {
+        failedError = error;
+        status ??= error?.httpStatus;
+        if (error.code === 'PROVIDER_RATE_LIMIT') {
+          const cooldownMs = Math.max((error.retryAfterSeconds || 0) * 1000,
+            error.resetTokensMs || 0, error.resetRequestsMs || 0) || 60_000;
+          cooldownUntil.set(providerId, pacingClock.now() + cooldownMs);
+        }
+        if (['PROVIDER_AUTH_FAILED', 'PROVIDER_ACCESS_DENIED'].includes(error.code))
+          disabledProviders.add(entry.name);
+        if (!['PROVIDER_RATE_LIMIT', 'PROVIDER_OVERLOADED', 'PROVIDER_UNAVAILABLE',
+          'PROVIDER_AUTH_FAILED', 'PROVIDER_ACCESS_DENIED', 'PROVIDER_TIMEOUT',
+          'PROVIDER_TRUNCATED', 'PROVIDER_INVALID_RESPONSE'].includes(error.code)
+          && !(error.code === 'PROVIDER_REJECTED' && status === 400)) throw error;
+        lastError = lastChainError = error;
+      } finally {
+        const tokens = ['promptTokens', 'completionTokens', 'totalTokens', 'reasoningTokens']
+          .filter(name => Number.isSafeInteger(usage?.[name]) && usage[name] >= 0)
+          .map(name => ` ${name}=${usage[name]}`).join('');
+        const thinkingFlag = entry.name === 'nvidia' && ['unset', 'false', 'true'].includes(thinking)
+          ? ` thinking=${thinking}` : '';
+        log.info?.(`[weekly-worksheets] operation=${logOperationId} provider=${entry.name} model=${logModel} day=${source.day} batch=${batch} status=${Number.isInteger(status) ? status : 'unknown'} durationMs=${Math.max(0, Math.round(pacingClock.now() - startedCall))} waitMs=${Math.round(waitMs)} retry=${index === retryProviderIndex ? 'yes' : 'no'}${SAFE_PROVIDER_CALL_CODES.has(failedError?.code) ? ` code=${failedError.code}` : ''}${thinkingFlag}${tokens}${Number.isInteger(status) && status >= 400 ? safeProviderFailureLog(failedError, prompt, apiKey, accountId) : ''} finishReason=${callFinishReason}`);
+      }
+    }
+    const error = lastError || fallbackError || lastChainError || Object.assign(new Error('No weekly provider is configured.'), {
+      code: 'PROVIDER_NOT_CONFIGURED',
+    });
+    error.providerChainExhausted = true;
+    throw error;
+  };
   try {
   for (const source of days) {
     const seen = new Set();
@@ -246,21 +371,41 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
       let raw;
       const priorQuestions = questions.map(item => item.question);
       let retryInstruction = '';
-      let nextWaitMs = await pacing?.pauseBefore() || 0;
-      for (let attempt = 0; attempt < (pacing ? 2 : 1); attempt += 1) {
+      let lastValidationError;
+      let chainStartIndex = 0;
+      let retryProviderIndex;
+      let selectedProviderIndex;
+      const validationRetried = new Set();
+      const batchStartCalls = providerCalls;
+      const maxBatchCalls = providerChain ? providerChain.length * 2 : pacing ? 2 : 1;
+      let nextWaitMs = providerChain ? 0 : await pacing?.pauseBefore() || 0;
+      for (let attempt = 0; attempt < maxBatchCalls; attempt += 1) {
         let usage;
         let callEnded;
+        let failedError;
+        let callFinishReason = 'UNKNOWN';
         const attemptWaitMs = nextWaitMs;
-        if (attemptWaitMs > 0) pacedCalls += 1;
+        if (!providerChain && attemptWaitMs > 0) pacedCalls += 1;
         const callStarted = pacing ? pacingClock.now() : 0;
         const prompt = buildWeeklyWorksheetPrompt(plan, source, BATCH_SIZE, batch, priorQuestions) + retryInstruction;
-        providerCalls += 1;
-        progress?.({ day: source.day, batch, completed: false, providerCalls });
+        if (!providerChain) {
+          providerCalls += 1;
+          progress?.({ day: source.day, batch, completed: false, providerCalls });
+        }
         raw = undefined;
         try {
-          raw = await generateText(prompt, { maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA,
-            signal: pacing?.signal || signal, ...(pacing ? { operationId: logOperationId, log,
-              onGroqUsage: value => { usage = value; pacing.record(value); } } : {}) });
+          if (providerChain) {
+            const result = await requestFromChain(prompt, source, batch, chainStartIndex, retryProviderIndex,
+              batchStartCalls, maxBatchCalls, lastValidationError);
+            raw = result.raw;
+            selectedProviderIndex = result.index;
+            retryProviderIndex = undefined;
+          } else {
+            raw = await generateText(prompt, { maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA,
+              signal: pacing?.signal || signal, ...(pacing ? { operationId: logOperationId, log,
+                onFinishReason: value => { callFinishReason = safeFinishReason(value); },
+                onGroqUsage: value => { usage = value; pacing.record(value); } } : {}) });
+          }
           callEnded = pacing ? pacingClock.now() : 0;
           pacing?.check();
           if (signal?.aborted) throw cancelled();
@@ -299,48 +444,90 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
           progress?.({ day: source.day, batch, completed: true, providerCalls });
           break;
         } catch (error) {
+          failedError = error;
           callEnded ??= pacing ? pacingClock.now() : 0;
           pacing?.check();
           if (error.validation?.subreason === 'duplicate_within_batch')
             Object.assign(error.validation, duplicateMetadata(raw, priorQuestions, true));
           let receivedCount;
           let questionType;
+          let answerShape;
+          let optionsShape;
           try {
             const response = JSON.parse(raw);
             if (Array.isArray(response?.questions)) {
               receivedCount = response.questions.length;
               const index = /^questions\[(\d+)\]/.exec(error.validation?.path)?.[1];
-              if (index !== undefined) questionType = response.questions[Number(index)]?.item_type;
+              if (index !== undefined) {
+                const item = response.questions[Number(index)];
+                questionType = item?.item_type;
+                if (error.code === 'AI_RESPONSE_INVALID' && error.validation?.category === 'invalid_answer_key') {
+                  const answer = item?.correct_answer;
+                  answerShape = { index: Number(index), type: typeof answer,
+                    ...(typeof answer === 'string' ? { length: answer.length } : {}),
+                    singleLetterAD: typeof answer === 'string' && /^[A-D]$/i.test(answer),
+                    matchesOptionText: typeof answer === 'string' && Array.isArray(item?.options)
+                      && item.options.some(option => option === answer) };
+                }
+                if (error.code === 'AI_RESPONSE_INVALID' && error.validation?.category === 'invalid_field'
+                  && /^questions\[\d+\]\.options$/.test(error.validation.path))
+                  optionsShape = optionsShapeLog(item?.options, Number(index));
+              }
             }
           } catch { /* Invalid JSON is recorded as syntax only. */ }
+          if (pacing && answerShape) log.info?.(`[weekly-worksheets] operation=${logOperationId} stage=answer-key-shape day=${source.day} batch=${batch} itemIndex=${answerShape.index} answerType=${answerShape.type}${answerShape.length === undefined ? '' : ` answerLength=${answerShape.length}`} singleLetterAD=${answerShape.singleLetterAD} matchesOptionText=${answerShape.matchesOptionText}`);
+          if (pacing && optionsShape) log.info?.(`[weekly-worksheets] operation=${logOperationId} stage=options-shape day=${source.day} batch=${batch}${optionsShape}`);
           error.validation = { ...error.validation, day: source.day, batch, requestedCount: BATCH_SIZE,
             validatedCount: error.validation?.validatedCount ?? 0,
             ...(receivedCount === undefined ? {} : { receivedCount }),
             ...(questionType ? { questionType } : {}) };
           error.providerCalls = providerCalls;
-          if (pacing && attempt === 0 && error.code === 'PROVIDER_RATE_LIMIT'
+          if (pacing && !providerChain && attempt === 0 && error.code === 'PROVIDER_RATE_LIMIT'
             && Number.isInteger(error.retryAfterSeconds) && error.retryAfterSeconds >= 1
             && error.retryAfterSeconds <= 60) {
             nextWaitMs = await pacing.wait(error.retryAfterSeconds * 1000);
             continue;
           }
-          if (pacing && attempt === 0 && error.code === 'AI_RESPONSE_INVALID'
-            && (error.validation.subreason === 'duplicate_prior_batch'
-              || (error.validation.category === 'invalid_answer_key'
-                && error.validation.questionType === 'true_false'))) {
+          if (error.code === 'AI_RESPONSE_INVALID' && typeof raw === 'string') lastValidationError = error;
+          const retryableValidation = error.code === 'AI_RESPONSE_INVALID' && typeof raw === 'string';
+          if (pacing && retryableValidation
+            && (providerChain ? Number.isInteger(selectedProviderIndex)
+              && !validationRetried.has(selectedProviderIndex) : attempt === 0)) {
+            if (providerChain) {
+              validationRetried.add(selectedProviderIndex);
+              chainStartIndex = selectedProviderIndex;
+              retryProviderIndex = selectedProviderIndex;
+            }
             retryInstruction = error.validation.subreason === 'duplicate_prior_batch'
               ? `\nRejected batch questions (do not repeat these): ${JSON.stringify(JSON.parse(raw).questions.map(item => item.question))}`
-              : '\nRetry this batch: true_false options must be [] and correct_answer exactly True or False.';
-            nextWaitMs = await pacing.pauseBefore();
+              : error.validation.category === 'question_count'
+                ? `\nRetry this batch: return exactly ${BATCH_SIZE} questions. Do not omit or add questions.`
+                : error.validation.category === 'invalid_answer_key'
+                  && error.validation.questionType === 'multiple_choice'
+                  ? '\nRetry this batch: each multiple_choice correct_answer must exactly match one option text; a letter label alone is invalid unless it is the option text.'
+                  : error.validation.category === 'invalid_answer_key'
+                    && error.validation.questionType === 'true_false'
+                    ? '\nRetry this batch: true_false options must be [] and correct_answer exactly True or False.'
+                    : error.validation.category === 'invalid_field' && /\.options$/.test(error.validation.path)
+                      ? '\nRetry this batch: options must be arrays of non-empty plain-text strings.'
+                      : '\nRetry this batch from scratch: return a complete batch that follows every required field and validation rule.';
+            nextWaitMs = providerChain ? 0 : await pacing.pauseBefore();
+            continue;
+          }
+          if (providerChain && error.code === 'AI_RESPONSE_INVALID' && typeof raw === 'string'
+            && Number.isInteger(selectedProviderIndex) && selectedProviderIndex + 1 < providerChain.length) {
+            chainStartIndex = selectedProviderIndex + 1;
+            retryProviderIndex = undefined;
+            retryInstruction = '';
             continue;
           }
           throw error;
         } finally {
-          if (pacing) {
+          if (pacing && !providerChain) {
             const tokens = ['promptTokens', 'completionTokens', 'totalTokens', 'reasoningTokens']
               .filter(name => Number.isSafeInteger(usage?.[name]) && usage[name] >= 0)
               .map(name => ` ${name}=${usage[name]}`).join('');
-            log.info?.(`[weekly-worksheets] operation=${logOperationId} day=${source.day} batch=${batch} durationMs=${Math.max(0, Math.round((callEnded ?? pacingClock.now()) - callStarted))} waitMs=${Math.round(attemptWaitMs)}${tokens} retry=${attempt ? 'yes' : 'no'}`);
+            log.info?.(`[weekly-worksheets] operation=${logOperationId} day=${source.day} batch=${batch} durationMs=${Math.max(0, Math.round((callEnded ?? pacingClock.now()) - callStarted))} waitMs=${Math.round(attemptWaitMs)}${tokens} retry=${attempt ? 'yes' : 'no'}${SAFE_PROVIDER_CALL_CODES.has(failedError?.code) ? ` code=${failedError.code}` : ''}${Number.isInteger(failedError?.httpStatus) && failedError.httpStatus >= 400 ? ` status=${failedError.httpStatus}${safeProviderFailureLog(failedError, prompt, process.env.GROQ_API_KEY)}` : ''} finishReason=${callFinishReason}`);
           }
         }
       }

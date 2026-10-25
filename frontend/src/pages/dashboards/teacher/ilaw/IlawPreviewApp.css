@@ -1,0 +1,70 @@
+:root {
+  font-family: Arial, sans-serif;
+  background: #f4f6fb;
+  --card-bg: #fff;
+  --card2: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #1a2b4a;
+  --text-muted: #4a5568;
+  --accent: #1908df;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.ilaw-preview-page {
+  max-width: 1440px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.ilaw-preview-toolbar {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.ilaw-preview-toolbar h1 { margin: 0 0 6px; font-size: 24px; }
+.ilaw-preview-toolbar p { margin: 0; color: var(--text-muted); }
+.ilaw-preview-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.ilaw-preview-actions button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ilaw-preview-actions button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.ilaw-preview-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ilaw-preview-mode { font-weight: 600; }
+
+.mps-mock { display: grid; gap: 16px; min-width: 0; color: var(--text); }
+.mps-mock-list { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); }
+.mps-mock-list h2 { margin: 0 0 10px; font-size: 18px; }
+.mps-mock-list ul { margin: 12px 0 0; padding-left: 20px; }
+.mps-mock-list li { margin: 8px 0; overflow-wrap: anywhere; }
+.mps-mock-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mps-mock button { min-height: 44px; margin: 2px 6px 2px 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text); font: inherit; cursor: pointer; }
+.mps-mock button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mps-mock button:disabled { opacity: .6; cursor: wait; }
+.mps-mock-actions .mps-mock-draft { background: var(--card2); border-color: var(--text-muted); }
+.mps-mock-actions .mps-mock-save { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+@media (max-width: 600px) {
+  .ilaw-preview-page { padding: 10px; }
+  .ilaw-preview-toolbar h1 { font-size: 20px; }
+}
+
+@media print {
+  :root { background: #fff; }
+  .ilaw-preview-page { max-width: none; margin: 0; padding: 0; }
+  .ilaw-preview-toolbar { display: none; }
+  .mps-mock > :not(.full-manual-ilaw) { display: none; }
+}

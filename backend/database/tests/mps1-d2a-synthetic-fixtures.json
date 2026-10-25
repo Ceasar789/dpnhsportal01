@@ -1,0 +1,36 @@
+{
+  "notice": "SYNTHETIC FIXTURES ONLY — not a seed script; never import real users or production credentials",
+  "fixedInstantUtc": "2026-10-16T00:00:00.000Z",
+  "manilaAcademicYear": "2026-2027",
+  "identities": {
+    "teacherA": { "id": "11111111-1111-4111-8111-111111111111", "email": "teacher-a@example.invalid", "role": "teacher", "status": "active" },
+    "teacherB": { "id": "22222222-2222-4222-8222-222222222222", "email": "teacher-b@example.invalid", "role": "teacher", "status": "active" },
+    "inactiveTeacher": { "id": "33333333-3333-4333-8333-333333333333", "email": "inactive@example.invalid", "role": "teacher", "status": "suspended" },
+    "adviserOnly": { "id": "44444444-4444-4444-8444-444444444444", "email": "adviser@example.invalid", "role": "teacher", "status": "active" },
+    "student": { "id": "55555555-5555-4555-8555-555555555555", "email": "student@example.invalid", "role": "student", "status": "active" }
+  },
+  "subjects": {
+    "science": { "id": "66666666-6666-4666-8666-666666666666", "name": "Science", "gradeLevel": "Grade 7" },
+    "mathematics": { "id": "77777777-7777-4777-8777-777777777777", "name": "Mathematics", "gradeLevel": "Grade 8" }
+  },
+  "assignments": [
+    { "teacher": "teacherA", "subject": "science", "gradeLevel": "Grade 7", "schoolYear": "2026-2027" },
+    { "teacher": "teacherB", "subject": "mathematics", "gradeLevel": "Grade 8", "schoolYear": "2026-2027" },
+    { "teacher": "inactiveTeacher", "subject": "science", "gradeLevel": "Grade 7", "schoolYear": "2026-2027" },
+    { "teacher": "teacherA", "subject": "science", "gradeLevel": "Grade 7", "schoolYear": "2025-2026" }
+  ],
+  "sections": {
+    "adviserOnly": { "id": "ffffffff-ffff-4fff-8fff-ffffffffffff", "name": "Synthetic Section 7-A", "adviser": "adviserOnly", "gradeLevel": "Grade 7", "schoolYear": "2026-2027" }
+  },
+  "planIds": {
+    "manualA": "88888888-8888-4888-8888-888888888888",
+    "manualB": "99999999-9999-4999-8999-999999999999",
+    "aiA": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "legacyA": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+  },
+  "requestIds": {
+    "manualCreate": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "manualUpdate": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "aiCreate": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+  }
+}

@@ -53,4 +53,14 @@ describe('upcomingCalendarEvents', () => {
   it('derives the day from Philippine local time rather than UTC', () => {
     expect(philippineDateKey(new Date('2026-10-08T18:30:00.000Z'))).toBe('2026-10-09');
   });
+
+  it.each([
+    ['before Manila midnight', '2026-10-08T15:59:59.000Z', '2026-10-08'],
+    ['at Manila midnight', '2026-10-08T16:00:00.000Z', '2026-10-09'],
+    ['January 1 in Manila', '2026-12-31T16:00:00.000Z', '2027-01-01'],
+    ['December 31 in Manila', '2026-12-30T16:00:00.000Z', '2026-12-31'],
+    ['normal Philippine midday', '2026-10-08T04:00:00.000Z', '2026-10-08'],
+  ])('returns the school date %s', (_, instant, expected) => {
+    expect(philippineDateKey(new Date(instant))).toBe(expected);
+  });
 });

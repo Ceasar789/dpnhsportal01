@@ -5,13 +5,13 @@
 // belongs to the registrar's enrollment flow — so this is read-only.
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { Users, GraduationCap, Search, Loader2 } from 'lucide-react';
-import { useTheme, useToast } from '../hooks';
-import { Card, Table, TR, TD, Badge } from '../shared/ui';
+import { useToast } from '../hooks';
+import { Card, Table, TR, TD, Toast, Badge } from '../shared/ui';
 
 // Given a list of section ids, resolves their full student roster
 // (section_students -> students -> profiles) as one flat array.
@@ -52,38 +52,58 @@ const fetchRosterForSections = async (sectionIds) => {
       lrn: lrnById.get(e.student_id) || '—',
       name: profile?.name || '—',
       email: profile?.email || '—',
-      active: (profile?.status || 'active').toLowerCase() !== 'archived',
+      status: profile?.status?.toLowerCase() || null,
     };
   });
 };
 
-const RosterTable = ({ students }) => (
-  <Table headers={['#', 'Name', 'LRN', 'Email', 'Status']}>
-    {students.map((s, i) => (
-      <TR key={s.id}>
-        <TD>{i + 1}</TD>
-        <TD><span className="font-medium">{s.name}</span></TD>
-        <TD>{s.lrn}</TD>
-        <TD>{s.email}</TD>
-        <TD>
-          <Badge color={s.active ? '#16a34a' : '#dc2626'} bg={s.active ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'}>
-            {s.active ? 'Active' : 'Inactive'}
-          </Badge>
-        </TD>
-      </TR>
-    ))}
-    {students.length === 0 && (
-      <tr><td colSpan={5} className="text-center py-8 text-sm" style={{ color: 'var(--text-muted, #94a3b8)' }}>No students found</td></tr>
-    )}
-  </Table>
+const statusLabel = (status) => ({ active: 'Active', inactive: 'Inactive', suspended: 'Suspended', archived: 'Archived' })[status] || 'Status unavailable';
+const statusStyle = (status) => ({
+  active: { color: 'var(--badge-green-fg)', bg: 'var(--badge-green-bg)' },
+  inactive: { color: 'var(--text-muted)', bg: 'var(--card2)' },
+  suspended: { color: 'var(--badge-red-fg)', bg: 'var(--badge-red-bg)' },
+  archived: { color: 'var(--text-muted)', bg: 'var(--card2)' },
+})[status] || { color: 'var(--text-muted)', bg: 'var(--card2)' };
+const StatusBadge = ({ status }) => <Badge {...statusStyle(status)}>{statusLabel(status)}</Badge>;
+
+const RosterTable = ({ students, emptyMessage }) => students.length === 0 ? (
+  <p className="px-5 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>{emptyMessage}</p>
+) : (
+  <>
+    <div className="hidden md:block">
+      <Table headers={['Name', 'LRN', 'Email', 'Account status']}>
+        {students.map((student, index) => (
+          <TR key={`${student.sectionId}-${student.id}`}>
+            <TD><span className="font-medium" style={{ color: 'var(--text)' }}>{index + 1}. {student.name}</span></TD>
+            <TD>{student.lrn}</TD>
+            <TD><span className="break-all">{student.email}</span></TD>
+            <TD><StatusBadge status={student.status} /></TD>
+          </TR>
+        ))}
+      </Table>
+    </div>
+    <ul className="md:hidden divide-y" style={{ borderColor: 'var(--border)' }} aria-label="Students in this section">
+      {students.map((student) => (
+        <li key={`${student.sectionId}-${student.id}`} className="px-4 py-3 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-semibold text-sm break-words min-w-0" style={{ color: 'var(--text)' }}>{student.name}</p>
+            <span className="shrink-0"><StatusBadge status={student.status} /></span>
+          </div>
+          <p className="text-xs mt-1 break-all" style={{ color: 'var(--text-muted)' }}>
+            LRN {student.lrn} · {student.email}
+          </p>
+        </li>
+      ))}
+    </ul>
+  </>
 );
 
 const StudentsTab = () => {
-  const { dark } = useTheme();
   const { userData } = useAuth();
   const { toast, showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [advisorySection, setAdvisorySections] = useState([]); // sections this teacher advises
   const [advisoryStudents, setAdvisoryStudents] = useState([]);
@@ -92,6 +112,7 @@ const StudentsTab = () => {
   const fetchData = useCallback(async () => {
     if (!userData?.uid) return;
     setLoading(true);
+    setLoadError(false);
     try {
       // ── Advisory sections (homeroom) ─────────────────────────────────
       const { data: advisorySections, error: advisoryErr } = await withRetry(
@@ -102,11 +123,9 @@ const StudentsTab = () => {
         { label: 'Advisory sections fetch' }
       );
       if (advisoryErr) throw advisoryErr;
-      setAdvisorySections(advisorySections || []);
 
       const advisoryIds = (advisorySections || []).map(s => s.id);
       const advisoryRoster = await fetchRosterForSections(advisoryIds);
-      setAdvisoryStudents(advisoryRoster);
 
       // ── Subjects handled: sections taught via schedule but not advised ──
       // subject_id is the registry's source of truth; the legacy free-text
@@ -162,9 +181,12 @@ const StudentsTab = () => {
         subject: subjectLabel(s),
         students: rosterBySection.get(s.section_id) || [],
       }));
+      setAdvisorySections(advisorySections || []);
+      setAdvisoryStudents(advisoryRoster);
       setHandledGroups(groups);
-    } catch (error) {
-      showToast('Error loading students: ' + error.message, 'error');
+    } catch {
+      setLoadError(true);
+      showToast('Could not load student rosters. Please retry.', 'error');
     } finally {
       setLoading(false);
     }
@@ -182,20 +204,18 @@ const StudentsTab = () => {
 
   const filteredAdvisory = advisoryStudents.filter(matchesSearch);
   const filteredHandledGroups = handledGroups.map(g => ({ ...g, students: g.students.filter(matchesSearch) }));
+  const queryActive = Boolean(searchQuery.trim());
+  const resultCount = filteredAdvisory.length + filteredHandledGroups.reduce((count, group) => count + group.students.length, 0);
 
-  const mutedColor = dark ? '#64748b' : '#94a3b8';
-  const textColor = dark ? '#f1f5f9' : '#1a2b4a';
+  const mutedColor = 'var(--text-muted)';
+  const textColor = 'var(--text)';
   const advisoryLabel = advisorySection.length
     ? advisorySection.map(s => [s.grade_level, s.name].filter(Boolean).join(' — ')).join(', ')
     : null;
 
   return (
     <div className="p-6">
-      {toast && (
-        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
-          {toast.msg}
-        </div>
-      )}
+      <Toast toast={toast} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
@@ -204,14 +224,29 @@ const StudentsTab = () => {
         </div>
         <div className="relative w-full md:w-72">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: mutedColor }} />
-          <input type="text" placeholder="Search by name or LRN..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-9 pr-4 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: textColor }} />
+          <input type="search" aria-label="Search students by name or LRN" placeholder="Search by name or LRN..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            className="w-full h-10 pl-9 pr-4 rounded-lg text-sm"
+            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: textColor }} />
         </div>
       </div>
 
+      {!loading && !loadError && (
+        <p className="text-sm mb-4" role="status" aria-live="polite" style={{ color: 'var(--text-muted)' }}>
+          {queryActive ? `${resultCount} matching roster ${resultCount === 1 ? 'entry' : 'entries'}` : `${resultCount} roster ${resultCount === 1 ? 'entry' : 'entries'}`} across your sections
+        </p>
+      )}
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-blue-500" /></div>
+        <div className="flex items-center justify-center gap-2 py-16" role="status" style={{ color: 'var(--text-muted)' }}><Loader2 className="animate-spin" aria-hidden="true" />Loading student rosters…</div>
+      ) : loadError ? (
+        <Card className="p-6 text-center">
+          <p role="alert" className="text-sm font-medium" style={{ color: 'var(--text)' }}>Could not load student rosters.</p>
+          <button type="button" onClick={fetchData} className="mt-3 min-h-11 px-4 rounded-lg text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: 'var(--accent)', border: '1px solid var(--border)' }}>Retry</button>
+        </Card>
+      ) : queryActive && resultCount === 0 ? (
+        <Card className="p-6 text-center">
+          <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>No students match your search.</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Try a different name or LRN.</p>
+        </Card>
       ) : (
         <div className="flex flex-col gap-8">
           {/* MY ADVISORY */}
@@ -230,7 +265,7 @@ const StudentsTab = () => {
                   <p className="text-xs mt-1" style={{ color: mutedColor }}>This section appears once the registrar assigns you as a section adviser.</p>
                 </div>
               ) : (
-                <RosterTable students={filteredAdvisory} />
+                <RosterTable students={filteredAdvisory} emptyMessage={queryActive ? 'No advisory students match your search.' : 'No students are enrolled in your advisory section yet.'} />
               )}
             </Card>
           </section>
@@ -257,9 +292,9 @@ const StudentsTab = () => {
                         <p className="text-sm font-bold" style={{ color: textColor }}>{group.subject}</p>
                         <p className="text-xs mt-0.5" style={{ color: mutedColor }}>{group.sectionLabel}</p>
                       </div>
-                      <Badge color="#d97706" bg="rgba(217,119,6,0.12)">{group.students.length} students</Badge>
+                      <span className="text-xs font-medium shrink-0" style={{ color: 'var(--text-muted)' }}>{group.students.length} {group.students.length === 1 ? 'student' : 'students'}</span>
                     </div>
-                    <RosterTable students={group.students} />
+                    <RosterTable students={group.students} emptyMessage={queryActive ? 'No students in this section match your search.' : 'No students are enrolled in this section yet.'} />
                   </Card>
                 ))}
               </div>

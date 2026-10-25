@@ -4,13 +4,19 @@
 // WorksheetsTab.jsx, which already carries the upload and CRUD flow.
 // ============================================
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { normalizePoints, round2 } from '../../../../lib/worksheetChecking';
 import { TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
-import { currentSchoolYear } from '../../../../lib/academicRules';
+
+const validSchoolYear = value => typeof value === 'string' && /^(\d{4})-\d{4}$/.test(value)
+  && Number(value.slice(5)) === Number(value.slice(0, 4)) + 1;
+// No trusted distribution operation is mounted. Keep legacy reads available,
+// but block the client-side multi-table write until a server transaction exists.
+const trustedDistributionAvailable = false;
+const trustedScoreWritesAvailable = false;
 
 export const useWorksheetAssessment = (showToast) => {
   const { userData } = useAuth();
@@ -352,8 +358,12 @@ export const useWorksheetAssessment = (showToast) => {
 
   const setCheckingMode = useCallback(async (worksheetId, mode) => {
     const { error } = await supabase.from('worksheets').update({ checking_mode: mode }).eq('id', worksheetId);
-    if (error) return showToast(`Could not change checking mode: ${error.message}`, 'error');
+    if (error) {
+      showToast(`Could not change checking mode: ${error.message}`, 'error');
+      return false;
+    }
     showToast(mode === 'auto' ? 'Auto-checking on' : 'Manual checking only');
+    return true;
   }, [showToast]);
 
   // Every submission for a worksheet, with the answering student's name
@@ -483,6 +493,10 @@ export const useWorksheetAssessment = (showToast) => {
   // PostgREST — the teacher's mark for that item would vanish silently while
   // the submission-level score still counted it.
   const releaseScore = async (submissionId, worksheetId, score, totalPoints, perItem) => {
+    if (!trustedScoreWritesAvailable) {
+      showToast('Result release is unavailable until trusted Teacher authorization and a transactional writer are connected. No score was saved or released.', 'error');
+      return false;
+    }
     const { error: itemError } = await supabase.from('worksheet_answers').upsert(
       perItem.map(row => ({
         submission_id: submissionId,
@@ -586,6 +600,9 @@ export const useWorksheetAssessment = (showToast) => {
   const encodeManualScore = async (
     worksheetId, sectionId, studentId, score, totalPoints, { overwriteOnline = false } = {}
   ) => {
+    if (!trustedScoreWritesAvailable) {
+      return { ok: false, reason: 'unavailable', message: 'Paper score saving and release are unavailable until trusted Teacher authorization is connected. Nothing was saved.' };
+    }
     // Number('') is 0 and Number('abc') is NaN — and NaN JSON-serialises to
     // null. Unguarded, an empty box would release a zero the teacher never
     // typed, and a typo would release a NULL score with released = true,
@@ -715,64 +732,73 @@ export const useWorksheetAssessment = (showToast) => {
     return { ok: true, score: round2(value), totalPoints: round2(total) };
   };
 
-  // The teacher's own subject, from their teaching load (teacher_subjects ->
-  // subjects), rather than typed free text. One row per grade level is
-  // normal — a teacher who teaches Math to two grade levels has two rows
-  // naming the same subject — so rows are de-duplicated by subject id before
-  // deciding whether this teacher has one subject, none, or a genuine
-  // conflict (two DIFFERENT subjects, which the admin needs to fix).
-  //
-  // `subjectError` and `mySubject === null` are kept as separate states on
-  // purpose: a failed read must never look like "no subject assigned" — one
-  // means "retry", the other means "ask your admin", and collapsing them
-  // would send the teacher to the wrong fix.
-  const [mySubject, setMySubject] = useState(null);
+  // Group this year's teaching-load rows by real subject ID. Keep each
+  // assigned grade so create/upload can only offer an eligible pairing.
+  const teacherId = userData?.uid;
+  const [subjectRows, setSubjectRows] = useState([]);
+  const [subjectOwner, setSubjectOwner] = useState(null);
+  const mySubjects = subjectOwner === teacherId ? subjectRows : [];
+  const mySubject = mySubjects.length === 1 ? mySubjects[0] : null;
   const [subjectError, setSubjectError] = useState(false);
-  // More than one subject assigned. Not an error in the data — a small school
-  // may well do this — but the design says one per teacher, and guessing which
-  // one a task belongs to would file work under the wrong heading silently.
-  const [subjectConflict, setSubjectConflict] = useState(false);
-  // True until the first fetch settles. Without this, the initial triple
-  // (mySubject=null, subjectError=false, subjectConflict=false) is
-  // indistinguishable from "fetch finished, nothing assigned" — a teacher who
-  // opens the create form before the first fetch resolves would be told to
-  // go bother their admin over a load that simply hasn't come back yet.
-  const [subjectLoading, setSubjectLoading] = useState(true);
+  // Loading and error stay distinct from a confirmed empty teaching load.
+  const [subjectPending, setSubjectPending] = useState(true);
+  const [schoolYear, setSchoolYear] = useState(null);
+  const subjectLoading = subjectPending || Boolean(teacherId && subjectOwner !== teacherId && !subjectError);
+  const subjectRequest = useRef(0);
 
   const fetchMySubject = useCallback(async () => {
-    if (!userData?.uid) return;
+    const request = ++subjectRequest.current;
+    setSubjectPending(true);
+    setSubjectError(false);
+    setSubjectOwner(null);
+    setSubjectRows([]);
+    setSchoolYear(null);
+    if (!teacherId) {
+      setSubjectPending(false);
+      return;
+    }
+    const { data: settings, error: settingsError } = await withRetry(
+      () => supabase.from('school_settings').select('school_year').eq('id', 1).single(),
+      { label: 'Official academic year fetch' }
+    );
+    if (request !== subjectRequest.current) return;
+    if (settingsError || !validSchoolYear(settings?.school_year)) {
+      setSubjectError(true);
+      setSubjectPending(false);
+      return;
+    }
+    const officialYear = settings.school_year;
     const { data, error } = await withRetry(
-      // Scoped to THIS school year. Without it every year's load came back at
-      // once, so a teacher who held Mathematics last year and English this
-      // year counted as two subjects, tripped subjectConflict, and could not
-      // create a task at all — told to ask their admin about a load that was
-      // perfectly correct.
+      // Scope authoring choices to the official Settings year.
       () => supabase.from('teacher_subjects')
-        .select('subject_id, subjects(id, name)')
-        .eq('teacher_id', userData.uid)
-        .eq('school_year', currentSchoolYear()),
+        .select('subject_id, grade_level, subjects(id, name)')
+        .eq('teacher_id', teacherId)
+        .eq('school_year', officialYear),
       { label: 'Teaching load fetch' }
     );
+    if (request !== subjectRequest.current) return;
     if (error) {
       console.warn('Teaching load fetch failed —', error.message);
       setSubjectError(true);
-      setSubjectLoading(false);
+      setSubjectPending(false);
       return;
     }
     // One row per grade level, so the same subject appears more than once.
-    const unique = [];
+    const byId = new Map();
     (data || []).forEach(r => {
-      if (r.subjects?.id && !unique.some(u => u.id === r.subjects.id)) {
-        unique.push({ id: r.subjects.id, name: r.subjects.name });
-      }
+      if (!r.subject_id || r.subjects?.id !== r.subject_id || !r.subjects?.name || !r.grade_level) return;
+      if (!byId.has(r.subject_id)) byId.set(r.subject_id, { id: r.subject_id, name: r.subjects.name, grades: [] });
+      const subject = byId.get(r.subject_id);
+      if (!subject.grades.includes(r.grade_level)) subject.grades.push(r.grade_level);
     });
     setSubjectError(false);
-    setSubjectConflict(unique.length > 1);
-    setMySubject(unique.length === 1 ? unique[0] : null);
-    setSubjectLoading(false);
-  }, [userData?.uid]);
+    setSchoolYear(officialYear);
+    setSubjectRows([...byId.values()].sort((a, b) => a.name.localeCompare(b.name)));
+    setSubjectOwner(teacherId);
+    setSubjectPending(false);
+  }, [teacherId, setSubjectRows, setSubjectOwner, setSubjectPending, setSubjectError]);
 
-  useEffect(() => { fetchMySubject(); }, [fetchMySubject]);
+  useEffect(() => { Promise.resolve().then(fetchMySubject); }, [fetchMySubject]);
 
   // Who currently holds this task, and under which section — the source of
   // truth DistributeModal checks before re-inserting anyone, and the thing
@@ -807,6 +833,9 @@ export const useWorksheetAssessment = (showToast) => {
   // student's own submission get rejected by the database with a bare RLS
   // error the student cannot make sense of.
   const distributeTask = async (taskId, sectionId, studentIds, dueAt) => {
+    if (!trustedDistributionAvailable) {
+      return { ok: false, message: 'Distribution is unavailable until trusted authorization is connected. No students were assigned.' };
+    }
     if (!sectionId) return { ok: false, message: 'Pick a section first.' };
     if (!dueAt) return { ok: false, message: 'Set a deadline first.' };
     if (studentIds.length === 0) return { ok: false, message: 'Tick at least one student.' };
@@ -828,7 +857,8 @@ export const useWorksheetAssessment = (showToast) => {
     }
 
     if (toAdd.length === 0) {
-      return { ok: true, added: [], skipped: studentIds.length, message: 'Everyone ticked already has this task.' };
+      return { ok: true, added: [], skipped: studentIds.length, postingSaved: true,
+        message: 'Everyone ticked already has this task.' };
     }
 
     const { error } = await supabase.from('task_assignees').insert(
@@ -843,7 +873,7 @@ export const useWorksheetAssessment = (showToast) => {
         : error.code === '23505'
         ? 'One of these students already has this task.'
         : `Could not distribute: ${error.message}`;
-      return { ok: false, message };
+      return { ok: false, message, postingSaved: true };
     }
 
     fetchPostings();
@@ -854,14 +884,13 @@ export const useWorksheetAssessment = (showToast) => {
     // can pass along. `toAdd` is exactly who was newly assigned above: never
     // a student who already held this task, so a re-distribution notifies
     // nobody twice.
-    let notified = true;
+    let notified = false;
     const { data: meta, error: metaError } = await withRetry(
       () => supabase.from('worksheets').select('title, task_type').eq('id', taskId).maybeSingle(),
       { label: 'Task metadata fetch for notification' }
     );
     if (metaError || !meta) {
       console.warn('Task metadata fetch failed — notification skipped', metaError?.message);
-      notified = false;
     } else {
       const typeLabel = TASK_TYPE_LABELS[meta.task_type] || 'Task';
       const title = mySubject?.name ? `${typeLabel} — ${mySubject.name}` : typeLabel;
@@ -881,7 +910,8 @@ export const useWorksheetAssessment = (showToast) => {
     loadItems, saveItems, setCheckingMode,
     loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
     loadClassList,
-    mySubject, subjectError, subjectConflict, subjectLoading, fetchMySubject,
+    mySubject, mySubjects, schoolYear: subjectOwner === teacherId ? schoolYear : null,
+    subjectError, subjectLoading, fetchMySubject,
     loadAssignees, distributeTask,
     assigneeCounts, assigneeCountsError, assigneeCountsLoading, fetchAssigneeCounts,
   };

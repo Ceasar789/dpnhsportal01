@@ -13,6 +13,8 @@
 import express from 'express';
 import cors from 'cors';
 import aiRoutes from './routes/ai.js';
+import weeklyWorksheetRoutes from './routes/weeklyWorksheets.js';
+import { createWeeklyJobRouter } from './routes/weeklyJobs.js';
 import { adminUsersRouter, onboardingRouter } from './routes/onboarding.js';
 
 // localhost, 127.x, ::1, and the three private IPv4 ranges — on any port.
@@ -91,6 +93,8 @@ export function createApp() {
   app.get('/api/health', health);
 
   app.use('/api/ai', aiRoutes);
+  app.use('/api/ai', weeklyWorksheetRoutes);
+  app.use('/api/ai/weekly-jobs', createWeeklyJobRouter());
   app.use('/api/admin/users', adminUsersRouter);
   app.use('/api/onboarding', onboardingRouter);
 

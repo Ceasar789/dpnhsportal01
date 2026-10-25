@@ -1,0 +1,102 @@
+.teacher-dashboard-shell .teacher-header {
+  height: 76px;
+  box-shadow: 0 2px 10px var(--overlay-nav);
+}
+
+.teacher-dashboard-shell .teacher-header-action,
+.teacher-dashboard-shell .teacher-notification-bell,
+.teacher-dashboard-shell .teacher-notification-bell .notification-bell-button {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.teacher-dashboard-shell .teacher-notification-bell .notification-badge {
+  top: -2px;
+  right: -6px;
+}
+
+.teacher-dashboard-shell .teacher-header-action:focus-visible,
+.teacher-dashboard-shell .teacher-notification-bell .notification-bell-button:focus-visible {
+  outline-color: var(--brand-gold-bright);
+}
+
+.teacher-dashboard-shell #teacher-sidebar {
+  transition: width var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+}
+
+.teacher-dashboard-shell .page-transition {
+  animation-duration: var(--motion-base);
+}
+
+.teacher-dashboard-shell .teacher-sidebar-link,
+.teacher-dashboard-shell .teacher-profile-link,
+.teacher-dashboard-shell .teacher-header-action {
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+.teacher-dashboard-shell .teacher-sidebar-link,
+.teacher-dashboard-shell .teacher-profile-link {
+  color: var(--text-muted);
+}
+
+.teacher-dashboard-shell .teacher-sidebar-link-active {
+  background: var(--card2);
+  color: var(--accent);
+}
+
+.teacher-dashboard-shell .teacher-sidebar-icon {
+  border: 1px solid var(--border);
+}
+
+.teacher-dashboard-shell .teacher-sidebar-link-active .teacher-sidebar-icon {
+  background: var(--card-bg);
+  border-color: var(--accent);
+}
+
+.teacher-dashboard-shell .teacher-sidebar-link:hover,
+.teacher-dashboard-shell .teacher-profile-link:hover,
+.teacher-dashboard-shell .teacher-drawer-close:hover {
+  background: var(--card2);
+  color: var(--text);
+}
+
+.teacher-dashboard-shell .teacher-sidebar-link-active:hover {
+  color: var(--accent);
+}
+
+.teacher-dashboard-shell .teacher-drawer-close,
+.teacher-dashboard-shell .teacher-sidebar-link {
+  min-height: 44px;
+}
+
+:root.dark .teacher-dashboard-shell #teacher-attendance-date {
+  color-scheme: dark;
+}
+
+/* ProfileTab is shared across roles; these touch targets belong to Teacher only. */
+.teacher-dashboard-shell .teacher-profile button[aria-label="Change profile photo"] {
+  width: 44px;
+  height: 44px;
+}
+
+.teacher-dashboard-shell .teacher-profile button:has(> .lucide-lock) {
+  min-height: 44px;
+}
+
+:root.dark .teacher-dashboard-shell .teacher-profile button:has(> .lucide-lock) {
+  /* ProfileTab's inline accent is too dim for small link text on this card. */
+  color: var(--heading-accent) !important;
+}
+
+@media (max-width: 600px) {
+  .teacher-dashboard-shell .teacher-notification-bell .notification-panel {
+    position: fixed;
+    top: calc(76px + var(--space-8));
+    left: var(--space-16);
+    right: var(--space-16);
+    width: auto;
+    max-width: none;
+    margin-top: 0;
+  }
+}

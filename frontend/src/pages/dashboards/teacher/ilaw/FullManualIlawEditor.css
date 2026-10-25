@@ -1,0 +1,61 @@
+.full-manual-ilaw { display: grid; gap: 16px; min-width: 0; }
+.full-manual-ilaw-controls { display: grid; gap: 12px; color: var(--text); }
+.full-manual-ilaw-controls h2, .full-manual-ilaw-controls p { margin: 0; }
+.full-manual-ilaw-controls h2 { font-size: 22px; }
+.full-manual-ilaw-controls h2:focus { outline: none; }
+.full-manual-ilaw-controls label { display: grid; gap: 5px; max-width: 440px; font-weight: 600; }
+.full-manual-ilaw-controls select, .full-manual-ilaw-controls textarea,
+.full-manual-ilaw-controls button, .full-manual-ilaw-sections a {
+  min-height: 44px; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--card-bg); color: var(--text); font: inherit;
+}
+.full-manual-ilaw-controls button { cursor: pointer; }
+.full-manual-ilaw-controls textarea { width: 100%; }
+.full-manual-ilaw-controls .full-manual-ilaw-filename { max-width: 260px; font-size: 12px; }
+.full-manual-ilaw-filename input { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--card-bg); color: var(--text); font: inherit; }
+.full-manual-ilaw-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.full-manual-ilaw-actions, .full-manual-ilaw-sections { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.full-manual-ilaw-actions { padding: 6px; border: 1px solid var(--border); border-radius: 9px; }
+.full-manual-ilaw-group-label { padding: 0 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.full-manual-ilaw-sections a { display: inline-flex; align-items: center; text-decoration: none; }
+.full-manual-ilaw-actions button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.full-manual-ilaw-actions .ilaw-view-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; padding: 8px; }
+.full-manual-ilaw-actions .ilaw-view-toggle[aria-pressed="true"] { background: var(--card2); box-shadow: inset 0 -3px var(--accent); }
+.full-manual-ilaw-file-input { display: none; }
+.full-manual-ilaw-draft-info { font-size: 12px; color: var(--text-muted); }
+.full-manual-ilaw-draft-info summary { cursor: pointer; font-weight: 600; }
+.full-manual-ilaw-draft-info p { margin-top: 5px; }
+.full-manual-ilaw-controls :is(button, input, select, textarea, a, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.full-manual-ilaw-errors { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.full-manual-ilaw-errors ul { margin: 6px 0 0; }
+.full-manual-ilaw .ilaw-template-scroll { scroll-margin-top: 88px; }
+.teacher-manual-saved-print { display: none; }
+@media print {
+  body:has(.teacher-manual-saved-print) * { visibility: hidden; }
+  body:has(.teacher-manual-saved-print) .teacher-manual-saved-print,
+  body:has(.teacher-manual-saved-print) .teacher-manual-saved-print * { visibility: visible; }
+  body:has(.teacher-manual-saved-print) .teacher-manual-saved-print {
+    display: block; position: absolute; inset: 0 auto auto 0; width: 100%;
+  }
+  .teacher-dashboard-shell:has(.teacher-manual-ilaw-active),
+  .teacher-dashboard-shell:has(.teacher-quick-draft-active) { height: auto; overflow: visible; }
+  .teacher-dashboard-shell:has(.teacher-manual-ilaw-active) > .teacher-header,
+  .teacher-dashboard-shell:has(.teacher-manual-ilaw-active) #teacher-sidebar,
+  .teacher-dashboard-shell:has(.teacher-quick-draft-active) > .teacher-header,
+  .teacher-dashboard-shell:has(.teacher-quick-draft-active) #teacher-sidebar { display: none; }
+  .teacher-dashboard-shell:has(.teacher-manual-ilaw-active) > div,
+  .teacher-dashboard-shell:has(.teacher-quick-draft-active) > div { display: block; }
+  .teacher-dashboard-shell:has(.teacher-manual-ilaw-active) main,
+  .teacher-dashboard-shell:has(.teacher-quick-draft-active) main { overflow: visible; }
+  .teacher-manual-ilaw-active, .teacher-quick-draft-active { padding: 0; }
+  .teacher-manual-ilaw-active > :not([data-manual-print]),
+  .teacher-quick-draft-active > :not([data-quick-draft-print]) { display: none; }
+  [data-manual-discard], [data-manual-print] > [role="alert"],
+  .teacher-manual-ilaw-active [aria-label="Local Manual ILAW save actions"] { display: none; }
+  [data-quick-draft-print] > button { display: none; }
+  .full-manual-ilaw-controls { display: none; }
+  .full-manual-ilaw { display: block; }
+  .full-manual-ilaw .ilaw-template-scroll { break-inside: avoid; }
+  .full-manual-ilaw .ilaw-template-signatures { break-inside: avoid; }
+}

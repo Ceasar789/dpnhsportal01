@@ -319,6 +319,33 @@ test('enumeration metadata keeps the schema contract and optional non-enumeratio
   assert.deepEqual(omitted.questions[8].enumeration, { alternatives: [], orderSensitive: false });
 });
 
+test('weekly prompt states quality rules while retaining count, mix, coverage and enumeration instructions', () => {
+  const prompt = buildWeeklyWorksheetPrompt(plan, sources[0]);
+  for (const phrase of [
+    'multiple_choice=1, true_false=1, enumeration=2, essay=5',
+    'each essay rubric must sum to 5',
+    'minWords=80 and maxWords=150',
+    'unless the source requires otherwise',
+    'referenceAnswer concise and within those bounds',
+    'include its full text in the question',
+    'Never ask students to analyze a text that is not provided',
+    'consistent with that text and other items',
+    'questions, options, answers, and directions in the source lesson language',
+    'never mix English options into a Filipino worksheet',
+    'plausible multiple-choice distractors',
+    'exactly one defensible correct option',
+    'Never include a question\'s own answer',
+    'reveal another item\'s answer',
+    'different source concepts or tasks',
+    'do not reword earlier questions from the same day',
+    'Create exactly 10 distinct worksheet questions',
+    'Aim for 4 multiple_choice, 3 true_false, 2 enumeration, 1 essay per 10',
+    'return fewer with a brief coverageLimitation',
+    'enumeration.alternatives: []',
+    'orderSensitive is true only when order matters',
+  ]) assert.ok(prompt.includes(phrase), `Missing weekly prompt instruction: ${phrase}`);
+});
+
 test('enumeration rejection records only an allowlisted structural subreason', () => {
   const cases = [
     [[], 'metadata_shape'],

@@ -13,6 +13,7 @@
 import express from 'express';
 import cors from 'cors';
 import aiRoutes from './routes/ai.js';
+import { createAiLessonPlanSaveRouter } from './routes/aiLessonPlanSave.js';
 import weeklyWorksheetRoutes from './routes/weeklyWorksheets.js';
 import { createWeeklyJobRouter } from './routes/weeklyJobs.js';
 import { adminUsersRouter, onboardingRouter } from './routes/onboarding.js';
@@ -93,6 +94,7 @@ export function createApp() {
   app.get('/api/health', health);
 
   app.use('/api/ai', aiRoutes);
+  app.use('/api/lesson-plans/ai-save', createAiLessonPlanSaveRouter());
   app.use('/api/ai', weeklyWorksheetRoutes);
   app.use('/api/ai/weekly-jobs', createWeeklyJobRouter());
   app.use('/api/admin/users', adminUsersRouter);

@@ -87,6 +87,11 @@ test('user-scoped transport uses only anon key and caller bearer token', async (
   assert.throws(() => createUserScopedRpcTransport({
     url: 'https://jllstakxiamxiycnwrbd.supabase.co', anonKey: 'synthetic-public-anon',
   }), error => error.code === 'integration_blocked');
+  const testDataTransport = createUserScopedRpcTransport({
+    url: 'https://jllstakxiamxiycnwrbd.supabase.co', anonKey: 'synthetic-public-anon',
+    allowTestDataProject: true, createClientImpl: () => ({ rpc: async () => ({ data: { ok: true }, error: null }) }),
+  });
+  assert.deepEqual((await testDataTransport('synthetic_rpc', {}, 'synthetic-jwt')).data, { ok: true });
   assert.throws(() => createUserScopedRpcTransport({
     url: 'http://127.0.0.1:54322', anonKey: 'synthetic-public-anon',
   }), error => error.code === 'integration_blocked');

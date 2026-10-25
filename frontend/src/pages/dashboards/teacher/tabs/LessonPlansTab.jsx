@@ -7,6 +7,8 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { permanentSaveUnavailable } from '../persistence/editorPersistence';
+import AiPlanSaveAction from '../persistence/AiPlanSaveAction';
+import { aiLessonPlanSaveFlagEnabled, saveAiLessonPlan } from '../persistence/aiLessonPlanSaveClient';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import {
@@ -655,10 +657,53 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
   };
 
   // ── Save generated ILAW plan to Supabase ──────────────────
-  const handleSaveIlawPlan = async () => {
+  const handleSaveIlawPlan = async (saveCommand) => {
     if (saveInFlightRef.current) return;
     const teacherId = userData?.uid;
     const existingPlanId = savedPlanId;
+    if (!existingPlanId) {
+      if (!aiLessonPlanSaveFlagEnabled() || !saveCommand?.requestId) {
+        setSaveError('Permanent AI Lesson Plan saving is unavailable. Your draft remains open.');
+        return;
+      }
+      const { title, error } = validateLessonPlanTitle(currentPlanMeta?.title);
+      if (error) { setSaveError(error); return; }
+      const html = editorRef.current?.innerHTML ?? ilawOutput;
+      if (!html.trim()) { setSaveError('Nothing to save yet.'); return; }
+      saveInFlightRef.current = true;
+      setSaving(true);
+      setSaveError('');
+      try {
+        const result = await saveAiLessonPlan(API_BASE, { requestId: saveCommand.requestId,
+          title, html });
+        if (result.ok !== true || result.durable !== true || !result.record?.id) {
+          throw new Error('The save could not be confirmed. Your draft remains open.');
+        }
+        const plan = result.record;
+        if (editorRef.current) editorRef.current.innerHTML = plan.objectives;
+        setIlawOutput(plan.objectives);
+        setSavedHtml(plan.objectives);
+        setSavedPlanId(plan.id);
+        setSavedTitle(plan.title);
+        setTitleDraft(plan.title);
+        setCurrentPlanMeta(previous => ({ ...previous, title: plan.title,
+          assignment: savedAiMetadata(plan), file_url: null, file_name: null, file_path: null }));
+        openedUpdatedAtRef.current = plan.updated_at ?? null;
+        if (filenameEditedRef.current && filenameOwnerRef.current === teacherId) {
+          const key = lessonPlanFilenamePreferenceKey(teacherId, plan.id);
+          if (key) filenameDraftsRef.current.set(key, filenameValueRef.current);
+          writeLessonPlanFilenamePreference(teacherId, plan.id, filenameValueRef.current);
+        }
+        showToast('Lesson plan saved.', 'success');
+        fetchPlans();
+      } catch (error) {
+        setSaveError(`Could not save the lesson plan. Your draft remains open. ${error.message}`);
+      } finally {
+        saveInFlightRef.current = false;
+        setSaving(false);
+      }
+      return;
+    }
     const { title: normalizedTitle, error: validationError } = existingPlanId
       ? validateLessonPlanTitle(titleDraft)
       : { title: currentPlanMeta?.title, error: '' };
@@ -668,10 +713,6 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
     }
     if (existingPlanId && !teacherId) {
       setSaveError('Your session is unavailable. Sign in again before saving.');
-      return;
-    }
-    if (!existingPlanId) {
-      setSaveError('Permanent AI Lesson Plan saving is unavailable until a trusted database writer is approved. Your draft remains open; nothing was saved.');
       return;
     }
     const editorHtml = sanitizeLessonPlanHtml(editorRef.current?.innerHTML ?? ilawOutput);
@@ -690,20 +731,6 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
     saveInFlightRef.current = true;
     setSaving(true);
     try {
-      const payload = {
-        title: currentPlanMeta.title,
-        subject: 'ILAW Lesson Plan',
-        teacher_id: userData?.uid,
-        file_url: currentPlanMeta.file_url,
-        file_name: currentPlanMeta.file_name,
-        file_path: currentPlanMeta.file_path,
-        objectives: safeHtml, // store sanitized HTML in objectives field
-        ai_generated: true,
-        status: 'draft',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
       if (existingPlanId) {
         // Update existing
         let query = supabase
@@ -742,26 +769,6 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
           setDownloadName(suggestedName);
         }
         showToast('Changes saved.', 'success');
-      } else {
-        // Insert new
-        const { data, error } = await supabase
-          .from('lesson_plans')
-          .insert([payload])
-          .select();
-        if (error) throw error;
-        const newPlanId = data?.[0]?.id;
-        setSavedPlanId(newPlanId);
-        setSavedTitle(payload.title);
-        setTitleDraft(payload.title);
-        openedUpdatedAtRef.current = data?.[0]?.updated_at ?? null;
-        if (newPlanId != null && filenameEditedRef.current && filenameOwnerRef.current === userData?.uid) {
-          const key = lessonPlanFilenamePreferenceKey(userData?.uid, newPlanId);
-          if (key) filenameDraftsRef.current.set(key, filenameValueRef.current);
-          writeLessonPlanFilenamePreference(userData?.uid, newPlanId, filenameValueRef.current);
-        }
-        setSavedHtml(safeHtml);
-        showToast('Lesson plan saved.', 'success');
-        fetchPlans();
       }
     } catch (err) {
       setSaveError('Could not save the lesson plan. Your edits are still here. ' + err.message);
@@ -1062,8 +1069,8 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
         {view === 'editor' && savedPlanId != null && currentPlanMeta?.ai_generated && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Saved metadata — Subject: {currentPlanMeta.assignment.subjectName || 'Unknown'} · Grade: {currentPlanMeta.assignment.gradeLevel || 'Unknown'} · Academic Year: {currentPlanMeta.assignment.schoolYear || 'Unknown'}
         </p>}
-        {view === 'editor' && savedPlanId == null && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Permanent AI Lesson Plan save is unavailable until a trusted database writer is approved. Your generated draft remains editable on this page.
+        {view === 'editor' && savedPlanId == null && !aiLessonPlanSaveFlagEnabled() && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          Permanent AI Lesson Plan save is unavailable until the local trusted writer is enabled. Your generated draft remains editable on this page.
         </p>}
         {view === 'editor' && ilawOutput && (
           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -1080,10 +1087,11 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
                 writeLessonPlanFilenamePreference(userData?.uid, savedPlanId, name);
               }
             }} aria-describedby="lesson-plan-download-name-help" autoComplete="off" spellCheck={false} />
-            <Btn variant="default" className="min-h-[44px]" onClick={handleSaveIlawPlan} busy={saving} disabled={saving || savedPlanId == null}>
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              {savedPlanId ? 'Save Changes' : 'Save Plan'}
-            </Btn>
+            {savedPlanId == null ? <AiPlanSaveAction apiBase={API_BASE} content={ilawOutput} title={currentPlanMeta?.title} busy={saving} onSave={handleSaveIlawPlan} />
+              : <Btn variant="default" className="min-h-[44px]" onClick={handleSaveIlawPlan} busy={saving} disabled={saving}>
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                Save Changes
+              </Btn>}
           </div>
         )}
         {view === 'editor' && ilawOutput && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Choose Save as PDF in the browser print dialog. Check the filename there before saving.</p>}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LessonPlansTab from './LessonPlansTab';
@@ -29,6 +29,8 @@ const choosePdf = () => {
   return file;
 };
 
+beforeEach(() => vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_ENABLED', '0'));
+
 afterEach(() => {
   cleanup();
   mock.uploads.length = 0;
@@ -37,6 +39,7 @@ afterEach(() => {
   mock.session = { access_token: 'synthetic-token' };
   mock.showToast.mockClear();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('AI lesson plan generation with synthetic services', () => {

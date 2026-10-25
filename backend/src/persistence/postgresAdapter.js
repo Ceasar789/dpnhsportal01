@@ -62,13 +62,15 @@ function documentFor(operation, raw) {
  * authoritative identity/authorization boundary. No client is made until a
  * separately approved caller invokes this factory with a verified endpoint.
  */
-export function createUserScopedRpcTransport({ url, anonKey, createClientImpl = createClient } = {}) {
+export function createUserScopedRpcTransport({ url, anonKey, allowTestDataProject = false,
+  createClientImpl = createClient } = {}) {
   let endpoint;
   try { endpoint = new URL(url); } catch { throw new PersistenceError('integration_blocked'); }
   const local = url === 'http://127.0.0.1:54321';
   const hosted = endpoint.protocol === 'https:' &&
     /^[a-z0-9]{20}\.supabase\.co$/.test(endpoint.hostname) &&
-    endpoint.hostname !== `${PRODUCTION_REF}.supabase.co` && endpoint.origin === url;
+    (endpoint.hostname !== `${PRODUCTION_REF}.supabase.co` || allowTestDataProject === true) &&
+    endpoint.origin === url;
   requireThat((local || hosted) && !endpoint.username && !endpoint.password &&
     typeof anonKey === 'string' && anonKey.length > 0 && typeof createClientImpl === 'function',
     'integration_blocked');

@@ -17,6 +17,7 @@ import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
 import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { useStudentData } from '../StudentDataContext';
 import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
+import StudentWorksheetHeader from './StudentWorksheetHeader';
 
 // Colors for the countdown badge, one per formatCountdown tone. Kept in one
 // place so the meaning of a color (late vs. soon vs. plenty of time) stays
@@ -29,6 +30,13 @@ const COUNTDOWN_COLORS = {
   none: { color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
 };
 
+const PAPER_GROUPS = [
+  ['multiple_choice', 'Multiple choice'], ['true_false', 'True or false'],
+  ['identification', 'Identification'], ['enumeration', 'Enumeration'],
+  ['essay', 'Essay'],
+];
+const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+
 // Debounce window for autosaving free-typed answers (identification,
 // enumeration, essay) as the student types, in addition to the existing
 // save-on-blur. Long enough that ordinary typing does not storm the
@@ -39,6 +47,8 @@ const COUNTDOWN_COLORS = {
 // tab outright is NOT covered: there is no beforeunload handler, so React's
 // cleanup never runs and anything newer than the last write is gone.
 const TYPING_SAVE_DEBOUNCE_MS = 800;
+const hasStudentAnswer = value => typeof value === 'string'
+  ? value.trim().length > 0 : Array.isArray(value) && value.length > 0;
 
 // Maps a Postgres/PostgREST error to a sentence a student can act on,
 // while keeping the raw message (trigger text, RLS denial, constraint
@@ -75,6 +85,16 @@ const StudentTasksTab = () => {
   const [answers, setAnswers] = useState({});
   const [submission, setSubmission] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [submitPrompt, setSubmitPrompt] = useState(null);
+  const submittingRef = useRef(false);
+  const [worksheetView, setWorksheetView] = useState(null);
+  const unansweredCount = items.filter(item => !hasStudentAnswer(answers[item.id])).length;
+  const answeredCount = items.length - unansweredCount;
+  useEffect(() => {
+    if (submitPrompt === 'partial' && unansweredCount === 0) setSubmitPrompt(null);
+  }, [submitPrompt, unansweredCount]);
+  const viewRequestRef = useRef(0);
+  useEffect(() => () => { viewRequestRef.current += 1; }, []);
 
   // Drives the live countdown on every row from ONE interval for the whole
   // list — a class with thirty tasks would otherwise hold thirty timers.
@@ -184,6 +204,9 @@ const StudentTasksTab = () => {
   };
 
   const open = async (row) => {
+    const viewRequest = ++viewRequestRef.current;
+    setWorksheetView(null);
+    setSubmitPrompt(null);
     resetSaveState();
     setBusy(true);
     const { data: itemRows, error } = await withRetry(
@@ -251,6 +274,23 @@ const StudentTasksTab = () => {
       row = { ...row, submission: sub };
     }
 
+    if (sub.released === true && (sub.score == null || sub.total_points == null)) {
+      try {
+        const { data: released, error: scoreError } = await withRetry(
+          () => supabase.from('worksheet_submissions').select('score, total_points')
+            .eq('id', sub.id).eq('student_id', userData.uid).eq('released', true).single(),
+          { label: 'Student own released score fetch' }
+        );
+        if (scoreError) console.warn('Student released score fetch failed');
+        else if (released?.score != null && released?.total_points != null) {
+          sub = { ...sub, score: released.score, total_points: released.total_points };
+          rememberSubmission(row.assignee.task_id, sub);
+        }
+      } catch {
+        console.warn('Student released score fetch failed');
+      }
+    }
+
     // A failed read here must not render as "no answers saved yet" — for a
     // submission the student already has in progress (or submitted), that
     // would show blank inputs over real saved work, inviting them to
@@ -270,6 +310,17 @@ const StudentTasksTab = () => {
     setSubmission(sub);
     setActive(row);
     setBusy(false);
+    // Optional presentation data. Answering stays available if this read fails.
+    try {
+      const { data: view, error: viewError } = await supabase.from('worksheets')
+        .select('id, instructions, sections').eq('id', row.sheet.id).single();
+      if (viewError) console.warn('Student worksheet presentation fetch failed', viewError.message);
+      if (viewRequestRef.current === viewRequest && !viewError && view?.id === row.sheet.id) {
+        setWorksheetView(view);
+      }
+    } catch (error) {
+      console.warn('Student worksheet presentation fetch failed', error?.message);
+    }
   };
 
   // The actual write. Records its own promise in pendingWrites — removed
@@ -400,6 +451,8 @@ const StudentTasksTab = () => {
   }, [answers, items, writeAnswer]);
 
   const submit = async () => {
+    if (busy || submittingRef.current || submission?.status !== 'in_progress') return;
+    submittingRef.current = true;
     setBusy(true);
     try {
       const flushResult = await flushPendingSaves();
@@ -418,6 +471,7 @@ const StudentTasksTab = () => {
         return;
       }
       showToast('Submitted. Your teacher will check it.');
+      setSubmitPrompt(null);
       setSubmission(prev => prev ? { ...prev, status: 'submitted' } : prev);
       setActive(null);
       fetchTasks();
@@ -425,8 +479,16 @@ const StudentTasksTab = () => {
       // Always released, even if flushPendingSaves or the update throws
       // unexpectedly — otherwise the button is stuck reading "Submitting…"
       // forever with no toast telling the student anything went wrong.
+      submittingRef.current = false;
       setBusy(false);
     }
+  };
+
+  const requestSubmit = () => {
+    if (busy || submittingRef.current) return;
+    if (answeredCount === 0) setSubmitPrompt('empty');
+    else if (unansweredCount > 0) setSubmitPrompt('partial');
+    else { setSubmitPrompt(null); submit(); }
   };
 
   const statusLabel = (row) => {
@@ -441,23 +503,60 @@ const StudentTasksTab = () => {
 
   if (active) {
     const done = submission?.status !== 'in_progress';
+    const enrolled = graph?.enrolments?.find(entry => entry.section_id === active.assignee.section_id);
+    const oneSection = Array.isArray(worksheetView?.sections) && worksheetView.sections.length === 1
+      && typeof worksheetView.sections[0]?.id === 'string'
+      && typeof worksheetView.sections[0]?.title === 'string'
+      && worksheetView.sections[0].title.trim();
+    const group = oneSection ? worksheetView.sections[0] : { title: 'Questions' };
+    // Section metadata remains available, but items have no section id to group by.
+    void group;
+    const orderedItems = [...items].sort((a, b) => Number(a.position) - Number(b.position));
+    const knownTypes = new Set(PAPER_GROUPS.map(([type]) => type));
+    const paperGroups = PAPER_GROUPS.map(([type, title]) => ({ title,
+      items: orderedItems.filter(item => item.item_type === type) })).filter(entry => entry.items.length);
+    const otherItems = orderedItems.filter(item => !knownTypes.has(item.item_type));
+    if (otherItems.length) paperGroups.push({ title: 'Other questions', items: otherItems });
+    let nextNumber = 1;
+    paperGroups.forEach(entry => {
+      entry.start = nextNumber;
+      nextNumber += entry.items.length;
+      const points = Number(entry.items[0].points);
+      entry.pointsEach = Number.isFinite(points) && entry.items.every(item => Number(item.points) === points)
+        ? `${points} ${points === 1 ? 'point' : 'points'} each` : null;
+    });
     return (
       <div className="p-6">
         <Toast />
-        <button onClick={() => { resetSaveState(); setActive(null); }} className="text-sm mb-4" style={muted}>← Back</button>
-        <h1 className="text-xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{active.sheet.title}</h1>
-        <p className="text-xs mb-4" style={muted}>{active.subjectName || active.sheet.subject}</p>
-
+        <div className="mx-auto" style={{ maxWidth: 1100 }}>
+          <button onClick={() => { viewRequestRef.current += 1; setWorksheetView(null); setSubmitPrompt(null); resetSaveState(); setActive(null); }}
+            className="text-sm mb-4" style={muted}>← Back</button>
+          <article aria-label="Worksheet test paper" className="rounded border p-5 sm:p-8 shadow-sm"
+            style={{ backgroundColor: '#fffefb', borderColor: '#c9c3b8', color: '#1f1f1f',
+              fontFamily: "Georgia, 'Times New Roman', serif" }}>
+            <StudentWorksheetHeader title={active.sheet.title} subject={active.sheet.subject}
+              grade={enrolled?.sections?.grade_level} section={enrolled?.sections?.name}
+              schoolYear={enrolled?.sections?.school_year} studentName={userData?.name}
+              instructions={worksheetView?.instructions} items={items}
+              releasedScore={submission?.released === true && submission.score != null
+                && submission.total_points != null
+                ? { score: submission.score, total: submission.total_points } : null} />
         {items.length === 0 ? (
-          <Card className="p-6 text-center">
-            <p style={muted}>This worksheet has no questions to answer in the app. Download it from your teacher instead.</p>
-          </Card>
+          <p className="mt-6 text-center text-sm" style={{ color: '#4b443d' }}>
+            This worksheet has no questions to answer in the app. Download it from your teacher instead.
+          </p>
         ) : (
-          <div className="space-y-3">
-            {items.map((it, index) => (
-              <Card key={it.id} className="p-4">
-                <p className="text-sm font-medium mb-2" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                  {index + 1}. {it.question} <span className="text-xs" style={muted}>({it.points} pts)</span>
+          <div className="mt-7 space-y-6">
+            {paperGroups.map((paperGroup, groupIndex) => <section key={paperGroup.title}
+              aria-label={paperGroup.title}>
+              <h2 className="border-b pb-2 text-base font-bold" style={{ borderColor: '#b7a999', color: '#1f1f1f' }}>
+                {ROMAN_NUMERALS[groupIndex]}. {paperGroup.title}
+                {paperGroup.pointsEach && <> <span className="text-sm font-normal">({paperGroup.pointsEach})</span></>}
+              </h2>
+            {paperGroup.items.map((it, index) => (
+              <div key={it.id} className="border-b py-4 last:border-b-0" style={{ borderColor: '#e2d9cc' }}>
+                <p className="text-sm font-medium mb-2" style={{ color: '#1f1f1f' }}>
+                  {paperGroup.start + index}. {it.question} <span className="text-xs" style={{ color: '#5b5147' }}>({it.points} pts)</span>
                 </p>
 
                 {/* Disabled on `busy` too, not just `done`: submit() awaits
@@ -466,9 +565,9 @@ const StudentTasksTab = () => {
                     fire a write that races the status UPDATE exactly like
                     the bug this flush was built to fix. */}
                 {it.item_type === 'multiple_choice' && (it.options || []).map(opt => (
-                  <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
+                  <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
-                      onChange={() => saveAnswer(it.id, opt)} />
+                      onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF' }} />
                     {opt}
                   </label>
                 ))}
@@ -477,9 +576,9 @@ const StudentTasksTab = () => {
                     not retyped — because that is what the teacher's key
                     stores those two options as. */}
                 {it.item_type === 'true_false' && TRUE_FALSE_VALUES.map(opt => (
-                  <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
+                  <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
-                      onChange={() => saveAnswer(it.id, opt)} />
+                      onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF' }} />
                     {opt}
                   </label>
                 ))}
@@ -489,9 +588,8 @@ const StudentTasksTab = () => {
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full h-9 px-3 rounded-lg text-sm outline-none"
-                    style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',
-                             border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
-                             color: dark ? '#f1f5f9' : '#1a2b4a' }} />
+                    style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
+                             color: '#1f1f1f' }} />
                 )}
 
                 {it.item_type === 'enumeration' && (
@@ -501,9 +599,8 @@ const StudentTasksTab = () => {
                     onBlur={e => saveAnswer(it.id, e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
                     placeholder="One answer per line"
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',
-                             border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
-                             color: dark ? '#f1f5f9' : '#1a2b4a' }} />
+                    style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
+                             color: '#1f1f1f' }} />
                 )}
 
                 {it.item_type === 'essay' && (
@@ -511,23 +608,43 @@ const StudentTasksTab = () => {
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',
-                             border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
-                             color: dark ? '#f1f5f9' : '#1a2b4a' }} />
+                    style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
+                             color: '#1f1f1f' }} />
                 )}
-              </Card>
+              </div>
             ))}
-
+            </section>)}
+          </div>
+        )}
+          </article>
+          {items.length > 0 && <div className="mt-5 space-y-3">
             {!done && (
-              <button onClick={submit} disabled={busy}
+              <button onClick={requestSubmit} disabled={busy}
                 className="h-10 px-5 rounded-lg text-sm font-semibold"
                 style={{ backgroundColor: '#1908DF', color: '#fff' }}>
                 {busy ? 'Submitting…' : 'Submit'}
               </button>
             )}
-            {done && <p className="text-sm" style={muted}>Submitted. You cannot change your answers now.</p>}
-          </div>
-        )}
+            {!done && submitPrompt === 'empty' && answeredCount === 0 &&
+              <p role="alert" className="text-sm" style={{ color: 'var(--red)' }}>
+                Answer at least one question before submitting.
+              </p>}
+            {!done && submitPrompt === 'partial' && unansweredCount > 0 &&
+              <div role="group" aria-label="Confirm incomplete worksheet" className="rounded-lg border p-3 space-y-2"
+                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card-bg)' }}>
+                <p className="text-sm" style={{ color: 'var(--text)' }}>
+                  You have {unansweredCount} unanswered {unansweredCount === 1 ? 'question' : 'questions'}. Submit anyway?
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={submit} disabled={busy} className="h-10 px-4 rounded-lg text-sm font-semibold"
+                    style={{ backgroundColor: '#1908DF', color: '#fff' }}>Submit anyway</button>
+                  <button onClick={() => setSubmitPrompt(null)} disabled={busy} className="h-10 px-4 rounded-lg text-sm font-semibold"
+                    style={{ border: '1px solid var(--border)', color: 'var(--text)' }}>Go back</button>
+                </div>
+              </div>}
+            {done && <p className="text-sm" style={{ color: 'var(--text)' }}>Submitted. You cannot change your answers now.</p>}
+          </div>}
+        </div>
       </div>
     );
   }

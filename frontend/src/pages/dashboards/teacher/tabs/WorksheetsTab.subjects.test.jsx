@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import WorksheetsTab from './WorksheetsTab';
 
@@ -54,6 +54,49 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Worksheet manual authoring entry', () => {
+  it('labels saved rows by origin and removes AI edit and individual delete actions', async () => {
+    worksheetRows.value = [
+      { id: 'ai-row', title: 'AI worksheet', origin: 'ai_generated', subject: 'English', items: 2 },
+      { id: 'manual-row', title: 'Manual worksheet', subject: 'English', items: 2 },
+    ];
+    render(<Harness />);
+    await waitFor(() => expect(screen.getByText('AI worksheet')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for AI worksheet' }));
+    const aiMenu = screen.getByRole('menu', { name: 'Actions for AI worksheet' });
+    expect(within(aiMenu).queryByRole('menuitem', { name: /^Questions/ })).toBeNull();
+    expect(within(aiMenu).queryByRole('menuitem', { name: /^Delete/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Mock full-page editor' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Manual worksheet' }));
+    const manualMenu = screen.getByRole('menu', { name: 'Actions for Manual worksheet' });
+    expect(within(manualMenu).getByRole('menuitem', { name: /^Questions/ })).toBeTruthy();
+    expect(within(manualMenu).getByRole('menuitem', { name: /^Delete/ })).toBeTruthy();
+  });
+
+  it('keeps a failed weekly draft visible with safe markup guidance and retry', () => {
+    const weeklyCollections = [{ kind: 'weekly-worksheet-collection', collectionId: 'week-1',
+      title: 'Synthetic week', sourceLessonPlan: { title: 'Synthetic plan' },
+      worksheets: [{ draftId: 'day-1', day: 'Monday', title: 'Monday', questions: [{}] }] }];
+    const onRetryWeeklySave = vi.fn();
+    render(<Harness weeklyCollections={weeklyCollections} onRetryWeeklySave={onRetryWeeklySave}
+      weeklySaveStates={{ 'week-1': { status: 'failed', code: 'unsafe_markup',
+        message: 'Remove < symbols or HTML tags from the worksheet text, for example write x < y with spaces.' } }} />);
+    const card = screen.getByRole('region', { name: 'Weekly Worksheet Collection' });
+    expect(within(card).getByRole('alert').textContent).toContain('Remove < symbols');
+    expect(card.textContent).not.toContain('Saved permanently');
+    expect(card.textContent).not.toContain('secret question');
+    fireEvent.click(within(card).getByRole('button', { name: 'Retry Save' }));
+    expect(onRetryWeeklySave).toHaveBeenCalledWith(weeklyCollections[0], true);
+  });
+
+  it.each(['idempotency_conflict', 'invalid_state'])('blocks retry in the UI for %s', code => {
+    const weeklyCollections = [{ collectionId: 'week-1', title: 'Synthetic week',
+      sourceLessonPlan: { title: 'Synthetic plan' }, worksheets: [] }];
+    render(<Harness weeklyCollections={weeklyCollections}
+      weeklySaveStates={{ 'week-1': { status: 'blocked', code, message: 'Review collection.' } }} />);
+    const card = screen.getByRole('region', { name: 'Weekly Worksheet Collection' });
+    expect(within(card).getByRole('alert').textContent).toContain('This collection needs review.');
+    expect(within(card).queryByRole('button', { name: 'Retry Save' })).toBeNull();
+  });
   it('opens a blank local editor without creating a metadata row', () => {
     state.mySubjects = [{ id: 'math', name: 'Mathematics', grades: ['Grade 7'] }];
     render(<Harness />);

@@ -4,8 +4,14 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import TeacherDashboard from './TeacherDashboard';
 
-const { logoutMock, profileGuard, teacherState } = vi.hoisted(() => ({
+const { logoutMock, profileGuard, teacherState, weeklySaveMock, weeklyGate } = vi.hoisted(() => ({
   logoutMock: vi.fn(), profileGuard: { mode: 'clean', action: null }, teacherState: { uid: 'teacher-1' },
+  weeklySaveMock: vi.fn(), weeklyGate: { enabled: false },
+}));
+
+vi.mock('./persistence/aiWeeklyWorksheetSaveClient', () => ({
+  weeklyWorksheetSaveFlagEnabled: () => weeklyGate.enabled,
+  saveAiWeeklyWorksheets: weeklySaveMock,
 }));
 
 vi.mock('../../../context/AuthContext', () => ({
@@ -29,10 +35,23 @@ vi.mock('./tabs/StudentsTab', () => ({ default: () => <h1>Students content</h1> 
 vi.mock('./tabs/LessonPlansTab', () => ({ default: ({ onGeneratedDraft }) => <>
   <h1>Lesson plans content</h1>
   <button onClick={() => onGeneratedDraft({ draftId: 'synthetic-draft' })}>Open synthetic worksheet draft</button>
+  <button onClick={() => onGeneratedDraft({ kind: 'weekly-worksheet-collection',
+    collectionId: '11111111-1111-4111-8111-111111111111', teacherId: teacherState.uid,
+    title: 'Synthetic week', worksheets: [{ day: 'Monday', title: 'Monday',
+      questions: [{ question: 'Original question' }] }] })}>Hand off weekly collection</button>
 </> }));
-vi.mock('./tabs/WorksheetsTab', () => ({ default: ({ generatedDraft }) => <>
+vi.mock('./tabs/WorksheetsTab', () => ({ default: ({ generatedDraft, weeklyCollections,
+  weeklySaveStates, onRetryWeeklySave, onWeeklyCollectionChange }) => <>
   <h1>Worksheets content</h1>
   <p>{generatedDraft ? 'Private draft is visible' : 'No private draft'}</p>
+  <p>Weekly collections: {weeklyCollections.length}</p>
+  {weeklyCollections.map(collection => <section key={collection.collectionId}>
+    <p>Weekly status: {weeklySaveStates[collection.collectionId]?.status || 'idle'}</p>
+    <p>Weekly title: {collection.title}</p>
+    <button onClick={() => onWeeklyCollectionChange(collection.collectionId, current => ({ ...current,
+      worksheets: [{ ...current.worksheets[0], questions: [{ question: 'Edited question' }] }] }))}>Edit weekly</button>
+    <button onClick={() => onRetryWeeklySave(collection, true)}>Retry weekly</button>
+  </section>)}
 </> }));
 vi.mock('./tabs/GradesTab', () => ({ default: () => <h1>Grades content</h1> }));
 vi.mock('./tabs/AttendanceTab', () => ({ default: () => <h1>Attendance content</h1> }));
@@ -51,6 +70,8 @@ describe('Teacher shell navigation', () => {
     logoutMock.mockReset();
     profileGuard.mode = 'clean';
     profileGuard.action = null;
+    weeklyGate.enabled = false;
+    weeklySaveMock.mockReset();
     originalOffsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
     Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
       configurable: true,
@@ -71,6 +92,7 @@ describe('Teacher shell navigation', () => {
 
   afterEach(() => {
     cleanup();
+    weeklyGate.enabled = false;
     if (originalOffsetParent) Object.defineProperty(HTMLElement.prototype, 'offsetParent', originalOffsetParent);
     else delete HTMLElement.prototype.offsetParent;
     window.requestAnimationFrame = originalAnimationFrame;
@@ -109,6 +131,86 @@ describe('Teacher shell navigation', () => {
     teacherState.uid = 'teacher-2';
     rerender(<Shell />);
     await waitFor(() => expect(screen.getByText('No private draft')).toBeTruthy());
+  });
+
+  it('auto-saves once, retains one collection, and blocks a second submit while pending', async () => {
+    weeklyGate.enabled = true;
+    let resolveSave;
+    weeklySaveMock.mockImplementation(() => new Promise(resolve => { resolveSave = resolve; }));
+    const Shell = () => <MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>;
+    render(<Shell />);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off weekly collection' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off weekly collection' }));
+    expect(weeklySaveMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('link', { name: 'Worksheets', exact: true }));
+    expect(screen.getByText('Weekly collections: 1')).toBeTruthy();
+    expect(weeklySaveMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry weekly' }));
+    expect(weeklySaveMock).toHaveBeenCalledTimes(1);
+    await act(async () => resolveSave({ status: 'saved', code: null, message: '',
+      receipt: { collectionId: '22222222-2222-4222-8222-222222222222', worksheets: [] } }));
+    expect(screen.getByText('Weekly status: saved')).toBeTruthy();
+  });
+
+  it('does not save on hand-off when the gate is disabled', () => {
+    weeklyGate.enabled = false;
+    render(<MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off weekly collection' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Worksheets', exact: true }));
+    expect(weeklySaveMock).not.toHaveBeenCalled();
+    expect(screen.getByText('Weekly status: idle')).toBeTruthy();
+  });
+
+  it.each(['unknown', 'persistence_failed'])('retries %s with the identical frozen collection', async outcome => {
+    weeklyGate.enabled = true;
+    weeklySaveMock.mockResolvedValueOnce({ status: outcome === 'unknown' ? 'unknown' : 'failed',
+      code: outcome === 'unknown' ? null : outcome, message: 'Save unconfirmed.', receipt: null })
+      .mockResolvedValueOnce({ status: 'saved', code: null, message: '', receipt: { collectionId: 'saved', worksheets: [] } });
+    render(<MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off weekly collection' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Worksheets', exact: true }));
+    await waitFor(() => expect(screen.getByText('Weekly status: unknown')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Edit weekly' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry weekly' }));
+    await waitFor(() => expect(weeklySaveMock).toHaveBeenCalledTimes(2));
+    expect(JSON.stringify(weeklySaveMock.mock.calls[1][1])).toBe(JSON.stringify(weeklySaveMock.mock.calls[0][1]));
+  });
+
+  it('sends edited text under the same request ID after a known pre-write rejection', async () => {
+    weeklyGate.enabled = true;
+    weeklySaveMock.mockResolvedValueOnce({ status: 'failed', code: 'unsafe_markup',
+      message: 'Remove < symbols or HTML tags.', receipt: null })
+      .mockResolvedValueOnce({ status: 'saved', code: null, message: '', receipt: { collectionId: 'saved', worksheets: [] } });
+    render(<MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off weekly collection' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Worksheets', exact: true }));
+    await waitFor(() => expect(screen.getByText('Weekly status: failed')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Edit weekly' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry weekly' }));
+    await waitFor(() => expect(weeklySaveMock).toHaveBeenCalledTimes(2));
+    expect(weeklySaveMock.mock.calls[1][1].requestId).toBe(weeklySaveMock.mock.calls[0][1].requestId);
+    expect(weeklySaveMock.mock.calls[1][1].collection.worksheets[0].questions[0].question).toBe('Edited question');
+  });
+
+  it.each(['idempotency_conflict', 'invalid_state'])('blocks retry after %s', async code => {
+    weeklyGate.enabled = true;
+    weeklySaveMock.mockResolvedValue({ status: 'failed', code, message: 'Review collection.', receipt: null });
+    render(<MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off weekly collection' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Worksheets', exact: true }));
+    await waitFor(() => expect(screen.getByText('Weekly status: blocked')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Retry weekly' }));
+    expect(weeklySaveMock).toHaveBeenCalledTimes(1);
   });
 
   it('uses the static logo and keeps mobile drawer focus inside until Escape restores it', async () => {

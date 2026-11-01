@@ -20,6 +20,10 @@ import { TASK_TYPES, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import DistributeModal from '../worksheets/DistributeModal';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
+import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
+import SavedCollectionEditor from '../worksheets/SavedCollectionEditor';
+import SavedArchivedList from '../worksheets/SavedArchivedList';
+import { weeklyWorksheetSaveFlagEnabled } from '../persistence/aiWeeklyWorksheetSaveClient';
 import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
 import EncodeScoresModal from '../worksheets/EncodeScoresModal';
 import useDialogSafety from '../worksheets/useDialogSafety';
@@ -30,6 +34,8 @@ const LocalDistributionModal = import.meta.env.DEV && import.meta.env.MODE === '
   ? lazy(() => import('../worksheets/LocalDistributionModal')) : null;
 
 const EMPTY_WORKSHEET = { title: '', subject: '', pages: '', items: '', task_type: 'worksheet' };
+const isSavedCollectionDay = row => Boolean(row.collection_id) && Number.isInteger(row.day_of_week)
+  && row.day_of_week >= 1 && row.day_of_week <= 5;
 
 const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEncode, onDownload, onDelete, busy }) => {
   const [open, setOpen] = useState(false);
@@ -38,11 +44,11 @@ const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEnc
   const menuRef = useRef(null);
   const actions = [
     { label: 'Distribute', run: onDistribute },
-    { label: 'Questions', run: onQuestions },
+    ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Questions', run: onQuestions }]),
     { label: 'Check submissions', run: onCheck },
     { label: 'Encode scores', run: onEncode },
     ...(worksheet.file_url ? [{ label: 'Open file', run: onDownload }] : []),
-    { label: 'Delete', run: onDelete, destructive: true },
+    ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Delete', run: onDelete, destructive: true }]),
   ];
 
   useEffect(() => {
@@ -107,6 +113,7 @@ const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEnc
 
 const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGeneratedDraft,
   weeklyCollections = [], onWeeklyCollectionChange, onDiscardWeeklyCollection,
+  weeklySaveStates = {}, onRetryWeeklySave,
   manualDrafts = [], onCreateManualDraft, onManualDraftChange, onDiscardManualDraft,
   localDistributions = [], onLocalDistribution, onClearLocalDistributions,
   jobClient = weeklyJobClient }) => {
@@ -121,6 +128,21 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const [showAddModal, setShowAddModal] = useState(false);
   const [showGeneratedEditor, setShowGeneratedEditor] = useState(false);
   const [openWeeklyCollectionId, setOpenWeeklyCollectionId] = useState(null);
+  const [editableSavedOpenId, setEditableSavedOpenId] = useState(null);
+  const [editableSavedDirtyId, setEditableSavedDirtyId] = useState(null);
+  const [pendingSavedOpenId, setPendingSavedOpenId] = useState(null);
+  const onEditableSavedDirtyChange = useCallback((id, dirty) => {
+    setEditableSavedDirtyId(current => dirty ? id : current === id ? null : current);
+  }, []);
+  const onEditableSavedOpenChange = useCallback(id => {
+    if (id && editableSavedOpenId && id !== editableSavedOpenId && editableSavedDirtyId === editableSavedOpenId) {
+      setPendingSavedOpenId(id);
+      return;
+    }
+    setEditableSavedOpenId(id);
+  }, [editableSavedOpenId, editableSavedDirtyId]);
+  const [savedWeeklyTitles, setSavedWeeklyTitles] = useState({});
+  const [savedWeeklyMeta, setSavedWeeklyMeta] = useState({});
   const [activeWeeklyCollectionId, setActiveWeeklyCollectionId] = useState(null);
   const [activeDailyDraftId, setActiveDailyDraftId] = useState(null);
   const [confirmWeeklyDeleteId, setConfirmWeeklyDeleteId] = useState(null);
@@ -187,6 +209,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const worksheetsHeadingRef = useRef(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
+  const [savedPreviewWorksheet, setSavedPreviewWorksheet] = useState(null);
   const [formData, setFormData] = useState(EMPTY_WORKSHEET);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
@@ -281,6 +304,16 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   useEffect(() => {
     fetchWorksheets();
   }, [fetchWorksheets]);
+  const seenSavedWeeklyRef = useRef(new Set(Object.keys(weeklySaveStates)
+    .filter(id => weeklySaveStates[id]?.status === 'saved')));
+  useEffect(() => {
+    const newlySaved = Object.keys(weeklySaveStates).filter(id => weeklySaveStates[id]?.status === 'saved'
+      && !seenSavedWeeklyRef.current.has(id));
+    if (newlySaved.length) {
+      newlySaved.forEach(id => seenSavedWeeklyRef.current.add(id));
+      fetchWorksheets(true);
+    }
+  }, [weeklySaveStates, fetchWorksheets]);
 
   const handleAddWorksheet = async (e) => {
     e.preventDefault();
@@ -390,6 +423,44 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     (activeFilter === 'All' || w.subject === activeFilter)
     && (!search.trim() || `${w.title || ''} ${w.subject || ''}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
   );
+  const savedWeeklyGroups = [...filtered.reduce((groups, row) => {
+    if (isSavedCollectionDay(row)) {
+      if (!groups.has(row.collection_id)) groups.set(row.collection_id, []);
+      groups.get(row.collection_id).push(row);
+    }
+    return groups;
+  }, new Map())].map(([id, rows]) => ({ id, rows: rows.sort((a, b) => a.day_of_week - b.day_of_week) }));
+  const savedCollectionIds = new Set(worksheets.filter(isSavedCollectionDay).map(row => row.collection_id));
+  const savedGroupIdKey = savedWeeklyGroups.map(group => group.id).join(',');
+  const loadSavedWeeklyMeta = useCallback(async (isActive = () => true) => {
+    if (!savedGroupIdKey || !userData?.uid) {
+      if (isActive()) { setSavedWeeklyTitles({}); setSavedWeeklyMeta({}); }
+      return;
+    }
+    try {
+      const columns = weeklyWorksheetSaveFlagEnabled() ? 'id,title,revision,archived_at' : 'id,title';
+      const { data, error } = await supabase.from('worksheet_collections').select(columns)
+        .eq('teacher_id', userData.uid).in('id', savedGroupIdKey.split(','));
+      if (error) throw error;
+      if (isActive()) {
+        setSavedWeeklyTitles(Object.fromEntries((data || [])
+          .filter(row => row?.id && typeof row.title === 'string' && row.title.trim())
+          .map(row => [row.id, row.title.trim()])));
+        setSavedWeeklyMeta(Object.fromEntries((data || []).filter(row => row?.id).map(row => [row.id, row])));
+      }
+    } catch {
+      if (isActive()) { setSavedWeeklyTitles({}); setSavedWeeklyMeta({}); }
+    }
+  }, [savedGroupIdKey, userData?.uid]);
+  useEffect(() => {
+    let active = true;
+    void loadSavedWeeklyMeta(() => active);
+    return () => { active = false; };
+  }, [loadSavedWeeklyMeta]);
+  const refreshSavedCollections = useCallback(() => Promise.all([
+    fetchWorksheets(true), loadSavedWeeklyMeta(),
+  ]), [fetchWorksheets, loadSavedWeeklyMeta]);
+  const archivedSavedGroups = savedWeeklyGroups.filter(group => savedWeeklyMeta[group.id]?.archived_at != null);
   // `worksheets.status` is a dead column — distribution lives in
   // task_assignees now, via assessment.assigneeCounts. A worksheet counts as
   // distributed here only when it genuinely has at least one assignee. A
@@ -420,7 +491,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         }}
         onDiscardDraft={() => { onDiscardManualDraft(activeManualDraft.draftId); setActiveManualDraftId(null); }} />
     </div>
-  ) : showGeneratedEditor && activeGeneratedDraft ? (
+  ) : showGeneratedEditor && activeGeneratedDraft
+    && !['saving', 'saved'].includes(weeklySaveStates[activeWeeklyCollectionId]?.status) ? (
     <div className="p-4 sm:p-6 min-w-0">
       <QuestionBuilderModal key={activeGeneratedDraft.draftId} worksheet={activeGeneratedDraft} draft={activeGeneratedDraft}
         onDraftChange={changeActiveGeneratedDraft} allowDiscard={!weeklyCollection && !activeSavedDraft}
@@ -600,9 +672,21 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           onCancel={() => setConfirmManualDelete(null)} onConfirm={() => {
             onDiscardManualDraft(confirmManualDelete); setConfirmManualDelete(null);
           }} />}
-        {weeklyCollections.map(collection => <section key={collection.collectionId} aria-label="Weekly Worksheet Collection" className="min-w-0 md:col-span-2 lg:col-span-3">
+        {weeklyCollections.filter(collection => weeklySaveStates[collection.collectionId]?.status !== 'saved'
+          || !savedCollectionIds.has(weeklySaveStates[collection.collectionId]?.receipt?.collectionId)).map(collection => {
+          const save = weeklySaveStates[collection.collectionId];
+          return <section key={collection.collectionId} aria-label="Weekly Worksheet Collection" className="min-w-0 md:col-span-2 lg:col-span-3">
           <Card className="p-4 min-w-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
-            <Badge color="var(--banner-accent)" bg="var(--card2)">Local draft · Not saved to EduScribe</Badge>
+            <Badge color="var(--banner-accent)" bg="var(--card2)">{save?.status === 'saved'
+              ? 'Saved permanently' : save?.status === 'unknown' ? 'Save unconfirmed · Local draft retained'
+                : save?.status === 'saving' ? 'Saving permanently...' : save?.status === 'blocked'
+                  ? 'Save needs review' : 'Local draft · Not saved to EduScribe'}</Badge>
+            {save?.status === 'saving' && <p role="status">Saving permanently...</p>}
+            {save?.status === 'unknown' && <p role="alert">Could not confirm the save. Retry will not create duplicates.</p>}
+            {save?.status === 'failed' && <p role="alert">{save.message}</p>}
+            {save?.status === 'unknown' && save.message !== 'Could not confirm the save. Retry will not create duplicates.'
+              && <p role="alert">{save.message}</p>}
+            {save?.status === 'blocked' && <p role="alert">{save.message} This collection needs review. Regenerate it or contact support.</p>}
             <h3 className="text-lg font-semibold mt-3" style={{ color: 'var(--text)' }}>{collection.title}</h3>
             {(collection.sourceWeek || !collection.sourceLessonPlan.title.endsWith(' Lesson Plan')) &&
               <p className="text-xs mt-1 mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -612,14 +696,18 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               aria-expanded={openWeeklyCollectionId === collection.collectionId}>
               {openWeeklyCollectionId === collection.collectionId ? 'Hide daily worksheets' : 'Open weekly collection'}
             </Btn>
-            <Btn variant="danger" onClick={() => setConfirmWeeklyDeleteId(collection.collectionId)}>Delete collection</Btn>
+            {['failed', 'unknown'].includes(save?.status) && <Btn onClick={() => onRetryWeeklySave?.(collection, true)}>
+              Retry Save</Btn>}
+            <Btn variant="danger" disabled={['saving', 'saved', 'unknown', 'blocked'].includes(save?.status)}
+              onClick={() => setConfirmWeeklyDeleteId(collection.collectionId)}>Delete collection</Btn>
             {openWeeklyCollectionId === collection.collectionId && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mt-4">
               {collection.worksheets.map(draft => <section key={draft.draftId} aria-label={`${draft.day} Worksheet`} className="rounded-lg border p-3" style={{ borderColor: 'var(--border)' }}>
                 <p className="text-xs font-semibold" style={{ color: 'var(--banner-accent)' }}>{draft.day}</p>
                 <h4 className="font-semibold break-words" style={{ color: 'var(--text)' }}>{draft.title}</h4>
-                <p className="text-xs my-2" style={{ color: 'var(--text-muted)' }}>{draft.questions.length} questions · {draft.saved
-                  ? hasUnsavedGeneratedChanges(draft) ? 'Unsaved changes to local draft' : 'Saved locally for testing'
-                  : 'Local draft'}</p>
+                <p className="text-xs my-2" style={{ color: 'var(--text-muted)' }}>{draft.questions.length} questions · {save?.status === 'saved'
+                  ? 'Saved permanently' : draft.saved
+                    ? hasUnsavedGeneratedChanges(draft) ? 'Unsaved changes to local draft' : 'Saved locally for testing'
+                    : 'Local draft'}</p>
                 {draft.typeDistribution && <details className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
                   <summary className="cursor-pointer">Question mix</summary>
                   <p>{Object.entries(draft.typeDistribution || {}).filter(([, count]) => count)
@@ -627,14 +715,66 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                   {draft.distributionNote && <p>{draft.distributionNote}</p>}
                 </details>}
                 <div className="flex flex-wrap gap-2">
-                  <Btn onClick={() => { setActiveWeeklyCollectionId(collection.collectionId); setActiveDailyDraftId(draft.draftId); setShowGeneratedEditor(true); }}>Edit/Preview {draft.day}</Btn>
-                  <Btn variant="outline" onClick={() => onWeeklyCollectionChange(collection.collectionId, current =>
-                    updateWeeklyWorksheet(current, shuffleWeeklyWorksheet(draft)))}>Shuffle Questions</Btn>
+                  {!['saving', 'saved'].includes(save?.status) && <>
+                    <Btn onClick={() => { setActiveWeeklyCollectionId(collection.collectionId); setActiveDailyDraftId(draft.draftId); setShowGeneratedEditor(true); }}>Edit/Preview {draft.day}</Btn>
+                    <Btn variant="outline" onClick={() => onWeeklyCollectionChange(collection.collectionId, current =>
+                      updateWeeklyWorksheet(current, shuffleWeeklyWorksheet(draft)))}>Shuffle Questions</Btn>
+                  </>}
                 </div>
               </section>)}
             </div>}
           </Card>
-        </section>)}
+        </section>; })}
+        {savedWeeklyGroups.filter(group => !weeklyWorksheetSaveFlagEnabled()
+          || savedWeeklyMeta[group.id]?.archived_at == null).map(group => {
+          const subtitle = [group.rows.find(row => row.subject)?.subject,
+            group.rows.find(row => row.grade_level)?.grade_level].filter(Boolean).join(' · ');
+          if (weeklyWorksheetSaveFlagEnabled()) return <SavedCollectionEditor key={`saved-${group.id}`}
+            collectionId={group.id} displayTitle={savedWeeklyTitles[group.id] || 'Weekly Worksheets'}
+            knownRevision={Number(savedWeeklyMeta[group.id]?.revision)}
+            subtitle={subtitle} teacherId={userData?.uid} client={supabase}
+            apiBase={import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:3001`}
+            open={editableSavedOpenId === group.id} onOpenChange={onEditableSavedOpenChange}
+            onDirtyChange={onEditableSavedDirtyChange} onCollectionChanged={refreshSavedCollections} />;
+          return <section key={`saved-${group.id}`} aria-label="Weekly Worksheet Collection" className="min-w-0 md:col-span-2 lg:col-span-3">
+          <Card className="p-4 min-w-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+            <Badge color="var(--banner-accent)" bg="var(--card2)">Saved permanently</Badge>
+            <h3 className="text-lg font-semibold mt-3" style={{ color: 'var(--text)' }}>{savedWeeklyTitles[group.id] || 'Weekly Worksheets'}</h3>
+            {subtitle && <p className="text-xs mt-1 mb-3" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>}
+            <Btn onClick={() => setOpenWeeklyCollectionId(previous => previous === group.id ? null : group.id)}
+              aria-expanded={openWeeklyCollectionId === group.id}>
+              {openWeeklyCollectionId === group.id ? 'Hide daily worksheets' : 'Open weekly collection'}
+            </Btn>
+            <Btn variant="danger" disabled>Delete collection</Btn>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Saved collections cannot be deleted in this version.</p>
+            {openWeeklyCollectionId === group.id && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mt-4">
+              {group.rows.map(row => {
+                const day = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][row.day_of_week - 1];
+                return <section key={row.id} aria-label={`${day} Worksheet`} className="rounded-lg border p-3" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--banner-accent)' }}>{day}</p>
+                  <h4 className="font-semibold break-words" style={{ color: 'var(--text)' }}>{row.title}</h4>
+                  <p className="text-xs my-2" style={{ color: 'var(--text-muted)' }}>{row.items} questions</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Btn onClick={() => setSavedPreviewWorksheet(row)}>Preview {day}</Btn>
+                    <Btn variant="outline" disabled>Shuffle Questions</Btn>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Saved worksheets are read-only in this version.</p>
+                  </div>
+                </section>;
+              })}
+            </div>}
+          </Card>
+        </section>; })}
+        {weeklyWorksheetSaveFlagEnabled() && <SavedArchivedList groups={archivedSavedGroups.map(group => ({
+          id: group.id, title: savedWeeklyTitles[group.id] || 'Weekly Worksheets',
+          revision: savedWeeklyMeta[group.id]?.revision,
+        }))}
+          apiBase={import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:3001`}
+          onCollectionChanged={refreshSavedCollections} />}
+        {pendingSavedOpenId && <ConfirmDialog title="Unsaved changes" confirmLabel="Discard changes"
+          message="Open another collection and discard unsaved changes?"
+          onCancel={() => setPendingSavedOpenId(null)} onConfirm={() => {
+            setEditableSavedOpenId(pendingSavedOpenId); setPendingSavedOpenId(null);
+          }} />}
         {confirmWeeklyDeleteId && <ConfirmDialog title="Delete weekly collection" confirmLabel="Delete collection"
           message="Delete these five local worksheet drafts from this browser session? This cannot be undone."
           onCancel={() => setConfirmWeeklyDeleteId(null)} onConfirm={() => {
@@ -693,7 +833,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               <Btn onClick={() => fetchWorksheets()}>Retry worksheets</Btn>
             </div>
           </Card>
-        ) : filtered.map((ws) => {
+        ) : filtered.filter(ws => !isSavedCollectionDay(ws)
+          && !Object.values(weeklySaveStates).flatMap(s => s?.receipt?.worksheets ?? []).map(w => w.id).includes(ws.id)).map((ws) => {
           const distributedCount = assessment.assigneeCounts[ws.id] || 0;
           return (
           <Card key={ws.id} className="p-4 min-w-0 flex flex-col" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
@@ -736,7 +877,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               </button>
               <WorksheetActions worksheet={ws} busy={deletingId === ws.id}
                 onDistribute={() => showToast('Distribution is unavailable until trusted authorization is connected. No students were assigned.', 'error')}
-                onQuestions={() => setBuildingWorksheet(ws)} onCheck={() => setCheckingWorksheet(ws)}
+                 onQuestions={() => { if (ws.origin !== 'ai_generated') setBuildingWorksheet(ws); }} onCheck={() => setCheckingWorksheet(ws)}
                 onEncode={() => { setScoreSavedMessage(''); setEncodingWorksheet(ws); }} onDownload={() => downloadWorksheet(ws)}
                 onDelete={() => handleDelete(ws.id)} />
             </div>
@@ -791,6 +932,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       )}
 
 
+      {savedPreviewWorksheet && <SavedWorksheetPreview worksheet={savedPreviewWorksheet}
+        loadItems={assessment.loadItems} onClose={() => setSavedPreviewWorksheet(null)} />}
       {showPreviewModal && previewingWorksheet && (
         <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)} dismissible>
           <div className="flex flex-col gap-4">
@@ -874,7 +1017,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         />
       )}
 
-      {buildingWorksheet && (
+      {buildingWorksheet && buildingWorksheet.origin !== 'ai_generated' && (
         <QuestionBuilderModal
           worksheet={buildingWorksheet}
           loadItems={assessment.loadItems}

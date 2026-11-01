@@ -237,7 +237,7 @@ test('synthetic Tuesday batch 2 rejection keeps validation detail through the re
           const batch = Number(batchText);
           const questions = Array.from({ length: 10 }, (_, index) => {
             const base = { question: `${day} batch ${batch} question ${index}`, points: 1, options: [] };
-            if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['A', 'B'], correct_answer: 'A' };
+            if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['A', 'B', 'C', 'D'], correct_answer: 'A' };
             if (index < 7) return { ...base, item_type: 'true_false', correct_answer: 'True' };
             if (index < 9) return { ...base, item_type: 'enumeration', correct_answer: 'one, two' };
             return { ...base, item_type: 'essay', correct_answer: '', essay: { referenceAnswer: 'Explanation.',

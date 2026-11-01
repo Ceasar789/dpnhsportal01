@@ -38,6 +38,7 @@ import { savedAiMetadata } from '../lessonPlans/aiAssignment';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
+import { weeklyWorksheetSaveFlagEnabled } from '../persistence/aiWeeklyWorksheetSaveClient';
 import WeeklyGenerationProgress from './WeeklyGenerationProgress';
 import '../ilaw/IlawActivePreview.css';
 
@@ -127,11 +128,13 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL
     ? `${window.location.protocol}//${window.location.hostname}:3001`
     : '');
 
-const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJobClient }) => {
+const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {}, jobClient = weeklyJobClient }) => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const { toast, showToast } = useToast();
   const [worksheetRun, setWorksheetRun] = useState(null);
+  const activeWeeklySave = worksheetRun?.draft?.collectionId
+    ? weeklySaveStates[worksheetRun.draft.collectionId] : null;
   const [worksheetGenerationError, setWorksheetGenerationError] = useState(null);
   const [weeklyQuestionCount, setWeeklyQuestionCount] = useState(30);
   const worksheetGenerationRef = useRef(false);
@@ -268,8 +271,10 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
       if (requestId !== worksheetRequestRef.current || worksheetTeacherRef.current !== ownerId) return;
       setWorksheetRun({ plan, status: 'validating-result', kind,
         sourceTitle: plan.title, sourceContent: plan.objectives });
-      setWorksheetRun({ plan, status: kind === 'weekly' && aiPlan ? 'generation-complete' : 'ready', kind, draft, providerCalls,
+      const handedOff = kind === 'weekly' && aiPlan && weeklyWorksheetSaveFlagEnabled();
+      setWorksheetRun({ plan, status: kind === 'weekly' && aiPlan ? 'generation-complete' : 'ready', kind, draft, providerCalls, handedOff,
         sourceTitle: plan.title, sourceContent: plan.objectives });
+      if (handedOff) onGeneratedDraft(draft);
     } catch (error) {
       if (requestId === worksheetRequestRef.current && worksheetTeacherRef.current === ownerId) {
         setWorksheetRun({ plan, status: 'error', kind,
@@ -313,7 +318,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
       setWorksheetRun({ ...worksheetRun, status: 'error', message: 'The source plan or local worksheet state changed. Nothing was created. Close this dialog and review the plan.' });
       return;
     }
-    onGeneratedDraft(worksheetRun.draft);
+    if (!worksheetRun.handedOff) onGeneratedDraft(worksheetRun.draft);
     setWorksheetRun(null);
     navigate('/teacher-dashboard/worksheets');
   };
@@ -1325,7 +1330,8 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
 
       {worksheetRun && <Modal title={worksheetRun.kind === 'weekly' ? 'Weekly worksheet generation' : 'Sample worksheet generation'} onClose={cancelWorksheetRun}
         escapeCloses description={worksheetRun.job ? 'Five private drafts are saved only after the whole job validates.'
-          : 'Nothing is saved or distributed automatically.'}>
+          : worksheetRun.handedOff ? 'The five drafts remain open while permanent Save is checked.'
+            : 'Nothing is saved or distributed automatically.'}>
         <div className="grid gap-4 text-sm" style={{ color: 'var(--text)' }}>
           <p className="font-semibold break-words">{worksheetRun.plan.title || 'Saved lesson plan'}</p>
           {worksheetRun.kind === 'weekly' && ['generating', 'generation-complete'].includes(worksheetRun.status) &&
@@ -1339,7 +1345,9 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
                 : worksheetRun.kind === 'weekly' ? 'Checking the worksheet drafts…' : 'Checking the sample worksheet…'}
           </p>}
           {worksheetRun.status === 'ready' && <p role="status">{worksheetRun.kind === 'weekly'
-            ? `Five separate daily drafts are ready for Teacher review in Worksheets.${Number.isInteger(worksheetRun.providerCalls) ? ` ${worksheetRun.providerCalls} provider requests were attempted.` : ''} Nothing was saved or distributed.`
+            ? `Five separate daily drafts are ready for Teacher review in Worksheets.${Number.isInteger(worksheetRun.providerCalls) ? ` ${worksheetRun.providerCalls} provider requests were attempted.` : ''} ${worksheetRun.handedOff ? activeWeeklySave?.status === 'saved' ? 'Saved permanently.'
+              : activeWeeklySave?.status === 'saving' ? 'Saving permanently...'
+                : 'Review permanent Save status in Worksheets.' : 'Nothing was saved or distributed.'}`
             : 'Sample generated from a test Assessment fixture — not live AI. View the unsaved draft on Worksheets, then choose View/Edit to open the editor.'}</p>}
           {worksheetRun.status === 'job' && <p role="status">{worksheetRun.job.status.replaceAll('_', ' ').toLowerCase()}: {worksheetRun.job.completedValidatedBatches} of {worksheetRun.job.plannedProviderCalls} batches validated; {worksheetRun.job.attemptedProviderCalls} provider requests attempted. {worksheetRun.job.status === 'WAITING_FOR_CAPACITY'
             ? 'Waiting for provider capacity. Resume requires an explicit action after the retry time.'
@@ -1354,7 +1362,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, jobClient = weeklyJo
             {worksheetRun.status === 'job' && <Btn variant="outline" onClick={requestJobCancel}>Request cancellation</Btn>}
             {worksheetRun.status === 'saved' && <Btn onClick={() => { setWorksheetRun(null); navigate('/teacher-dashboard/worksheets'); }}>Open saved collection</Btn>}
             {worksheetRun.status === 'error' && worksheetRun.retryable && <Btn onClick={() => handleGenerateWorksheet(worksheetRun.plan)}>Retry</Btn>}
-            {worksheetRun.status === 'ready' && <Btn onClick={openReadyWorksheet}>View draft in Worksheets</Btn>}
+            {worksheetRun.status === 'ready' && <Btn onClick={openReadyWorksheet}>{worksheetRun.handedOff ? 'Open in Worksheets' : 'View draft in Worksheets'}</Btn>}
           </div>
         </div>
       </Modal>}

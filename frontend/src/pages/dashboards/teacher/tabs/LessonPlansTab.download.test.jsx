@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LessonPlansTab from './LessonPlansTab';
@@ -54,6 +54,10 @@ vi.mock('../hooks', () => ({ useTheme: () => ({ dark: false }), useToast: () => 
 vi.mock('../worksheets/useDialogSafety', () => ({ default: () => ({ routeBlocker: null, busyNotice: '' }) }));
 vi.mock('../shared/TeacherFilePicker', () => ({ default: () => null }));
 
+beforeEach(() => {
+  vi.stubEnv('VITE_AI_WEEKLY_WORKSHEET_SAVE_ENABLED', '0');
+});
+
 afterEach(() => {
   cleanup();
   mock.tables.length = 0;
@@ -68,6 +72,7 @@ afterEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('local worksheet progress handoff', () => {
@@ -99,6 +104,22 @@ describe('local worksheet progress handoff', () => {
         correct_answer: `Structure ${index + 1}, aspect ${questionIndex + 1}` })),
     })) }) };
   }));
+
+  it('hands off a generated collection once right after generation when weekly Save is enabled, and Open in Worksheets does not hand off again', async () => {
+    vi.stubEnv('VITE_AI_WEEKLY_WORKSHEET_SAVE_ENABLED', '1');
+    mock.plans = [savedPlan()];
+    stubWeeklyApi();
+    const onGeneratedDraft = vi.fn();
+    render(<MemoryRouter><LessonPlansTab onGeneratedDraft={onGeneratedDraft} /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Generate Worksheet from Plant cells' }));
+    await waitFor(() => expect(onGeneratedDraft).toHaveBeenCalledTimes(1));
+    expect(onGeneratedDraft.mock.calls[0][0].worksheets).toHaveLength(5);
+    await screen.findByRole('button', { name: 'Open in Worksheets' });
+    expect(screen.queryByRole('button', { name: 'View draft in Worksheets' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open in Worksheets' }));
+    expect(onGeneratedDraft).toHaveBeenCalledTimes(1);
+    expect(mock.generatorCalls).toBe(1);
+  });
 
   it('keeps Saved Lesson Plans visible until a valid sample is ready and the Teacher opens it', async () => {
     mock.plans = [savedPlan()];

@@ -14,7 +14,7 @@ const response = (day, batch) => JSON.stringify({ title: `${day} cells`, directi
   questions: Array.from({ length: 10 }, (_, index) => {
     const base = { question: `${day} batch ${batch} ${topics[day]} question ${index}`, points: 1,
       options: [], correct_answer: '' };
-    if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['Nucleus', 'Membrane'],
+    if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['Nucleus', 'Membrane', 'Cytoplasm', 'Ribosome'],
       correct_answer: 'Nucleus' };
     if (index < 7) return { ...base, item_type: 'true_false', correct_answer: 'True' };
     if (index < 9) return { ...base, item_type: 'enumeration', correct_answer: 'nucleus, membrane' };

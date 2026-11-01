@@ -204,14 +204,21 @@ const CheckSubmissionsModal = ({
       };
     });
     const ok = await releaseScore(active.id, worksheet.id, given, total, perItem);
-    setSaving(false);
     if (ok) {
-      setSubmissions(prev => prev.map(s =>
+      let refreshed = null;
+      try {
+        refreshed = await loadSubmissions(worksheet.id);
+      } catch {
+        console.warn('Submission list refresh failed after score release');
+      }
+      if (refreshed) setSubmissions(refreshed);
+      else setSubmissions(prev => prev.map(s =>
         s.id === active.id ? { ...s, status: 'checked', released: true, score: given, total_points: total } : s));
       setActive(null);
     } else {
       setReleaseError(true);
     }
+    setSaving(false);
   };
 
   const muted = { color: dark ? '#64748b' : '#94a3b8' };
@@ -336,7 +343,7 @@ const CheckSubmissionsModal = ({
                 Reviewed score: {given} / {total}
               </p>
               {releaseError && <p role="alert" className="rounded-lg border px-3 py-2 text-sm" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>
-                Result release is unavailable. No score was saved or released.
+                Could not confirm the release. Check the submission and try again.
               </p>}
               {untouched.length > 0 && (
                 <p className="text-xs" style={{ color: '#d97706' }}>

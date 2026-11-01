@@ -453,9 +453,8 @@ export const useWorksheetAssessment = (showToast) => {
   }, []);
 
   // Best-effort by design: a failed notification must never roll back the
-  // distribution or the release that caused it. The caller reports that the
-  // work went out but the message did not, which is the truth. Declared
-  // ahead of releaseScore and distributeTask because both call it.
+  // distribution that caused it. The caller reports that the work went out
+  // but the message did not, which is the truth.
   const notifyStudents = async (studentIds, { title, message, taskId }) => {
     if (!studentIds || studentIds.length === 0) return true;
     const { error } = await supabase.from('notifications').insert(
@@ -481,67 +480,43 @@ export const useWorksheetAssessment = (showToast) => {
     return true;
   };
 
-  // Writes every item's mark, then flips the submission to checked+released.
-  // This is a multi-row write with no client transaction: if a per-item
-  // update fails partway, the submission's `released` flag (set last) is
-  // never reached, so the student still sees nothing — the gate fails safe.
-  // The already-written item rows are simply overwritten with the same
-  // values on retry, since the caller always resubmits the full perItem set
-  // computed from its own review state, not a diff.
-  // Upsert rather than update: a student who left an item blank may have no
-  // answer row at all, and an UPDATE matching zero rows is not an error in
-  // PostgREST — the teacher's mark for that item would vanish silently while
-  // the submission-level score still counted it.
+  // Keep the modal's arguments; the database recomputes both totals and writes
+  // all item marks with the released submission in one transaction.
   const releaseScore = async (submissionId, worksheetId, score, totalPoints, perItem) => {
-    if (!trustedScoreWritesAvailable) {
-      showToast('Result release is unavailable until trusted Teacher authorization and a transactional writer are connected. No score was saved or released.', 'error');
+    void worksheetId;
+    void score;
+    void totalPoints;
+    const unconfirmed = 'Could not confirm the release. Check the submission and try again.';
+    if (typeof supabase.rpc !== 'function') {
+      showToast(unconfirmed, 'error');
       return false;
     }
-    const { error: itemError } = await supabase.from('worksheet_answers').upsert(
-      perItem.map(row => ({
-        submission_id: submissionId,
-        item_id: row.item_id,
-        is_correct: row.isCorrect,
-        points_earned: row.pointsEarned,
-      })),
-      { onConflict: 'submission_id,item_id' }
-    );
-    if (itemError) {
-      showToast(`Could not save item marks: ${itemError.message}. Try Save & Release again.`, 'error');
-      return false;
-    }
-
-    // .select() piggybacks the student_id onto this same write's response —
-    // this function is never handed one otherwise, and a separate read just
-    // to notify would be a round trip the release itself does not need.
-    const { data: updated, error } = await supabase.from('worksheet_submissions').update({
-      status: 'checked',
-      released: true,
-      score,
-      total_points: totalPoints,
-      checked_by: userData?.uid || null,
-      checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq('id', submissionId).select('student_id').maybeSingle();
-
-    if (error) {
-      showToast(`Could not release: ${error.message}. Item marks were saved — try Save & Release again.`, 'error');
-      return false;
-    }
-
-    // The score is released either way — a failed notification must not
-    // turn this into a failure, so its result is not checked here.
-    if (updated?.student_id) {
-      const subjectLabel = mySubject?.name ? `${mySubject.name} score` : 'Score';
-      await notifyStudents([updated.student_id], {
-        title: `${subjectLabel} released`,
-        message: `Your score is ${score} out of ${totalPoints}.`,
-        taskId: worksheetId,
+    try {
+      const { data, error } = await supabase.rpc('eduscribe_worksheet_score_release_v1', {
+        p_submission_id: submissionId,
+        p_marks: perItem.map(row => ({ itemId: row.item_id, points: row.pointsEarned })),
       });
+      if (error) {
+        const messages = {
+          not_authenticated: 'Your session has ended. Sign in again before releasing this score.',
+          not_found: 'This submission is no longer available to you. Refresh and try again.',
+          invalid_state: 'This submission is not ready for score release. Refresh and review its status.',
+          invalid_marks: 'One or more item scores are invalid. Review every mark and try again.',
+        };
+        showToast(Object.prototype.hasOwnProperty.call(messages, error.message)
+          ? messages[error.message] : unconfirmed, 'error');
+        return false;
+      }
+      if (data?.ok !== true || String(data.submissionId).toLowerCase() !== String(submissionId).toLowerCase()) {
+        showToast(unconfirmed, 'error');
+        return false;
+      }
+      showToast('Score released to the student');
+      return true;
+    } catch {
+      showToast(unconfirmed, 'error');
+      return false;
     }
-
-    showToast('Score released to the student');
-    return true;
   };
 
   // The active class list for one section, names attached.

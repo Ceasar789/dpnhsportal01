@@ -14,7 +14,7 @@ const sources = days.map(day => ({ day, competency: 'Analyze Filipino poetry', o
 const topics = { Monday: 'metapora', Tuesday: 'simile', Wednesday: 'tugma', Thursday: 'sukat', Friday: 'persona' };
 const item = (day, batch, index) => {
   const base = { question: `${day} batch ${batch} item ${index}: Discuss ${topics[day]} in the taludtod.`, points: 1, options: [], correct_answer: '' };
-  if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['Tula', 'Awit', 'Dula'], correct_answer: 'Tula' };
+  if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['Tula', 'Awit', 'Dula', 'Alamat'], correct_answer: 'Tula' };
   if (index < 7) return { ...base, item_type: 'true_false', correct_answer: index % 2 ? 'True' : 'False' };
   if (index < 9) return { ...base, item_type: 'enumeration', correct_answer: 'taludtod, saknong',
     enumeration: { alternatives: ['linya, saknong'], orderSensitive: false } };
@@ -344,7 +344,7 @@ test('enumeration metadata keeps the schema contract and optional non-enumeratio
   assert.equal(schema.properties.alternatives.type, 'ARRAY');
   assert.equal(schema.properties.orderSensitive.type, 'BOOLEAN');
   const prompt = buildWeeklyWorksheetPrompt(plan, sources[0]);
-  for (const phrase of ['non-empty, comma-separated', 'katapatan, pagtutulungan',
+  for (const phrase of ['non-empty, comma-separated', 'first item, second item',
     'enumeration.alternatives: []', 'same comma-separated item count',
     'Never put individual expected items', 'orderSensitive is true only when order matters']) {
     assert.ok(prompt.includes(phrase), `Missing enumeration instruction: ${phrase}`);
@@ -369,6 +369,15 @@ test('enumeration metadata keeps the schema contract and optional non-enumeratio
 
 test('weekly prompt states quality rules while retaining count, mix, coverage and enumeration instructions', () => {
   const prompt = buildWeeklyWorksheetPrompt(plan, sources[0]);
+  const languageRule = prompt.split('\n').find(line => line.startsWith('Determine output language'));
+  assert.ok(languageRule);
+  for (const phrase of ['lesson title and daily source (objective, activity, assessment, competency)',
+    'worksheet title', 'directions', 'questions', 'options', 'correct answers', 'model answers',
+    'essay rubric criteria', 'any coverage note', 'English source means English only',
+    'Filipino source means Filipino only', 'technical terms and proper nouns that appear in the source',
+    'JSON keys, question type names, and True/False answer values stay exactly as the schema requires',
+    'never translate them']) assert.ok(languageRule.includes(phrase), `Missing language instruction: ${phrase}`);
+  assert.ok(!prompt.includes('katapatan'));
   for (const phrase of [
     'multiple_choice=1, true_false=1, enumeration=2, essay=5',
     'each essay rubric must sum to 5',
@@ -378,8 +387,10 @@ test('weekly prompt states quality rules while retaining count, mix, coverage an
     'include its full text in the question',
     'Never ask students to analyze a text that is not provided',
     'consistent with that text and other items',
-    'questions, options, answers, and directions in the source lesson language',
-    'never mix English options into a Filipino worksheet',
+    'Use only this day\'s objective, activity, assessment, and relevant weekly competency.',
+    'Return {"title":"...","directions":"...","questions":[...],"coverageLimitation":""}.',
+    'True/false needs True or False as correct_answer.',
+    'Multiple choice needs exactly 4 distinct, non-blank plain-text options and an exact matching correct_answer.',
     'plausible multiple-choice distractors',
     'exactly one defensible correct option',
     'Never include a question\'s own answer',
@@ -392,6 +403,14 @@ test('weekly prompt states quality rules while retaining count, mix, coverage an
     'enumeration.alternatives: []',
     'orderSensitive is true only when order matters',
   ]) assert.ok(prompt.includes(phrase), `Missing weekly prompt instruction: ${phrase}`);
+});
+
+test('weekly batch rejects three-option multiple choice at the options path', () => {
+  const entry = JSON.parse(response('Monday', 1));
+  entry.questions[0].options.pop();
+  assert.throws(() => parseDailyBatch(JSON.stringify(entry), plan, sources[0], 10, 1), error =>
+    error.code === 'AI_RESPONSE_INVALID' && error.validation?.category === 'invalid_field'
+    && error.validation.path === 'questions[0].options' && error.validation.day === 'Monday');
 });
 
 test('enumeration rejection records only an allowlisted structural subreason', () => {
@@ -536,8 +555,9 @@ test('invalid options retry once on the same model and then succeed', async () =
   assert.equal(drafts.length, 5);
   assert.equal(models.length, 11);
   assert.deepEqual(models.slice(0, 2), ['openai/gpt-oss-120b', 'openai/gpt-oss-120b']);
+  assert.ok(prompts[1].startsWith(prompts[0]));
   assert.ok(prompts[1].includes('Retry this batch: options must be arrays'));
-  assert.ok(logs.some(value => /stage=options-shape .*questionIndex=3 optionsType=object optionsIsArray=true arrayLength=3/.test(value)));
+  assert.ok(logs.some(value => /stage=options-shape .*questionIndex=3 optionsType=object optionsIsArray=true arrayLength=4/.test(value)));
 }));
 
 test('invalid options retry once then fail over with a fresh prompt', async () => withProviderChain(async () => {
@@ -1070,6 +1090,23 @@ test('local Groq regenerates one invalid true/false batch and counts the retry',
   assert.equal(drafts.length, 5);
 }));
 
+test('local Groq retries a three-option MCQ batch and accepts four options', async () => withLocalGroq(async () => {
+  let calls = 0; const optionCounts = [];
+  const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    generateText: async (prompt, options) => {
+      calls += 1;
+      const value = JSON.parse(await fakeProvider(prompt, options));
+      if (calls === 1) value.questions[0].options.pop();
+      optionCounts.push(value.questions[0].options.length);
+      return JSON.stringify(value);
+    },
+  });
+  assert.deepEqual(optionCounts.slice(0, 2), [3, 4]);
+  assert.equal(calls, 11);
+  assert.equal(drafts.length, 5);
+  assert.equal(drafts[0].questions[0].options.length, 4);
+}));
+
 test('local Groq rejects a second invalid true/false answer with its safe subreason', async () => withLocalGroq(async () => {
   let calls = 0;
   await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
@@ -1296,7 +1333,7 @@ for (const questionCount of [20, 30, 40]) test(`${questionCount} questions per d
   const drafts = await generateWeeklyWorksheetDrafts(plan, sources, { questionCount, generateText: async (prompt, options) => {
     calls += 1;
     const value = JSON.parse(await fakeProvider(prompt, options));
-    value.questions[0].options = [' Tula ', 'Awit', 'Dula'];
+    value.questions[0].options = [' Tula ', 'Awit', 'Dula', 'Alamat'];
     value.questions[0].correct_answer = ' tula ';
     value.questions[4].correct_answer = ' true ';
     value.questions[7].options = null;
@@ -1310,7 +1347,7 @@ for (const questionCount of [20, 30, 40]) test(`${questionCount} questions per d
     assert.equal(draft.questions.length, questionCount);
     assert.equal(draft.answerKey[0].correct_answer, 'Tula');
     assert.equal(draft.answerKey[4].correct_answer, 'True');
-    assert.deepEqual(draft.questions[0].options, ['Tula', 'Awit', 'Dula']);
+    assert.deepEqual(draft.questions[0].options, ['Tula', 'Awit', 'Dula', 'Alamat']);
     assert.deepEqual(draft.questions[7].options, []);
     assert.deepEqual(draft.questions[9].options, []);
     assert.equal(draft.questions[9].essay.referenceAnswer, 'The taludtod develops the central idea.');
@@ -1379,7 +1416,7 @@ test('rejects inadequate source, short batches, duplicated questions and malform
   await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20, generateText: async (prompt, options) => {
     const value = JSON.parse(await fakeProvider(prompt, options));
     value.questions = value.questions.map((entry, index) => ({ ...entry, item_type: 'multiple_choice',
-      options: ['A', 'B'], correct_answer: 'A', essay: undefined, enumeration: undefined,
+      options: ['A', 'B', 'C', 'D'], correct_answer: 'A', essay: undefined, enumeration: undefined,
       question: `${entry.question} choice ${index}` }));
     return JSON.stringify(value);
   } }), error => error.validation?.category === 'type_distribution');

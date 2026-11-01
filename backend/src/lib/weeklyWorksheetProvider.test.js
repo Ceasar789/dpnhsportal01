@@ -292,7 +292,7 @@ const topics = { Monday: 'metapora', Tuesday: 'simile', Wednesday: 'tugma', Thur
 const fixture = (day, batch) => JSON.stringify({ title: `${day} worksheet`, directions: 'Answer the questions.',
   coverageLimitation: '', questions: Array.from({ length: 10 }, (_, index) => {
     const base = { question: `${day} ${topics[day]} batch ${batch} item ${index}`, points: 1, options: [], correct_answer: '' };
-    if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['A', 'B'], correct_answer: 'A',
+    if (index < 4) return { ...base, item_type: 'multiple_choice', options: ['A', 'B', 'C', 'D'], correct_answer: 'A',
       enumeration: null, essay: null };
     if (index < 7) return { ...base, item_type: 'true_false', correct_answer: 'True', enumeration: null, essay: null };
     if (index < 9) return { ...base, item_type: 'enumeration', correct_answer: 'one, two',

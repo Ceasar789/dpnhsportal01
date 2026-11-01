@@ -142,7 +142,7 @@ describe('production score write gate', () => {
     const paper = await result.current.encodeManualScore('worksheet-1', 'section-1', 'student-1', 4, 5);
     expect(released).toBe(false);
     expect(paper).toMatchObject({ ok: false, reason: 'unavailable' });
-    expect(showToast).toHaveBeenCalledWith(expect.stringContaining('No score was saved or released'), 'error');
+    expect(showToast).toHaveBeenCalledWith('Could not confirm the release. Check the submission and try again.', 'error');
     expect(calls).toHaveLength(before);
   });
 });

@@ -26,6 +26,7 @@ import StudentsTab from './tabs/StudentsTab';
 import LessonPlansTab from './tabs/LessonPlansTab';
 import WorksheetsTab from './tabs/WorksheetsTab';
 import { restoreLocallySavedWorksheet } from './worksheets/generatedDraftModel';
+import { saveAiWeeklyWorksheets, weeklyWorksheetSaveFlagEnabled } from './persistence/aiWeeklyWorksheetSaveClient';
 import GradesTab from './tabs/GradesTab';
 import EssayReviewLab from './worksheets/EssayReviewLab';
 import AttendanceTab from './tabs/AttendanceTab';
@@ -341,18 +342,60 @@ const TeacherDashboard = () => {
   const { darkMode, toggleDarkMode } = useDashboardTheme();
   const [generatedDraft, setGeneratedDraft] = useState(null);
   const [weeklyCollections, setWeeklyCollections] = useState([]);
+  const [weeklySaveStates, setWeeklySaveStates] = useState({});
+  const weeklySaveStatesRef = useRef({});
+  const weeklySnapshotsRef = useRef(new Map());
+  const weeklyInFlightRef = useRef(new Set());
+  const weeklyOwnerRef = useRef(userData?.uid);
+  weeklyOwnerRef.current = userData?.uid;
   const [manualDrafts, setManualDrafts] = useState([]);
   const [localDistributions, setLocalDistributions] = useState([]);
   const previousTeacherId = useRef(userData?.uid);
   const previousPath = useRef(location.pathname);
+  const recordWeeklySave = useCallback((id, value) => {
+    weeklySaveStatesRef.current = { ...weeklySaveStatesRef.current, [id]: value };
+    setWeeklySaveStates(weeklySaveStatesRef.current);
+  }, []);
+  const saveWeeklyCollection = useCallback(async (collection, retry = false) => {
+    if (!weeklyWorksheetSaveFlagEnabled()) return;
+    const id = collection.collectionId;
+    const previous = weeklySaveStatesRef.current[id];
+    if (weeklyInFlightRef.current.has(id) || ['saved', 'blocked'].includes(previous?.status)
+      || (retry && !['failed', 'unknown'].includes(previous?.status))) return;
+    const snapshot = previous?.status === 'unknown'
+      ? weeklySnapshotsRef.current.get(id) : structuredClone(collection);
+    if (!snapshot) return;
+    weeklySnapshotsRef.current.set(id, snapshot);
+    weeklyInFlightRef.current.add(id);
+    const owner = userData?.uid;
+    recordWeeklySave(id, { status: 'saving', code: null, message: '', receipt: null });
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL
+        || `${window.location.protocol}//${window.location.hostname}:3001`;
+      const result = await saveAiWeeklyWorksheets(apiBase, { requestId: id, collection: snapshot });
+      if (weeklyOwnerRef.current !== owner) return;
+      const blocked = ['idempotency_conflict', 'invalid_state'].includes(result.code);
+      const editable = ['invalid_document', 'unsafe_markup', 'mcq_options_not_distinct',
+        'payload_too_large', 'integration_blocked', 'inactive_teacher', 'not_authenticated',
+        'source_plan_denied'].includes(result.code);
+      const status = result.status === 'saved' ? 'saved' : blocked ? 'blocked'
+        : result.status === 'unknown' || !editable ? 'unknown' : 'failed';
+      recordWeeklySave(id, { status, code: result.code, message: result.message,
+        receipt: status === 'saved' ? result.receipt : null });
+    } finally {
+      weeklyInFlightRef.current.delete(id);
+    }
+  }, [recordWeeklySave, userData?.uid]);
   const openGeneratedDraft = useCallback(draft => {
     if (draft?.kind === 'weekly-worksheet-collection') {
-      setWeeklyCollections(current => [...current, draft]);
+      setWeeklyCollections(current => current.some(item => item.collectionId === draft.collectionId)
+        ? current : [...current, draft]);
+      if (weeklyWorksheetSaveFlagEnabled()) void saveWeeklyCollection(draft);
       return;
     }
     setGeneratedDraft({ teacherId: userData?.uid, draft });
     setLocalDistributions([]);
-  }, [userData?.uid]);
+  }, [saveWeeklyCollection, userData?.uid]);
   const updateGeneratedDraft = useCallback(update => {
     setGeneratedDraft(current => current?.teacherId === userData?.uid
       ? { ...current, draft: typeof update === 'function' ? update(current.draft) : update } : current);
@@ -366,7 +409,8 @@ const TeacherDashboard = () => {
   }, []);
   const discardGeneratedDraft = useCallback(() => { setGeneratedDraft(null); setLocalDistributions([]); }, []);
   const updateWeeklyCollection = useCallback((collectionId, update) => setWeeklyCollections(current => current.map(collection =>
-    collection.collectionId === collectionId ? typeof update === 'function' ? update(collection) : update : collection)), []);
+    collection.collectionId === collectionId && !['saving', 'saved'].includes(weeklySaveStatesRef.current[collectionId]?.status)
+      ? typeof update === 'function' ? update(collection) : update : collection)), []);
   const discardWeeklyCollection = useCallback(collectionId => setWeeklyCollections(current =>
     current.filter(collection => collection.collectionId !== collectionId)), []);
 
@@ -375,6 +419,10 @@ const TeacherDashboard = () => {
       previousTeacherId.current = userData?.uid;
       setGeneratedDraft(null);
       setWeeklyCollections([]);
+      weeklySaveStatesRef.current = {};
+      weeklySnapshotsRef.current.clear();
+      weeklyInFlightRef.current.clear();
+      setWeeklySaveStates({});
       setManualDrafts([]);
       setLocalDistributions([]);
     }
@@ -405,10 +453,12 @@ const TeacherDashboard = () => {
             <Route path="/" element={<OverviewTab />} />
             <Route path="/students" element={<StudentsTab />} />
             <Route path="/lesson-plans" element={<LessonPlansTab onGeneratedDraft={openGeneratedDraft}
+              weeklySaveStates={weeklySaveStates}
               generatedDraft={generatedDraft?.teacherId === userData?.uid ? generatedDraft.draft : null} />} />
             <Route path="/worksheets" element={<WorksheetsTab generatedDraft={generatedDraft?.teacherId === userData?.uid ? generatedDraft.draft : null}
               onGeneratedDraftChange={updateGeneratedDraft} onDiscardGeneratedDraft={discardGeneratedDraft}
               weeklyCollections={weeklyCollections.filter(collection => collection.teacherId === userData?.uid)}
+               weeklySaveStates={weeklySaveStates} onRetryWeeklySave={saveWeeklyCollection}
               onWeeklyCollectionChange={updateWeeklyCollection} onDiscardWeeklyCollection={discardWeeklyCollection}
               manualDrafts={manualDrafts.filter(item => item.teacherId === userData?.uid)}
               onCreateManualDraft={draft => setManualDrafts(current => [...current, draft])}

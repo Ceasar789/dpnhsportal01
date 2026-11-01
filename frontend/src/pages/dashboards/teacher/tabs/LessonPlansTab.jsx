@@ -626,7 +626,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       // 3. Send to Gemini
       setUploading(false);
       setGenerating(true);
-      setUploadProgress('Analysing your PDF and generating the ILAW lesson plan...');
+      setUploadProgress('Analyzing your PDF and preparing an editable ILAW lesson plan. Your draft will appear when ready.');
 
       const { html, truncated } = await callGeminiWithPDF(base64, file.name);
       const safeHtml = sanitizeLessonPlanHtml(html);
@@ -643,7 +643,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       showToast(
         truncated
           ? 'Lesson plan generated but was cut off near the end — review and finish it, or try regenerating.'
-          : 'ILAW lesson plan generated. You can edit it here; permanent save is unavailable.',
+          : 'ILAW lesson plan generated. Review and edit the draft; the lesson plan has not been saved.',
         truncated ? 'error' : 'success'
       );
     } catch (err) {
@@ -1075,7 +1075,9 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
           Saved metadata — Subject: {currentPlanMeta.assignment.subjectName || 'Unknown'} · Grade: {currentPlanMeta.assignment.gradeLevel || 'Unknown'} · Academic Year: {currentPlanMeta.assignment.schoolYear || 'Unknown'}
         </p>}
         {view === 'editor' && savedPlanId == null && !aiLessonPlanSaveFlagEnabled() && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Permanent AI Lesson Plan save is unavailable until the local trusted writer is enabled. Your generated draft remains editable on this page.
+          {import.meta.env.PROD
+            ? 'Permanent AI Lesson Plan save is unavailable. Your generated draft remains editable on this page.'
+            : 'Permanent AI Lesson Plan save is unavailable until the local trusted writer is enabled. Your generated draft remains editable on this page.'}
         </p>}
         {view === 'editor' && ilawOutput && (
           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -1129,6 +1131,12 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
               {(uploading || generating) ? (
                 <>
                   <p role="status" className="font-semibold mb-2" style={{ color: 'var(--text)' }}>{uploadProgress}</p>
+                  {generating && <div role="progressbar" aria-label="Generating ILAW lesson plan"
+                    className="mx-auto mb-3 h-2 w-full max-w-md overflow-hidden rounded-full"
+                    style={{ backgroundColor: 'var(--card2)' }}>
+                    <div className="h-full w-1/3 rounded-full motion-safe:animate-pulse"
+                      style={{ backgroundColor: 'var(--banner-accent)' }} />
+                  </div>}
                   <p className="text-sm break-all mb-1" style={{ color: 'var(--text)' }}>{selectedPdf?.name}</p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     Keep this page open. Your editable result will appear when generation finishes.
@@ -1137,7 +1145,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
               ) : (
                 <>
                   <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-                    Upload a PDF to generate an editable ILAW lesson plan. Review the result here; permanent AI-plan saving is currently unavailable.
+                    Upload a PDF to generate an editable ILAW lesson plan. Generation creates a draft; it does not save the lesson plan.
                   </p>
                   <TeacherFilePicker id="lesson-pdf-upload" accept=".pdf"
                     guidance={`PDF only · Maximum ${MAX_PDF_MB} MB`}

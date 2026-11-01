@@ -43,16 +43,47 @@ afterEach(() => {
 });
 
 describe('AI lesson plan generation with synthetic services', () => {
+  it('shows an indeterminate bar while preparing the editable draft and removes it on success', async () => {
+    let finish;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(resolve => { finish = resolve; })));
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByText('Analyzing your PDF and preparing an editable ILAW lesson plan. Your draft will appear when ready.');
+    const progress = screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' });
+    expect(progress.hasAttribute('aria-valuenow')).toBe(false);
+    finish({ ok: true, json: async () => ({ html: '<p>Editable draft</p>', truncated: false }) });
+    await screen.findByRole('textbox', { name: 'Lesson plan content' });
+    expect(screen.queryByRole('progressbar', { name: 'Generating ILAW lesson plan' })).toBeNull();
+    expect(mock.writes).toEqual([]);
+  });
+
+  it('removes the generation bar and restores the retry action after a failed response', async () => {
+    let finish;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(resolve => { finish = resolve; })));
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByRole('progressbar', { name: 'Generating ILAW lesson plan' });
+    finish({ ok: false, status: 502, json: async () => ({ error: 'Synthetic provider unavailable.' }) });
+    await screen.findByText(/Synthetic provider unavailable/);
+    expect(screen.queryByRole('progressbar', { name: 'Generating ILAW lesson plan' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Generate lesson plan' }).disabled).toBe(false);
+    expect(mock.writes).toEqual([]);
+  });
+
   it('shows a successful first response only in the unsaved editor', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html: '<p>First response</p>', truncated: false }) });
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    expect(screen.getByText('Upload a PDF to generate an editable ILAW lesson plan. Generation creates a draft; it does not save the lesson plan.')).toBeTruthy();
     choosePdf();
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('First response'));
     expect(mock.uploads).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer synthetic-token');
+    expect(mock.showToast).toHaveBeenCalledWith('ILAW lesson plan generated. Review and edit the draft; the lesson plan has not been saved.', 'success');
     expect(mock.writes).toEqual([]);
   });
 

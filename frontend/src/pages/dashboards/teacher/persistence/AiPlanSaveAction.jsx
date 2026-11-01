@@ -35,7 +35,7 @@ export default function AiPlanSaveAction({ apiBase, content, title, busy, onSave
         finally { pendingRef.current = false; setPending(false); }
       }}>Save Plan</Btn>
     <span role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>
-      {status === 'ready' ? 'Save will store this lesson plan as a private draft.'
+      {status === 'ready' ? 'Review your draft, then choose Save Plan to store it as a private draft.'
         : status === 'checking' ? 'Checking permanent Save availability...'
             : 'Permanent AI Lesson Plan save is unavailable. Your draft remains editable.'}
     </span>

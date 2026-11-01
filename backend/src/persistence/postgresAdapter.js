@@ -63,13 +63,17 @@ function documentFor(operation, raw) {
  * separately approved caller invokes this factory with a verified endpoint.
  */
 export function createUserScopedRpcTransport({ url, anonKey, allowTestDataProject = false,
+  approvedProductionProjectRef,
   createClientImpl = createClient } = {}) {
   let endpoint;
   try { endpoint = new URL(url); } catch { throw new PersistenceError('integration_blocked'); }
   const local = url === 'http://127.0.0.1:54321';
+  const approvedProductionTarget = approvedProductionProjectRef === PRODUCTION_REF
+    && url === `https://${approvedProductionProjectRef}.supabase.co`;
   const hosted = endpoint.protocol === 'https:' &&
     /^[a-z0-9]{20}\.supabase\.co$/.test(endpoint.hostname) &&
-    (endpoint.hostname !== `${PRODUCTION_REF}.supabase.co` || allowTestDataProject === true) &&
+    (endpoint.hostname !== `${PRODUCTION_REF}.supabase.co` || allowTestDataProject === true
+      || approvedProductionTarget) &&
     endpoint.origin === url;
   requireThat((local || hosted) && !endpoint.username && !endpoint.password &&
     typeof anonKey === 'string' && anonKey.length > 0 && typeof createClientImpl === 'function',

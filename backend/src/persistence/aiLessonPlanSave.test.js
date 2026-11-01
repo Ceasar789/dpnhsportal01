@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAiLessonPlanSave, sanitizeAiLessonPlanHtml } from './aiLessonPlanSave.js';
-import { aiSaveLocallyEnabled, aiSavePostHandler } from '../routes/aiLessonPlanSave.js';
+import { aiSaveLocallyEnabled, aiSaveProductionEnabled, aiSavePostHandler } from '../routes/aiLessonPlanSave.js';
 
 const owner = 'teacher-synthetic';
 const planId = '22222222-2222-4222-8222-222222222222';
@@ -114,4 +114,36 @@ test('local route gate rejects production, hosted preview, LAN, off flag and pro
   assert.equal(aiSaveLocallyEnabled(req, { ...testDataProject, AI_LESSON_PLAN_SAVE_ENABLED: '0' }), false);
   assert.equal(aiSaveLocallyEnabled(req, { ...testDataProject,
     AI_SAVE_DEV_PROJECT_REF: 'abcdefghijklmnopqrst' }), false);
+});
+
+test('production lesson save requires its own flag and exact approved target', () => {
+  const env = { NODE_ENV: 'production', VERCEL: '1', VERCEL_ENV: 'production',
+    SUPABASE_URL: 'https://jllstakxiamxiycnwrbd.supabase.co',
+    AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED: '1',
+    AI_LESSON_PLAN_SAVE_PRODUCTION_PROJECT_REF: 'jllstakxiamxiycnwrbd' };
+  assert.equal(aiSaveProductionEnabled(env), true);
+  for (const change of [
+    { AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED: undefined },
+    { AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED: 'true' },
+    { AI_LESSON_PLAN_SAVE_PRODUCTION_PROJECT_REF: undefined },
+    { AI_LESSON_PLAN_SAVE_PRODUCTION_PROJECT_REF: 'abcdefghijklmnopqrst' },
+    { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co' },
+    { NODE_ENV: 'development' }, { VERCEL: undefined }, { VERCEL_ENV: 'preview' },
+  ]) assert.equal(aiSaveProductionEnabled({ ...env, ...change }), false);
+  assert.equal(aiSaveProductionEnabled({ ...env, AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED: undefined,
+    AI_SAVE_ALLOW_TEST_DATA_PROJECT: '1' }), false);
+});
+
+test('missing bearer token and wrong role cannot reach the lesson save RPC', async () => {
+  let calls = 0;
+  const service = createAiLessonPlanSave({ invokeRpc: async () => { calls++; return {}; } });
+  const response = () => ({ status(code) { this.statusCode = code; return this; },
+    json(value) { return { statusCode: this.statusCode, ...value }; } });
+  const missing = await aiSavePostHandler({ user: { id: owner, role: 'teacher' },
+    get: () => '', body: command() }, response(), service);
+  const wrongRole = await aiSavePostHandler({ user: { id: owner, role: 'student' },
+    get: () => 'Bearer synthetic-token', body: command() }, response(), service);
+  assert.deepEqual([missing.statusCode, missing.code, wrongRole.statusCode, wrongRole.code],
+    [401, 'not_authenticated', 403, 'inactive_teacher']);
+  assert.equal(calls, 0);
 });

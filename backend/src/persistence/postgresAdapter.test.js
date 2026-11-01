@@ -96,3 +96,23 @@ test('user-scoped transport uses only anon key and caller bearer token', async (
     url: 'http://127.0.0.1:54322', anonKey: 'synthetic-public-anon',
   }), error => error.code === 'integration_blocked');
 });
+
+test('only an exact explicit production approval opens the production transport', async () => {
+  const productionUrl = 'https://jllstakxiamxiycnwrbd.supabase.co';
+  const options = { url: productionUrl, anonKey: 'synthetic-public-anon',
+    createClientImpl: (_url, _key, config) => ({ rpc: async () => ({
+      data: { scopedToken: await config.accessToken() }, error: null,
+    }) }) };
+  for (const change of [
+    {}, { approvedProductionProjectRef: 'abcdefghijklmnopqrst' },
+    { approvedProductionProjectRef: 'jllstakxiamxiycnwrbd', url: 'https://abcdefghijklmnopqrst.supabase.co/' },
+  ]) assert.throws(() => createUserScopedRpcTransport({ ...options, ...change }),
+    error => error.code === 'integration_blocked');
+  const transport = createUserScopedRpcTransport({ ...options,
+    approvedProductionProjectRef: 'jllstakxiamxiycnwrbd' });
+  assert.deepEqual((await transport('synthetic_rpc', {}, 'synthetic-jwt')).data,
+    { scopedToken: 'synthetic-jwt' });
+  assert.throws(() => createUserScopedRpcTransport({ url: 'https://abcdefghijklmnopqrst.supabase.co/',
+    anonKey: 'synthetic-public-anon', approvedProductionProjectRef: 'jllstakxiamxiycnwrbd' }),
+  error => error.code === 'integration_blocked');
+});

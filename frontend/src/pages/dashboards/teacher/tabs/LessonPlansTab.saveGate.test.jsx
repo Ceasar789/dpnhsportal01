@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom';
 import LessonPlansTab from './LessonPlansTab';
 import AiPlanSaveAction from '../persistence/AiPlanSaveAction';
+import { aiLessonPlanSaveFlagEnabled, loadAiSaveAvailability, saveAiLessonPlan } from '../persistence/aiLessonPlanSaveClient';
 
 const mock = vi.hoisted(() => ({ writes: [], session: { access_token: 'synthetic-token' } }));
 
@@ -130,4 +131,96 @@ it('keeps Save Plan disabled when the local route is off even with the UI flag o
   generate();
   await waitFor(() => expect(screen.getByText(/Permanent AI Lesson Plan save is unavailable\. Your draft remains editable/)).toBeTruthy());
   expect(screen.getByRole('button', { name: 'Save Plan' }).disabled).toBe(true);
+});
+
+it('keeps production Save Plan off by default and permits only its exact production flag', () => {
+  vi.stubEnv('DEV', false);
+  vi.stubEnv('PROD', true);
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_ENABLED', '1');
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED', '0');
+  expect(aiLessonPlanSaveFlagEnabled()).toBe(false);
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED', 'true');
+  expect(aiLessonPlanSaveFlagEnabled()).toBe(false);
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED', '1');
+  expect(aiLessonPlanSaveFlagEnabled()).toBe(true);
+});
+
+it('keeps the production button disabled until the backend confirms availability', async () => {
+  vi.stubEnv('DEV', false);
+  vi.stubEnv('PROD', true);
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED', '0');
+  const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({ error: 'Unavailable' }) }));
+  vi.stubGlobal('fetch', fetchMock);
+  const props = { apiBase: '', content: '<p>Draft</p>', title: 'Synthetic', busy: false, onSave: vi.fn() };
+  const { unmount } = render(<AiPlanSaveAction {...props} />);
+  expect(screen.getByRole('button', { name: 'Save Plan' }).disabled).toBe(true);
+  expect(fetchMock).not.toHaveBeenCalled();
+  unmount();
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED', '1');
+  render(<AiPlanSaveAction {...props} />);
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  await screen.findByText('Permanent AI Lesson Plan save is unavailable. Your draft remains editable.');
+  expect(screen.getByRole('button', { name: 'Save Plan' }).disabled).toBe(true);
+});
+
+it('treats a lost save response as uncertain without retrying', async () => {
+  const fetchMock = vi.fn().mockRejectedValue(new Error('Synthetic network failure'));
+  vi.stubGlobal('fetch', fetchMock);
+  await expect(saveAiLessonPlan('', { requestId: 'synthetic', title: 'Synthetic', html: '<p>Draft</p>' }))
+    .rejects.toThrow(/Could not confirm whether the lesson plan was saved/);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+});
+
+it('reports a failed availability GET without suggesting a save occurred', async () => {
+  const fetchMock = vi.fn().mockRejectedValue(new Error('Synthetic network failure'));
+  vi.stubGlobal('fetch', fetchMock);
+  await expect(loadAiSaveAvailability('')).rejects.toThrow('Could not check Save Plan availability. Your draft remains open.');
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+  expect(fetchMock.mock.calls.some(([, options]) => options.method === 'POST')).toBe(false);
+});
+
+it('keeps Save Plan unavailable after an availability network failure', async () => {
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_ENABLED', '1');
+  const fetchMock = vi.fn().mockRejectedValue(new Error('Synthetic network failure'));
+  vi.stubGlobal('fetch', fetchMock);
+  render(<AiPlanSaveAction apiBase="" content="<p>Draft</p>" title="Synthetic" busy={false} onSave={vi.fn()} />);
+  await screen.findByText('Permanent AI Lesson Plan save is unavailable. Your draft remains editable.');
+  expect(screen.getByRole('button', { name: 'Save Plan' }).disabled).toBe(true);
+  expect(fetchMock.mock.calls.some(([, options]) => options.method === 'POST')).toBe(false);
+});
+
+it('keeps the editable draft when a successful HTTP response lacks a save receipt', async () => {
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_ENABLED', '1');
+  const fetchMock = vi.fn(async (url, options) => {
+    if (url.endsWith('/api/ai/lesson-plan')) return { ok: true,
+      json: async () => ({ html: '<p>Synthetic ILAW draft</p>', truncated: false }) };
+    if (options.method === 'GET') return { ok: true, json: async () => ({ enabled: true }) };
+    return { ok: true, json: async () => ({ ok: true }) };
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  generate();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save Plan' }).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: 'Save Plan' }));
+  await screen.findByText(/The save could not be confirmed/);
+  expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML)
+    .toContain('Synthetic ILAW draft');
+  expect(fetchMock.mock.calls.filter(([url, options]) => url.endsWith('/api/lesson-plans/ai-save')
+    && options.method === 'POST')).toHaveLength(1);
+});
+
+it('does not dispatch a second Save Plan click while the first is pending', async () => {
+  vi.stubEnv('VITE_AI_LESSON_PLAN_SAVE_ENABLED', '1');
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ enabled: true }) })));
+  let finish;
+  const onSave = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  render(<AiPlanSaveAction apiBase="" content="<p>Draft</p>" title="Synthetic" busy={false} onSave={onSave} />);
+  const button = screen.getByRole('button', { name: 'Save Plan' });
+  await waitFor(() => expect(button.disabled).toBe(false));
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(onSave).toHaveBeenCalledTimes(1);
+  finish();
+  await waitFor(() => expect(button.disabled).toBe(false));
 });

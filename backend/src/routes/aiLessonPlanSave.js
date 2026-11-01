@@ -17,6 +17,13 @@ export function aiSaveLocallyEnabled(req, env = process.env) {
     url === `https://${ref}.supabase.co`;
 }
 
+export function aiSaveProductionEnabled(env = process.env) {
+  return env.NODE_ENV === 'production' && env.VERCEL === '1' && env.VERCEL_ENV === 'production'
+    && env.AI_LESSON_PLAN_SAVE_PRODUCTION_ENABLED === '1'
+    && env.AI_LESSON_PLAN_SAVE_PRODUCTION_PROJECT_REF === PRODUCTION_REF
+    && env.SUPABASE_URL === `https://${PRODUCTION_REF}.supabase.co`;
+}
+
 const statusFor = code => ({ not_authenticated: 401, inactive_teacher: 403,
   invalid_document: 422, payload_too_large: 413,
   idempotency_conflict: 409, integration_blocked: 503 })[code] || 503;
@@ -41,10 +48,12 @@ export function createAiLessonPlanSaveRouter({ env = process.env, auth = require
   const service = createAiLessonPlanSave({ invokeRpc: async (...args) => {
     transport ??= invokeRpc || createUserScopedRpcTransport({ url: env.SUPABASE_URL,
       anonKey: env.SUPABASE_ANON_KEY,
-      allowTestDataProject: env.AI_SAVE_ALLOW_TEST_DATA_PROJECT === '1' });
+      allowTestDataProject: env.AI_SAVE_ALLOW_TEST_DATA_PROJECT === '1',
+      approvedProductionProjectRef: aiSaveProductionEnabled(env)
+        ? env.AI_LESSON_PLAN_SAVE_PRODUCTION_PROJECT_REF : undefined });
     return transport(...args);
   } });
-  const gate = (req, res, next) => aiSaveLocallyEnabled(req, env) ? next()
+  const gate = (req, res, next) => aiSaveLocallyEnabled(req, env) || aiSaveProductionEnabled(env) ? next()
     : res.status(503).json({ ok: false, code: 'integration_blocked', durable: false,
       error: 'Permanent Save is unavailable. Your draft remains open.' });
 

@@ -88,7 +88,7 @@ const profileFailureMessage = (error, stage, cleanupFailed) => {
     : message;
 };
 
-const ProfileTab = () => {
+const ProfileTab = ({ teacherView = false }) => {
   const navigate = useNavigate();
   const { userData, updateProfile } = useAuth();
   const { registerProfileGuard } = useProfileUnsavedChanges();
@@ -285,14 +285,12 @@ const ProfileTab = () => {
       }
 
       stage = 'profile';
-      await updateProfile({
-        name: name.trim(),
-        phone: phone.trim(),
-        date_of_birth: dateOfBirth || null,
-        address: address.trim(),
-        bio: bio.trim(),
-        photo_url: photoPath,
-      });
+      await updateProfile(teacherView
+        ? { name: name.trim(), photo_url: photoPath }
+        : {
+          name: name.trim(), phone: phone.trim(), date_of_birth: dateOfBirth || null,
+          address: address.trim(), bio: bio.trim(), photo_url: photoPath,
+        });
 
       let oldPhotoCleanupFailed = false;
       if (uploadedPath && previousPhotoPath && previousPhotoPath !== uploadedPath) {
@@ -441,7 +439,7 @@ const ProfileTab = () => {
 
       <div style={{ fontSize: 22, fontWeight: 700, color: v('--text', '#1a2b4a') }}>Profile Settings</div>
       <div style={{ color: v('--text-muted', '#64748b'), fontSize: 13, marginTop: 3, marginBottom: 20 }}>
-        Manage your personal information and profile photo
+        {teacherView ? 'Manage your Teacher profile and photo' : 'Manage your personal information and profile photo'}
       </div>
 
       {message && (
@@ -520,8 +518,10 @@ const ProfileTab = () => {
 
         {/* ── Right: editable details ──────────────────────────────── */}
         <div style={{ ...cardStyle, borderRadius: 12, padding: 32 }} className="flex flex-col">
-          <div style={{ fontSize: 14, fontWeight: 700, color: v('--text', '#1a2b4a'), marginBottom: 4 }}>Personal Information</div>
-          <div style={{ fontSize: 12, color: v('--text-muted', '#64748b'), marginBottom: 20 }}>These details are only visible to you and the administrator.</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: v('--text', '#1a2b4a'), marginBottom: 4 }}>{teacherView ? 'Teacher Profile' : 'Personal Information'}</div>
+          <div style={{ fontSize: 12, color: v('--text-muted', '#64748b'), marginBottom: 20 }}>
+            {teacherView ? 'Edit your name and profile photo. Profession reflects your account role and cannot be edited here.' : 'These details are only visible to you and the administrator.'}
+          </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6 flex-1" aria-busy={isSaving || undefined}>
             {isDirty && (
@@ -542,6 +542,11 @@ const ProfileTab = () => {
                   className="w-full h-11 px-4 rounded-md text-sm outline-none focus:ring-2"
                   style={inputStyle} />
               </div>
+              {teacherView && <div>
+                <span className="block text-xs font-semibold tracking-widest mb-2" style={labelStyle}>PROFESSION</span>
+                <p className="min-h-11 px-4 flex items-center rounded-md text-sm" style={inputStyle}>Teacher (account role)</p>
+              </div>}
+              {!teacherView && <>
               <div>
                 <label className="block text-xs font-semibold tracking-widest mb-2" style={labelStyle} htmlFor="profile-phone">PHONE NUMBER</label>
                 <input id="profile-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving}
@@ -554,8 +559,10 @@ const ProfileTab = () => {
                   className="w-full h-11 px-4 rounded-md text-sm outline-none focus:ring-2"
                   style={inputStyle} />
               </div>
+              </>}
             </div>
 
+            {!teacherView && <>
             <div>
               <label className="block text-xs font-semibold tracking-widest mb-2" style={labelStyle} htmlFor="profile-address">ADDRESS</label>
               <input id="profile-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, Barangay, City" disabled={isSaving}
@@ -569,6 +576,7 @@ const ProfileTab = () => {
                 className="w-full flex-1 min-h-[120px] px-4 py-3 rounded-md text-sm outline-none focus:ring-2 resize-none"
                 style={inputStyle} />
             </div>
+            </>}
 
             <div className="flex justify-end flex-wrap gap-3">
               <button type="submit" disabled={isSaving}

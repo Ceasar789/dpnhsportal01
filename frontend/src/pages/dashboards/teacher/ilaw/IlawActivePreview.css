@@ -1,0 +1,62 @@
+.ilaw-active-editor .ilaw-letterhead {
+  box-sizing: border-box;
+  min-height: 64px;
+  padding: 0 104px 0 64px;
+  background-image: var(--ilaw-deped-logo), var(--ilaw-school-seal), var(--ilaw-eduscribe-logo);
+  background-position: left center, right 52px center, right center;
+  background-size: 64px 64px, 52px 52px, 52px 52px;
+  background-repeat: no-repeat;
+}
+
+.ilaw-active-header {
+  background: #fff;
+  color: #172b40;
+}
+
+.ilaw-active-editor {
+  font: 12px/1.5 Arial, sans-serif;
+  color: #172b40;
+  background: #fff;
+}
+
+.ilaw-active-editor .ilaw-lesson-plan { min-width: 0; }
+.ilaw-active-editor .ilaw-letterhead { text-align: center; margin-bottom: 10px; }
+.ilaw-active-editor .ilaw-letterhead p { margin: 0; font-size: 12px; }
+.ilaw-active-editor .ilaw-school-name { font-weight: 700; text-transform: uppercase; }
+.ilaw-active-editor .ilaw-school-address { font-style: italic; }
+.ilaw-active-editor .ilaw-title { margin: 12px 0 14px; color: #173653; font-size: 15px; font-weight: 700; text-align: center; }
+
+.ilaw-active-editor table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 6px 0 14px; }
+.ilaw-active-editor th,
+.ilaw-active-editor td { border: 1px solid #68839a; padding: 6px 8px; vertical-align: top; overflow-wrap: anywhere; }
+.ilaw-active-editor th { background: #dcecf8; color: #172b40; font-weight: 700; text-align: left; }
+.ilaw-active-editor .ilaw-info-table th { width: 23%; }
+.ilaw-active-editor .ilaw-week-table th,
+.ilaw-active-editor .ilaw-week-table td { width: 20%; }
+
+.ilaw-active-editor .ilaw-section { margin-bottom: 14px; border: 1px solid #68839a; }
+.ilaw-active-editor .ilaw-section-header { padding: 8px 12px; background: #c8e1f4; color: #173653; font-size: 12.5px; font-weight: 700; }
+.ilaw-active-editor .ilaw-section-intro { padding: 8px 12px; border-bottom: 1px solid #a8c2d6; color: #365066; font-size: 11px; font-style: italic; }
+.ilaw-active-editor .ilaw-field { padding: 8px 12px; border-bottom: 1px solid #a8c2d6; }
+.ilaw-active-editor .ilaw-field:last-child { border-bottom: 0; }
+.ilaw-active-editor .ilaw-label { display: block; margin-bottom: 4px; color: #173653; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.ilaw-active-editor .ilaw-label-hint { display: block; color: #365066; font-size: 11px; font-style: italic; }
+.ilaw-active-editor .ilaw-field p,
+.ilaw-active-editor .ilaw-field li { margin: 4px 0; overflow-wrap: anywhere; }
+.ilaw-active-editor .ilaw-signatures { margin-top: 18px; }
+.ilaw-active-editor .ilaw-sig-row { display: flex; justify-content: space-between; gap: 16px; }
+.ilaw-active-editor .ilaw-sig-col { width: 48%; }
+.ilaw-active-editor .ilaw-sig-name { display: inline-block; margin-top: 18px; border-top: 1px solid #172b40; font-weight: 700; }
+
+@media (max-width: 700px) {
+  .ilaw-active-editor .ilaw-week-table { min-width: 650px; }
+}
+
+@media (max-width: 600px) {
+  .ilaw-active-editor .ilaw-letterhead {
+    min-height: 40px;
+    padding: 0 72px 0 40px;
+    background-position: left center, right 36px center, right center;
+    background-size: 40px 40px, 36px 36px, 36px 36px;
+  }
+}

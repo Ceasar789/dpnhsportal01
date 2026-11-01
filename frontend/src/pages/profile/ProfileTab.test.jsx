@@ -390,6 +390,19 @@ describe('Profile StrictMode save lifecycle', () => {
 });
 
 describe('Profile accessibility and shared role compatibility', () => {
+  it('scopes the Teacher view to name and photo without writing hidden personal fields or a fake profession', async () => {
+    h.userData = { ...baseUser(), role: 'teacher' };
+    render(<MemoryRouter><ProfileTab teacherView /></MemoryRouter>);
+    expect(screen.getByText('Teacher (account role)')).toBeTruthy();
+    for (const label of ['PHONE NUMBER', 'DATE OF BIRTH', 'ADDRESS', 'ABOUT ME']) {
+      expect(screen.queryByLabelText(label)).toBeNull();
+    }
+    fireEvent.change(screen.getByLabelText('FULL NAME'), { target: { value: 'Updated Teacher' } });
+    submit();
+    await waitFor(() => expect(h.updateProfile).toHaveBeenCalledWith({
+      name: 'Updated Teacher', photo_url: `${USER_ID}/1700000000000-old.png`,
+    }));
+  });
   it('associates every editable control with its visible or screen-reader label', () => {
     renderProfile();
     expect(screen.getByLabelText('FULL NAME').required).toBe(true);

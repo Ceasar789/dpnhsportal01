@@ -107,7 +107,7 @@ export function lockScroll() {
  * subtree to keep live is the chain of ancestors up to <body>. Everything
  * hanging off that chain gets marked.
  */
-export function inertOutside(node) {
+export function inertOutside(node, { preserveLiveRegions = false } = {}) {
   if (!node || !node.parentElement) return () => {};
   const marked = [];
 
@@ -115,7 +115,7 @@ export function inertOutside(node) {
     for (const sibling of el.parentElement?.children ?? []) {
       // Already inert for its own reasons — leave it, and leave it inert
       // on the way out too.
-      if (sibling === el || sibling.inert) continue;
+      if (sibling === el || sibling.inert || (preserveLiveRegions && sibling.dataset.modalLiveRegion === 'true')) continue;
       sibling.inert = true;
       marked.push(sibling);
     }

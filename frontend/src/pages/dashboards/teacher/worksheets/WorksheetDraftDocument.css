@@ -1,0 +1,32 @@
+.worksheet-draft-document {
+  min-width: 0;
+  padding: 20px;
+  color: var(--text);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.worksheet-draft-document > h3 { margin: 18px 0 4px; text-align: center; font-size: 18px; font-weight: 700; }
+.worksheet-draft-title { margin: 0 0 14px; text-align: center; font-weight: 600; }
+.worksheet-draft-meta, .worksheet-draft-student-fields { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.worksheet-draft-meta p, .worksheet-draft-student-fields p { margin: 0; }
+.worksheet-draft-student-fields { margin-top: 14px; }
+.worksheet-draft-directions { margin: 18px 0 8px; white-space: pre-wrap; }
+.worksheet-draft-section { margin-top: 16px; break-inside: avoid-page; }
+.worksheet-draft-section > h4 { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+.worksheet-draft-questions { margin: 0; padding-left: 24px; }
+.worksheet-draft-questions > li { padding: 12px 4px; border-top: 1px solid var(--border); break-inside: avoid; }
+.worksheet-draft-question-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-weight: 600; }
+.worksheet-draft-question-heading > span:last-child { white-space: nowrap; font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.worksheet-draft-options { margin: 8px 0 0; padding-left: 22px; list-style-type: upper-alpha; }
+.worksheet-draft-options li { margin: 4px 0; }
+.worksheet-draft-answer-space { width: min(100%, 440px); min-height: 32px; border-bottom: 1px solid var(--border); }
+.worksheet-draft-key { margin: 8px 0 0; }
+@media (max-width: 600px) {
+  .worksheet-draft-document { padding: 12px; }
+  .worksheet-draft-document .ilaw-template-letterhead { grid-template-columns: 42px minmax(0, 1fr) 68px; font-size: 9px; }
+  .worksheet-draft-document .ilaw-template-letterhead > img { width: 42px; height: 42px; }
+  .worksheet-draft-document .ilaw-template-hybrid-mark { width: 68px; }
+  .worksheet-draft-document .ilaw-template-hybrid-mark img { height: 38px; }
+}

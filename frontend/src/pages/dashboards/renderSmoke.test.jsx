@@ -115,6 +115,7 @@ const TeacherStudentsTab = (await import('./teacher/tabs/StudentsTab')).default;
 const TeacherGradesTab = (await import('./teacher/tabs/GradesTab')).default;
 const TeacherLessonPlansTab = (await import('./teacher/tabs/LessonPlansTab')).default;
 const TeacherWorksheetsTab = (await import('./teacher/tabs/WorksheetsTab')).default;
+const { Modal: TeacherModal, Toast: TeacherToast } = await import('./teacher/shared/ui');
 
 const withRouter = (children) => <MemoryRouter>{children}</MemoryRouter>;
 
@@ -182,6 +183,13 @@ describe('dashboard tab render smoke test', () => {
   });
 
   // ---- Teacher tabs -----------------------------------------------------
+  it('server-renders Teacher dialog and feedback without a browser document', () => {
+    expect(() => renderToString(<>
+      <TeacherToast toast={{ msg: 'Saved', type: 'success' }} />
+      <TeacherModal title="Teacher dialog" onClose={() => {}}>Dialog content</TeacherModal>
+    </>)).not.toThrow();
+  });
+
   // Same shape as the student tabs (useAuth + supabase at module scope, a
   // loading-initial-state fetch-on-mount effect), so the same mocks cover
   // them without extra scaffolding.

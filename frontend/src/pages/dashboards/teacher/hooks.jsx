@@ -4,7 +4,7 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 
 // ============================================
 // THEME CONTEXT

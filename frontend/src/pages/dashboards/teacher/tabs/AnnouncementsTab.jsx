@@ -4,47 +4,52 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { localNowTimestamp } from '../../../../lib/taskFormatting';
-import { Calendar, Clock, Megaphone, Plus, Search, Trash2, Edit, X, Check, Loader2 } from 'lucide-react';
-import { useTheme, useToast } from '../hooks';
-import { Card, Input, Modal, Badge, Btn } from '../shared/ui';
+import { Calendar, Clock, Megaphone, Search, Loader2 } from 'lucide-react';
+import { useTheme } from '../hooks';
+import { Card, Badge, Btn } from '../shared/ui';
 
 const AnnouncementsTab = () => {
   const { dark } = useTheme();
-  const { userData } = useAuth();
-  const { toast, showToast } = useToast();
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState(false);
+  const readInFlightRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
 
   const fetchNews = useCallback(async () => {
+    if (readInFlightRef.current) return;
+    readInFlightRef.current = true;
     setLoading(true);
-    const { data, error } = await withRetry(
-      () => supabase
-        .from('news')
-        .select('*')
-        .eq('status', 'Published')
-        .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
-        .order('created_at', { ascending: false }),
-      { label: 'Announcements fetch' }
-    );
-
-    if (error) {
-      showToast('Error loading news: ' + error.message, 'error');
-    } else {
+    try {
+      const { data, error } = await withRetry(
+        () => supabase
+          .from('news')
+          .select('*')
+          .eq('status', 'Published')
+          .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
+          .order('created_at', { ascending: false }),
+        { label: 'Announcements fetch' }
+      );
+      if (error) throw error;
       const teacherNews = (data || []).filter(item => {
         const targets = (item.target_roles || 'all').split(',').map(t => t.trim().toLowerCase());
         return targets.includes('all') || targets.includes('teacher') || targets.includes('faculty') || targets.includes('staff');
       });
       setNews(teacherNews);
+      setReadError(false);
+    } catch (error) {
+      console.error('Announcements fetch failed:', error);
+      setReadError(true);
+    } finally {
+      readInFlightRef.current = false;
+      setLoading(false);
     }
-    setLoading(false);
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     fetchNews();
@@ -61,11 +66,6 @@ const AnnouncementsTab = () => {
 
   return (
     <div className="p-6">
-      {toast && (
-        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
-          {toast.msg}
-        </div>
-      )}
       
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 rounded-lg px-4 py-3"
         style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
@@ -102,8 +102,18 @@ const AnnouncementsTab = () => {
 
       <div className="space-y-4">
         {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" /></div>
-        ) : filtered.map((item, idx) => (
+          <div className="flex items-center justify-center gap-2 py-10" role="status" style={{ color: 'var(--text-muted)' }}>
+            <Loader2 className="animate-spin" aria-hidden="true" />
+            {readError ? 'Retrying announcements…' : 'Loading announcements…'}
+          </div>
+        ) : readError ? (
+          <Card className="p-5" style={{ borderColor: 'var(--badge-red-border)' }}>
+            <div role="alert" className="mb-4" style={{ color: 'var(--badge-red-fg)' }}>
+              Announcements could not be loaded. Check your connection and try again.
+            </div>
+            <Btn variant="outline" className="min-h-11" onClick={fetchNews}>Retry announcements</Btn>
+          </Card>
+        ) : filtered.map((item) => (
           <Card key={item.id} className="p-5">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
@@ -130,10 +140,12 @@ const AnnouncementsTab = () => {
             </div>
           </Card>
         ))}
-        {!loading && filtered.length === 0 && (
+        {!loading && !readError && filtered.length === 0 && (
           <Card className="p-8 text-center">
-            <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>No announcements have been published yet.</p>
-            <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>Use the admin portal or news tools to post academic notices, reminders, and event updates.</p>
+            <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+              {news.length === 0 ? 'No announcements have been published yet.' : 'No announcements match your search or filter.'}
+            </p>
+            {news.length === 0 && <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>Use the admin portal or news tools to post academic notices, reminders, and event updates.</p>}
           </Card>
         )}
       </div>

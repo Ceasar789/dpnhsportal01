@@ -4,7 +4,7 @@ const PORT = 4174;
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: /profile-(?:isolation|browser)\.spec\.js/,
+  testMatch: /(?:profile-(?:isolation|browser)|teacher-worksheet-scores)\.spec\.js/,
   timeout: 45_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

@@ -19,11 +19,12 @@
 // it went out.
 // ============================================
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
 import { useTheme } from '../hooks';
 import { combineDateAndTime, DEFAULT_DUE_TIME } from '../../../../lib/taskFormatting';
+import useDialogSafety from './useDialogSafety';
 
 const DistributeModal = ({
   task, sections, sectionsError, onRetrySections,
@@ -74,12 +75,12 @@ const DistributeModal = ({
     return () => { aliveRef.current = false; };
   }, []);
 
-  const muted = { color: dark ? '#64748b' : '#94a3b8' };
-  const bodyText = { color: dark ? '#f1f5f9' : '#1a2b4a' };
+  const muted = { color: 'var(--text-muted)' };
+  const bodyText = { color: 'var(--text)' };
   const fieldStyle = {
-    backgroundColor: dark ? '#0f172a' : '#f8fafc',
-    border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
-    color: dark ? '#f1f5f9' : '#1a2b4a',
+    backgroundColor: 'var(--card2)',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
   };
 
   const loadMeta = useCallback(async () => {
@@ -141,6 +142,16 @@ const DistributeModal = ({
   const newlyTicked = roster.filter(r => isTicked(r.student_id) && !assignedIds.has(r.student_id)).length;
   const alreadyTicked = roster.filter(r => isTicked(r.student_id) && assignedIds.has(r.student_id)).length;
   const willReceive = newlyTicked;
+  const dirty = sectionId !== (sections[0]?.id || '') || dueDate !== ''
+    || dueTime !== DEFAULT_DUE_TIME
+    || roster.some(r => ticked.has(r.student_id) !== true)
+    || result?.postingSaved;
+  const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
+    dirty, pending: saving, onClose,
+    discardMessage: result?.postingSaved
+      ? 'The section posting was saved, but no new students were assigned. Closing will discard your current selections; the posting will not be undone. Close?'
+      : 'Discard unsaved distribution changes?',
+  });
 
   const submit = async () => {
     setResult(null);
@@ -158,7 +169,8 @@ const DistributeModal = ({
       // students were just sent a task when nothing changed. Keep the modal
       // open and say so, using distributeTask's own message.
       if (!res.added || res.added.length === 0) {
-        setResult({ tone: 'warning', text: res.message || 'Nothing new was distributed.' });
+        setResult({ tone: 'warning', postingSaved: Boolean(res.postingSaved),
+          text: res.message || 'Nothing new was distributed.' });
         return;
       }
       // The task itself was genuinely distributed even when notified is
@@ -183,15 +195,21 @@ const DistributeModal = ({
     // rather than silently swallowed, and resubmitting is safe: the upsert
     // on worksheet_sections is idempotent and the assignee insert re-derives
     // who still needs adding from a fresh loadAssignees call.
-    setResult({ tone: 'error', text: res.message });
+    setResult({
+      tone: 'error', postingSaved: Boolean(res.postingSaved),
+      text: res.postingSaved
+        ? `The section posting was saved, but no new students were assigned. ${res.message}`
+        : res.message,
+    });
   };
 
-  const disableSubmit = saving || rosterLoading || readFailed || metaLoading
+  const disableSubmit = rosterLoading || readFailed || metaLoading
     || !sectionId || !dueDate || willReceive === 0;
 
   return (
-    <Modal title={`Distribute "${task.title}"`} onClose={onClose} size="max-w-2xl">
+    <>{routeBlocker}<Modal title={`Distribute "${task.title}"`} onClose={requestClose} size="max-w-2xl">
       <div className="flex flex-col gap-4">
+        {busyNotice && <p role="status" className="text-sm">{busyNotice}</p>}
         {sectionsError ? (
           <p className="text-sm" style={{ color: '#dc2626' }}>
             Could not load your sections.
@@ -205,10 +223,10 @@ const DistributeModal = ({
           </p>
         ) : (
           <>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="text-xs font-semibold" style={muted}>Section</label>
-                <select value={sectionId} disabled={saving}
+            <div className="flex flex-wrap sm:flex-nowrap gap-2">
+              <div className="flex-1 basis-full sm:basis-auto min-w-0">
+                <label htmlFor="teacher-distribute-section" className="text-xs font-semibold" style={muted}>Section</label>
+                <select id="teacher-distribute-section" value={sectionId} disabled={saving}
                   onChange={e => setSectionId(e.target.value)}
                   className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle}>
                   {sections.map(s => (
@@ -218,22 +236,22 @@ const DistributeModal = ({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="text-xs font-semibold" style={muted}>Due date</label>
-                <input type="date" value={dueDate} disabled={saving}
+              <div className="flex-1 min-w-0">
+                <label htmlFor="teacher-distribute-date" className="text-xs font-semibold" style={muted}>Due date</label>
+                <input id="teacher-distribute-date" type="date" value={dueDate} disabled={saving}
                   onChange={e => setDueDate(e.target.value)}
-                  className="h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
+                  className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
               </div>
-              <div>
-                <label className="text-xs font-semibold" style={muted}>Due time</label>
-                <input type="time" value={dueTime} disabled={saving}
+              <div className="flex-1 min-w-0">
+                <label htmlFor="teacher-distribute-time" className="text-xs font-semibold" style={muted}>Due time</label>
+                <input id="teacher-distribute-time" type="time" value={dueTime} disabled={saving}
                   onChange={e => setDueTime(e.target.value || DEFAULT_DUE_TIME)}
-                  className="h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
+                  className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
               </div>
             </div>
 
             {result && (
-              <p className="text-xs font-semibold" style={{
+              <p role={result.tone === 'error' ? 'alert' : 'status'} className="text-xs font-semibold" style={{
                 color: result.tone === 'error' ? '#dc2626' : result.tone === 'warning' ? '#d97706' : '#16a34a',
               }}>
                 {result.text}
@@ -295,15 +313,15 @@ const DistributeModal = ({
                   {alreadyTicked > 0 && ` · ${alreadyTicked} already have it`}
                 </span>
               )}
-              <Btn onClick={onClose}>Cancel</Btn>
-              <Btn variant="primary" onClick={submit} disabled={disableSubmit}>
+              <Btn variant="outline" onClick={requestClose}>Cancel</Btn>
+              <Btn variant="primary" onClick={submit} disabled={disableSubmit} busy={saving}>
                 {saving ? 'Distributing…' : 'Distribute'}
               </Btn>
             </div>
           </>
         )}
       </div>
-    </Modal>
+    </Modal></>
   );
 };
 

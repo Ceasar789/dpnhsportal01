@@ -19,14 +19,20 @@
 //     which marks are on record and which are not.
 // ============================================
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
 import { useTheme } from '../hooks';
 import { round2 } from '../../../../lib/worksheetChecking';
+import useDialogSafety from './useDialogSafety';
+
+const sameScoreMap = (a, b) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every(key => a[key] === b[key]);
+};
 
 const EncodeScoresModal = ({
-  worksheet, postings, sections, loadClassList, loadSubmissions, encodeManualScore, onClose,
+  worksheet, postings, sections, loadClassList, loadSubmissions, encodeManualScore, onClose, onSaved,
 }) => {
   const { dark } = useTheme();
   const posted = postings.filter(p => p.worksheet_id === worksheet.id);
@@ -34,29 +40,42 @@ const EncodeScoresModal = ({
   const [sectionId, setSectionId] = useState(posted[0]?.section_id || '');
   const [students, setStudents] = useState([]);
   const [scores, setScores] = useState({});
+  const [loadedScores, setLoadedScores] = useState({});
   // student_id -> the submission already on record, so an online submission
   // can be flagged before the teacher types anything into that row.
   const [existing, setExisting] = useState({});
   const [totalPoints, setTotalPoints] = useState('');
+  const [loadedTotalPoints, setLoadedTotalPoints] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState(null);   // { done, total } while saving
+  const [pendingStudentId, setPendingStudentId] = useState(null);
   // student_id -> the last write result for that row ({ ok, reason, message }).
   const [rowResult, setRowResult] = useState({});
   // student_ids whose existing ONLINE submission the teacher has explicitly
   // agreed to replace with a paper total.
   const [overwrite, setOverwrite] = useState({});
   const [summary, setSummary] = useState(null);
+  const partialWrites = summary?.tone === 'error' && Object.values(rowResult).some(result => result?.ok);
+  const dirty = sectionId !== (posted[0]?.section_id || '')
+    || totalPoints !== loadedTotalPoints || !sameScoreMap(scores, loadedScores)
+    || Object.values(overwrite).some(Boolean) || partialWrites;
+  const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
+    dirty, pending: saving, onClose,
+    discardMessage: partialWrites
+      ? 'Some scores were already saved and released. Closing will discard the remaining edits and row results; saved scores will not be undone. Close?'
+      : 'Discard unsaved score changes?',
+  });
 
   const aliveRef = useRef(true);
 
-  const muted = { color: dark ? '#64748b' : '#94a3b8' };
-  const bodyText = { color: dark ? '#f1f5f9' : '#1a2b4a' };
+  const muted = { color: 'var(--text-muted)' };
+  const bodyText = { color: 'var(--text)' };
   const fieldStyle = {
-    backgroundColor: dark ? '#0f172a' : '#f8fafc',
-    border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
-    color: dark ? '#f1f5f9' : '#1a2b4a',
+    backgroundColor: 'var(--card2)',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
   };
 
   const attemptLoad = useCallback(async () => {
@@ -90,11 +109,14 @@ const EncodeScoresModal = ({
     });
     setExisting(byStudent);
     setScores(prefilled);
+    setLoadedScores(prefilled);
     setRowResult({});
     setOverwrite({});
     setSummary(null);
     const anyTotal = subs.find(s => s.total_points !== null && s.total_points !== undefined);
-    if (anyTotal) setTotalPoints(String(anyTotal.total_points));
+    const loadedTotal = anyTotal ? String(anyTotal.total_points) : '';
+    setTotalPoints(loadedTotal);
+    setLoadedTotalPoints(loadedTotal);
     setLoading(false);
   }, [sectionId, worksheet.id, loadClassList, loadSubmissions]);
 
@@ -175,6 +197,7 @@ const EncodeScoresModal = ({
     for (const s of students) {
       const raw = String(scores[s.student_id] ?? '').trim();
       if (raw === '') continue;   // blank means not yet scored
+      if (aliveRef.current) setPendingStudentId(s.student_id);
       const result = await encodeManualScore(
         worksheet.id, sectionId, s.student_id, raw, totalPoints,
         { overwriteOnline: !!overwrite[s.student_id] }
@@ -195,9 +218,16 @@ const EncodeScoresModal = ({
     setRowResult(results);
     setSaving(false);
     setProgress(null);
+    setPendingStudentId(null);
 
     if (failed === 0) {
+      onSaved?.(`Saved and released ${saved} ${saved === 1 ? 'score' : 'scores'}.`);
       onClose();
+      return;
+    }
+
+    if (saved === 0 && Object.values(results).every(result => result.reason === 'unavailable')) {
+      setSummary({ tone: 'error', text: 'Paper score saving and release are unavailable. Nothing was saved or released.' });
       return;
     }
 
@@ -243,8 +273,9 @@ const EncodeScoresModal = ({
   };
 
   return (
-    <Modal title={`Encode scores — ${worksheet.title}`} onClose={onClose} size="max-w-2xl">
+    <>{routeBlocker}<Modal title={`Encode scores — ${worksheet.title}`} onClose={requestClose} size="max-w-2xl">
       <div className="flex flex-col gap-3">
+        {busyNotice && <p role="status" className="text-sm">{busyNotice}</p>}
         {posted.length === 0 ? (
           <p className="text-sm" style={muted}>
             Post this worksheet to a section first — there is no class to score yet.
@@ -252,31 +283,37 @@ const EncodeScoresModal = ({
         ) : (
           <>
             <p className="text-xs" style={muted}>
-              For a class that answered on paper. A score saved here is released to the
-              student immediately — there are no per-item answers to review. Leave a box
-              blank for anyone you have not marked yet; blank is never saved as zero.
+              For a class that answered on paper. Saving and release are unavailable until
+              trusted Teacher authorization is connected. Leave a box blank for anyone
+              you have not marked yet; blank is never saved as zero.
             </p>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               {/* Both locked while a run is in flight: changing either mid-run
                   reloads the list underneath the loop, so the per-row results
                   land on the wrong names. */}
-              <select value={sectionId} disabled={saving} onChange={e => setSectionId(e.target.value)}
-                className="h-9 px-2 rounded text-sm outline-none flex-1" style={fieldStyle}>
-                <option value="">Select section…</option>
-                {posted.map(p => (
-                  <option key={p.id} value={p.section_id}>
-                    {sections.find(s => s.id === p.section_id)?.name || 'Section'}
-                  </option>
-                ))}
-              </select>
-              <input type="number" min="1" step="1" placeholder="Total points"
-                value={totalPoints} disabled={saving} onChange={e => changeTotal(e.target.value)}
-                className="h-9 w-32 px-2 rounded text-sm outline-none" style={fieldStyle} />
+              <label className="flex flex-col gap-1 flex-1 min-w-0 text-xs font-medium" style={bodyText}>
+                Section
+                <select value={sectionId} disabled={saving} onChange={e => setSectionId(e.target.value)}
+                  className="min-h-11 px-2 rounded text-sm w-full min-w-0" style={fieldStyle}>
+                  <option value="">Select section…</option>
+                  {posted.map(p => (
+                    <option key={p.id} value={p.section_id}>
+                      {sections.find(s => s.id === p.section_id)?.name || 'Section'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 w-full sm:w-32 text-xs font-medium" style={bodyText}>
+                Total points
+                <input type="number" min="1" step="1" placeholder="Total points"
+                  value={totalPoints} disabled={saving} onChange={e => changeTotal(e.target.value)}
+                  className="min-h-11 w-full px-2 rounded text-sm" style={fieldStyle} />
+              </label>
             </div>
 
             {summary && (
-              <p className="text-xs font-semibold" style={{ color: summary.tone === 'error' ? '#dc2626' : '#16a34a' }}>
+              <p role={summary.tone === 'error' ? 'alert' : 'status'} className="text-xs font-semibold" style={{ color: summary.tone === 'error' ? '#dc2626' : '#16a34a' }}>
                 {summary.text}
               </p>
             )}
@@ -284,9 +321,9 @@ const EncodeScoresModal = ({
             {!sectionId ? (
               <p className="text-sm py-4" style={muted}>Pick a section to load its class list.</p>
             ) : loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="animate-spin" size={20} /></div>
+              <div role="status" className="flex items-center justify-center gap-2 py-8 text-sm" style={muted}><Loader2 className="animate-spin" size={20} aria-hidden="true" />Loading class list…</div>
             ) : loadFailed ? (
-              <div className="flex flex-col items-center gap-3 py-6 text-sm text-center" style={{ color: '#dc2626' }}>
+              <div role="alert" className="flex flex-col items-center gap-3 py-6 text-sm text-center" style={{ color: 'var(--red)' }}>
                 <p>
                   Could not load this section's class list. This is a failed read, not an
                   empty class — no scores can be encoded until it loads.
@@ -301,35 +338,40 @@ const EncodeScoresModal = ({
                 are enrolled in it yet. Add them in Class List first.
               </p>
             ) : (
-              students.map((s, i) => {
+              <div role="list" aria-label="Students to score" className="flex flex-col gap-1">
+              {students.map((s, i) => {
                 const note = rowNote(s.student_id);
                 const conflicted = rowResult[s.student_id]?.reason === 'online-conflict'
                   || (existing[s.student_id]?.source === 'online'
                       && (existing[s.student_id]?.status !== 'in_progress'
                           || existing[s.student_id]?.hasAnswers));
                 return (
-                  <div key={s.student_id} className="flex flex-col gap-1 py-1"
-                    style={{ borderBottom: `1px solid ${dark ? '#334155' : '#f1f5f9'}` }}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs w-6" style={muted}>{i + 1}</span>
-                      <span className="text-sm flex-1" style={bodyText}>{s.name}</span>
+                  <div role="listitem" key={s.student_id} className="flex flex-col gap-1 px-3 py-3 rounded-lg min-w-0"
+                    style={{ border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+                      <span className="text-sm font-medium flex-1 min-w-0 break-words" style={bodyText}>{i + 1}. {s.name}</span>
+                      <div className="flex items-center gap-2">
                       {/* text, not number: a number input in its bad-input
                           state hands back '' for an in-progress "12.", so the
                           box showed 12. while the state held nothing and the
                           row was skipped at save with no explanation. Now the
                           raw string survives and scoreProblem judges it. */}
-                      <input type="text" inputMode="decimal" disabled={saving}
+                      <input type="text" inputMode="decimal" aria-label={`Score for ${s.name}`} aria-invalid={Boolean(scoreProblem(scores[s.student_id]))}
+                        aria-describedby={note ? `score-note-${s.student_id}` : undefined} disabled={saving}
                         value={scores[s.student_id] ?? ''}
                         onChange={e => setScore(s.student_id, e.target.value)}
-                        className="h-8 w-20 px-2 rounded text-xs outline-none" style={fieldStyle} />
+                        className="min-h-11 w-20 px-2 rounded text-sm" style={fieldStyle} />
                       <span className="text-xs" style={muted}>/ {totalIsUsable ? maxPoints : '—'}</span>
+                      </div>
                     </div>
+                    {pendingStudentId === s.student_id && <p role="status" className="text-xs" style={muted}>Saving this row…</p>}
                     {note && (
-                      <p className="text-[11px] ml-9" style={{ color: note.color }}>{note.text}</p>
+                      <p id={`score-note-${s.student_id}`} className="text-xs break-words" style={{ color: note.color }}>{note.text}</p>
                     )}
                     {conflicted && !rowResult[s.student_id]?.ok && (
-                      <label className="text-[11px] ml-9 flex items-center gap-2" style={{ color: '#d97706' }}>
+                      <label className="text-xs flex items-start gap-2" style={{ color: '#d97706' }}>
                         <input type="checkbox" checked={!!overwrite[s.student_id]} disabled={saving}
+                          aria-label={`Replace ${s.name}'s online submission with this paper score`}
                           onChange={e => setOverwrite(p => ({ ...p, [s.student_id]: e.target.checked }))} />
                         Replace their online submission with this paper score
                       </label>
@@ -337,6 +379,8 @@ const EncodeScoresModal = ({
                   </div>
                 );
               })
+              }
+              </div>
             )}
 
             <div className="flex items-center justify-end gap-2 pt-1">
@@ -346,9 +390,9 @@ const EncodeScoresModal = ({
                   {problemCount > 0 && ` · ${problemCount} need${problemCount === 1 ? 's' : ''} fixing`}
                 </span>
               )}
-              <Btn onClick={onClose}>Close</Btn>
+              <Btn variant="outline" onClick={requestClose}>Close</Btn>
               <Btn variant="primary" onClick={submit}
-                disabled={saving || loading || loadFailed || students.length === 0}>
+                disabled={loading || loadFailed || students.length === 0} busy={saving}>
                 {saving
                   ? (progress ? `Saving ${progress.done} of ${progress.total}…` : 'Saving…')
                   : 'Save scores'}
@@ -357,7 +401,7 @@ const EncodeScoresModal = ({
           </>
         )}
       </div>
-    </Modal>
+    </Modal></>
   );
 };
 

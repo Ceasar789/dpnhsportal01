@@ -4,9 +4,13 @@
 // Split from the original monolithic TeacherDashboard.jsx (2,918 lines)
 // ============================================
 
-import React from 'react';
+import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, X } from 'lucide-react';
 import { useTheme } from '../hooks';
+import { cycleTab, focusableWithin, inertOutside } from '../../../../lib/focusTrap';
+
+const modalStack = [];
 
 export const Card = ({ children, className = '', style = {} }) => {
   const { dark } = useTheme();
@@ -75,20 +79,95 @@ export const TD = ({ children, className = '' }) => {
 // `fixed inset-0 ... items-center` cannot otherwise scroll the page under
 // it, so content taller than the viewport used to clip on both ends with no
 // way to reach a footer button.
-export const Modal = ({ title, onClose, children, size = 'max-w-md' }) => {
+export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible = false, escapeCloses = false, description, closeDisabled = false }) => {
   const { dark } = useTheme();
+  const overlayRef = useRef(null);
+  const panelRef = useRef(null);
+  const returnToRef = useRef(typeof document === 'undefined' ? null : document.activeElement);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  useEffect(() => inertOutside(overlayRef.current, { preserveLiveRegions: true }), []);
+
+  useEffect(() => {
+    const opener = returnToRef.current;
+    const controls = focusableWithin(panelRef.current);
+    const field = controls.find((element) => element.matches('input, select, textarea'));
+    (field ?? controls[0] ?? panelRef.current)?.focus();
+    return () => {
+      if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    const entry = {};
+    modalStack.push(entry);
+    const onKeyDown = (event) => {
+      if (modalStack[modalStack.length - 1] !== entry) return;
+      if (event.key === 'Escape') {
+        if (dismissible || escapeCloses) {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
+        return;
+      }
+      cycleTab(panelRef.current, event);
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      const index = modalStack.indexOf(entry);
+      if (index !== -1) modalStack.splice(index, 1);
+    };
+  }, [dismissible, escapeCloses, onClose]);
+
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className={`rounded-xl w-full ${size} shadow-2xl flex flex-col max-h-[85vh]`}
+    <div ref={overlayRef} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) event.currentTarget.dataset.fromBackdrop = '1'; }}
+      onClick={(event) => {
+        if (dismissible && event.target === event.currentTarget && event.currentTarget.dataset.fromBackdrop === '1') onClose();
+        delete event.currentTarget.dataset.fromBackdrop;
+      }}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined} tabIndex={-1}
+        className={`rounded-xl w-full ${size} shadow-2xl flex flex-col max-h-[85vh]`}
         style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
         <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
-          <h2 className="text-lg font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>
-          <button onClick={onClose} aria-label={`Close ${title}`} className="text-gray-400 hover:text-gray-600"><X size={20} aria-hidden="true" /></button>
+          <h2 id={titleId} className="text-lg font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>
+          <button type="button" onClick={onClose} disabled={closeDisabled} aria-label={`Close ${title}`}
+            className="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-50">
+            <X size={20} aria-hidden="true" />
+          </button>
         </div>
+        {description && <p id={descriptionId} className="sr-only">{description}</p>}
         <div className="p-5 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
+};
+
+export const ConfirmDialog = ({ title, message, confirmLabel = 'Discard changes', onCancel, onConfirm }) => (
+  <Modal title={title} description={message} onClose={onCancel} escapeCloses>
+    <p className="text-sm mb-5" style={{ color: 'var(--text)' }}>{message}</p>
+    <div className="flex flex-wrap justify-end gap-2">
+      <Btn variant="outline" className="min-h-11" onClick={onCancel}>Cancel</Btn>
+      <Btn variant="danger" className="min-h-11" onClick={onConfirm}>{confirmLabel}</Btn>
+    </div>
+  </Modal>
+);
+
+export const Toast = ({ toast, shadow = false }) => {
+  const message = toast && (
+    <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${shadow ? 'shadow-lg ' : ''}${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`} style={{ zIndex: 60 }}>
+      {toast.msg}
+    </div>
+  );
+  const regions = <>
+    <div role="status" aria-live="polite" data-modal-live-region="true">{toast?.type !== 'error' && message}</div>
+    <div role="alert" aria-live="assertive" data-modal-live-region="true">{toast?.type === 'error' && message}</div>
+  </>;
+  return typeof document === 'undefined' ? regions : createPortal(regions, document.body);
 };
 
 export const StatCard = ({ label, value, sub, subColor, icon: Icon, loading, color = '#1908DF', onClick }) => {
@@ -143,10 +222,25 @@ export const Badge = ({ children, color, bg }) => (
   </span>
 );
 
-export const Btn = ({ children, onClick, className = '', variant = 'default', disabled }) => {
+export const Btn = ({ children, onClick, className = '', variant = 'default', disabled, busy = false }) => {
+  const inFlightRef = useRef(false);
+  const handleClick = (event) => {
+    if (busy || inFlightRef.current) return;
+    const result = onClick?.(event);
+    if (result && typeof result.then === 'function') {
+      inFlightRef.current = true;
+      Promise.resolve(result).then(
+        () => { inFlightRef.current = false; },
+        (error) => {
+          inFlightRef.current = false;
+          console.error('Teacher action failed:', error);
+        },
+      );
+    }
+  };
   const variants = {
     default: { backgroundColor: '#1908DF', color: '#ffffff' },
-    outline: { backgroundColor: 'transparent', color: '#64748b', border: '1px solid #e2e8f0' },
+    outline: { backgroundColor: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)' },
     primary: { backgroundColor: '#2563eb', color: '#ffffff' },
     danger: { backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' },
     // Soft, header-matching tint — same family as the welcome banner, so it
@@ -159,7 +253,7 @@ export const Btn = ({ children, onClick, className = '', variant = 'default', di
     },
   };
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type="button" onClick={handleClick} disabled={disabled} aria-busy={busy || undefined} aria-disabled={busy || undefined}
       className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 ${className}`}
       style={{ ...variants[variant], opacity: disabled ? 0.5 : 1 }}>
       {children}

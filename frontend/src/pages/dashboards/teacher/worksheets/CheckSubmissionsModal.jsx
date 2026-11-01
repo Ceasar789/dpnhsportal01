@@ -18,11 +18,17 @@
 // finds it tedious will stop reading and just release.
 // ============================================
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Check, X as XIcon } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
 import { useTheme } from '../hooks';
 import { scoreSubmission, round2 } from '../../../../lib/worksheetChecking';
+import useDialogSafety from './useDialogSafety';
+
+const sameMarks = (a, b) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every(key => a[key] === b[key]);
+};
 
 const CheckSubmissionsModal = ({
   worksheet, loadItems, loadSubmissions, loadAnswers, releaseScore, onClose,
@@ -36,7 +42,10 @@ const CheckSubmissionsModal = ({
   const [active, setActive] = useState(null);
   const [answers, setAnswers] = useState({});
   const [answersFailed, setAnswersFailed] = useState(false);
+  const [answersLoading, setAnswersLoading] = useState(false);
   const [marks, setMarks] = useState({});
+  const [feedback, setFeedback] = useState({});
+  const [loadedMarks, setLoadedMarks] = useState({});
   // Per item: 'auto-correct' | 'auto-incorrect' | 'unscorable' | 'manual'.
   // Fixed at load time from the auto-checker's verdict (or the lack of one),
   // so the card's colour keeps showing what the machine found even after the
@@ -44,6 +53,11 @@ const CheckSubmissionsModal = ({
   const [cardState, setCardState] = useState({});
   const [autoScored, setAutoScored] = useState({});
   const [saving, setSaving] = useState(false);
+  const [releaseError, setReleaseError] = useState(false);
+  const [reviewApproved, setReviewApproved] = useState(false);
+  const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
+    dirty: Boolean(active) && (!sameMarks(marks, loadedMarks) || Object.values(feedback).some(Boolean)), pending: saving, onClose,
+  });
 
   const isAuto = worksheet.checking_mode === 'auto';
 
@@ -81,13 +95,19 @@ const CheckSubmissionsModal = ({
     const token = ++openTokenRef.current;
     setActive(sub);
     setMarks({});
+    setFeedback({});
+    setLoadedMarks({});
     setAutoScored({});
     setCardState({});
     setAnswersFailed(false);
+    setReleaseError(false);
+    setReviewApproved(false);
+    setAnswersLoading(true);
     setAnswers({});
 
     const loaded = await loadAnswers(sub.id);
     if (!aliveRef.current || openTokenRef.current !== token) return;
+    setAnswersLoading(false);
     if (!loaded) { setAnswersFailed(true); return; }
     const { answers: loadedAnswers, prior } = loaded;
     setAnswers(loadedAnswers);
@@ -141,6 +161,7 @@ const CheckSubmissionsModal = ({
 
     setCardState(states);
     setMarks(prefilled);
+    setLoadedMarks(prefilled);
     setAutoScored(flagged);
   };
 
@@ -159,15 +180,17 @@ const CheckSubmissionsModal = ({
   const setMark = (itemId, value) => {
     setMarks(p => ({ ...p, [itemId]: clampMark(itemId, value) }));
     setAutoScored(p => ({ ...p, [itemId]: false }));
+    setReviewApproved(false);
   };
 
   const total = round2(items.reduce((sum, i) => sum + (Number(i.points) || 0), 0));
   const given = round2(Object.values(marks).reduce((sum, v) => sum + (Number(v) || 0), 0));
   const untouched = items.filter(it => marks[it.id] === undefined || marks[it.id] === '');
-  const canRelease = !answersFailed && untouched.length === 0 && items.length > 0;
+  const canRelease = !answersLoading && !answersFailed && untouched.length === 0 && items.length > 0;
 
   const release = async () => {
-    if (!canRelease) return;
+    if (!canRelease || !reviewApproved || saving) return;
+    setReleaseError(false);
     setSaving(true);
     const perItem = items.map(i => {
       const unscorable = i.item_type === 'essay' || keys[i.id] === undefined;
@@ -181,12 +204,21 @@ const CheckSubmissionsModal = ({
       };
     });
     const ok = await releaseScore(active.id, worksheet.id, given, total, perItem);
-    setSaving(false);
     if (ok) {
-      setSubmissions(prev => prev.map(s =>
+      let refreshed = null;
+      try {
+        refreshed = await loadSubmissions(worksheet.id);
+      } catch {
+        console.warn('Submission list refresh failed after score release');
+      }
+      if (refreshed) setSubmissions(refreshed);
+      else setSubmissions(prev => prev.map(s =>
         s.id === active.id ? { ...s, status: 'checked', released: true, score: given, total_points: total } : s));
       setActive(null);
+    } else {
+      setReleaseError(true);
     }
+    setSaving(false);
   };
 
   const muted = { color: dark ? '#64748b' : '#94a3b8' };
@@ -201,11 +233,12 @@ const CheckSubmissionsModal = ({
   };
 
   return (
-    <Modal title={`Submissions — ${worksheet.title}`} onClose={onClose} size="max-w-3xl">
+    <>{routeBlocker}<Modal title={`Submissions — ${worksheet.title}`} onClose={requestClose} size="max-w-3xl">
+      {busyNotice && <p role="status" className="text-sm">{busyNotice}</p>}
       {loading ? (
-        <div className="flex justify-center py-10"><Loader2 className="animate-spin" size={22} /></div>
+        <div role="status" className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: 'var(--text-muted)' }}><Loader2 className="animate-spin" size={22} aria-hidden="true" />Loading submissions…</div>
       ) : loadFailed ? (
-        <div className="flex flex-col items-center gap-3 py-6 text-sm text-center" style={{ color: '#dc2626' }}>
+        <div role="alert" className="flex flex-col items-center gap-3 py-6 text-sm text-center" style={{ color: 'var(--red)' }}>
           <p>Could not load the submissions for this worksheet.</p>
           <button onClick={attemptLoad} className="underline font-semibold" style={{ color: '#dc2626' }}>
             Retry
@@ -213,15 +246,20 @@ const CheckSubmissionsModal = ({
         </div>
       ) : active ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{active.name}</p>
+          <div className="rounded-lg border px-3 py-2 min-w-0" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card2)' }}>
+            <p className="text-sm font-semibold break-words" style={{ color: 'var(--text)' }}>{active.name}</p>
+            <p className="text-xs mt-1" style={muted}>{active.released ? `Previously released: ${active.score}/${active.total_points}` : active.status?.replace('_', ' ') || 'Status unavailable'}</p>
+          </div>
           {!isAuto && (
             <p className="text-xs" style={muted}>
               This worksheet is set to manual checking — every item is yours to score.
             </p>
           )}
 
-          {answersFailed ? (
-            <div className="flex flex-col items-center gap-3 py-6 text-sm text-center" style={{ color: '#dc2626' }}>
+          {answersLoading ? (
+            <p role="status" className="py-6 text-sm text-center" style={muted}>Loading answers…</p>
+          ) : answersFailed ? (
+            <div role="alert" className="flex flex-col items-center gap-3 py-6 text-sm text-center" style={{ color: 'var(--red)' }}>
               <p>
                 Could not load this student's answers. Releasing is turned off until this
                 loads — a failed read must never be shown as "answered nothing".
@@ -230,7 +268,7 @@ const CheckSubmissionsModal = ({
                 <button onClick={() => openSubmission(active)} className="underline font-semibold" style={{ color: '#dc2626' }}>
                   Retry
                 </button>
-                <button onClick={() => { setActive(null); setAnswersFailed(false); }}
+                <button onClick={() => requestClose(() => { setActive(null); setAnswersFailed(false); })}
                   className="underline font-semibold" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
                   Back to the list
                 </button>
@@ -242,23 +280,23 @@ const CheckSubmissionsModal = ({
                 const style = STATE_STYLE[cardState[it.id]] || STATE_STYLE.manual;
                 const unscorable = it.item_type === 'essay' || keys[it.id] === undefined;
                 return (
-                  <div key={it.id} className="p-3 rounded-lg" style={{ border: `1px solid ${style.border}`, backgroundColor: style.bg }}>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                  <section key={it.id} className="p-3 rounded-lg min-w-0" style={{ border: `1px solid ${style.border}`, backgroundColor: style.bg }}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <h3 className="text-sm font-medium break-words min-w-0" style={{ color: 'var(--text)' }}>
                         {index + 1}. {it.question}
-                      </p>
+                      </h3>
                       {style.tag && (
-                        <span className="text-[11px] font-semibold whitespace-nowrap ml-2" style={{ color: style.tagColor }}>
+                        <span className="text-[11px] font-semibold" style={{ color: style.tagColor }}>
                           {style.tag}
                           {cardState[it.id]?.startsWith('auto') && autoScored[it.id] === false ? ' (edited)' : ''}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs mt-1" style={muted}>
+                    <p className="text-xs mt-2 break-words" style={muted}>
                       Answer: {Array.isArray(answers[it.id]) ? answers[it.id].join(', ') : (answers[it.id] || '— blank —')}
                     </p>
                     {it.item_type !== 'essay' && (
-                      <p className="text-xs" style={muted}>
+                      <p className="text-xs break-words" style={muted}>
                         Expected: {Array.isArray(keys[it.id]?.correct_answer)
                           ? keys[it.id].correct_answer.join(', ')
                           : String(keys[it.id]?.correct_answer ?? '—')}
@@ -270,35 +308,43 @@ const CheckSubmissionsModal = ({
                           <button type="button" onClick={() => setMark(it.id, it.points)}
                             aria-label={`Mark question ${index + 1} fully correct`}
                             title="Mark fully correct"
-                            className="h-8 w-8 rounded-lg flex items-center justify-center"
+                            className="min-h-11 min-w-11 rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: 'rgba(22,163,74,0.12)', color: '#16a34a' }}>
                             <Check size={14} />
                           </button>
                           <button type="button" onClick={() => setMark(it.id, 0)}
                             aria-label={`Mark question ${index + 1} wrong`}
                             title="Mark wrong"
-                            className="h-8 w-8 rounded-lg flex items-center justify-center"
+                            className="min-h-11 min-w-11 rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: 'rgba(220,38,38,0.12)', color: '#dc2626' }}>
                             <XIcon size={14} />
                           </button>
                         </>
                       )}
-                      <input type="number" min="0" max={it.points} step="0.5"
+                      <input type="number" min="0" max={it.points} step="0.5" aria-label={`Score for question ${index + 1}`}
                         value={marks[it.id] ?? ''}
                         onChange={e => setMark(it.id, e.target.value)}
-                        className="h-8 w-20 px-2 rounded text-xs outline-none"
+                        className="min-h-11 w-20 px-2 rounded text-xs"
                         style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc',
                                  border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`,
                                  color: dark ? '#f1f5f9' : '#1a2b4a' }} />
                       <span className="text-xs" style={muted}>/ {it.points}</span>
                     </div>
-                  </div>
+                    <label className="block text-xs mt-2" style={muted}>Feedback for question {index + 1}
+                      <textarea rows={2} value={feedback[it.id] || ''}
+                        onChange={event => { setFeedback(previous => ({ ...previous, [it.id]: event.target.value })); setReviewApproved(false); }}
+                        className="block w-full mt-1 p-2 rounded border text-sm" style={{ color: 'var(--text)', backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }} />
+                    </label>
+                  </section>
                 );
               })}
 
-              <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-                Total: {given} / {total}
+              <p className="text-sm font-semibold rounded-lg border px-3 py-2" role="status" style={{ color: 'var(--text)', borderColor: 'var(--border)', backgroundColor: 'var(--card2)' }}>
+                Reviewed score: {given} / {total}
               </p>
+              {releaseError && <p role="alert" className="rounded-lg border px-3 py-2 text-sm" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>
+                Could not confirm the release. Check the submission and try again.
+              </p>}
               {untouched.length > 0 && (
                 <p className="text-xs" style={{ color: '#d97706' }}>
                   {untouched.length} item{untouched.length === 1 ? '' : 's'} still need{untouched.length === 1 ? 's' : ''} your score
@@ -306,11 +352,15 @@ const CheckSubmissionsModal = ({
                 </p>
               )}
               <div className="flex justify-end gap-2">
-                <Btn onClick={() => setActive(null)}>Back</Btn>
-                <Btn variant="primary" onClick={release} disabled={saving || !canRelease}>
-                  {saving ? 'Releasing…' : 'Save & Release'}
+                <Btn variant="outline" onClick={() => requestClose(() => setActive(null))}>Back</Btn>
+                <Btn variant="outline" onClick={() => setReviewApproved(true)} disabled={!canRelease || reviewApproved || saving}>
+                  {reviewApproved ? 'Review approved locally' : 'Approve review locally'}
+                </Btn>
+                <Btn variant="primary" onClick={release} disabled={!canRelease || !reviewApproved || saving} busy={saving}>
+                  {saving ? 'Releasing…' : 'Release result'}
                 </Btn>
               </div>
+              {reviewApproved && <p role="status" className="text-xs" style={muted}>Review approval and feedback are local to this open dialog. They have not been saved or released.</p>}
             </>
           )}
         </div>
@@ -320,24 +370,24 @@ const CheckSubmissionsModal = ({
           on paper, use <strong>Encode scores</strong> on the worksheet card instead.
         </p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2" aria-label="Worksheet submissions">
           {submissions.map(s => (
-            <div key={s.id} className="flex items-center justify-between p-3 rounded-lg"
-              style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-              <div>
-                <p className="text-sm" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{s.name}</p>
+            <li key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg min-w-0"
+              style={{ border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>
+              <div className="min-w-0">
+                <p className="text-sm font-medium break-words" style={{ color: 'var(--text)' }}>{s.name}</p>
                 <p className="text-xs" style={muted}>
-                  {s.released ? `Released — ${s.score}/${s.total_points}` : s.status.replace('_', ' ')}
+                  {s.released ? `Released — ${s.score}/${s.total_points}` : s.status?.replace('_', ' ') || 'Status unavailable'}
                 </p>
               </div>
               <Btn onClick={() => openSubmission(s)} disabled={s.status === 'in_progress'}>
                 {s.released ? 'Review again' : 'Check'}
               </Btn>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </Modal>
+    </Modal></>
   );
 };
 

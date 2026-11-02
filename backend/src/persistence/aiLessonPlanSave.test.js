@@ -285,9 +285,52 @@ test('HTML sanitization failure is classified before any RPC without logging inp
   } finally { Buffer.byteLength = previous; }
   assert.equal(calls, 0);
   assert.deepEqual(warnings.map(([, detail]) => detail), [
-    { stage: 'html_sanitization', category: 'unexpected' },
+    { stage: 'html_input_limit', category: 'unexpected' },
   ]);
   assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-sanitizer-detail|attempt-1|Synthetic plan/);
+});
+
+test('sanitizer marks each operation and still removes unsafe HTML', async () => {
+  const { sanitizeAiLessonPlanHtml: freshSanitize } = await import('./aiLessonPlanSave.js?stage-test');
+  const stages = [];
+  const safe = await freshSanitize('<div class="ilaw-lesson-plan" onclick="bad()"><p>Syn' +
+    'thetic draft</p><script>bad()</script></div>', stage => stages.push(stage));
+  assert.deepEqual(stages, ['html_input_limit', 'jsdom_import', 'purifier_init',
+    'sanitize_call', 'html_output_validation']);
+  assert.equal(safe, '<div class="ilaw-lesson-plan"><p>Synthetic draft</p></div>');
+  assert.equal(await freshSanitize('<p>Still safe</p>', () => { throw new Error('Synthetic logger failure'); }),
+    '<p>Still safe</p>');
+});
+
+test('sanitized output validation failure is classified before the RPC', async () => {
+  let calls = 0;
+  const previous = Buffer.byteLength;
+  let checks = 0;
+  let warnings;
+  try {
+    Buffer.byteLength = (...args) => {
+      if (++checks === 2) throw new Error('secret-output-detail');
+      return previous(...args);
+    };
+    warnings = await captureDiagnostics(async () => {
+      const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+        invokeRpc: async () => { calls++; return {}; } });
+      assert.equal((await service.save('secret-jwt', command(), owner)).code, 'persistence_failed');
+    });
+  } finally { Buffer.byteLength = previous; }
+  assert.equal(calls, 0);
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'html_output_validation', category: 'unexpected' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-output-detail|attempt-1|Synthetic plan/);
+});
+
+test('a throwing diagnostic callback cannot change a successful save', async () => {
+  const service = createAiLessonPlanSave({ diagnose: () => { throw new Error('Synthetic logger failure'); },
+    invokeRpc: async (_name, args) => ({ data: saved(args), error: null }) });
+  const result = await service.save('synthetic-token', command(), owner);
+  assert.equal(result.ok, true);
+  assert.equal(result.record.id, planId);
 });
 
 test('a diagnostic logging failure does not block the save or change its receipt', async () => {

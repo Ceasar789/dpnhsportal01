@@ -4,6 +4,7 @@ import { validateLessonPlanTitle } from '../../../frontend/src/pages/dashboards/
 
 const MAX_HTML_BYTES = 128 * 1024;
 let purifierPromise;
+let purifierOperation = 'jsdom_import';
 const classes = new Set([
   'ilaw-lesson-plan', 'ilaw-letterhead', 'ilaw-school-name', 'ilaw-school-address',
   'ilaw-title', 'ilaw-info-table', 'ilaw-section', 'ilaw-I', 'ilaw-L', 'ilaw-A',
@@ -12,8 +13,11 @@ const classes = new Set([
   'ilaw-sig-col', 'ilaw-sig-tag', 'ilaw-sig-name', 'ilaw-sig-position',
   'ilaw-sig-noted', 'ilaw-empty-placeholder',
 ]);
-async function getPurifier() {
+async function getPurifier(markStage) {
+  markStage(purifierOperation);
   purifierPromise ??= import('jsdom').then(({ JSDOM }) => {
+    purifierOperation = 'purifier_init';
+    markStage(purifierOperation);
     const purifier = createDOMPurify(new JSDOM('').window);
     purifier.addHook('uponSanitizeAttribute', (_node, data) => {
       if (data.attrName !== 'class') return;
@@ -23,12 +27,18 @@ async function getPurifier() {
     });
     return purifier;
   });
-  return purifierPromise;
+  try { return await purifierPromise; } catch (error) {
+    markStage(purifierOperation);
+    throw error;
+  }
 }
 
-export async function sanitizeAiLessonPlanHtml(html) {
+export async function sanitizeAiLessonPlanHtml(html, markStage = () => {}) {
+  const mark = stage => { try { markStage(stage); } catch { /* Diagnostics cannot change a save result. */ } };
+  mark('html_input_limit');
   requireThat(typeof html === 'string' && Buffer.byteLength(html, 'utf8') <= MAX_HTML_BYTES, 'payload_too_large');
-  const purifier = await getPurifier();
+  const purifier = await getPurifier(mark);
+  mark('sanitize_call');
   const safe = purifier.sanitize(html, {
     ALLOWED_TAGS: ['a', 'b', 'blockquote', 'br', 'col', 'colgroup', 'div', 'em', 'h1', 'h2',
       'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'li', 'ol', 'p', 'span', 'strong', 'sub', 'sup',
@@ -36,6 +46,7 @@ export async function sanitizeAiLessonPlanHtml(html) {
     ALLOWED_ATTR: ['class', 'colspan', 'href', 'rowspan', 'title'],
     FORBID_TAGS: ['style'], FORBID_ATTR: ['style'], ALLOW_DATA_ATTR: false, ALLOW_ARIA_ATTR: false,
   }).trim();
+  mark('html_output_validation');
   requireThat(safe && Buffer.byteLength(safe, 'utf8') <= MAX_HTML_BYTES, 'invalid_document');
   return safe;
 }
@@ -47,6 +58,7 @@ const uuid = value => typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) {
+  const report = (...args) => { try { diagnose(...args); } catch { /* Diagnostics cannot change a save result. */ } };
   return {
     async availability(credential) {
       if (!invokeRpc) return fail('integration_blocked');
@@ -62,7 +74,7 @@ export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) 
     },
     async save(credential, raw, ownerId) {
       if (!invokeRpc) {
-        diagnose('transport_config', 'blocked');
+        report('transport_config', 'blocked');
         return fail('integration_blocked');
       }
       let stage = 'input_validation';
@@ -75,14 +87,14 @@ export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) 
         const checked = validateLessonPlanTitle(title);
         requireThat(typeof title === 'string' && !checked.error, 'invalid_document');
         stage = 'html_sanitization';
-        const safeHtml = await sanitizeAiLessonPlanHtml(html);
+        const safeHtml = await sanitizeAiLessonPlanHtml(html, operation => { stage = operation; });
         stage = 'rpc_request';
-        diagnose('rpc_request', 'attempted');
+        report('rpc_request', 'attempted');
         const { data, error } = await invokeRpc('eduscribe_ai_html_save_v1', {
           p_request_id: requestId, p_title: checked.title, p_html: safeHtml,
         }, credential);
         if (error) {
-          diagnose('rpc_rejection', dbCodes.has(error.message) ? error.message : 'unexpected', error.code);
+          report('rpc_rejection', dbCodes.has(error.message) ? error.message : 'unexpected', error.code);
           return fail(dbCodes.has(error.message) ? error.message : 'persistence_failed');
         }
         stage = 'receipt_validation';
@@ -95,15 +107,17 @@ export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) 
           data.record.ai_generated === true && data.record.status === 'draft' &&
           data.record.title === checked.title && data.record.objectives === safeHtml &&
           data.record.file_url === null && data.record.file_name === null && data.record.file_path === null;
-        if (!validReceipt) diagnose('receipt_validation', 'invalid');
+        if (!validReceipt) report('receipt_validation', 'invalid');
         requireThat(validReceipt, 'persistence_failed');
         return data;
       } catch (error) {
-        if (stage === 'input_validation' || stage === 'title_validation' || stage === 'html_sanitization') diagnose(stage,
+        if (stage === 'input_validation' || stage === 'title_validation' || stage === 'html_sanitization' ||
+            stage === 'html_input_limit' || stage === 'jsdom_import' || stage === 'purifier_init' ||
+            stage === 'sanitize_call' || stage === 'html_output_validation') report(stage,
           error instanceof PersistenceError ? error.code : 'unexpected');
-        if (stage === 'rpc_request') diagnose('rpc_request', 'exception');
+        if (stage === 'rpc_request') report('rpc_request', 'exception');
         if (stage === 'receipt_validation' && !(error instanceof PersistenceError))
-          diagnose('receipt_validation', 'exception');
+          report('receipt_validation', 'exception');
         return fail(error instanceof PersistenceError ? error.code : 'persistence_failed');
       }
     },

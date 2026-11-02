@@ -1,8 +1,14 @@
 import createDOMPurify from 'dompurify';
+import { accessSync, constants } from 'node:fs';
+import { createRequire } from 'node:module';
+import { basename, dirname, join } from 'node:path';
 import { PersistenceError, identity, requireThat } from '../../../shared/trustedPersistence/contracts.js';
 import { validateLessonPlanTitle } from '../../../frontend/src/pages/dashboards/teacher/lessonPlanTitle.js';
 
 const MAX_HTML_BYTES = 128 * 1024;
+const importErrorCodes = new Set(['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND', 'ENOENT', 'EACCES',
+  'ERR_PACKAGE_PATH_NOT_EXPORTED', 'ERR_INVALID_PACKAGE_CONFIG', 'ERR_REQUIRE_ESM']);
+const importErrorNames = new Set(['Error', 'TypeError', 'SyntaxError', 'ReferenceError', 'AggregateError']);
 let purifierPromise;
 let purifierOperation = 'jsdom_import';
 const classes = new Set([
@@ -49,6 +55,38 @@ export async function sanitizeAiLessonPlanHtml(html, markStage = () => {}) {
   mark('html_output_validation');
   requireThat(safe && Buffer.byteLength(safe, 'utf8') <= MAX_HTML_BYTES, 'invalid_document');
   return safe;
+}
+
+export function describeJsdomImportFailure(error, {
+  resolveJsdom = () => createRequire(import.meta.url).resolve('jsdom'),
+  checkStylesheet = file => accessSync(file, constants.R_OK),
+} = {}) {
+  const result = { errorCode: 'other', errorName: 'other', packageResolution: 'other', stylesheetAccess: 'other' };
+  try {
+    const code = error?.code;
+    const name = error?.name;
+    if (importErrorCodes.has(code)) result.errorCode = code;
+    if (importErrorNames.has(name)) result.errorName = name;
+  } catch { /* Unknown exception fields remain other. */ }
+  let entry;
+  try { entry = resolveJsdom(); result.packageResolution = 'found'; }
+  catch (probeError) {
+    try {
+      if (probeError?.code === 'MODULE_NOT_FOUND' || probeError?.code === 'ERR_MODULE_NOT_FOUND')
+        result.packageResolution = 'missing';
+    } catch { /* Unknown resolution failures remain other. */ }
+    return result;
+  }
+  if (typeof entry !== 'string' || basename(entry) !== 'api.js' || basename(dirname(entry)) !== 'lib')
+    return result;
+  try {
+    checkStylesheet(join(dirname(entry), 'jsdom', 'browser', 'default-stylesheet.css'));
+    result.stylesheetAccess = 'readable';
+  } catch (probeError) {
+    try { if (probeError?.code === 'ENOENT') result.stylesheetAccess = 'missing'; }
+    catch { /* Unknown access failures remain other. */ }
+  }
+  return result;
 }
 
 const fail = code => ({ ok: false, code, durable: false });
@@ -111,8 +149,11 @@ export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) 
         requireThat(validReceipt, 'persistence_failed');
         return data;
       } catch (error) {
+        if (stage === 'jsdom_import') report(stage,
+          error instanceof PersistenceError ? error.code : 'unexpected', undefined,
+          describeJsdomImportFailure(error));
         if (stage === 'input_validation' || stage === 'title_validation' || stage === 'html_sanitization' ||
-            stage === 'html_input_limit' || stage === 'jsdom_import' || stage === 'purifier_init' ||
+            stage === 'html_input_limit' || stage === 'purifier_init' ||
             stage === 'sanitize_call' || stage === 'html_output_validation') report(stage,
           error instanceof PersistenceError ? error.code : 'unexpected');
         if (stage === 'rpc_request') report('rpc_request', 'exception');

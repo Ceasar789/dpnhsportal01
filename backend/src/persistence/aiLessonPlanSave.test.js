@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EventEmitter } from 'node:events';
-import { createAiLessonPlanSave, sanitizeAiLessonPlanHtml } from './aiLessonPlanSave.js';
+import { createAiLessonPlanSave, describeJsdomImportFailure, sanitizeAiLessonPlanHtml } from './aiLessonPlanSave.js';
 import { aiSaveLocallyEnabled, aiSaveProductionEnabled, aiSavePostHandler,
   createAiLessonPlanSaveRouter, logAiLessonSaveDiagnostic } from '../routes/aiLessonPlanSave.js';
 
@@ -288,6 +288,53 @@ test('HTML sanitization failure is classified before any RPC without logging inp
     { stage: 'html_input_limit', category: 'unexpected' },
   ]);
   assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-sanitizer-detail|attempt-1|Synthetic plan/);
+});
+
+test('jsdom import probe distinguishes a missing package from a missing stylesheet', () => {
+  const importError = Object.assign(new Error('secret-import-path'), { code: 'ERR_MODULE_NOT_FOUND' });
+  const missingPackage = describeJsdomImportFailure(importError, { resolveJsdom: () => {
+    throw Object.assign(new Error('secret-package-path'), { code: 'MODULE_NOT_FOUND' });
+  } });
+  assert.deepEqual(missingPackage, { errorCode: 'ERR_MODULE_NOT_FOUND', errorName: 'Error',
+    packageResolution: 'missing', stylesheetAccess: 'other' });
+
+  const missingAsset = describeJsdomImportFailure(Object.assign(new Error('secret-asset-path'),
+    { code: 'ENOENT' }), { resolveJsdom: () => '/synthetic/jsdom/lib/api.js', checkStylesheet: () => {
+    throw Object.assign(new Error('secret-stylesheet-path'), { code: 'ENOENT' });
+  } });
+  assert.deepEqual(missingAsset, { errorCode: 'ENOENT', errorName: 'Error',
+    packageResolution: 'found', stylesheetAccess: 'missing' });
+  assert.deepEqual(describeJsdomImportFailure({ code: 'secret-code', name: 'secret-name' },
+    { resolveJsdom: () => '/synthetic/other-entry.js' }), { errorCode: 'other', errorName: 'other',
+    packageResolution: 'found', stylesheetAccess: 'other' });
+});
+
+test('jsdom import log records only allowlisted classifications', async () => {
+  let codeReads = 0;
+  const warnings = await captureDiagnostics(async () => {
+    logAiLessonSaveDiagnostic('jsdom_import', 'unexpected', undefined, {
+      errorCode: 'ENOENT', errorName: 'Error', packageResolution: 'found',
+      stylesheetAccess: 'missing', path: 'secret-path', message: 'secret-message', html: 'secret-html',
+    });
+    logAiLessonSaveDiagnostic('jsdom_import', 'unexpected', undefined, {
+      errorCode: 'secret-code', errorName: 'secret-name', packageResolution: 'secret-package',
+      stylesheetAccess: 'secret-asset',
+    });
+    logAiLessonSaveDiagnostic('jsdom_import', 'unexpected', undefined, {
+      get errorCode() { return ++codeReads === 1 ? 'ENOENT' : 'secret-second-read'; },
+      errorName: 'Error', packageResolution: 'found', stylesheetAccess: 'readable',
+    });
+  });
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'jsdom_import', category: 'unexpected', importErrorCode: 'ENOENT', importErrorName: 'Error',
+      packageResolution: 'found', stylesheetAccess: 'missing' },
+    { stage: 'jsdom_import', category: 'unexpected', importErrorCode: 'other', importErrorName: 'other',
+      packageResolution: 'other', stylesheetAccess: 'other' },
+    { stage: 'jsdom_import', category: 'unexpected', importErrorCode: 'ENOENT', importErrorName: 'Error',
+      packageResolution: 'found', stylesheetAccess: 'readable' },
+  ]);
+  assert.equal(codeReads, 1);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-|attempt-1|Synthetic plan/);
 });
 
 test('sanitizer marks each operation and still removes unsafe HTML', async () => {

@@ -12,14 +12,31 @@ const diagnosticCategories = new Set(['blocked', 'unauthenticated', 'forbidden',
   'verification_unavailable', 'exception', 'attempted', 'invalid', 'unexpected',
   'not_authenticated', 'inactive_teacher', 'idempotency_conflict',
   'invalid_document', 'payload_too_large', 'persistence_failed']);
+const importErrorCodes = new Set(['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND', 'ENOENT', 'EACCES',
+  'ERR_PACKAGE_PATH_NOT_EXPORTED', 'ERR_INVALID_PACKAGE_CONFIG', 'ERR_REQUIRE_ESM']);
+const importErrorNames = new Set(['Error', 'TypeError', 'SyntaxError', 'ReferenceError', 'AggregateError']);
+const packageProbeResults = new Set(['found', 'missing']);
+const stylesheetProbeResults = new Set(['readable', 'missing']);
+const fixed = (source, key, allowed) => {
+  try { const value = source?.[key]; return allowed.has(value) ? value : 'other'; }
+  catch { return 'other'; }
+};
 
-export function logAiLessonSaveDiagnostic(stage, category, code) {
-  const postgrestCode = typeof code === 'string' && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(code)
-    ? code : null;
+export function logAiLessonSaveDiagnostic(stage, category, code, importInfo) {
   try {
+    const postgrestCode = stage !== 'jsdom_import' && typeof code === 'string' &&
+      /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(code)
+      ? code : null;
+    const importFailure = stage === 'jsdom_import' && category === 'unexpected';
     console.warn('[ai-lesson-plan-save]', { stage: diagnosticStages.has(stage) ? stage : 'unknown',
       category: diagnosticCategories.has(category) ? category : 'unexpected',
-      ...(postgrestCode ? { postgrestCode } : {}) });
+      ...(postgrestCode ? { postgrestCode } : {}),
+      ...(importFailure ? {
+        importErrorCode: fixed(importInfo, 'errorCode', importErrorCodes),
+        importErrorName: fixed(importInfo, 'errorName', importErrorNames),
+        packageResolution: fixed(importInfo, 'packageResolution', packageProbeResults),
+        stylesheetAccess: fixed(importInfo, 'stylesheetAccess', stylesheetProbeResults),
+      } : {}) });
   } catch { /* Diagnostic output must never change a save result. */ }
 }
 

@@ -5,6 +5,22 @@ import { createAiLessonPlanSave } from '../persistence/aiLessonPlanSave.js';
 
 const PRODUCTION_REF = 'jllstakxiamxiycnwrbd';
 const loopback = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+const diagnosticStages = new Set(['route_gate', 'auth_guard', 'role_guard', 'transport_config',
+  'input_validation', 'rpc_request', 'rpc_rejection', 'receipt_validation']);
+const diagnosticCategories = new Set(['blocked', 'unauthenticated', 'forbidden',
+  'verification_unavailable', 'exception', 'attempted', 'invalid', 'unexpected',
+  'not_authenticated', 'inactive_teacher', 'idempotency_conflict',
+  'invalid_document', 'payload_too_large', 'persistence_failed']);
+
+export function logAiLessonSaveDiagnostic(stage, category, code) {
+  const postgrestCode = typeof code === 'string' && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(code)
+    ? code : null;
+  try {
+    console.warn('[ai-lesson-plan-save]', { stage: diagnosticStages.has(stage) ? stage : 'unknown',
+      category: diagnosticCategories.has(category) ? category : 'unexpected',
+      ...(postgrestCode ? { postgrestCode } : {}) });
+  } catch { /* Diagnostic output must never change a save result. */ }
+}
 
 export function aiSaveLocallyEnabled(req, env = process.env) {
   if (env.NODE_ENV !== 'development' || env.VERCEL || env.VERCEL_ENV ||
@@ -34,8 +50,11 @@ const messageFor = code => ({ invalid_document: 'Review the lesson plan title an
   || 'Permanent Save is unavailable. Your draft remains open.';
 const credential = req => (req.get('authorization') || '').slice('Bearer '.length).trim();
 
-export async function aiSavePostHandler(req, res, service) {
-  if (req.user?.role !== 'teacher') return res.status(403).json({ ok: false, code: 'inactive_teacher' });
+export async function aiSavePostHandler(req, res, service, diagnose = logAiLessonSaveDiagnostic) {
+  if (req.user?.role !== 'teacher') {
+    diagnose('role_guard', 'forbidden');
+    return res.status(403).json({ ok: false, code: 'inactive_teacher' });
+  }
   const result = await service.save(credential(req), req.body, req.user.id);
   if (!result.ok) return res.status(statusFor(result.code)).json({ ...result, error: messageFor(result.code) });
   return res.json(result);
@@ -45,17 +64,40 @@ export function createAiLessonPlanSaveRouter({ env = process.env, auth = require
   invokeRpc } = {}) {
   const router = Router();
   let transport;
-  const service = createAiLessonPlanSave({ invokeRpc: async (...args) => {
-    transport ??= invokeRpc || createUserScopedRpcTransport({ url: env.SUPABASE_URL,
-      anonKey: env.SUPABASE_ANON_KEY,
-      allowTestDataProject: env.AI_SAVE_ALLOW_TEST_DATA_PROJECT === '1',
-      approvedProductionProjectRef: aiSaveProductionEnabled(env)
-        ? env.AI_LESSON_PLAN_SAVE_PRODUCTION_PROJECT_REF : undefined });
-    return transport(...args);
-  } });
-  const gate = (req, res, next) => aiSaveLocallyEnabled(req, env) || aiSaveProductionEnabled(env) ? next()
-    : res.status(503).json({ ok: false, code: 'integration_blocked', durable: false,
+  const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+    invokeRpc: async (...args) => {
+      if (!transport) {
+        try {
+          transport = invokeRpc || createUserScopedRpcTransport({ url: env.SUPABASE_URL,
+            anonKey: env.SUPABASE_ANON_KEY,
+            allowTestDataProject: env.AI_SAVE_ALLOW_TEST_DATA_PROJECT === '1',
+            approvedProductionProjectRef: aiSaveProductionEnabled(env)
+              ? env.AI_LESSON_PLAN_SAVE_PRODUCTION_PROJECT_REF : undefined });
+        } catch (error) {
+          if (args[0] === 'eduscribe_ai_html_save_v1') logAiLessonSaveDiagnostic('transport_config', 'blocked');
+          throw error;
+        }
+      }
+      return transport(...args);
+    } });
+  const gate = (req, res, next) => {
+    if (aiSaveLocallyEnabled(req, env) || aiSaveProductionEnabled(env)) return next();
+    if (req.method === 'POST') logAiLessonSaveDiagnostic('route_gate', 'blocked');
+    return res.status(503).json({ ok: false, code: 'integration_blocked', durable: false,
       error: 'Permanent Save is unavailable. Your draft remains open.' });
+  };
+  const postAuth = (req, res, next) => {
+    let passed = false;
+    res.once('finish', () => {
+      if (!passed) logAiLessonSaveDiagnostic('auth_guard', res.statusCode === 401 ? 'unauthenticated'
+        : res.statusCode === 403 ? 'forbidden' : 'verification_unavailable');
+    });
+    return auth(req, res, error => {
+      passed = !error;
+      if (error) logAiLessonSaveDiagnostic('auth_guard', 'exception');
+      next(error);
+    });
+  };
 
   router.get('/', gate, auth, async (req, res) => {
     if (req.user?.role !== 'teacher') return res.status(403).json({ ok: false, code: 'inactive_teacher' });
@@ -63,6 +105,6 @@ export function createAiLessonPlanSaveRouter({ env = process.env, auth = require
     if (!result.ok) return res.status(statusFor(result.code)).json({ ...result, error: messageFor(result.code) });
     return res.json({ enabled: true });
   });
-  router.post('/', gate, auth, (req, res) => aiSavePostHandler(req, res, service));
+  router.post('/', gate, postAuth, (req, res) => aiSavePostHandler(req, res, service));
   return router;
 }

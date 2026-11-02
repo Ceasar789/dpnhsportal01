@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { EventEmitter } from 'node:events';
 import { createAiLessonPlanSave, sanitizeAiLessonPlanHtml } from './aiLessonPlanSave.js';
-import { aiSaveLocallyEnabled, aiSaveProductionEnabled, aiSavePostHandler } from '../routes/aiLessonPlanSave.js';
+import { aiSaveLocallyEnabled, aiSaveProductionEnabled, aiSavePostHandler,
+  createAiLessonPlanSaveRouter, logAiLessonSaveDiagnostic } from '../routes/aiLessonPlanSave.js';
 
 const owner = 'teacher-synthetic';
 const planId = '22222222-2222-4222-8222-222222222222';
@@ -146,4 +148,121 @@ test('missing bearer token and wrong role cannot reach the lesson save RPC', asy
   assert.deepEqual([missing.statusCode, missing.code, wrongRole.statusCode, wrongRole.code],
     [401, 'not_authenticated', 403, 'inactive_teacher']);
   assert.equal(calls, 0);
+});
+
+const captureDiagnostics = async run => {
+  const warnings = [];
+  const previous = console.warn;
+  console.warn = (...entry) => warnings.push(entry);
+  try { await run(warnings); } finally { console.warn = previous; }
+  return warnings;
+};
+const postHandlers = router => router.stack.find(layer => layer.route?.methods.post).route.stack.map(layer => layer.handle);
+const response = () => {
+  const events = new EventEmitter();
+  return { statusCode: 200, once: events.once.bind(events),
+    status(code) { this.statusCode = code; return this; },
+    json(value) { this.body = value; events.emit('finish'); return value; } };
+};
+
+test('POST route gate and authenticated role guard report only fixed categories', async () => {
+  const warnings = await captureDiagnostics(async () => {
+    const [gate, auth] = postHandlers(createAiLessonPlanSaveRouter({ env: {},
+      auth: (_req, res) => res.status(403).json({ error: 'private-profile-detail' }) }));
+    const gateResponse = response();
+    gate({ method: 'POST', socket: { remoteAddress: '127.0.0.1' } }, gateResponse, () => assert.fail('gate opened'));
+    assert.equal(gateResponse.statusCode, 503);
+    assert.equal(gateResponse.body.code, 'integration_blocked');
+    auth({ method: 'POST' }, response(), () => assert.fail('auth opened'));
+    await aiSavePostHandler({ user: { id: owner, role: 'student' }, get: () => 'Bearer secret-jwt',
+      body: command() }, response(), { save: () => assert.fail('save called') });
+  });
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'route_gate', category: 'blocked' },
+    { stage: 'auth_guard', category: 'forbidden' },
+    { stage: 'role_guard', category: 'forbidden' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /private-profile-detail|secret-jwt|teacher-synthetic/);
+});
+
+test('transport configuration failure is classified without exposing configuration or payload', async () => {
+  const warnings = await captureDiagnostics(async () => {
+    const [, , post] = postHandlers(createAiLessonPlanSaveRouter({ env: {
+      NODE_ENV: 'development', AI_LESSON_PLAN_SAVE_ENABLED: '1', SUPABASE_URL: 'http://127.0.0.1:54321',
+    }, auth: (_req, _res, next) => next() }));
+    const res = response();
+    await post({ user: { id: owner, role: 'teacher' }, get: () => 'Bearer secret-jwt',
+      body: { ...command(), requestId: 'secret-request', title: 'secret-title', html: '<p>secret-html</p>' } }, res);
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.body.code, 'integration_blocked');
+    assert.equal(res.body.error, 'Permanent Save is unavailable. Your draft remains open.');
+  });
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'rpc_request', category: 'attempted' },
+    { stage: 'transport_config', category: 'blocked' },
+    { stage: 'rpc_request', category: 'exception' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-request|secret-title|secret-html|127\.0\.0\.1/);
+});
+
+test('RPC rejection logs only a safe PostgREST code and a fixed category', async () => {
+  const warnings = await captureDiagnostics(async () => {
+    const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+      invokeRpc: async () => ({ data: null, error: { message: 'secret-db-message',
+        details: 'secret-details', hint: 'secret-hint', code: 'PGRST202' } }) });
+    const res = response();
+    await aiSavePostHandler({ user: { id: owner, role: 'teacher' }, get: () => 'Bearer secret-jwt',
+      body: command() }, res, service);
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.body.code, 'persistence_failed');
+    assert.equal(res.body.error, 'Permanent Save is unavailable. Your draft remains open.');
+    logAiLessonSaveDiagnostic('rpc_rejection', 'unexpected', 'secret-code');
+    logAiLessonSaveDiagnostic('secret-stage', 'secret-category', '23505');
+  });
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'rpc_request', category: 'attempted' },
+    { stage: 'rpc_rejection', category: 'unexpected', postgrestCode: 'PGRST202' },
+    { stage: 'rpc_rejection', category: 'unexpected' },
+    { stage: 'unknown', category: 'unexpected', postgrestCode: '23505' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-db-message|secret-details|secret-hint|secret-code|secret-stage|secret-category|attempt-1|Synthetic plan/);
+});
+
+test('invalid save receipt is classified after one RPC without changing the failure result', async () => {
+  const warnings = await captureDiagnostics(async () => {
+    const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+      invokeRpc: async (_name, args) => ({ data: { ...saved(args), record: { ...saved(args).record,
+        teacher_id: 'secret-other-teacher' } }, error: null }) });
+    assert.equal((await service.save('secret-jwt', command(), owner)).code, 'persistence_failed');
+  });
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'rpc_request', category: 'attempted' },
+    { stage: 'receipt_validation', category: 'invalid' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-other-teacher|attempt-1|Synthetic plan/);
+});
+
+test('a thrown RPC request is classified without logging its exception text', async () => {
+  const warnings = await captureDiagnostics(async () => {
+    const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+      invokeRpc: async () => { throw new Error('secret-transport-detail'); } });
+    assert.equal((await service.save('secret-jwt', command(), owner)).code, 'persistence_failed');
+  });
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'rpc_request', category: 'attempted' },
+    { stage: 'rpc_request', category: 'exception' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-transport-detail|attempt-1|Synthetic plan/);
+});
+
+test('a diagnostic logging failure does not block the save or change its receipt', async () => {
+  const previous = console.warn;
+  console.warn = () => { throw new Error('Synthetic logging failure'); };
+  try {
+    const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+      invokeRpc: async (_name, args) => ({ data: saved(args), error: null }) });
+    const result = await service.save('synthetic-token', command(), owner);
+    assert.equal(result.ok, true);
+    assert.equal(result.record.id, planId);
+  } finally { console.warn = previous; }
 });

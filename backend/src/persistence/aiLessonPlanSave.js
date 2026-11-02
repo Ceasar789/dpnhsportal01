@@ -46,7 +46,7 @@ const dbCodes = new Set(['not_authenticated', 'inactive_teacher', 'idempotency_c
 const uuid = value => typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
-export function createAiLessonPlanSave({ invokeRpc } = {}) {
+export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) {
   return {
     async availability(credential) {
       if (!invokeRpc) return fail('integration_blocked');
@@ -61,7 +61,11 @@ export function createAiLessonPlanSave({ invokeRpc } = {}) {
       }
     },
     async save(credential, raw, ownerId) {
-      if (!invokeRpc) return fail('integration_blocked');
+      if (!invokeRpc) {
+        diagnose('transport_config', 'blocked');
+        return fail('integration_blocked');
+      }
+      let stage = 'input_validation';
       try {
         requireThat(typeof credential === 'string' && credential, 'not_authenticated');
         requireThat(raw && typeof raw === 'object' && !Array.isArray(raw), 'invalid_document');
@@ -70,11 +74,17 @@ export function createAiLessonPlanSave({ invokeRpc } = {}) {
         const checked = validateLessonPlanTitle(title);
         requireThat(typeof title === 'string' && !checked.error, 'invalid_document');
         const safeHtml = await sanitizeAiLessonPlanHtml(html);
+        stage = 'rpc_request';
+        diagnose('rpc_request', 'attempted');
         const { data, error } = await invokeRpc('eduscribe_ai_html_save_v1', {
           p_request_id: requestId, p_title: checked.title, p_html: safeHtml,
         }, credential);
-        if (error) return fail(dbCodes.has(error.message) ? error.message : 'persistence_failed');
-        requireThat(data?.ok === true && data.durable === true && uuid(data.record?.id) &&
+        if (error) {
+          diagnose('rpc_rejection', dbCodes.has(error.message) ? error.message : 'unexpected', error.code);
+          return fail(dbCodes.has(error.message) ? error.message : 'persistence_failed');
+        }
+        stage = 'receipt_validation';
+        const validReceipt = data?.ok === true && data.durable === true && uuid(data.record?.id) &&
           data.record.teacher_id === ownerId &&
           (data.record.subject_id === null || uuid(data.record.subject_id)) &&
           (data.record.subject === null || typeof data.record.subject === 'string') &&
@@ -82,10 +92,16 @@ export function createAiLessonPlanSave({ invokeRpc } = {}) {
           (data.record.academic_year === null || /^\d{4}-\d{4}$/.test(data.record.academic_year)) &&
           data.record.ai_generated === true && data.record.status === 'draft' &&
           data.record.title === checked.title && data.record.objectives === safeHtml &&
-          data.record.file_url === null && data.record.file_name === null && data.record.file_path === null,
-        'persistence_failed');
+          data.record.file_url === null && data.record.file_name === null && data.record.file_path === null;
+        if (!validReceipt) diagnose('receipt_validation', 'invalid');
+        requireThat(validReceipt, 'persistence_failed');
         return data;
       } catch (error) {
+        if (stage === 'input_validation') diagnose('input_validation',
+          error instanceof PersistenceError ? error.code : 'unexpected');
+        if (stage === 'rpc_request') diagnose('rpc_request', 'exception');
+        if (stage === 'receipt_validation' && !(error instanceof PersistenceError))
+          diagnose('receipt_validation', 'exception');
         return fail(error instanceof PersistenceError ? error.code : 'persistence_failed');
       }
     },

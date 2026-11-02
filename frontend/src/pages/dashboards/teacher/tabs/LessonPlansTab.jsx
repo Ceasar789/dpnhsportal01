@@ -1330,7 +1330,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{allPlans.length ? 'No plans match your search or filters.' : 'No lesson plans yet. Create one manually or upload a PDF.'}</p>
                 </Card>
               ) : (
-                <ul className="space-y-2">
+                <ul className="relative space-y-2">
                   {visiblePlans.map(plan => {
                     const status = PLAN_STATUS[plan.status || 'draft'] || PLAN_STATUS.draft;
                     const planType = savedPlanType(plan);

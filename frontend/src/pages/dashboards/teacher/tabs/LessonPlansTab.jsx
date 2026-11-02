@@ -356,7 +356,9 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
   const [generating, setGenerating] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState(null);
   const uploadInFlightRef = useRef(false);
+  const activePdfAttemptRef = useRef(null);
   const uploadedPdfRef = useRef(null);
+  const isCurrentPdfAttempt = attempt => activePdfAttemptRef.current === attempt;
   const [uploadProgress, setUploadProgress] = useState('');
   // Shown inside the upload card and left there until the next attempt.
   // A toast for this was the wrong shape: it appears in a corner away from
@@ -495,8 +497,9 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
   // anyone who opened this page — and it is billable. The key, the ILAW
   // prompt and the retry now live in backend/src, and this sends the PDF to
   // an endpoint that requires a teacher's own session.
-  const callGeminiWithPDF = async (base64PDF, fileName) => {
+  const callGeminiWithPDF = async (base64PDF, fileName, attempt) => {
     const { data: { session } } = await supabase.auth.getSession();
+    if (!isCurrentPdfAttempt(attempt)) return null;
     if (!session?.access_token) {
       throw new Error('Your session has expired. Sign in again and retry.');
     }
@@ -506,6 +509,8 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     // back and charge for a plan nobody receives.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 100000);
+    attempt.controller = controller;
+    attempt.timeoutId = timeoutId;
 
     try {
       const response = await fetch(`${API_BASE}/api/ai/lesson-plan`, {
@@ -517,6 +522,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
         signal: controller.signal,
         body: JSON.stringify({ pdfBase64: base64PDF, fileName }),
       });
+      if (!isCurrentPdfAttempt(attempt)) return null;
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
@@ -540,6 +546,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       const { html, truncated } = await response.json();
       return { html, truncated };
     } catch (err) {
+      if (!isCurrentPdfAttempt(attempt)) return null;
       if (err.name === 'AbortError') {
         throw new Error('The request timed out. Try a smaller PDF.', { cause: err });
       }
@@ -561,6 +568,8 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       throw err;
     } finally {
       clearTimeout(timeoutId);
+      if (attempt.timeoutId === timeoutId) attempt.timeoutId = null;
+      if (attempt.controller === controller) attempt.controller = null;
     }
   };
 
@@ -596,6 +605,9 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     const file = selectedPdf;
     if (!file || uploadInFlightRef.current) return;
 
+    const attempt = { controller: null, timeoutId: null };
+    activePdfAttemptRef.current = attempt;
+    const isCurrent = () => isCurrentPdfAttempt(attempt);
     uploadInFlightRef.current = true;
     setUploadError('');
     setUploading(true);
@@ -609,11 +621,13 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     let storageUploaded = false;
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!isCurrent()) return;
       if (!session?.access_token) throw new Error('Your session has expired. Sign in again and retry.');
 
       // 1. Convert to base64
       setUploadProgress('Reading the selected PDF...');
       const base64 = await fileToBase64(file);
+      if (!isCurrent()) return;
 
       // Reuse this page's confirmed upload when retrying the same file after AI failure.
       setUploadProgress('Preparing the PDF for upload...');
@@ -624,6 +638,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
         const { error: uploadError } = await supabase.storage
           .from('lesson-pdfs')
           .upload(filePath, file, { cacheControl: '3600', upsert: false });
+        if (!isCurrent()) return;
         if (uploadError) throw new Error('Storage upload failed: ' + uploadError.message);
         storageUploaded = true;
         const { data: urlData } = supabase.storage.from('lesson-pdfs').getPublicUrl(filePath);
@@ -646,7 +661,9 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       setUploading(false);
       setGenerating(true);
 
-      const { html, truncated } = await callGeminiWithPDF(base64, file.name);
+      const result = await callGeminiWithPDF(base64, file.name, attempt);
+      if (!isCurrent()) return;
+      const { html, truncated } = result;
       const safeHtml = sanitizeLessonPlanHtml(html);
       const template = document.createElement('template');
       template.innerHTML = safeHtml;
@@ -665,6 +682,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
         truncated ? 'error' : 'success'
       );
     } catch (err) {
+      if (!isCurrent()) return;
       console.error('PDF Upload Error:', err);
       setUploadError(err.message + (storageUploaded
         ? uploadedPdfRef.current?.file === file && uploadedPdfRef.current?.teacherId === userData?.uid
@@ -673,10 +691,26 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
         : ''));
     }
 
+    if (isCurrent()) {
+      activePdfAttemptRef.current = null;
+      uploadInFlightRef.current = false;
+      setUploading(false);
+      setGenerating(false);
+      setUploadProgress('');
+    }
+  };
+
+  const cancelPdfUpload = () => {
+    const attempt = activePdfAttemptRef.current;
+    if (!attempt) return;
+    activePdfAttemptRef.current = null;
+    if (attempt.timeoutId != null) clearTimeout(attempt.timeoutId);
+    attempt.controller?.abort();
     uploadInFlightRef.current = false;
     setUploading(false);
     setGenerating(false);
     setUploadProgress('');
+    setUploadError('');
   };
 
   // ── Save generated ILAW plan to Supabase ──────────────────
@@ -1161,6 +1195,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     Keep this page open. If generation succeeds, the editable draft will appear here.
                   </p>
+                  <div className="flex justify-end"><Btn variant="outline" onClick={cancelPdfUpload}>Cancel</Btn></div>
                 </div>
               ) : (
                 <>

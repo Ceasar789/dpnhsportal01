@@ -45,6 +45,95 @@ afterEach(() => {
 });
 
 describe('AI lesson plan generation with synthetic services', () => {
+  it('cancels a pending upload and ignores its late result', async () => {
+    let finishUpload;
+    let finishRetryUpload;
+    mock.uploadGate = new Promise(resolve => { finishUpload = resolve; });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html: '<p>New draft</p>', truncated: false }) });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByText('Uploading the PDF...');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Generate lesson plan' }).disabled).toBe(false);
+    mock.uploadGate = new Promise(resolve => { finishRetryUpload = resolve; });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await waitFor(() => expect(mock.uploads).toHaveLength(2));
+    await act(async () => { finishUpload(); });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox', { name: 'Lesson plan content' })).toBeNull();
+    expect(screen.queryAllByRole('alert').every(alert => !alert.textContent.trim())).toBe(true);
+    expect(screen.getByText('Uploading the PDF...')).toBeTruthy();
+    await act(async () => { finishRetryUpload(); });
+    expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('New draft');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+  });
+
+  it('cancels an AI request, aborts fetch, and clears the waiting and request timers', async () => {
+    let finishUpload;
+    let requestSignal;
+    mock.uploadGate = new Promise(resolve => { finishUpload = resolve; });
+    vi.stubGlobal('fetch', vi.fn((_url, options) => {
+      requestSignal = options.signal;
+      return new Promise(() => {});
+    }));
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByText('Uploading the PDF...');
+    vi.useFakeTimers();
+    await act(async () => { finishUpload(); });
+    expect(vi.getTimerCount()).toBe(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(requestSignal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.queryAllByRole('alert').every(alert => !alert.textContent.trim())).toBe(true);
+  });
+
+  it.each([
+    ['success', { ok: true, json: async () => ({ html: '<p>Late draft</p>', truncated: false }) }],
+    ['failure', { ok: false, status: 502, json: async () => ({ error: 'Late provider error.' }) }],
+  ])('ignores a late AI %s response after Cancel', async (_kind, response) => {
+    let finishGeneration;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(resolve => { finishGeneration = resolve; })));
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByRole('progressbar', { name: 'Generating ILAW lesson plan' });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await act(async () => { finishGeneration(response); });
+    expect(screen.queryByRole('textbox', { name: 'Lesson plan content' })).toBeNull();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Generate lesson plan' }).disabled).toBe(false);
+    expect(screen.queryAllByRole('alert').every(alert => !alert.textContent.trim())).toBe(true);
+    expect(mock.showToast).not.toHaveBeenCalled();
+  });
+
+  it('lets a new attempt succeed while a canceled attempt finishes late', async () => {
+    const pending = [];
+    const fetchMock = vi.fn(() => new Promise(resolve => { pending.push(resolve); }));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByRole('progressbar', { name: 'Generating ILAW lesson plan' });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await act(async () => { pending[0]({ ok: true, json: async () => ({ html: '<p>Old draft</p>', truncated: false }) }); });
+    expect(screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Lesson plan content' })).toBeNull();
+    await act(async () => { pending[1]({ ok: true, json: async () => ({ html: '<p>New draft</p>', truncated: false }) }); });
+    expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('New draft');
+    expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).not.toContain('Old draft');
+    expect(mock.showToast).toHaveBeenCalledTimes(1);
+  });
+
   it('rotates honest messages during a pending AI request and shows a long wait without a percentage', async () => {
     let finishUpload;
     let finishGeneration;

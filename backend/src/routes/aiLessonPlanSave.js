@@ -6,7 +6,7 @@ import { createAiLessonPlanSave } from '../persistence/aiLessonPlanSave.js';
 const PRODUCTION_REF = 'jllstakxiamxiycnwrbd';
 const loopback = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const diagnosticStages = new Set(['route_gate', 'auth_guard', 'role_guard', 'transport_config',
-  'input_validation', 'rpc_request', 'rpc_rejection', 'receipt_validation']);
+  'input_validation', 'title_validation', 'html_sanitization', 'rpc_request', 'rpc_rejection', 'receipt_validation']);
 const diagnosticCategories = new Set(['blocked', 'unauthenticated', 'forbidden',
   'verification_unavailable', 'exception', 'attempted', 'invalid', 'unexpected',
   'not_authenticated', 'inactive_teacher', 'idempotency_conflict',

@@ -71,8 +71,10 @@ export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) 
         requireThat(raw && typeof raw === 'object' && !Array.isArray(raw), 'invalid_document');
         const { requestId, title, html } = raw;
         requireThat(identity(requestId), 'invalid_document');
+        stage = 'title_validation';
         const checked = validateLessonPlanTitle(title);
         requireThat(typeof title === 'string' && !checked.error, 'invalid_document');
+        stage = 'html_sanitization';
         const safeHtml = await sanitizeAiLessonPlanHtml(html);
         stage = 'rpc_request';
         diagnose('rpc_request', 'attempted');
@@ -97,7 +99,7 @@ export function createAiLessonPlanSave({ invokeRpc, diagnose = () => {} } = {}) 
         requireThat(validReceipt, 'persistence_failed');
         return data;
       } catch (error) {
-        if (stage === 'input_validation') diagnose('input_validation',
+        if (stage === 'input_validation' || stage === 'title_validation' || stage === 'html_sanitization') diagnose(stage,
           error instanceof PersistenceError ? error.code : 'unexpected');
         if (stage === 'rpc_request') diagnose('rpc_request', 'exception');
         if (stage === 'receipt_validation' && !(error instanceof PersistenceError))

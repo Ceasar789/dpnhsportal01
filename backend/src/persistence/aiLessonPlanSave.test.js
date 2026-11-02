@@ -255,6 +255,41 @@ test('a thrown RPC request is classified without logging its exception text', as
   assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-transport-detail|attempt-1|Synthetic plan/);
 });
 
+test('title validation failure is classified before any RPC without logging input', async () => {
+  let calls = 0;
+  const warnings = await captureDiagnostics(async () => {
+    const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+      invokeRpc: async () => { calls++; return {}; } });
+    const result = await service.save('secret-jwt', { ...command(), title: { toString: null } }, owner);
+    assert.equal(result.code, 'persistence_failed');
+  });
+  assert.equal(calls, 0);
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'title_validation', category: 'unexpected' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|attempt-1|Synthetic plan/);
+});
+
+test('HTML sanitization failure is classified before any RPC without logging input', async () => {
+  let calls = 0;
+  const previous = Buffer.byteLength;
+  let warnings;
+  try {
+    Buffer.byteLength = () => { throw new Error('secret-sanitizer-detail'); };
+    warnings = await captureDiagnostics(async () => {
+      const service = createAiLessonPlanSave({ diagnose: logAiLessonSaveDiagnostic,
+        invokeRpc: async () => { calls++; return {}; } });
+      const result = await service.save('secret-jwt', command(), owner);
+      assert.equal(result.code, 'persistence_failed');
+    });
+  } finally { Buffer.byteLength = previous; }
+  assert.equal(calls, 0);
+  assert.deepEqual(warnings.map(([, detail]) => detail), [
+    { stage: 'html_sanitization', category: 'unexpected' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(warnings), /secret-jwt|secret-sanitizer-detail|attempt-1|Synthetic plan/);
+});
+
 test('a diagnostic logging failure does not block the save or change its receipt', async () => {
   const previous = console.warn;
   console.warn = () => { throw new Error('Synthetic logging failure'); };

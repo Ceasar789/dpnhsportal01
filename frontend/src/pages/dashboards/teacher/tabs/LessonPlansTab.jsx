@@ -357,7 +357,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
   const [selectedPdf, setSelectedPdf] = useState(null);
   const uploadInFlightRef = useRef(false);
   const activePdfAttemptRef = useRef(null);
-  const uploadedPdfRef = useRef(null);
+  const pendingGeneratedDraftRef = useRef(null);
   const isCurrentPdfAttempt = attempt => activePdfAttemptRef.current === attempt;
   const [uploadProgress, setUploadProgress] = useState('');
   // Shown inside the upload card and left there until the next attempt.
@@ -365,6 +365,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
   // where the teacher is looking, and disappears on its own — so the one
   // message explaining why nothing happened was gone before it was read.
   const [uploadError, setUploadError] = useState('');
+  const [sourcePdfWarning, setSourcePdfWarning] = useState('');
 
   // --- ILAW output state ---
   const [ilawOutput, setIlawOutput] = useState('');
@@ -573,9 +574,10 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     }
   };
 
-  // ── Handle PDF upload → Gemini → ILAW output ──────────────
+  // ── Generate the ILAW draft, then upload its source PDF ────
   const selectPdf = file => {
-    uploadedPdfRef.current = null;
+    pendingGeneratedDraftRef.current = null;
+    setSourcePdfWarning('');
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setSelectedPdf(null);
       setUploadError('That is not a PDF. Choose a file ending in .pdf.');
@@ -601,10 +603,39 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     setUploadError('');
   };
 
+  const openGeneratedDraft = (generated, uploaded = null) => {
+    const { file, safeHtml, truncated } = generated;
+    const template = document.createElement('template');
+    template.innerHTML = safeHtml;
+    setDownloadName(suggestLessonPlanFilename(file.name.replace(/\.[^/.]+$/, '')));
+    setCurrentPlanMeta({ title: file.name.replace(/\.[^/.]+$/, ''), ai_generated: true,
+      file_name: file.name, file_url: uploaded?.publicUrl ?? null, file_path: uploaded?.filePath ?? null });
+    setHasEmbeddedLetterhead(Boolean(template.content.querySelector('.ilaw-letterhead')));
+    setHasSchoolName(SCHOOL_NAME.test(template.content.textContent));
+    setIlawOutput(safeHtml);
+    setSavedHtml('');
+    setEditorLoadKey(k => k + 1);
+    setView('editor');
+    setSelectedPdf(null);
+    pendingGeneratedDraftRef.current = null;
+    if (uploaded) {
+      setSourcePdfWarning('');
+      showToast(
+        truncated
+          ? 'Lesson plan generated but was cut off near the end — review and finish it, or try regenerating.'
+          : 'ILAW lesson plan generated. Review and edit the draft; the lesson plan has not been saved.',
+        truncated ? 'error' : 'success'
+      );
+    }
+  };
+
   const handlePdfUpload = async () => {
     const file = selectedPdf;
     if (!file || uploadInFlightRef.current) return;
 
+    const pending = pendingGeneratedDraftRef.current;
+    const uploadOnly = pending?.file === file && pending.teacherId === userData?.uid;
+    if (!uploadOnly) pendingGeneratedDraftRef.current = null;
     const attempt = { controller: null, timeoutId: null };
     activePdfAttemptRef.current = attempt;
     const isCurrent = () => isCurrentPdfAttempt(attempt);
@@ -612,83 +643,64 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     setUploadError('');
     setUploading(true);
     setGenerating(false);
-    setIlawOutput('');
-    setHasEmbeddedLetterhead(false);
-    setHasSchoolName(false);
-    setSavedHtml('');
-    setSavedPlanId(null);
+    if (!uploadOnly) {
+      setIlawOutput('');
+      setHasEmbeddedLetterhead(false);
+      setHasSchoolName(false);
+      setSavedHtml('');
+      setSavedPlanId(null);
+    }
 
     let storageUploaded = false;
+    let storageAttempted = false;
+    let uploadRejected = false;
+    let generated = uploadOnly ? pending : null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!isCurrent()) return;
       if (!session?.access_token) throw new Error('Your session has expired. Sign in again and retry.');
 
-      // 1. Convert to base64
-      setUploadProgress('Reading the selected PDF...');
-      const base64 = await fileToBase64(file);
-      if (!isCurrent()) return;
-
-      // Reuse this page's confirmed upload when retrying the same file after AI failure.
-      setUploadProgress('Preparing the PDF for upload...');
-      let uploaded = uploadedPdfRef.current;
-      if (uploaded?.file !== file || uploaded.teacherId !== userData?.uid) {
-        setUploadProgress('Uploading the PDF...');
-        const filePath = `${userData?.uid}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.pdf`;
-        const { error: uploadError } = await supabase.storage
-          .from('lesson-pdfs')
-          .upload(filePath, file, { cacheControl: '3600', upsert: false });
+      if (!generated) {
+        setUploadProgress('Reading the selected PDF...');
+        const base64 = await fileToBase64(file);
         if (!isCurrent()) return;
-        if (uploadError) throw new Error('Storage upload failed: ' + uploadError.message);
-        storageUploaded = true;
-        const { data: urlData } = supabase.storage.from('lesson-pdfs').getPublicUrl(filePath);
-        uploaded = { file, teacherId: userData?.uid, filePath, publicUrl: urlData?.publicUrl };
-        uploadedPdfRef.current = uploaded;
+        setUploading(false);
+        setGenerating(true);
+        const result = await callGeminiWithPDF(base64, file.name, attempt);
+        if (!isCurrent()) return;
+        generated = { file, teacherId: userData?.uid,
+          safeHtml: sanitizeLessonPlanHtml(result.html), truncated: result.truncated };
+        pendingGeneratedDraftRef.current = generated;
       }
-      storageUploaded = true;
 
-      const suggestedName = suggestLessonPlanFilename(file.name.replace(/\.[^/.]+$/, ''));
-      setDownloadName(suggestedName);
-      setCurrentPlanMeta({
-        title: file.name.replace(/\.[^/.]+$/, ''),
-        ai_generated: true,
-        file_name: file.name,
-        file_url: uploaded.publicUrl,
-        file_path: uploaded.filePath,
-      });
-
-      // 3. Send to Gemini
-      setUploading(false);
-      setGenerating(true);
-
-      const result = await callGeminiWithPDF(base64, file.name, attempt);
+      setGenerating(false);
+      setUploading(true);
+      setUploadProgress('Uploading the source PDF...');
+      const filePath = `${userData?.uid}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.pdf`;
+      storageAttempted = true;
+      const { error: uploadError } = await supabase.storage
+        .from('lesson-pdfs')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
       if (!isCurrent()) return;
-      const { html, truncated } = result;
-      const safeHtml = sanitizeLessonPlanHtml(html);
-      const template = document.createElement('template');
-      template.innerHTML = safeHtml;
-      setHasEmbeddedLetterhead(Boolean(template.content.querySelector('.ilaw-letterhead')));
-      setHasSchoolName(SCHOOL_NAME.test(template.content.textContent));
-      setIlawOutput(safeHtml);
-      setSavedHtml('');
-      setEditorLoadKey(k => k + 1);
-      setView('editor');
-      setSelectedPdf(null);
-      uploadedPdfRef.current = null;
-      showToast(
-        truncated
-          ? 'Lesson plan generated but was cut off near the end — review and finish it, or try regenerating.'
-          : 'ILAW lesson plan generated. Review and edit the draft; the lesson plan has not been saved.',
-        truncated ? 'error' : 'success'
-      );
+      if (uploadError) { uploadRejected = true; throw new Error('Storage upload failed: ' + uploadError.message); }
+      storageUploaded = true;
+      const { data: urlData } = supabase.storage.from('lesson-pdfs').getPublicUrl(filePath);
+      if (!urlData?.publicUrl) throw new Error('Source PDF URL unavailable.');
+      openGeneratedDraft(generated, { filePath, publicUrl: urlData.publicUrl });
     } catch (err) {
       if (!isCurrent()) return;
       console.error('PDF Upload Error:', err);
-      setUploadError(err.message + (storageUploaded
-        ? uploadedPdfRef.current?.file === file && uploadedPdfRef.current?.teacherId === userData?.uid
-          ? ' The PDF was uploaded. Retry with this selected file to reuse it; choosing another file starts a new upload.'
-          : ' The PDF may already be stored. Retrying may create another stored copy.'
-        : ''));
+      if (generated && storageAttempted) {
+        const warning = uploadRejected
+          ? 'The lesson plan was generated, but its source PDF was not uploaded. Retry the PDF upload or open the editable draft without it.'
+          : storageUploaded
+            ? 'The source PDF was uploaded, but its link could not be prepared. Retry may create another stored copy, or open the editable draft.'
+            : 'The lesson plan was generated, but the source PDF upload could not be confirmed. Retry may create another stored copy, or open the editable draft.';
+        setUploadError(warning);
+        setSourcePdfWarning(warning);
+      } else {
+        setUploadError(err.message);
+      }
     }
 
     if (isCurrent()) {
@@ -704,12 +716,21 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     const attempt = activePdfAttemptRef.current;
     if (!attempt) return;
     activePdfAttemptRef.current = null;
+    pendingGeneratedDraftRef.current = null;
     if (attempt.timeoutId != null) clearTimeout(attempt.timeoutId);
     attempt.controller?.abort();
     uploadInFlightRef.current = false;
     setUploading(false);
     setGenerating(false);
     setUploadProgress('');
+    setUploadError('');
+    setSourcePdfWarning('');
+  };
+
+  const openGeneratedDraftWithoutPdf = () => {
+    const generated = pendingGeneratedDraftRef.current;
+    if (!generated || generated.file !== selectedPdf || generated.teacherId !== userData?.uid) return;
+    openGeneratedDraft(generated);
     setUploadError('');
   };
 
@@ -1159,6 +1180,8 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
         </p>}
       </header>
       {safety.busyNotice && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>{safety.busyNotice}</p>}
+      {view === 'editor' && sourcePdfWarning && <p role="alert" className="rounded-lg border px-4 py-3 text-sm"
+        style={{ color: 'var(--badge-red-fg)', backgroundColor: 'var(--badge-red-bg)', borderColor: 'var(--badge-red-border)' }}>{sourcePdfWarning}</p>}
 
       {/* ══════════════ LIST VIEW ══════════════ */}
       {view === 'list' && (
@@ -1193,7 +1216,10 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                   </div>
                   <p className="text-sm break-all" style={{ color: 'var(--text)' }}>{selectedPdf?.name}</p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    Keep this page open. If generation succeeds, the editable draft will appear here.
+                    {generating ? 'Keep this page open while we wait for the AI response.'
+                      : uploadProgress === 'Uploading the source PDF...'
+                        ? 'The lesson plan is generated. Its editable draft will open after the source PDF upload is confirmed.'
+                        : 'Keep this page open while we prepare the PDF for generation.'}
                   </p>
                   <div className="flex justify-end"><Btn variant="outline" onClick={cancelPdfUpload}>Cancel</Btn></div>
                 </div>
@@ -1205,10 +1231,10 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                   <TeacherFilePicker id="lesson-pdf-upload" accept=".pdf"
                     guidance={`PDF only · Maximum ${MAX_PDF_MB} MB`}
                     file={selectedPdf} onSelect={selectPdf}
-                    onRemove={() => { uploadedPdfRef.current = null; setSelectedPdf(null); setUploadError(''); }} />
+                    onRemove={() => { pendingGeneratedDraftRef.current = null; setSelectedPdf(null); setUploadError(''); setSourcePdfWarning(''); }} />
                   <div className="mt-3">
                     <Btn variant="default" disabled={!selectedPdf} onClick={handlePdfUpload}>
-                      <FileUp size={16} aria-hidden="true" />Generate lesson plan
+                      <FileUp size={16} aria-hidden="true" />{pendingGeneratedDraftRef.current?.file === selectedPdf && pendingGeneratedDraftRef.current?.teacherId === userData?.uid ? 'Retry source PDF upload' : 'Generate lesson plan'}
                     </Btn>
                   </div>
 
@@ -1228,11 +1254,13 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                       <AlertTriangle size={17} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--badge-red-fg)' }} />
                       <div>
                         <p className="text-sm font-semibold mb-0.5" style={{ color: 'var(--badge-red-fg)' }}>
-                          Could not generate the lesson plan
+                          {pendingGeneratedDraftRef.current ? 'Source PDF upload needs attention' : 'Could not generate the lesson plan'}
                         </p>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--badge-red-fg)' }}>
                           {uploadError}
                         </p>
+                        {pendingGeneratedDraftRef.current?.file === selectedPdf && pendingGeneratedDraftRef.current?.teacherId === userData?.uid
+                          && <Btn variant="outline" className="mt-3" onClick={openGeneratedDraftWithoutPdf}>Open editable draft</Btn>}
                       </div>
                     </div>
                   )}

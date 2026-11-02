@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router-dom';
 import LessonPlansTab from './LessonPlansTab';
 
-const mock = vi.hoisted(() => ({ uploads: [], writes: [], uploadGate: null, teacherId: 'synthetic-teacher', showToast: vi.fn(), session: { access_token: 'synthetic-token' } }));
+const mock = vi.hoisted(() => ({ uploads: [], urlRequests: [], writes: [], uploadGate: null, uploadError: null, teacherId: 'synthetic-teacher', showToast: vi.fn(), session: { access_token: 'synthetic-token' } }));
 
 vi.mock('../../../../context/AuthContext', () => ({ useAuth: () => ({ userData: { uid: mock.teacherId } }) }));
 vi.mock('../../../../config/supabase', () => ({ supabase: {
@@ -16,8 +16,8 @@ vi.mock('../../../../config/supabase', () => ({ supabase: {
   },
   storage: { from(bucket) {
     if (bucket !== 'lesson-pdfs') throw new Error('Unexpected bucket');
-    return { upload: async (path) => { mock.uploads.push(path); await mock.uploadGate; return { error: null }; },
-      getPublicUrl: path => ({ data: { publicUrl: `https://synthetic.invalid/${path}` } }) };
+    return { upload: async (path) => { mock.uploads.push(path); await mock.uploadGate; return { error: mock.uploadError }; },
+      getPublicUrl: path => { mock.urlRequests.push(path); return { data: { publicUrl: `https://synthetic.invalid/${path}` } }; } };
   } },
 } }));
 vi.mock('../hooks', () => ({ useTheme: () => ({ dark: false }), useToast: () => ({ toast: null, showToast: mock.showToast }) }));
@@ -35,8 +35,10 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   mock.uploads.length = 0;
+  mock.urlRequests.length = 0;
   mock.writes.length = 0;
   mock.uploadGate = null;
+  mock.uploadError = null;
   mock.teacherId = 'synthetic-teacher';
   mock.session = { access_token: 'synthetic-token' };
   mock.showToast.mockClear();
@@ -55,7 +57,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
     choosePdf();
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
-    await screen.findByText('Uploading the PDF...');
+    await screen.findByText('Uploading the source PDF...');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(screen.getByRole('button', { name: 'Generate lesson plan' }).disabled).toBe(false);
@@ -63,36 +65,38 @@ describe('AI lesson plan generation with synthetic services', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
     await waitFor(() => expect(mock.uploads).toHaveLength(2));
     await act(async () => { finishUpload(); });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole('textbox', { name: 'Lesson plan content' })).toBeNull();
     expect(screen.queryAllByRole('alert').every(alert => !alert.textContent.trim())).toBe(true);
-    expect(screen.getByText('Uploading the PDF...')).toBeTruthy();
+    expect(screen.getByText('Uploading the source PDF...')).toBeTruthy();
     await act(async () => { finishRetryUpload(); });
     expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('New draft');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 
   it('cancels an AI request, aborts fetch, and clears the waiting and request timers', async () => {
-    let finishUpload;
     let requestSignal;
-    mock.uploadGate = new Promise(resolve => { finishUpload = resolve; });
     vi.stubGlobal('fetch', vi.fn((_url, options) => {
       requestSignal = options.signal;
       return new Promise(() => {});
     }));
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     choosePdf();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
-    await screen.findByText('Uploading the PDF...');
-    vi.useFakeTimers();
-    await act(async () => { finishUpload(); });
+    for (let step = 0; step < 8 && !requestSignal; step += 1) {
+      await act(async () => { await new Promise(resolve => setImmediate(resolve)); });
+    }
+    expect(screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' })).toBeTruthy();
+    expect(mock.uploads).toHaveLength(0);
     expect(vi.getTimerCount()).toBe(2);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(requestSignal.aborted).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(screen.queryAllByRole('alert').every(alert => !alert.textContent.trim())).toBe(true);
+    expect(mock.uploads).toHaveLength(0);
   });
 
   it.each([
@@ -112,6 +116,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     expect(screen.getByRole('button', { name: 'Generate lesson plan' }).disabled).toBe(false);
     expect(screen.queryAllByRole('alert').every(alert => !alert.textContent.trim())).toBe(true);
     expect(mock.showToast).not.toHaveBeenCalled();
+    expect(mock.uploads).toHaveLength(0);
   });
 
   it('lets a new attempt succeed while a canceled attempt finishes late', async () => {
@@ -127,6 +132,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await act(async () => { pending[0]({ ok: true, json: async () => ({ html: '<p>Old draft</p>', truncated: false }) }); });
     expect(screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' })).toBeTruthy();
+    expect(mock.uploads).toHaveLength(0);
     expect(screen.queryByRole('textbox', { name: 'Lesson plan content' })).toBeNull();
     await act(async () => { pending[1]({ ok: true, json: async () => ({ html: '<p>New draft</p>', truncated: false }) }); });
     expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('New draft');
@@ -135,16 +141,16 @@ describe('AI lesson plan generation with synthetic services', () => {
   });
 
   it('rotates honest messages during a pending AI request and shows a long wait without a percentage', async () => {
-    let finishUpload;
     let finishGeneration;
-    mock.uploadGate = new Promise(resolve => { finishUpload = resolve; });
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(resolve => { finishGeneration = resolve; })));
+    const fetchMock = vi.fn(() => new Promise(resolve => { finishGeneration = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     choosePdf();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
-    await screen.findByText('Uploading the PDF...');
-    vi.useFakeTimers();
-    await act(async () => { finishUpload(); });
+    for (let step = 0; step < 8 && !finishGeneration; step += 1) {
+      await act(async () => { await new Promise(resolve => setImmediate(resolve)); });
+    }
     const message = () => screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' }).previousElementSibling.textContent;
     expect(message()).toContain('Generating an editable ILAW lesson plan from your PDF.');
     act(() => vi.advanceTimersByTime(9000));
@@ -156,23 +162,23 @@ describe('AI lesson plan generation with synthetic services', () => {
     expect(screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' }).hasAttribute('aria-valuenow')).toBe(false);
     expect(screen.queryByText(/%|minutes remaining/i)).toBeNull();
     expect(vi.getTimerCount()).toBe(1); // Only the existing request timeout remains.
+    expect(mock.uploads).toHaveLength(0);
     await act(async () => { finishGeneration({ ok: true, json: async () => ({ html: '<p>Editable draft</p>', truncated: false }) }); });
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(vi.getTimerCount()).toBe(0);
   });
 
   it('clears the wait timer after failure and starts messages from the beginning on explicit retry', async () => {
-    let finishUpload;
     const pending = [];
-    mock.uploadGate = new Promise(resolve => { finishUpload = resolve; });
     const fetchMock = vi.fn(() => new Promise(resolve => { pending.push(resolve); }));
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     choosePdf();
-    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
-    await screen.findByText('Uploading the PDF...');
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
-    await act(async () => { finishUpload(); });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    for (let step = 0; step < 8 && fetchMock.mock.calls.length < 1; step += 1) {
+      await act(async () => { await new Promise(resolve => setImmediate(resolve)); });
+    }
     const message = () => screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' }).previousElementSibling.textContent;
     act(() => vi.advanceTimersByTime(9000));
     expect(message()).toContain('Waiting for the lesson plan response.');
@@ -186,28 +192,29 @@ describe('AI lesson plan generation with synthetic services', () => {
     }
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(message()).toContain('Generating an editable ILAW lesson plan from your PDF.');
-    expect(mock.uploads).toHaveLength(1);
+    expect(mock.uploads).toHaveLength(0);
     await act(async () => { pending[1]({ ok: true, json: async () => ({ html: '<p>Editable draft</p>', truncated: false }) }); });
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(vi.getTimerCount()).toBe(0);
+    expect(mock.uploads).toHaveLength(1);
   });
 
   it('clears the rotating message timer when the tab unmounts during a pending request', async () => {
-    let finishUpload;
-    mock.uploadGate = new Promise(resolve => { finishUpload = resolve; });
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal('fetch', fetchMock);
     const view = render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     choosePdf();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
-    await screen.findByText('Uploading the PDF...');
-    vi.useFakeTimers();
-    await act(async () => { finishUpload(); });
+    for (let step = 0; step < 8 && fetchMock.mock.calls.length < 1; step += 1) {
+      await act(async () => { await new Promise(resolve => setImmediate(resolve)); });
+    }
     expect(vi.getTimerCount()).toBe(2);
     view.unmount();
     expect(vi.getTimerCount()).toBe(1); // The pre-existing request timeout remains until its own cleanup.
   });
 
-  it('shows the real upload state before AI generation, then clears progress when the draft opens', async () => {
+  it('generates first, then uploads the source PDF before opening the draft', async () => {
     let finishUpload;
     let finishGeneration;
     mock.uploadGate = new Promise(resolve => { finishUpload = resolve; });
@@ -215,14 +222,80 @@ describe('AI lesson plan generation with synthetic services', () => {
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     choosePdf();
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
-    await screen.findByText('Uploading the PDF...');
-    expect(screen.getByRole('progressbar', { name: 'Preparing PDF for lesson plan' }).hasAttribute('aria-valuenow')).toBe(false);
-    finishUpload();
     await screen.findByText('Generating an editable ILAW lesson plan from your PDF.');
+    expect(mock.uploads).toHaveLength(0);
     expect(screen.getByRole('progressbar', { name: 'Generating ILAW lesson plan' }).hasAttribute('aria-valuenow')).toBe(false);
     finishGeneration({ ok: true, json: async () => ({ html: '<p>Editable draft</p>', truncated: false }) });
+    await screen.findByText('Uploading the source PDF...');
+    expect(mock.uploads).toHaveLength(1);
+    expect(screen.getByRole('progressbar', { name: 'Preparing PDF for lesson plan' }).hasAttribute('aria-valuenow')).toBe(false);
+    expect(mock.urlRequests).toHaveLength(0);
+    finishUpload();
     await screen.findByRole('textbox', { name: 'Lesson plan content' });
+    expect(mock.urlRequests).toEqual(mock.uploads);
+    expect(screen.getByText('synthetic.pdf')).toBeTruthy();
     expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('keeps a generated draft after upload failure and retries only the upload', async () => {
+    mock.uploadError = new Error('Synthetic storage refusal');
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html: '<p>Retained draft</p><script>bad()</script>', truncated: false }) });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByText(/source PDF was not uploaded/);
+    expect(screen.queryByRole('textbox', { name: 'Lesson plan content' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry source PDF upload' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open editable draft' })).toBeTruthy();
+    expect(mock.uploads).toHaveLength(1);
+    expect(mock.urlRequests).toHaveLength(0);
+    mock.session = null;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry source PDF upload' }));
+    await screen.findByText('Your session has expired. Sign in again and retry.');
+    expect(mock.uploads).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    mock.session = { access_token: 'synthetic-token' };
+    mock.uploadError = null;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry source PDF upload' }));
+    const editor = await screen.findByRole('textbox', { name: 'Lesson plan content' });
+    expect(editor.innerHTML).toContain('Retained draft');
+    expect(editor.innerHTML).not.toContain('<script>');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mock.uploads).toHaveLength(2);
+    expect(mock.urlRequests).toEqual([mock.uploads[1]]);
+    expect(screen.queryByText(/source PDF was not uploaded/)).toBeNull();
+  });
+
+  it('opens a retained draft with a persistent warning when the teacher skips the failed upload', async () => {
+    mock.uploadError = new Error('Synthetic storage refusal');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html: '<p>Editable without source</p>', truncated: false }) }));
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    await screen.findByText(/source PDF was not uploaded/);
+    fireEvent.click(screen.getByRole('button', { name: 'Open editable draft' }));
+    expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('Editable without source');
+    expect(screen.getByText(/source PDF was not uploaded/).closest('[role="alert"]')).toBeTruthy();
+    expect(mock.urlRequests).toHaveLength(0);
+  });
+
+  it('does not upload when the AI request times out', async () => {
+    const fetchMock = vi.fn((_url, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
+    choosePdf();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
+    for (let step = 0; step < 8 && fetchMock.mock.calls.length < 1; step += 1) {
+      await act(async () => { await new Promise(resolve => setImmediate(resolve)); });
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => { vi.advanceTimersByTime(100000); });
+    expect(screen.getByText(/request timed out/)).toBeTruthy();
+    expect(mock.uploads).toHaveLength(0);
   });
 
   it('shows an indeterminate bar while generating and removes it on success', async () => {
@@ -277,7 +350,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
     await waitFor(() => expect(screen.getByText(/Synthetic provider unavailable/)).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(mock.uploads).toHaveLength(1);
+    expect(mock.uploads).toHaveLength(0);
     expect(mock.showToast).not.toHaveBeenCalled();
     expect(mock.writes).toEqual([]);
   });
@@ -296,7 +369,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     expect(mock.writes).toEqual([]);
   });
 
-  it('reuses the uploaded PDF after a transport failure and an explicit retry', async () => {
+  it('retries AI after a transport failure and uploads only after success', async () => {
     let finishRetry;
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
@@ -310,7 +383,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     await waitFor(() => expect(screen.getByText(/Could not receive a response.*Failed to fetch/)).toBeTruthy());
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(mock.uploads).toHaveLength(1);
+    expect(mock.uploads).toHaveLength(0);
     expect(mock.showToast).not.toHaveBeenCalled();
     expect(mock.writes).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
@@ -323,7 +396,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     expect(mock.writes).toEqual([]);
   });
 
-  it('uploads again when the teacher replaces the selected PDF after failure', async () => {
+  it('uploads only the replacement PDF after the first AI request fails', async () => {
     const fetchMock = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch'))
       .mockResolvedValueOnce({ ok: true, json: async () => ({ html: '<p>Replacement plan</p>', truncated: false }) });
     vi.stubGlobal('fetch', fetchMock);
@@ -335,7 +408,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     fireEvent.change(document.querySelector('#lesson-pdf-upload'), { target: { files: [replacement] } });
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('Replacement plan'));
-    expect(mock.uploads).toHaveLength(2);
+    expect(mock.uploads).toHaveLength(1);
     expect(mock.writes).toEqual([]);
   });
 });

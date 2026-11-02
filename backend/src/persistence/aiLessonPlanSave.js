@@ -21,7 +21,7 @@ const classes = new Set([
 ]);
 async function getPurifier(markStage) {
   markStage(purifierOperation);
-  purifierPromise ??= import('jsdom').then(({ JSDOM }) => {
+  purifierPromise ??= import('jsdom-lesson-plan').then(({ JSDOM }) => {
     purifierOperation = 'purifier_init';
     markStage(purifierOperation);
     const purifier = createDOMPurify(new JSDOM('').window);
@@ -58,7 +58,7 @@ export async function sanitizeAiLessonPlanHtml(html, markStage = () => {}) {
 }
 
 export function describeJsdomImportFailure(error, {
-  resolveJsdom = () => createRequire(import.meta.url).resolve('jsdom'),
+  resolveJsdom = () => createRequire(import.meta.url).resolve('jsdom-lesson-plan'),
   checkStylesheet = file => accessSync(file, constants.R_OK),
 } = {}) {
   const result = { errorCode: 'other', errorName: 'other', packageResolution: 'other', stylesheetAccess: 'other' };

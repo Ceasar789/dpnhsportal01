@@ -32,6 +32,20 @@ test('forged owner and classification are ignored; HTML is sanitized before one 
   assert.equal(await sanitizeAiLessonPlanHtml('<script>bad()</script><p>Safe</p>'), '<p>Safe</p>');
 });
 
+test('lesson plan save reaches one RPC when CommonJS cannot require ESM dependencies', async () => {
+  const calls = [];
+  const service = createAiLessonPlanSave({ invokeRpc: async (_name, args) => {
+    calls.push(args);
+    return { data: saved(args), error: null };
+  } });
+  const result = await service.save('synthetic-token', { ...command(),
+    html: '<div class="ilaw-lesson-plan" onclick="bad()"><p>Synthetic draft</p><script>bad()</script></div>' },
+  owner);
+  assert.equal(result.ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].p_html, '<div class="ilaw-lesson-plan"><p>Synthetic draft</p></div>');
+});
+
 test('server sanitizer keeps the ILAW weekday table and approved classes needed by saved readers', async () => {
   const html = '<div class="ilaw-week-table unknown"><table><tbody><tr><th>Monday</th>'
     + '<td><span class="ilaw-label">Objective</span></td></tr></tbody></table></div>';

@@ -7,7 +7,7 @@ const MESSAGES = [
   'Creating questions based on your lesson plan.',
   'Large worksheets can take several minutes.',
   'The service may pause briefly to stay within usage limits.',
-  'Almost there. Thank you for your patience.',
+  'Still working on your weekly worksheets. Thank you for waiting.',
 ];
 const LONG_WAIT = 'This is taking longer than usual. Please keep this page open.';
 const messageAt = seconds => seconds >= 180 ? LONG_WAIT : MESSAGES[Math.floor(seconds / 9) % MESSAGES.length];

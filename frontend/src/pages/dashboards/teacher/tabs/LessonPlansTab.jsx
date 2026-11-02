@@ -58,6 +58,25 @@ import '../ilaw/IlawActivePreview.css';
 // base64 inflates a file by about a third.
 const MAX_PDF_MB = 3;
 const SCHOOL_NAME = /dela\s+paz\s+national\s+high\s+school/i;
+const LESSON_PLAN_WAIT_MESSAGES = [
+  'Generating an editable ILAW lesson plan from your PDF.',
+  'Waiting for the lesson plan response. Please keep this page open.',
+  'The request is still pending. Larger PDFs can take more time.',
+  'Your editable draft will appear here if generation succeeds.',
+  'Still waiting for a response from the lesson plan service.',
+];
+const LESSON_PLAN_LONG_WAIT = 'This is taking longer than usual. The request is still pending. Please keep this page open.';
+
+function LessonPlanGenerationMessage() {
+  const [ticks, setTicks] = useState(0);
+  useEffect(() => {
+    if (ticks >= 7) return undefined;
+    const timer = window.setTimeout(() => setTicks(value => value + 1), 9000);
+    return () => window.clearTimeout(timer);
+  }, [ticks]);
+  return ticks >= 7 ? LESSON_PLAN_LONG_WAIT : LESSON_PLAN_WAIT_MESSAGES[ticks % LESSON_PLAN_WAIT_MESSAGES.length];
+}
+
 const PLAN_STATUS = {
   draft: { color: 'var(--badge-yellow-fg)', bg: 'var(--badge-yellow-bg)' },
   published: { color: 'var(--badge-green-fg)', bg: 'var(--badge-green-bg)' },
@@ -593,14 +612,14 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       if (!session?.access_token) throw new Error('Your session has expired. Sign in again and retry.');
 
       // 1. Convert to base64
-      setUploadProgress('Reading PDF...');
+      setUploadProgress('Reading the selected PDF...');
       const base64 = await fileToBase64(file);
 
       // Reuse this page's confirmed upload when retrying the same file after AI failure.
-      setUploadProgress('Preparing PDF...');
+      setUploadProgress('Preparing the PDF for upload...');
       let uploaded = uploadedPdfRef.current;
       if (uploaded?.file !== file || uploaded.teacherId !== userData?.uid) {
-        setUploadProgress('Uploading to storage...');
+        setUploadProgress('Uploading the PDF...');
         const filePath = `${userData?.uid}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.pdf`;
         const { error: uploadError } = await supabase.storage
           .from('lesson-pdfs')
@@ -626,7 +645,6 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       // 3. Send to Gemini
       setUploading(false);
       setGenerating(true);
-      setUploadProgress('Analyzing your PDF and preparing an editable ILAW lesson plan. Your draft will appear when ready.');
 
       const { html, truncated } = await callGeminiWithPDF(base64, file.name);
       const safeHtml = sanitizeLessonPlanHtml(html);
@@ -1122,26 +1140,28 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
               <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
                 style={{ backgroundColor: 'var(--card2)', color: 'var(--banner-accent)' }}>
                 {(uploading || generating) ? (
-                  <Loader2 size={24} className="animate-spin" aria-hidden="true" />
+                  <Loader2 size={24} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 ) : (
                   <Upload size={24} aria-hidden="true" />
                 )}
               </div>
 
               {(uploading || generating) ? (
-                <>
-                  <p role="status" className="font-semibold mb-2" style={{ color: 'var(--text)' }}>{uploadProgress}</p>
-                  {generating && <div role="progressbar" aria-label="Generating ILAW lesson plan"
-                    className="mx-auto mb-3 h-2 w-full max-w-md overflow-hidden rounded-full"
-                    style={{ backgroundColor: 'var(--card2)' }}>
-                    <div className="h-full w-1/3 rounded-full motion-safe:animate-pulse"
-                      style={{ backgroundColor: 'var(--banner-accent)' }} />
-                  </div>}
-                  <p className="text-sm break-all mb-1" style={{ color: 'var(--text)' }}>{selectedPdf?.name}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    Keep this page open. Your editable result will appear when generation finishes.
+                <div className="rounded-lg border p-4 grid gap-3 text-left min-w-0"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card2)' }}>
+                  <p role="status" aria-live="polite" className="font-semibold break-words" style={{ color: 'var(--text)' }}>
+                    {generating ? <LessonPlanGenerationMessage /> : uploadProgress}
                   </p>
-                </>
+                  <div role="progressbar" aria-label={generating ? 'Generating ILAW lesson plan' : 'Preparing PDF for lesson plan'}
+                    className="h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: 'var(--border)' }}>
+                    <div className="h-full w-1/3 rounded-full motion-safe:animate-pulse"
+                      style={{ backgroundColor: 'var(--accent)' }} />
+                  </div>
+                  <p className="text-sm break-all" style={{ color: 'var(--text)' }}>{selectedPdf?.name}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Keep this page open. If generation succeeds, the editable draft will appear here.
+                  </p>
+                </div>
               ) : (
                 <>
                   <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>

@@ -26,7 +26,7 @@ it('rotates honest status lines every nine seconds and switches to the longer-wa
   expect(current()).toBe('The service may pause briefly to stay within usage limits.');
   expect(screen.getByRole('status').textContent).toBe(announcement);
   advance(9000);
-  expect(current()).toBe('Almost there. Thank you for your patience.');
+  expect(current()).toBe('Still working on your weekly worksheets. Thank you for waiting.');
   expect(screen.getByRole('status').textContent).not.toBe(announcement);
   advance(9000);
   expect(current()).toBe('Please keep this page open while we work.');

@@ -26,6 +26,7 @@ import StudentsTab from './tabs/StudentsTab';
 import LessonPlansTab from './tabs/LessonPlansTab';
 import WorksheetsTab from './tabs/WorksheetsTab';
 import { restoreLocallySavedWorksheet } from './worksheets/generatedDraftModel';
+import { createWeeklyJobDraftCollection } from './worksheets/weeklyWorksheetCollection';
 import { saveAiWeeklyWorksheets, weeklyWorksheetSaveFlagEnabled } from './persistence/aiWeeklyWorksheetSaveClient';
 import GradesTab from './tabs/GradesTab';
 import EssayReviewLab from './worksheets/EssayReviewLab';
@@ -396,6 +397,12 @@ const TeacherDashboard = () => {
     setGeneratedDraft({ teacherId: userData?.uid, draft });
     setLocalDistributions([]);
   }, [saveWeeklyCollection, userData?.uid]);
+  const openCompletedWeeklyJobDraft = useCallback((jobId, result) => {
+    const collection = createWeeklyJobDraftCollection({ jobId, result, teacherId: userData?.uid });
+    setWeeklyCollections(current => current.some(item => item.collectionId === jobId)
+      ? current : [...current, collection]);
+    navigate('/teacher-dashboard/worksheets');
+  }, [navigate, userData?.uid]);
   const updateGeneratedDraft = useCallback(update => {
     setGeneratedDraft(current => current?.teacherId === userData?.uid
       ? { ...current, draft: typeof update === 'function' ? update(current.draft) : update } : current);
@@ -453,6 +460,7 @@ const TeacherDashboard = () => {
             <Route path="/" element={<OverviewTab />} />
             <Route path="/students" element={<StudentsTab />} />
             <Route path="/lesson-plans" element={<LessonPlansTab onGeneratedDraft={openGeneratedDraft}
+              onCompletedWeeklyJobDraft={openCompletedWeeklyJobDraft}
               weeklySaveStates={weeklySaveStates}
               generatedDraft={generatedDraft?.teacherId === userData?.uid ? generatedDraft.draft : null} />} />
             <Route path="/worksheets" element={<WorksheetsTab generatedDraft={generatedDraft?.teacherId === userData?.uid ? generatedDraft.draft : null}

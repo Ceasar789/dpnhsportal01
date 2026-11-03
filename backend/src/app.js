@@ -70,7 +70,15 @@ function corsOrigin() {
   };
 }
 
-export function createApp() {
+async function loadWeeklyDraftRouters(env) {
+  const [{ createWeeklyDraftJobsRouter }, { createWeeklyDraftWorkerComposition }] = await Promise.all([
+    import('./routes/weeklyDraftJobs.js'), import('./lib/weeklyDraftWorkerComposition.js'),
+  ]);
+  const worker = createWeeklyDraftWorkerComposition({ env });
+  return { teacher: createWeeklyDraftJobsRouter(), worker };
+}
+
+export function createApp({ env = process.env, loadDraftRouters = loadWeeklyDraftRouters } = {}) {
   const app = express();
 
   app.use(cors({ origin: corsOrigin(), credentials: false }));
@@ -105,6 +113,24 @@ export function createApp() {
   app.use('/api/ai/weekly-jobs', createWeeklyJobRouter());
   app.use('/api/admin/users', adminUsersRouter);
   app.use('/api/onboarding', onboardingRouter);
+
+  if (env?.WEEKLY_DRAFT_GENERATION_ENABLED === 'true') {
+    let initialization;
+    const routers = () => initialization ??= Promise.resolve().then(() => loadDraftRouters(env)).then(result => {
+      if (typeof result?.teacher !== 'function' || typeof result?.worker !== 'function')
+        throw new TypeError('Weekly draft routes are unavailable.');
+      return result;
+    });
+    const mount = route => async (req, res, next) => {
+      try { (await routers())[route](req, res, next); }
+      catch {
+        res.set('Cache-Control', 'no-store');
+        res.status(503).json({ code: 'weekly_draft_unavailable', error: 'Weekly generation is unavailable.' });
+      }
+    };
+    app.use('/api/ai/weekly-draft-jobs', mount('teacher'));
+    app.use('/api/internal/weekly-draft-worker', mount('worker'));
+  }
 
   app.use((_req, res) => res.status(404).json({ error: 'Not found.' }));
 

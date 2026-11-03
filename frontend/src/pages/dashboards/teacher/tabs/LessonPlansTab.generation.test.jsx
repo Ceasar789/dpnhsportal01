@@ -3,15 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LessonPlansTab from './LessonPlansTab';
+import { createBlankIlawDocument, WEEKDAYS, WEEKLY_FIELDS } from '../ilaw/ilawTemplateModel';
+import { serializeManualIlawV2 } from '../ilaw/manualIlawV2';
 
-const mock = vi.hoisted(() => ({ uploads: [], urlRequests: [], writes: [], uploadGate: null, uploadError: null, teacherId: 'synthetic-teacher', showToast: vi.fn(), session: { access_token: 'synthetic-token' } }));
+const mock = vi.hoisted(() => ({ uploads: [], urlRequests: [], writes: [], plans: [], uploadGate: null, uploadError: null, teacherId: 'synthetic-teacher', showToast: vi.fn(), session: { access_token: 'synthetic-token' } }));
 
 vi.mock('../../../../context/AuthContext', () => ({ useAuth: () => ({ userData: { uid: mock.teacherId } }) }));
 vi.mock('../../../../config/supabase', () => ({ supabase: {
   auth: { getSession: async () => ({ data: { session: mock.session } }) },
   from(table) {
     if (table === 'teacher_subjects') return { select() { return this; }, eq() { return this; }, then(resolve) { return Promise.resolve({ data: [], error: null }).then(resolve); } };
-    return { select() { return this; }, eq() { return this; }, order: async () => ({ data: [], error: null }),
+    return { select() { return this; }, eq() { return this; }, order: async () => ({ data: table === 'lesson_plans' ? mock.plans : [], error: null }),
       insert() { mock.writes.push('insert'); throw new Error('Unexpected database write'); } };
   },
   storage: { from(bucket) {
@@ -37,6 +39,7 @@ afterEach(() => {
   mock.uploads.length = 0;
   mock.urlRequests.length = 0;
   mock.writes.length = 0;
+  mock.plans.length = 0;
   mock.uploadGate = null;
   mock.uploadError = null;
   mock.teacherId = 'synthetic-teacher';
@@ -44,7 +47,46 @@ afterEach(() => {
   mock.showToast.mockClear();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  sessionStorage.removeItem('eduscribe-weekly-draft-job-v1');
 });
+
+const savedPlanId = 'c137877f-b729-4e7e-b258-c6cbb18cced1';
+const jobId = '823ebbd4-1bfe-459c-97e6-0200e738a5cb';
+const jobSummary = (status = 'QUEUED', completedBatches = 0) => ({ id: jobId, status,
+  plannedCalls: 15, attemptedCalls: completedBatches, completedBatches, failureCategory: null });
+const savedPlan = (manual = false) => {
+  const row = { id: savedPlanId, teacher_id: mock.teacherId, status: 'draft',
+    title: manual ? 'Cells' : 'Synthetic AI ILAW', subject: 'Science', grade_level: 'Grade 7',
+    subject_id: null, academic_year: '2026-2027', ai_generated: !manual,
+    objectives: '<h1>Monday to Friday ILAW</h1>' };
+  if (manual) {
+    const document = createBlankIlawDocument({ subject: 'Science', grade: 'Grade 7, A' });
+    document.info.nameOfLesson = 'Cells';
+    for (const [field] of WEEKLY_FIELDS) for (const day of WEEKDAYS)
+      document.weekly[field][day] = `${field} ${day}`;
+    row.objectives = serializeManualIlawV2({ kind: 'eduscribe.manual-ilaw', version: 2,
+      teacherId: row.teacher_id, planId: row.id, title: row.title, workflowState: 'saved', document,
+      assignment: { subjectId: 'synthetic-subject', subjectName: 'Science', gradeLevel: 'Grade 7',
+        schoolYear: '2026-2027' },
+      sourceDetails: { classDuration: '45 minutes', teachingStrategy: 'Inquiry',
+        learningObjectives: 'Understand cells' } });
+  }
+  return row;
+};
+const jobClient = (overrides = {}) => ({ enabled: true,
+  submit: vi.fn(async () => jobSummary()), status: vi.fn(async () => jobSummary()),
+  cancel: vi.fn(async () => ({ id: jobId, status: 'CANCELED' })),
+  result: vi.fn(async () => ({ kind: 'weekly-worksheet-collection', saved: false })),
+  ...overrides });
+const renderSavedJob = async (client, onCompletedWeeklyJobDraft = vi.fn(), manual = false) => {
+  mock.plans.splice(0, mock.plans.length, savedPlan(manual));
+  const view = render(<MemoryRouter><LessonPlansTab jobClient={client}
+    onCompletedWeeklyJobDraft={onCompletedWeeklyJobDraft} onGeneratedDraft={vi.fn()} /></MemoryRouter>);
+  const name = `Generate Worksheet from ${mock.plans[0].title}`;
+  await screen.findByRole('button', { name });
+  return { view, name, onCompletedWeeklyJobDraft };
+};
+const flushJob = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); }); };
 
 describe('AI lesson plan generation with synthetic services', () => {
   it('cancels a pending upload and ignores its late result', async () => {
@@ -410,5 +452,213 @@ describe('AI lesson plan generation with synthetic services', () => {
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('Replacement plan'));
     expect(mock.uploads).toHaveLength(1);
     expect(mock.writes).toEqual([]);
+  });
+});
+
+describe('saved-plan draft-only weekly job handoff', () => {
+  it.each([false, true])('submits an owned saved %s plan with the selected count and no fixture or save', async manual => {
+    const client = jobClient();
+    const { name } = await renderSavedJob(client, vi.fn(), manual);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Questions per day' }), { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    expect(client.submit).toHaveBeenCalledTimes(1);
+    expect(client.submit.mock.calls[0][0]).toMatchObject({ sourceLessonPlanId: savedPlanId, questionCount: 40 });
+    expect(client.submit.mock.calls[0][0].requestId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(mock.writes).toEqual([]);
+    expect(mock.uploads).toEqual([]);
+  });
+
+  it('reuses an uncertain submit request ID only on an explicit retry', async () => {
+    const client = jobClient({ submit: vi.fn()
+      .mockRejectedValueOnce({ code: 'submit_unconfirmed' }).mockResolvedValueOnce(jobSummary()) });
+    const { name } = await renderSavedJob(client);
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    expect(screen.getByText(/Could not confirm whether the job was submitted/)).toBeTruthy();
+    expect(client.submit).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same request' }));
+    await flushJob();
+    expect(client.submit).toHaveBeenCalledTimes(2);
+    expect(client.submit.mock.calls[1][0]).toEqual(client.submit.mock.calls[0][0]);
+    expect(screen.getByText(/0 of 15 batches validated/)).toBeTruthy();
+    expect(Object.keys(JSON.parse(sessionStorage.getItem('eduscribe-weekly-draft-job-v1'))).sort())
+      .toEqual(['jobId', 'planId', 'questionCount', 'requestId', 'teacherId']);
+  });
+
+  it('polls confirmed counts without an estimate and stops after closing the view', async () => {
+    const client = jobClient({ status: vi.fn()
+      .mockResolvedValueOnce(jobSummary('QUEUED'))
+      .mockResolvedValueOnce(jobSummary('RUNNING', 2)) });
+    const { name } = await renderSavedJob(client);
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    expect(screen.getByText(/queued: 0 of 15 batches validated; 0 provider requests attempted/)).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });
+    expect(screen.getByText(/running: 2 of 15 batches validated; 2 provider requests attempted/)).toBeTruthy();
+    expect(screen.queryByText(/%|minutes remaining|tokens used/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    const calls = client.status.mock.calls.length;
+    await act(async () => { vi.advanceTimersByTime(9000); });
+    expect(client.status).toHaveBeenCalledTimes(calls);
+  });
+
+  it('reads a completed result and hands it off once without using the legacy callback', async () => {
+    const handoff = vi.fn();
+    const oldHandoff = vi.fn();
+    const result = { kind: 'weekly-worksheet-collection', saved: false };
+    const client = jobClient({ status: vi.fn(async () => jobSummary('COMPLETED', 15)),
+      result: vi.fn(async () => result) });
+    mock.plans.push(savedPlan());
+    render(<MemoryRouter><LessonPlansTab jobClient={client} onCompletedWeeklyJobDraft={handoff}
+      onGeneratedDraft={oldHandoff} /></MemoryRouter>);
+    const button = await screen.findByRole('button', { name: /Generate Worksheet from Synthetic AI ILAW/ });
+    fireEvent.click(button);
+    await flushJob();
+    expect(client.result).toHaveBeenCalledTimes(1);
+    expect(handoff).toHaveBeenCalledTimes(1);
+    expect(handoff).toHaveBeenCalledWith(jobId, result);
+    expect(oldHandoff).not.toHaveBeenCalled();
+    expect(mock.writes).toEqual([]);
+  });
+
+  it('confirms Cancel and never opens a draft', async () => {
+    const handoff = vi.fn();
+    const client = jobClient();
+    const { name } = await renderSavedJob(client, handoff);
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    fireEvent.click(screen.getByRole('button', { name: 'Request cancellation' }));
+    await flushJob();
+    expect(client.cancel).toHaveBeenCalledWith(jobId);
+    expect(screen.getAllByRole('alert').some(alert => alert.textContent.includes('canceled'))).toBe(true);
+    expect(client.result).not.toHaveBeenCalled();
+    expect(handoff).not.toHaveBeenCalled();
+  });
+
+  it.each(['FAILED', 'INTERRUPTED_UNKNOWN_OUTCOME'])(
+    'follows a confirmed %s Cancel receipt to its actual terminal status', async status => {
+      const handoff = vi.fn();
+      const client = jobClient({
+        cancel: vi.fn(async () => ({ id: jobId, status })),
+        status: vi.fn().mockResolvedValueOnce(jobSummary()).mockResolvedValueOnce(jobSummary(status)),
+      });
+      const { name } = await renderSavedJob(client, handoff);
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      fireEvent.click(screen.getByRole('button', { name }));
+      await flushJob();
+      fireEvent.click(screen.getByRole('button', { name: 'Request cancellation' }));
+      await flushJob();
+      expect(screen.getByText('The job already ended. Checking its final status.')).toBeTruthy();
+      expect(screen.queryByText(/Could not confirm cancellation/)).toBeNull();
+      await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });
+      const expected = status === 'FAILED' ? /Weekly generation failed/ : /unknown outcome/;
+      expect(screen.getAllByRole('alert').some(alert => expected.test(alert.textContent))).toBe(true);
+      expect(client.result).not.toHaveBeenCalled();
+      expect(handoff).not.toHaveBeenCalled();
+    });
+
+  it('keeps checking after an unconfirmed Cancel and reports a completion race', async () => {
+    let finishResult;
+    const handoff = vi.fn();
+    const client = jobClient({ cancel: vi.fn(async () => { throw { code: 'cancel_unconfirmed' }; }),
+      status: vi.fn().mockResolvedValueOnce(jobSummary()).mockResolvedValueOnce(jobSummary('COMPLETED', 15)),
+      result: vi.fn(() => new Promise(resolve => { finishResult = resolve; })) });
+    const { name } = await renderSavedJob(client, handoff);
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    fireEvent.click(screen.getByRole('button', { name: 'Request cancellation' }));
+    await flushJob();
+    expect(screen.getByText(/Could not confirm cancellation/)).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });
+    expect(client.result).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/completed before cancellation/)).toBeTruthy();
+    await act(async () => finishResult({ kind: 'weekly-worksheet-collection', saved: false }));
+    expect(handoff).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call a completed job canceled when completion wins the Cancel request', async () => {
+    let finishResult;
+    const handoff = vi.fn();
+    const client = jobClient({ cancel: vi.fn(async () => ({ id: jobId, status: 'COMPLETED' })),
+      status: vi.fn().mockResolvedValueOnce(jobSummary()).mockResolvedValueOnce(jobSummary('COMPLETED', 15)),
+      result: vi.fn(() => new Promise(resolve => { finishResult = resolve; })) });
+    const { name } = await renderSavedJob(client, handoff);
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    fireEvent.click(screen.getByRole('button', { name: 'Request cancellation' }));
+    await flushJob();
+    expect(screen.getByText(/completed before cancellation/)).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });
+    await act(async () => finishResult({ kind: 'weekly-worksheet-collection', saved: false }));
+    expect(handoff).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/generation was canceled/i)).toBeNull();
+  });
+
+  it('reports a changed source or expired job without opening a draft', async () => {
+    const handoff = vi.fn();
+    const client = jobClient({ submit: vi.fn(async () => { throw { code: 'source_changed' }; }) });
+    const { name } = await renderSavedJob(client, handoff);
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    expect(screen.getByText(/saved lesson plan changed/)).toBeTruthy();
+    expect(handoff).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    client.submit.mockResolvedValueOnce(jobSummary());
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    client.status.mockRejectedValueOnce({ code: 'not_found' });
+    await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });
+    expect(screen.getByText(/unavailable or expired/)).toBeTruthy();
+    expect(client.result).not.toHaveBeenCalled();
+  });
+
+  it('ignores an in-flight status response after unmount and clears its polling interval', async () => {
+    let finishStatus;
+    const handoff = vi.fn();
+    const client = jobClient({ status: vi.fn(() => new Promise(resolve => { finishStatus = resolve; })) });
+    const { name, view } = await renderSavedJob(client, handoff);
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    const calls = client.status.mock.calls.length;
+    view.unmount();
+    await act(async () => { finishStatus(jobSummary('COMPLETED', 15));
+      vi.advanceTimersByTime(9000); });
+    expect(client.status).toHaveBeenCalledTimes(calls);
+    expect(client.result).not.toHaveBeenCalled();
+    expect(handoff).not.toHaveBeenCalled();
+  });
+
+  it.each(['FAILED', 'CANCELED', 'INTERRUPTED_UNKNOWN_OUTCOME'])(
+    'does not open a draft for terminal %s', async status => {
+      const handoff = vi.fn();
+      const client = jobClient({ status: vi.fn(async () => jobSummary(status)) });
+      const { name } = await renderSavedJob(client, handoff);
+      fireEvent.click(screen.getByRole('button', { name }));
+      await flushJob();
+      expect(screen.getAllByRole('alert').some(alert => /failed|canceled|unknown outcome/i.test(alert.textContent))).toBe(true);
+      expect(client.result).not.toHaveBeenCalled();
+      expect(handoff).not.toHaveBeenCalled();
+    });
+
+  it('resumes a pending job after remount and verifies ownership through status before Cancel', async () => {
+    const client = jobClient();
+    const { name, view } = await renderSavedJob(client);
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    view.unmount();
+    const resumed = await renderSavedJob(client);
+    fireEvent.click(screen.getByRole('button', { name: 'Resume weekly job' }));
+    await flushJob();
+    expect(client.status.mock.calls.length).toBeGreaterThan(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Request cancellation' }));
+    await flushJob();
+    expect(client.cancel).toHaveBeenCalledWith(jobId);
+    resumed.view.unmount();
   });
 });

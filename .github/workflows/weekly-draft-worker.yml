@@ -1,0 +1,29 @@
+name: Weekly Draft Worker QA
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3-53/10 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-draft-worker-qa
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    if: vars.WEEKLY_DRAFT_WORKER_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run bounded weekly draft worker tick
+        env:
+          WEEKLY_DRAFT_WORKER_URL: ${{ vars.WEEKLY_DRAFT_WORKER_URL }}
+          WEEKLY_DRAFT_WORKER_SECRET: ${{ secrets.WEEKLY_DRAFT_WORKER_SECRET }}
+        run: node backend/scripts/weekly-draft-worker-tick.mjs

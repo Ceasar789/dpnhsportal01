@@ -3,11 +3,44 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import TeacherDashboard from './TeacherDashboard';
+import { createWeeklyJobClient } from './persistence/weeklyJobClient';
+import { createWeeklyJobDraftCollection } from './worksheets/weeklyWorksheetCollection';
+import { editableDraftItems, updateGeneratedDraft, validateGeneratedWorksheet } from './worksheets/generatedDraftModel';
 
-const { logoutMock, profileGuard, teacherState, weeklySaveMock, weeklyGate } = vi.hoisted(() => ({
+const { logoutMock, profileGuard, teacherState, weeklySaveMock, weeklyGate,
+  completedJobPayload, renderedCollections } = vi.hoisted(() => ({
   logoutMock: vi.fn(), profileGuard: { mode: 'clean', action: null }, teacherState: { uid: 'teacher-1' },
   weeklySaveMock: vi.fn(), weeklyGate: { enabled: false },
+  completedJobPayload: { current: null }, renderedCollections: { current: [] },
 }));
+const completedJobId = '823ebbd4-1bfe-459c-97e6-0200e738a5cb';
+const planId = 'c137877f-b729-4e7e-b258-c6cbb18cced1';
+const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const questionType = index => ['multiple_choice', 'multiple_choice', 'multiple_choice', 'multiple_choice',
+  'true_false', 'true_false', 'true_false', 'enumeration', 'enumeration', 'essay'][index % 10];
+const answerFor = type => type === 'multiple_choice' ? 'First' : type === 'true_false' ? 'True' : 'one, two';
+const completedJobResult = () => ({ kind: 'weekly-worksheet-collection', status: 'local-draft', saved: false,
+  teacherId: teacherState.uid, sourceLessonPlan: { id: planId, title: 'English 7 Lesson Plan' },
+  worksheets: weekdays.map(day => ({
+    day, status: 'generated-draft', saved: false, title: `${day} batch 1 title`,
+    instructions: `${day} batch 1 directions`, subjectId: '', subjectName: '', gradeLevel: 'Grade 7',
+    schoolYear: '2026-2027', assignmentVerified: false,
+    sourceLessonPlan: { id: planId, title: 'English 7 Lesson Plan' },
+    sourceContext: { day, objective: `${day} objective`, activity: `${day} activity`, assessment: `${day} assessment` },
+    questions: Array.from({ length: 20 }, (_, index) => {
+      const item_type = questionType(index);
+      return { localId: `draft-${index + 1}`, question: `${day} question ${index + 1}`,
+        item_type, options: item_type === 'multiple_choice' ? ['First', 'Second', 'Third', 'Fourth'] : [], points: 1,
+        ...(item_type === 'enumeration' ? { enumeration: { alternatives: [], orderSensitive: false } } : {}),
+        ...(item_type === 'essay' ? { essay: { referenceAnswer: 'A worked explanation.', minWords: 10,
+          maxWords: 100, rubric: [{ criterion: 'Reasoning', points: 1 }] } } : {}) };
+    }),
+    answerKey: Array.from({ length: 20 }, (_, index) => ({ index, type: questionType(index) }))
+      .filter(item => item.type !== 'essay')
+      .map(item => ({ localId: `draft-${item.index + 1}`, correct_answer: answerFor(item.type) })),
+    typeDistribution: { multiple_choice: 8, true_false: 6, enumeration: 4, essay: 2 },
+    distributionNote: day === 'Monday' ? 'Note 1. Note 2.' : '',
+  })) });
 
 vi.mock('./persistence/aiWeeklyWorksheetSaveClient', () => ({
   weeklyWorksheetSaveFlagEnabled: () => weeklyGate.enabled,
@@ -32,27 +65,36 @@ vi.mock('../../../hooks/useSignedPhotoUrl', () => ({ useSignedPhotoUrl: () => ''
 vi.mock('../../../components/NotificationBell', () => ({ default: () => <button>Notifications</button> }));
 vi.mock('./tabs/OverviewTab', () => ({ default: () => <h2>Overview content</h2> }));
 vi.mock('./tabs/StudentsTab', () => ({ default: () => <h1>Students content</h1> }));
-vi.mock('./tabs/LessonPlansTab', () => ({ default: ({ onGeneratedDraft }) => <>
+vi.mock('./tabs/LessonPlansTab', () => ({ default: ({ onGeneratedDraft, onCompletedWeeklyJobDraft }) => <>
   <h1>Lesson plans content</h1>
   <button onClick={() => onGeneratedDraft({ draftId: 'synthetic-draft' })}>Open synthetic worksheet draft</button>
   <button onClick={() => onGeneratedDraft({ kind: 'weekly-worksheet-collection',
     collectionId: '11111111-1111-4111-8111-111111111111', teacherId: teacherState.uid,
     title: 'Synthetic week', worksheets: [{ day: 'Monday', title: 'Monday',
       questions: [{ question: 'Original question' }] }] })}>Hand off weekly collection</button>
+  <button onClick={() => onCompletedWeeklyJobDraft(completedJobId, completedJobPayload.current || completedJobResult())}>
+    Hand off completed draft job</button>
 </> }));
 vi.mock('./tabs/WorksheetsTab', () => ({ default: ({ generatedDraft, weeklyCollections,
-  weeklySaveStates, onRetryWeeklySave, onWeeklyCollectionChange }) => <>
+  weeklySaveStates, onRetryWeeklySave, onWeeklyCollectionChange }) => {
+  renderedCollections.current = weeklyCollections;
+  return <>
   <h1>Worksheets content</h1>
   <p>{generatedDraft ? 'Private draft is visible' : 'No private draft'}</p>
   <p>Weekly collections: {weeklyCollections.length}</p>
   {weeklyCollections.map(collection => <section key={collection.collectionId}>
     <p>Weekly status: {weeklySaveStates[collection.collectionId]?.status || 'idle'}</p>
     <p>Weekly title: {collection.title}</p>
+    <p>Collection identity: {collection.collectionId}</p>
+    <p>Daily drafts: {collection.worksheets.map(day => day.draftId).join(', ')}</p>
+    <p>First question: {collection.worksheets[0]?.questions?.[0]?.question}</p>
+    <p>First answer: {collection.worksheets[0]?.answerKey?.[0]?.correct_answer}</p>
     <button onClick={() => onWeeklyCollectionChange(collection.collectionId, current => ({ ...current,
       worksheets: [{ ...current.worksheets[0], questions: [{ question: 'Edited question' }] }] }))}>Edit weekly</button>
     <button onClick={() => onRetryWeeklySave(collection, true)}>Retry weekly</button>
   </section>)}
-</> }));
+</>;
+} }));
 vi.mock('./tabs/GradesTab', () => ({ default: () => <h1>Grades content</h1> }));
 vi.mock('./tabs/AttendanceTab', () => ({ default: () => <h1>Attendance content</h1> }));
 vi.mock('./tabs/AnnouncementsTab', () => ({ default: () => <h1>Announcements content</h1> }));
@@ -72,6 +114,8 @@ describe('Teacher shell navigation', () => {
     profileGuard.action = null;
     weeklyGate.enabled = false;
     weeklySaveMock.mockReset();
+    completedJobPayload.current = null;
+    renderedCollections.current = [];
     originalOffsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
     Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
       configurable: true,
@@ -163,6 +207,87 @@ describe('Teacher shell navigation', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Worksheets', exact: true }));
     expect(weeklySaveMock).not.toHaveBeenCalled();
     expect(screen.getByText('Weekly status: idle')).toBeTruthy();
+  });
+
+  it('opens one completed job as an unsaved editable collection without auto-save even when the save gate is on', () => {
+    weeklyGate.enabled = true;
+    render(<MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off completed draft job' }));
+    expect(screen.getByText('Worksheets content')).toBeTruthy();
+    expect(screen.getByText('Weekly collections: 1')).toBeTruthy();
+    expect(screen.getByText(`Collection identity: ${completedJobId}`)).toBeTruthy();
+    expect(screen.getByText(`Daily drafts: ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+      .map(day => `${completedJobId}:${day}`).join(', ')}`)).toBeTruthy();
+    expect(screen.getByText('First question: Monday question 1')).toBeTruthy();
+    expect(screen.getByText('First answer: First')).toBeTruthy();
+    expect(screen.getByText('Weekly status: idle')).toBeTruthy();
+    expect(weeklySaveMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('link', { name: 'Lesson Plans', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off completed draft job' }));
+    expect(screen.getByText('Weekly collections: 1')).toBeTruthy();
+    expect(weeklySaveMock).not.toHaveBeenCalled();
+  });
+
+  it('carries the finalized five-day result through the real client, editable adapter, and unsaved dashboard handoff', async () => {
+    teacherState.uid = 'de0eb356-120c-4a10-a3b2-b730912f1f35';
+    weeklyGate.enabled = true;
+    const serverResult = completedJobResult();
+    const fetchImpl = vi.fn(async url => ({ ok: true, status: 200,
+      text: async () => JSON.stringify(url.endsWith('/result') ? serverResult : {
+        id: completedJobId, status: 'COMPLETED', plannedCalls: 10,
+        attemptedCalls: 10, completedBatches: 10, failureCategory: null,
+      }) }));
+    const client = createWeeklyJobClient({ enabled: true, apiBase: 'https://example.invalid',
+      getSession: async () => ({ data: { session: { access_token: 'synthetic-token' } } }), fetchImpl });
+    const authorized = await client.result(completedJobId);
+    expect(fetchImpl.mock.calls.map(([url, options]) => [url.endsWith('/result'), options.method]))
+      .toEqual([[false, 'GET'], [true, 'GET']]);
+    const adapted = createWeeklyJobDraftCollection({ jobId: completedJobId,
+      result: authorized, teacherId: teacherState.uid });
+    expect(adapted.worksheets.map(day => day.day)).toEqual(weekdays);
+    for (const [dayIndex, day] of adapted.worksheets.entries()) {
+      const source = authorized.worksheets[dayIndex];
+      expect(day.saved).toBe(false);
+      expect(day.sections.length).toBeGreaterThan(0);
+      expect(validateGeneratedWorksheet(day)).toEqual([]);
+      expect(day).toMatchObject({ title: source.title, instructions: source.instructions,
+        subjectId: source.subjectId, subjectName: source.subjectName,
+        gradeLevel: source.gradeLevel, schoolYear: source.schoolYear,
+        assignmentVerified: source.assignmentVerified, sourceContext: source.sourceContext });
+      expect(day.questions).toHaveLength(20);
+      expect(day.answerKey).toHaveLength(18);
+      expect(day.typeDistribution).toEqual(source.typeDistribution);
+      expect(day.distributionNote).toBe(source.distributionNote);
+      for (const [index, question] of source.questions.entries()) {
+        const localId = `${completedJobId}:${source.day}:${question.localId}`;
+        expect(day.questions[index]).toMatchObject({ ...question, localId });
+        const originalKey = source.answerKey.find(key => key.localId === question.localId);
+        expect(day.answerKey.find(key => key.localId === localId)?.correct_answer)
+          .toBe(originalKey?.correct_answer);
+      }
+      const editable = editableDraftItems(day);
+      expect(editable).toHaveLength(20);
+      expect(editable.map(item => item.uid)).toEqual(day.questions.map(item => item.localId));
+      const changed = updateGeneratedDraft(day, { title: `${day.title} edited`, items: editable,
+        checkingMode: day.checkingMode });
+      expect(changed.title).toBe(`${day.title} edited`);
+      expect(changed.answerKey).toEqual(day.answerKey);
+    }
+
+    completedJobPayload.current = authorized;
+    render(<MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off completed draft job' }));
+    expect(screen.getByText('Worksheets content')).toBeTruthy();
+    expect(renderedCollections.current).toHaveLength(1);
+    expect(renderedCollections.current[0].worksheets.map(day => day.questions))
+      .toEqual(adapted.worksheets.map(day => day.questions));
+    expect(renderedCollections.current[0].worksheets.map(day => day.answerKey))
+      .toEqual(adapted.worksheets.map(day => day.answerKey));
+    expect(weeklySaveMock).not.toHaveBeenCalled();
   });
 
   it.each(['unknown', 'persistence_failed'])('retries %s with the identical frozen collection', async outcome => {

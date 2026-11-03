@@ -4,7 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { access, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildWeeklyWorksheetPrompt, generateWeeklyWorksheetDrafts, parseDailyBatch, RESPONSE_SCHEMA, validateWeeklySources } from './weeklyWorksheetGenerator.js';
+import { buildWeeklyWorksheetPrompt, finalizeWeeklyWorksheetDrafts, generateWeeklyWorksheetDrafts,
+  parseDailyBatch, RESPONSE_SCHEMA,
+  validateSameDayBatchQuestions, validateWeeklySources } from './weeklyWorksheetGenerator.js';
 import { requestWeeklyWorksheetJson } from './weeklyWorksheetProvider.js';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -469,6 +471,70 @@ const fakeProvider = async (prompt, options) => {
   assert.ok(days.filter(other => other !== day).every(other => !prompt.includes(`Analyze ${other} panitikan`)));
   return response(day, batch);
 };
+
+const completedDailyBatches = () => sources.map(source => {
+  const batches = [1, 2].map(batch => parseDailyBatch(response(source.day, batch), plan, source, 10, batch));
+  return { title: batches[0].title, instructions: batches[0].instructions,
+    distributionNotes: [], batches };
+});
+
+test('pure finalizer reproduces the five-day generator output and aligned daily IDs', async () => {
+  const completedDays = completedDailyBatches();
+  const before = structuredClone(completedDays);
+  const finalized = finalizeWeeklyWorksheetDrafts(plan, sources, completedDays, 20);
+  const generated = await generateWeeklyWorksheetDrafts(plan, sources,
+    { questionCount: 20, generateText: fakeProvider });
+  assert.deepEqual(finalized, generated);
+  assert.deepEqual(completedDays, before);
+  assert.deepEqual(finalized.map(draft => draft.day), days);
+  for (const draft of finalized) {
+    assert.deepEqual(draft.questions.map(item => item.localId),
+      Array.from({ length: 20 }, (_, index) => `draft-${index + 1}`));
+    assert.deepEqual(draft.answerKey.map(item => item.localId),
+      draft.questions.filter(item => item.item_type !== 'essay').map(item => item.localId));
+  }
+});
+
+test('pure finalizer rejects an incomplete daily type mix at the day boundary', () => {
+  const batches = [1, 2].map(batch => {
+    const entry = JSON.parse(response('Monday', batch));
+    entry.questions = entry.questions.map((question, index) => ({ ...question,
+      question: `${question.question} choice ${index}`, item_type: 'multiple_choice',
+      options: ['A', 'B', 'C', 'D'], correct_answer: 'A' }));
+    return parseDailyBatch(JSON.stringify(entry), plan, sources[0], 10, batch);
+  });
+  assert.throws(() => finalizeWeeklyWorksheetDrafts(plan, sources,
+    [{ title: batches[0].title, instructions: batches[0].instructions,
+      distributionNotes: [], batches }], 20, { checkCrossDay: false }),
+  error => error.code === 'AI_RESPONSE_INVALID' && error.validation?.category === 'type_distribution'
+    && error.validation.day === 'Monday');
+});
+
+test('generator still stops at a Monday mix failure before requesting Tuesday', async () => {
+  let providerCalls = 0;
+  await assert.rejects(generateWeeklyWorksheetDrafts(plan, sources, { questionCount: 20,
+    generateText: async (prompt, options) => {
+      providerCalls += 1;
+      const entry = JSON.parse(await fakeProvider(prompt, options));
+      entry.questions = entry.questions.map((question, index) => ({ ...question,
+        question: `${question.question} choice ${index}`, item_type: 'multiple_choice',
+        options: ['A', 'B', 'C', 'D'], correct_answer: 'A' }));
+      return JSON.stringify(entry);
+    } }), error => error.validation?.category === 'type_distribution'
+      && error.validation.day === 'Monday' && error.providerCalls === 2);
+  assert.equal(providerCalls, 2);
+});
+
+test('pure finalizer rejects a cross-day duplicate after all five days', () => {
+  const completedDays = completedDailyBatches();
+  const entry = JSON.parse(response('Tuesday', 1));
+  entry.questions[0].question = item('Monday', 1, 0).question.replace('Monday', 'Tuesday');
+  completedDays[1].batches[0] = parseDailyBatch(JSON.stringify(entry), plan, sources[1], 10, 1);
+  assert.throws(() => finalizeWeeklyWorksheetDrafts(plan, sources, completedDays, 20),
+    error => error.code === 'AI_RESPONSE_INVALID' && error.validation?.category === 'duplicate_question'
+      && error.validation.day === 'Tuesday' && error.validation.path === 'questions'
+      && error.validation.subreason === 'duplicate_cross_day' && error.validation.batch === undefined);
+});
 
 test('chain falls from a primary 429 to the second Groq model and skips cooldown later', async () => withProviderChain(async () => {
   const models = []; const logs = []; const progress = [];
@@ -1012,6 +1078,21 @@ test('within-batch duplicates in batches 1 and 2 fail at the question path', asy
         && !JSON.stringify(error.validation).includes('taludtod'));
     assert.equal(calls, failingBatch);
   }
+});
+
+test('same-day batch validator rejects normalized prior questions without changing inputs', () => {
+  const earlier = Object.freeze(['Compare fractions', 'Explain ratios']);
+  const repeated = Object.freeze([{ question: 'COMPARE   FRACTIONS' }]);
+  assert.throws(() => validateSameDayBatchQuestions(repeated, earlier, 'Monday'), error =>
+    error.code === 'AI_RESPONSE_INVALID' && error.validation?.category === 'duplicate_question'
+      && error.validation.path === 'questions' && error.validation.day === 'Monday'
+      && error.validation.subreason === 'duplicate_prior_batch'
+      && error.validation.validatedCount === 2);
+  const distinct = Object.freeze([{ question: 'Classify polygons' }, { question: 'Compare decimals' }]);
+  assert.doesNotThrow(() => validateSameDayBatchQuestions(distinct, earlier, 'Monday'));
+  assert.deepEqual(earlier, ['Compare fractions', 'Explain ratios']);
+  assert.deepEqual(repeated, [{ question: 'COMPARE   FRACTIONS' }]);
+  assert.deepEqual(distinct, [{ question: 'Classify polygons' }, { question: 'Compare decimals' }]);
 });
 
 test('cross-batch duplicate fails at collection path after preserving the first batch', async () => {

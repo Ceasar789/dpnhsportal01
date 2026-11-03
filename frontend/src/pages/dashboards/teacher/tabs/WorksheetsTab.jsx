@@ -117,6 +117,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   manualDrafts = [], onCreateManualDraft, onManualDraftChange, onDiscardManualDraft,
   localDistributions = [], onLocalDistribution, onClearLocalDistributions,
   jobClient = weeklyJobClient }) => {
+  const legacyJobsEnabled = jobClient.enabled && typeof jobClient.listJobs === 'function'
+    && typeof jobClient.listCollections === 'function';
   const { dark } = useTheme();
   const { userData } = useAuth();
   const { toast, showToast } = useToast();
@@ -153,7 +155,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const [jobApiError, setJobApiError] = useState('');
   const [openingSaved, setOpeningSaved] = useState(false);
   useEffect(() => {
-    if (!jobClient.enabled || !userData?.uid) return;
+    if (!legacyJobsEnabled || !userData?.uid) return;
     let active = true;
     const refresh = async () => {
       try {
@@ -166,7 +168,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     refresh();
     const interval = window.setInterval(refresh, 5000);
     return () => { active = false; window.clearInterval(interval); };
-  }, [jobClient, userData?.uid]);
+  }, [jobClient, legacyJobsEnabled, userData?.uid]);
   const openExistingCollection = async id => {
     setOpeningSaved(true); setJobApiError('');
     try {
@@ -611,7 +613,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       {import.meta.env.PROD && !jobClient.enabled && <p role="status" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
         Durable weekly generation and reopening are unavailable. Local weekly drafts are not saved to EduScribe.
       </p>}
-      {jobClient.enabled && <section aria-label="Weekly generation jobs" className="mb-4">
+      {legacyJobsEnabled && <section aria-label="Weekly generation jobs" className="mb-4">
         <h2 className="text-base font-semibold">Weekly generation jobs</h2>
         {jobApiError && <p role="alert">{jobApiError}</p>}
         {ownedJobs.length === 0 && <p role="status">No private weekly generation jobs found.</p>}
@@ -631,7 +633,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       </section>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {jobClient.enabled && savedCollections.map(collection => <section key={collection.id}
+        {legacyJobsEnabled && savedCollections.map(collection => <section key={collection.id}
           aria-label="Saved weekly Worksheet collection" className="min-w-0 md:col-span-2 lg:col-span-3">
           <Card className="p-4 min-w-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <Badge color="var(--banner-accent)" bg="var(--card2)">{collection.durable

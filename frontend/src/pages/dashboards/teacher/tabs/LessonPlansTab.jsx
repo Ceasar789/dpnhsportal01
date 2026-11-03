@@ -147,11 +147,32 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL
     ? `${window.location.protocol}//${window.location.hostname}:3001`
     : '');
 
-const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {}, jobClient = weeklyJobClient }) => {
+const WEEKLY_JOB_STORAGE_KEY = 'eduscribe-weekly-draft-job-v1';
+const WEEKLY_JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const readWeeklyJob = teacherId => {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(WEEKLY_JOB_STORAGE_KEY));
+    return value?.teacherId === teacherId && WEEKLY_JOB_ID.test(value.planId)
+      && WEEKLY_JOB_ID.test(value.requestId)
+      && (value.jobId === null || WEEKLY_JOB_ID.test(value.jobId))
+      && [20, 30, 40].includes(value.questionCount) ? value : null;
+  } catch { return null; }
+};
+const weeklyJobFailure = job => job.status === 'CANCELED'
+  ? 'Weekly generation was canceled. No draft was opened.'
+  : job.status === 'INTERRUPTED_UNKNOWN_OUTCOME'
+    ? 'A provider request had an unknown outcome. Generation stopped without an editable draft.'
+    : job.failureCategory === 'source_changed'
+      ? 'The saved lesson plan changed during generation. No draft was opened.'
+      : 'Weekly generation failed. No draft was opened.';
+
+const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generatedDraft,
+  weeklySaveStates = {}, jobClient = weeklyJobClient }) => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const { toast, showToast } = useToast();
   const [worksheetRun, setWorksheetRun] = useState(null);
+  const [persistedJob, setPersistedJob] = useState(() => readWeeklyJob(userData?.uid));
   const activeWeeklySave = worksheetRun?.draft?.collectionId
     ? weeklySaveStates[worksheetRun.draft.collectionId] : null;
   const [worksheetGenerationError, setWorksheetGenerationError] = useState(null);
@@ -160,6 +181,19 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
   const worksheetRequestRef = useRef(0);
   const worksheetAbortRef = useRef(null);
   const worksheetTeacherRef = useRef(userData?.uid);
+  const handedOffJobsRef = useRef(new Set());
+  const cancelJobRef = useRef(false);
+  const rememberWeeklyJob = useCallback(value => {
+    setPersistedJob(value);
+    try { sessionStorage.setItem(WEEKLY_JOB_STORAGE_KEY, JSON.stringify(value)); } catch { /* In-memory state remains usable. */ }
+  }, []);
+  const forgetWeeklyJob = useCallback(jobId => {
+    setPersistedJob(current => current?.jobId === jobId ? null : current);
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(WEEKLY_JOB_STORAGE_KEY));
+      if (stored?.jobId === jobId) sessionStorage.removeItem(WEEKLY_JOB_STORAGE_KEY);
+    } catch { /* Storage may be unavailable. */ }
+  }, []);
   const finishWeeklyProgress = useCallback(() => setWorksheetRun(current => current?.status === 'generation-complete'
     ? { ...current, status: 'ready' } : current), []);
 
@@ -172,48 +206,146 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       worksheetGenerationRef.current = false;
       setWorksheetRun(null);
       setWorksheetGenerationError(null);
+      setPersistedJob(readWeeklyJob(userData?.uid));
     }
   }, [userData?.uid]);
 
   useEffect(() => {
     if (!jobClient.enabled || worksheetRun?.status !== 'job' || !worksheetRun.job?.id) return;
     const jobId = worksheetRun.job.id;
+    const attemptToken = worksheetRun.attemptToken;
     let active = true;
+    let inFlight = false;
     const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const job = await jobClient.status(jobId);
-        if (!active) return;
-        setWorksheetRun(current => current?.job?.id === jobId ? { ...current, job,
-          status: job.status === 'COMPLETED' ? job.saved ? 'saved' : 'error'
-            : ['FAILED_VALIDATION', 'FAILED_PROVIDER', 'INTERRUPTED_UNKNOWN_OUTCOME', 'CANCELED'].includes(job.status)
-              ? 'error' : 'job',
-          message: job.status === 'COMPLETED' && !job.saved ? 'The job finished without a confirmed durable Save.'
-            : ['FAILED_VALIDATION', 'FAILED_PROVIDER', 'INTERRUPTED_UNKNOWN_OUTCOME', 'CANCELED'].includes(job.status)
-              ? `Worksheet job stopped: ${job.status.replaceAll('_', ' ').toLowerCase()}.` : current.message,
-        } : current);
-      } catch {
-        if (active) setWorksheetRun(current => current?.job?.id === jobId
-          ? { ...current, status: 'error', message: 'Could not read the saved job status. Check the backend before retrying.' }
+        if (!active || attemptToken !== worksheetRequestRef.current) return;
+        if (['FAILED', 'CANCELED', 'INTERRUPTED_UNKNOWN_OUTCOME'].includes(job.status)) {
+          forgetWeeklyJob(jobId);
+          setWorksheetRun(current => current?.attemptToken === attemptToken
+            ? { ...current, job, status: 'error', message: weeklyJobFailure(job) } : current);
+          return;
+        }
+        setWorksheetRun(current => current?.attemptToken === attemptToken
+          ? { ...current, job, notice: job.status === 'COMPLETED'
+            && (current.cancelUnconfirmed || current.cancelCompleted)
+            ? 'The job completed before cancellation. Opening its unsaved draft.'
+            : current.cancelUnconfirmed
+              ? 'Could not confirm cancellation. Checking the job status; you may request cancellation again.' : '' }
           : current);
+        if (job.status !== 'COMPLETED' || handedOffJobsRef.current.has(jobId)) return;
+        const result = await jobClient.result(jobId);
+        if (!active || attemptToken !== worksheetRequestRef.current) return;
+        handedOffJobsRef.current.add(jobId);
+        try { onCompletedWeeklyJobDraft(jobId, result); }
+        catch { handedOffJobsRef.current.delete(jobId);
+          throw Object.assign(new Error('handoff_failed'), { code: 'handoff_failed' }); }
+        forgetWeeklyJob(jobId);
+        setWorksheetRun(null);
+      } catch (error) {
+        if (!active || attemptToken !== worksheetRequestRef.current) return;
+        if (error?.code === 'not_found' || error?.code === 'not_authenticated'
+          || error?.code === 'inactive_teacher' || error?.code === 'source_denied') {
+          if (error?.code === 'not_found') forgetWeeklyJob(jobId);
+          setWorksheetRun(current => current?.attemptToken === attemptToken
+            ? { ...current, status: 'error', message: error?.code === 'not_found'
+              ? 'This weekly job is unavailable or expired. No draft was opened.'
+              : 'This account cannot access the weekly job. Sign in as its Teacher to check it.' }
+            : current);
+        } else if (error?.code === 'not_ready' || error?.code === 'result_unconfirmed'
+          || error?.code === 'malformed_response' || error?.code === 'handoff_failed') {
+          setWorksheetRun(current => current?.attemptToken === attemptToken
+            ? { ...current, status: 'result-unknown', message: 'Could not confirm the completed draft. Check its status before opening it.' }
+            : current);
+        } else {
+          setWorksheetRun(current => current?.attemptToken === attemptToken
+            ? { ...current, notice: 'Could not confirm the job status. Checking again shortly.' } : current);
+        }
+      } finally {
+        inFlight = false;
       }
     };
-    refresh();
+    void refresh();
     const interval = window.setInterval(refresh, 3000);
     return () => { active = false; window.clearInterval(interval); };
-  }, [jobClient, worksheetRun?.job?.id, worksheetRun?.status]);
+  }, [jobClient, worksheetRun?.job?.id, worksheetRun?.status, worksheetRun?.attemptToken,
+    forgetWeeklyJob, onCompletedWeeklyJobDraft]);
 
   const worksheetEligibility = plan => prepareDevelopmentWorksheetContext({ plan, teacherId: userData?.uid });
 
+  const submitWeeklyJob = async (plan, questionCount, jobRequestId, attemptToken, ownerId) => {
+    rememberWeeklyJob({ teacherId: ownerId, planId: plan.id, jobId: null,
+      requestId: jobRequestId, questionCount });
+    setWorksheetRun({ plan, kind: 'weekly', status: 'submitting', attemptToken, jobRequestId, questionCount });
+    try {
+      const job = await jobClient.submit({ requestId: jobRequestId,
+        sourceLessonPlanId: plan.id, questionCount });
+      if (attemptToken !== worksheetRequestRef.current || worksheetTeacherRef.current !== ownerId) return;
+      rememberWeeklyJob({ teacherId: ownerId, planId: plan.id, jobId: job.id,
+        requestId: jobRequestId, questionCount });
+      setWorksheetRun({ plan, kind: 'weekly', status: 'job', attemptToken,
+        jobRequestId, questionCount, job });
+    } catch (error) {
+      if (attemptToken !== worksheetRequestRef.current || worksheetTeacherRef.current !== ownerId) return;
+      if (['submit_unconfirmed', 'malformed_response', 'job_unavailable'].includes(error?.code)) {
+        setWorksheetRun({ plan, kind: 'weekly', status: 'submit-unknown', attemptToken,
+          jobRequestId, questionCount,
+          message: 'Could not confirm whether the job was submitted. Retry this request with the same ID.' });
+        return;
+      }
+      forgetWeeklyJob(null);
+      const message = error?.code === 'source_changed'
+        ? 'The saved lesson plan changed. Reopen it before generating worksheets.'
+        : error?.code === 'invalid_weekly_source'
+          ? 'The saved lesson plan has no complete Monday–Friday source.'
+          : error?.code === 'idempotency_conflict'
+            ? 'This request ID was used with different inputs. No new job was started.'
+            : 'Weekly generation could not be started. No draft was opened.';
+      setWorksheetRun({ plan, kind: 'weekly', status: 'error', attemptToken,
+        jobRequestId, questionCount, message });
+    }
+  };
+
+  const resumeWeeklyJob = plan => {
+    if (!persistedJob || persistedJob.planId !== plan.id || persistedJob.teacherId !== userData?.uid) return;
+    const attemptToken = ++worksheetRequestRef.current;
+    setWorksheetGenerationError(null);
+    if (!persistedJob.jobId) {
+      worksheetGenerationRef.current = true;
+      void submitWeeklyJob(plan, persistedJob.questionCount, persistedJob.requestId,
+        attemptToken, userData.uid).finally(() => { worksheetGenerationRef.current = false; });
+      return;
+    }
+    setWorksheetRun({ plan, kind: 'weekly', status: 'job', attemptToken,
+      jobRequestId: persistedJob.requestId, questionCount: persistedJob.questionCount,
+      job: { id: persistedJob.jobId, status: 'QUEUED', attemptedCalls: 0,
+        completedBatches: 0, plannedCalls: 5 * persistedJob.questionCount / 10 } });
+  };
+
   const handleGenerateWorksheet = async plan => {
     if (worksheetGenerationRef.current) return;
+    if (jobClient.enabled && persistedJob) {
+      setWorksheetGenerationError({ planId: plan.id,
+        message: 'A weekly job needs review. Resume it before starting another.' });
+      return;
+    }
     if (generatedDraft) {
       setWorksheetGenerationError({ planId: plan.id, message: 'A local worksheet draft already exists. Review or delete it in Worksheets before starting another sample.' });
       return;
     }
     const ownerId = userData?.uid;
-    const weeklySource = plan.ai_generated ? extractWeeklyWorksheetSource(plan.objectives) : null;
+    const jobPlan = jobClient.enabled && !plan.localMock && plan.teacher_id === ownerId
+      && ['draft', 'published'].includes(plan.status?.toLowerCase())
+      && ['ai', 'manual'].includes(savedPlanType(plan));
+    if (jobClient.enabled && !plan.localMock && !jobPlan) {
+      setWorksheetGenerationError({ planId: plan.id, message: 'Choose an owned, saved AI or Manual ILAW plan.' });
+      return;
+    }
+    const weeklySource = plan.ai_generated && !jobPlan ? extractWeeklyWorksheetSource(plan.objectives) : null;
     const isWeeklyAi = Boolean(weeklySource?.days.some(day => day.objective || day.activity || day.assessment));
-    const kind = isWeeklyAi || (plan.ai_generated && !import.meta.env.DEV) ? 'weekly' : 'sample';
+    const kind = jobPlan || isWeeklyAi || (plan.ai_generated && !import.meta.env.DEV) ? 'weekly' : 'sample';
     const requestId = ++worksheetRequestRef.current;
     worksheetGenerationRef.current = true;
     setWorksheetRun({ plan, status: 'validating', kind,
@@ -222,20 +354,16 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
     try {
       await Promise.resolve();
       if (requestId !== worksheetRequestRef.current || worksheetTeacherRef.current !== ownerId) return;
+      if (jobPlan) {
+        await submitWeeklyJob(plan, weeklyQuestionCount, crypto.randomUUID(), requestId, ownerId);
+        return;
+      }
       const eligibility = worksheetEligibility(plan);
       if (eligibility.status !== 'ready') throw new Error(eligibility.reason);
       const aiPlan = eligibility.context.source.kind === 'ai-html-text';
       if (kind === 'weekly' && weeklySource?.issues.length) {
         const issue = weeklySource.issues[0];
         throw new Error(`${issue.message} Review the weekly ILAW before generating worksheets.`);
-      }
-      if (kind === 'weekly' && jobClient.enabled) {
-        const job = await jobClient.submit({ requestId: crypto.randomUUID(),
-          sourceLessonPlanId: plan.id, questionCount: weeklyQuestionCount });
-        if (requestId === worksheetRequestRef.current && worksheetTeacherRef.current === ownerId)
-          setWorksheetRun({ plan, status: 'job', kind, job,
-            sourceTitle: plan.title, sourceContent: plan.objectives });
-        return;
       }
       if (kind === 'weekly' && import.meta.env.PROD) {
         throw new Error('Durable Worksheet generation is not available yet. No Worksheets were saved.');
@@ -318,15 +446,31 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
   };
 
   const requestJobCancel = async () => {
-    if (!worksheetRun?.job?.id) return;
+    if (!worksheetRun?.job?.id || cancelJobRef.current) return;
+    const jobId = worksheetRun.job.id;
+    const attemptToken = worksheetRun.attemptToken;
+    cancelJobRef.current = true;
     try {
-      const job = await jobClient.cancel(worksheetRun.job.id);
-      setWorksheetRun(current => current?.job?.id === job.id ? { ...current, job,
-        status: job.status === 'CANCELED' ? 'error' : 'job',
-        message: job.status === 'CANCELED' ? 'Worksheet job canceled.' : current.message } : current);
+      const job = await jobClient.cancel(jobId);
+      if (attemptToken !== worksheetRequestRef.current) return;
+      if (job.status === 'CANCELED') forgetWeeklyJob(jobId);
+      setWorksheetRun(current => current?.attemptToken === attemptToken && current.job?.id === jobId
+        ? { ...current, job: { ...current.job, ...job },
+          status: job.status === 'CANCELED' ? 'error' : 'job',
+          message: job.status === 'CANCELED' ? weeklyJobFailure(job) : current.message,
+          cancelCompleted: job.status === 'COMPLETED', cancelUnconfirmed: false,
+          notice: job.status === 'COMPLETED'
+            ? 'The job completed before cancellation. Checking its unsaved draft.'
+            : ['FAILED', 'INTERRUPTED_UNKNOWN_OUTCOME'].includes(job.status)
+              ? 'The job already ended. Checking its final status.' : '' }
+        : current);
     } catch {
-      setWorksheetRun(current => current ? { ...current, status: 'error',
-        message: 'Could not confirm cancellation. Check the job in Worksheets.' } : current);
+      if (attemptToken === worksheetRequestRef.current) setWorksheetRun(current => current?.attemptToken === attemptToken
+        && current.job?.id === jobId ? { ...current, cancelUnconfirmed: true,
+          notice: 'Could not confirm cancellation. Checking the job status; you may request cancellation again.' }
+        : current);
+    } finally {
+      cancelJobRef.current = false;
     }
   };
 
@@ -1335,6 +1479,9 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                     const status = PLAN_STATUS[plan.status || 'draft'] || PLAN_STATUS.draft;
                     const planType = savedPlanType(plan);
                     const mockSaved = plan.localMock && parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState === 'saved';
+                    const jobEligible = jobClient.enabled && !plan.localMock && plan.teacher_id === userData?.uid
+                      && ['draft', 'published'].includes(plan.status?.toLowerCase())
+                      && ['ai', 'manual'].includes(planType);
                     const worksheetPreview = (planType === 'ai' || (import.meta.env.DEV && planType === 'manual')) && (!plan.localMock || mockSaved)
                       ? worksheetEligibility(plan) : null;
                     const mockState = plan.localMock ? parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState : null;
@@ -1362,7 +1509,7 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                         {plan.file_name && <p className="text-xs mt-2 break-all" style={{ color: 'var(--text-muted)' }}><FileText size={14} className="inline mr-1" aria-hidden="true" />{plan.file_name}</p>}
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
-                          {planType === 'ai' && (!plan.localMock || mockSaved) && <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text)' }}>
+                          {(planType === 'ai' || jobEligible) && (!plan.localMock || mockSaved) && <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text)' }}>
                             Questions per day
                             <select aria-label="Questions per day" value={weeklyQuestionCount} disabled={worksheetRun !== null}
                               onChange={event => setWeeklyQuestionCount(Number(event.target.value))}
@@ -1370,14 +1517,19 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
                               {[20, 30, 40].map(count => <option key={count} value={count}>{count}</option>)}
                             </select>
                           </label>}
-                          {(planType === 'ai' || (import.meta.env.DEV && planType === 'manual')) && (!plan.localMock || mockSaved) &&
+                          {(planType === 'ai' || (import.meta.env.DEV && planType === 'manual') || jobEligible) && (!plan.localMock || mockSaved) &&
                             <button type="button" onClick={() => handleGenerateWorksheet(plan)}
-                              disabled={worksheetPreview?.status !== 'ready' || worksheetRun !== null}
+                              disabled={(!jobEligible && worksheetPreview?.status !== 'ready') || worksheetRun !== null
+                                || (jobClient.enabled && persistedJob !== null)}
                               aria-label={`Generate Worksheet from ${plan.title || 'lesson plan'}`}
                               className="min-h-11 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
                               style={{ color: 'var(--banner-accent)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
                               <Sparkles size={15} aria-hidden="true" />{planType === 'ai' ? 'Generate Weekly Worksheets' : 'Generate Worksheet'}
                             </button>}
+                          {jobClient.enabled && persistedJob?.planId === plan.id && worksheetRun === null &&
+                            <Btn variant="outline" onClick={() => resumeWeeklyJob(plan)}>
+                              {persistedJob.jobId ? 'Resume weekly job' : 'Retry unconfirmed weekly request'}
+                            </Btn>}
                           {planType === 'ai' && <Btn variant="outline" onClick={() => printSavedAi(plan)}>
                             <Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
                           </Btn>}
@@ -1420,7 +1572,8 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
       )}
 
       {worksheetRun && <Modal title={worksheetRun.kind === 'weekly' ? 'Weekly worksheet generation' : 'Sample worksheet generation'} onClose={cancelWorksheetRun}
-        escapeCloses description={worksheetRun.job ? 'Five private drafts are saved only after the whole job validates.'
+        escapeCloses description={worksheetRun.jobRequestId ? 'Generation creates five unsaved daily drafts for review.'
+          : worksheetRun.job ? 'Five private drafts are saved only after the whole job validates.'
           : worksheetRun.handedOff ? 'The five drafts remain open while permanent Save is checked.'
             : 'Nothing is saved or distributed automatically.'}>
         <div className="grid gap-4 text-sm" style={{ color: 'var(--text)' }}>
@@ -1440,18 +1593,26 @@ const LessonPlansTab = ({ onGeneratedDraft, generatedDraft, weeklySaveStates = {
               : activeWeeklySave?.status === 'saving' ? 'Saving permanently...'
                 : 'Review permanent Save status in Worksheets.' : 'Nothing was saved or distributed.'}`
             : 'Sample generated from a test Assessment fixture — not live AI. View the unsaved draft on Worksheets, then choose View/Edit to open the editor.'}</p>}
-          {worksheetRun.status === 'job' && <p role="status">{worksheetRun.job.status.replaceAll('_', ' ').toLowerCase()}: {worksheetRun.job.completedValidatedBatches} of {worksheetRun.job.plannedProviderCalls} batches validated; {worksheetRun.job.attemptedProviderCalls} provider requests attempted. {worksheetRun.job.status === 'WAITING_FOR_CAPACITY'
-            ? 'Waiting for provider capacity. Resume requires an explicit action after the retry time.'
-            : 'Progress changes only when a trusted worker completes a step.'}</p>}
+          {worksheetRun.status === 'submitting' && <p role="status">Submitting the weekly draft job…</p>}
+          {worksheetRun.status === 'submit-unknown' && <p role="alert">{worksheetRun.message}</p>}
+          {worksheetRun.status === 'job' && <p role="status">{worksheetRun.job.status.toLowerCase()}:
+            {' '}{worksheetRun.job.completedBatches} of {worksheetRun.job.plannedCalls} batches validated;
+            {' '}{worksheetRun.job.attemptedCalls} provider requests attempted. Progress is confirmed by the server.</p>}
+          {worksheetRun.notice && <p role="alert">{worksheetRun.notice}</p>}
+          {worksheetRun.status === 'result-unknown' && <p role="alert">{worksheetRun.message}</p>}
           {worksheetRun.status === 'saved' && <p role="status">Saved private weekly collection. Open Worksheets to review all five days.</p>}
           {worksheetRun.status === 'error' && <p role="alert">{worksheetRun.message}
             {Number.isInteger(worksheetRun.providerCalls) ? ` ${worksheetRun.providerCalls} provider requests were attempted.` : ''}
-            {!worksheetRun.job && ' No worksheets were saved.'}
-            {worksheetRun.retryable ? ' You may retry this request.' : ' Close this dialog and review the source or backend status before trying again.'}</p>}
+            {!worksheetRun.job && !worksheetRun.jobRequestId && ' No worksheets were saved.'}
+            {worksheetRun.jobRequestId ? '' : worksheetRun.retryable ? ' You may retry this request.' : ' Close this dialog and review the source or backend status before trying again.'}</p>}
           <div className="flex flex-wrap justify-end gap-2">
-            <Btn variant="outline" onClick={cancelWorksheetRun}>{worksheetRun.job ? 'Close' : 'Cancel'}</Btn>
-            {worksheetRun.status === 'job' && <Btn variant="outline" onClick={requestJobCancel}>Request cancellation</Btn>}
-            {worksheetRun.status === 'saved' && <Btn onClick={() => { setWorksheetRun(null); navigate('/teacher-dashboard/worksheets'); }}>Open saved collection</Btn>}
+            <Btn variant="outline" onClick={cancelWorksheetRun}>{worksheetRun.jobRequestId ? 'Close' : worksheetRun.job ? 'Close' : 'Cancel'}</Btn>
+            {worksheetRun.status === 'job' && ['QUEUED', 'RUNNING'].includes(worksheetRun.job.status)
+              && <Btn variant="outline" onClick={requestJobCancel}>Request cancellation</Btn>}
+            {worksheetRun.status === 'submit-unknown' && <Btn onClick={() => resumeWeeklyJob(worksheetRun.plan)}>
+              Retry same request</Btn>}
+            {worksheetRun.status === 'result-unknown' && <Btn onClick={() => setWorksheetRun(current => current
+              ? { ...current, status: 'job', notice: '' } : current)}>Check completed draft again</Btn>}
             {worksheetRun.status === 'error' && worksheetRun.retryable && <Btn onClick={() => handleGenerateWorksheet(worksheetRun.plan)}>Retry</Btn>}
             {worksheetRun.status === 'ready' && <Btn onClick={openReadyWorksheet}>{worksheetRun.handedOff ? 'Open in Worksheets' : 'View draft in Worksheets'}</Btn>}
           </div>

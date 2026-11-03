@@ -48,6 +48,7 @@ const optionsShapeLog = (options, questionIndex) => {
 };
 export const WEEKLY_QUESTION_COUNTS = [20, 30, 40];
 const BATCH_SIZE = 10;
+const CROSS_DAY_CAPTURE_INDEX = Symbol('crossDayCaptureIndex');
 const CAPTURE_DIRECTORY = fileURLToPath(new URL('../../node_modules/.cache/', import.meta.url));
 const normalizeDuplicate = value => value.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
 const duplicateMetadata = (raw, priorQuestions, withinBatch) => {
@@ -86,6 +87,23 @@ const plain = (value, max = 2000) => typeof value === 'string' && value.trim().l
 const invalidWeekly = (message, category, path, day) => Object.assign(new Error(message), {
   validation: { category, path, ...(day ? { day } : {}) }, code: 'AI_RESPONSE_INVALID',
 });
+// Both inputs have already passed the weekly parser; earlierQuestions contains
+// question text from validated batches of this same day.
+export function validateSameDayBatchQuestions(batchQuestions, earlierQuestions, day) {
+  const seen = new Set(earlierQuestions.map(normalizeDuplicate));
+  let validatedCount = earlierQuestions.length;
+  for (const item of batchQuestions) {
+    const normalized = normalizeDuplicate(item.question);
+    if (seen.has(normalized)) {
+      const error = invalidWeekly(`${day} repeated a question.`, 'duplicate_question', 'questions', day);
+      error.validation.subreason = 'duplicate_prior_batch';
+      error.validation.validatedCount = validatedCount;
+      throw error;
+    }
+    seen.add(normalized);
+    validatedCount += 1;
+  }
+}
 const cancelled = () => Object.assign(new Error('Generation cancelled.'), { code: 'GENERATION_CANCELLED' });
 const pacingDeadline = () => Object.assign(new Error('Groq generation exceeded its local pacing deadline.'), {
   code: 'PROVIDER_TIMEOUT', validation: { category: 'pacing_deadline', path: '$' },
@@ -264,11 +282,61 @@ export function parseDailyBatch(raw, plan, source, count, batch) {
     distributionNote: plain(entry.coverageLimitation, 300) };
 }
 
+// completedDays contains already validated batches in weekday and batch order.
+// The generator calls this after each day for the daily checks, then after all
+// five days for the cross-day check. Neither the batches nor sources are changed.
+export function finalizeWeeklyWorksheetDrafts(plan, sources, completedDays, questionCount,
+  { checkCrossDay = true } = {}) {
+  const drafts = completedDays.map((dayData, dayIndex) => {
+    const source = sources[dayIndex];
+    const questions = [];
+    const answerKey = [];
+    for (const parsed of dayData.batches) for (const item of parsed.questions) {
+      const localId = `draft-${questions.length + 1}`;
+      const key = parsed.answerKey.find(entry => entry.localId === item.localId);
+      questions.push({ ...item, localId });
+      if (key) answerKey.push({ ...key, localId });
+    }
+    const typeDistribution = Object.fromEntries(['multiple_choice', 'true_false', 'enumeration', 'essay'].map(type =>
+      [type, questions.filter(item => item.item_type === type).length]));
+    const usedTypes = Object.values(typeDistribution).filter(Boolean).length;
+    if (usedTypes < 2 || (usedTypes < 4 && !dayData.distributionNotes.length)) {
+      throw invalidWeekly(`${source.day} question mix was incomplete. Review the source plan or choose fewer questions.`,
+        'type_distribution', 'questions', source.day);
+    }
+    if (questions.length !== questionCount || new Set(questions.map(item => item.localId)).size !== questionCount
+      || answerKey.length !== questions.filter(item => item.item_type !== 'essay').length) {
+      throw invalidWeekly(`${source.day} daily worksheet is incomplete.`, 'question_count', 'questions', source.day);
+    }
+    return { status: 'generated-draft', saved: false, day: source.day, title: dayData.title,
+      instructions: dayData.instructions, subjectId: plan.subject_id || '',
+      subjectName: plan.subject_id ? plan.subject || '' : '',
+      gradeLevel: plan.grade_level || '', schoolYear: plan.academic_year || '', assignmentVerified: false,
+      sourceLessonPlan: { id: plan.id, title: plan.title }, sourceContext: { ...source }, questions, answerKey,
+      typeDistribution, distributionNote: dayData.distributionNotes.join(' ') };
+  });
+  if (checkCrossDay) {
+    const seenAcrossDays = new Set();
+    for (const draft of drafts) for (const [index, item] of draft.questions.entries()) {
+      const normalized = item.question.toLocaleLowerCase().replace(/\b(?:monday|tuesday|wednesday|thursday|friday)\b/g, '[day]').replace(/\s+/g, ' ');
+      if (seenAcrossDays.has(normalized)) {
+        const error = invalidWeekly(`${draft.day} repeated a question from another day.`,
+          'duplicate_question', 'questions', draft.day);
+        error.validation.subreason = 'duplicate_cross_day';
+        Object.defineProperty(error, CROSS_DAY_CAPTURE_INDEX, { value: index });
+        throw error;
+      }
+      seenAcrossDays.add(normalized);
+    }
+  }
+  return drafts;
+}
+
 export async function generateWeeklyWorksheetDrafts(plan, sources, { generateText = requestWeeklyWorksheetJson,
   questionCount = 30, signal, progress, pacingClock = defaultClock, log = console, operationId, debugCapture = false } = {}) {
   if (!WEEKLY_QUESTION_COUNTS.includes(questionCount)) throw new Error('Choose 20, 30, or 40 questions per day.');
   const days = validateWeeklySources(sources);
-  const drafts = [];
+  const completedDays = [];
   let providerCalls = 0;
   const providerChain = configuredWeeklyWorksheetProviders();
   const pacing = providerChain || isLocalGroqProvider() ? createGroqPacing(signal, pacingClock) : null;
@@ -364,9 +432,8 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
   };
   try {
   for (const source of days) {
-    const seen = new Set();
     const questions = [];
-    const answerKey = [];
+    const batches = [];
     let title = '';
     let instructions = '';
     const distributionNotes = [];
@@ -420,31 +487,12 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
             else batchCaptures.push(captureContext);
           }
           const parsed = parseDailyBatch(raw, plan, source, BATCH_SIZE, batch);
-          const batchSeen = new Set(seen);
-          let validatedCount = questions.length;
-          for (const item of parsed.questions) {
-            const normalized = item.question.toLocaleLowerCase().replace(/\s+/g, ' ');
-            if (batchSeen.has(normalized)) {
-              const error = invalidWeekly(`${source.day} repeated a question.`, 'duplicate_question', 'questions', source.day);
-              error.validation.subreason = 'duplicate_prior_batch';
-              error.validation = { ...error.validation, batch, requestedCount: BATCH_SIZE,
-                receivedCount: parsed.questions.length, validatedCount,
-                ...duplicateMetadata(raw, priorQuestions, false) };
-              throw error;
-            }
-            batchSeen.add(normalized);
-            validatedCount += 1;
-          }
+          validateSameDayBatchQuestions(parsed.questions, priorQuestions, source.day);
           title ||= parsed.title;
           instructions ||= parsed.instructions;
           if (parsed.distributionNote) distributionNotes.push(parsed.distributionNote);
-          for (const item of parsed.questions) {
-            seen.add(item.question.toLocaleLowerCase().replace(/\s+/g, ' '));
-            const localId = `draft-${questions.length + 1}`;
-            const key = parsed.answerKey.find(entry => entry.localId === item.localId);
-            questions.push({ ...item, localId });
-            if (key) answerKey.push({ ...key, localId });
-          }
+          batches.push(parsed);
+          questions.push(...parsed.questions);
           progress?.({ day: source.day, batch, completed: true, providerCalls });
           break;
         } catch (error) {
@@ -453,6 +501,8 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
           pacing?.check();
           if (error.validation?.subreason === 'duplicate_within_batch')
             Object.assign(error.validation, duplicateMetadata(raw, priorQuestions, true));
+          if (error.validation?.subreason === 'duplicate_prior_batch')
+            Object.assign(error.validation, duplicateMetadata(raw, priorQuestions, false));
           let receivedCount;
           let questionType;
           let answerShape;
@@ -536,42 +586,19 @@ export async function generateWeeklyWorksheetDrafts(plan, sources, { generateTex
         }
       }
     }
-    const typeDistribution = Object.fromEntries(['multiple_choice', 'true_false', 'enumeration', 'essay'].map(type =>
-      [type, questions.filter(item => item.item_type === type).length]));
-    const usedTypes = Object.values(typeDistribution).filter(Boolean).length;
-    if (usedTypes < 2 || (usedTypes < 4 && !distributionNotes.length)) {
-      throw Object.assign(invalidWeekly(`${source.day} question mix was incomplete. Review the source plan or choose fewer questions.`,
-        'type_distribution', 'questions', source.day), { providerCalls });
-    }
-    if (questions.length !== questionCount || new Set(questions.map(item => item.localId)).size !== questionCount
-      || answerKey.length !== questions.filter(item => item.item_type !== 'essay').length) {
-      throw Object.assign(invalidWeekly(`${source.day} daily worksheet is incomplete.`, 'question_count', 'questions', source.day), { providerCalls });
-    }
-    drafts.push({ status: 'generated-draft', saved: false, day: source.day, title,
-      instructions, subjectId: plan.subject_id || '', subjectName: plan.subject_id ? plan.subject || '' : '',
-      gradeLevel: plan.grade_level || '', schoolYear: plan.academic_year || '', assignmentVerified: false,
-      sourceLessonPlan: { id: plan.id, title: plan.title }, sourceContext: { ...source }, questions, answerKey,
-      typeDistribution, distributionNote: distributionNotes.join(' ') });
+    completedDays.push({ title, instructions, distributionNotes, batches });
+    finalizeWeeklyWorksheetDrafts(plan, days, completedDays, questionCount, { checkCrossDay: false });
   }
   if (signal?.aborted) throw Object.assign(new Error('Generation cancelled.'), { code: 'GENERATION_CANCELLED' });
-  const seenAcrossDays = new Set();
-  for (const draft of drafts) for (const [index, item] of draft.questions.entries()) {
-    const normalized = item.question.toLocaleLowerCase().replace(/\b(?:monday|tuesday|wednesday|thursday|friday)\b/g, '[day]').replace(/\s+/g, ' ');
-    if (seenAcrossDays.has(normalized)) {
-      const error = invalidWeekly(`${draft.day} repeated a question from another day.`,
-        'duplicate_question', 'questions', draft.day);
-      error.validation.subreason = 'duplicate_cross_day';
-      if (captureEnabled) captureContext = batchCaptures.find(entry => entry.day === draft.day
-        && entry.batch === Math.floor(index / BATCH_SIZE) + 1);
-      throw Object.assign(error, { providerCalls });
-    }
-    seenAcrossDays.add(normalized);
-  }
+  const drafts = finalizeWeeklyWorksheetDrafts(plan, days, completedDays, questionCount);
   pacing?.check();
   succeeded = true;
   return drafts;
   } catch (error) {
     error.providerCalls ??= providerCalls;
+    if (captureEnabled && error.validation?.subreason === 'duplicate_cross_day')
+      captureContext = batchCaptures.find(entry => entry.day === error.validation.day
+        && entry.batch === Math.floor(error[CROSS_DAY_CAPTURE_INDEX] / BATCH_SIZE) + 1);
     if (captureEnabled && error.validation?.category === 'duplicate_question' && captureContext
       && typeof captureContext.rawResponse === 'string') {
       try {

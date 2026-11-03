@@ -26,9 +26,10 @@ vi.mock('../worksheets/useWorksheetAssessment', () => ({ useWorksheetAssessment:
   postings: [], postingsError: false, fetchMySubject: vi.fn(), fetchAssigneeCounts: vi.fn(), fetchPostings: vi.fn(),
 }) }));
 vi.mock('../worksheets/useDialogSafety', () => ({ default: () => ({ requestClose: vi.fn(), routeBlocker: null, busyNotice: '' }) }));
-vi.mock('../worksheets/QuestionBuilderModal', () => ({ default: ({ draft, manualEligibility, onLocalSave, onDurableSave }) => <section aria-label="Mock full-page editor">
+vi.mock('../worksheets/QuestionBuilderModal', () => ({ default: ({ draft, manualEligibility, onDraftChange, onLocalSave, onDurableSave }) => <section aria-label="Mock full-page editor">
   <p>{draft.sourceType}</p><p>{draft.title || 'Blank title'}</p><p>{draft.questions.length} questions</p>
   <p>{manualEligibility?.loading ? 'Loading' : manualEligibility?.error ? 'Error' : `${manualEligibility?.subjects.length} eligible subjects`}</p>
+  <button onClick={() => onDraftChange?.({ ...draft, title: 'Edited local day' })}>Mock edit day</button>
   <button onClick={() => onDurableSave ? onDurableSave(draft) : onLocalSave({ ...draft, saved: true, status: 'local-saved' })}>
     {onDurableSave ? 'Mock private save' : 'Mock local save'}</button>
 </section> }));
@@ -157,6 +158,8 @@ describe('Worksheet manual authoring entry', () => {
     };
     render(<Harness jobClient={jobClient} />);
     expect(await screen.findAllByText('Saved private collection')).toHaveLength(2);
+    expect(jobClient.listJobs).toHaveBeenCalledTimes(1);
+    expect(jobClient.listCollections).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Open weekly collection' }));
     await waitFor(() => expect(screen.getAllByRole('region', { name: /Worksheet$/ })).toHaveLength(5));
     fireEvent.click(screen.getByRole('button', { name: 'Edit/Preview Monday' }));
@@ -165,5 +168,40 @@ describe('Worksheet manual authoring entry', () => {
     await waitFor(() => expect(jobClient.updateDaily).toHaveBeenCalledWith('collection-1', 'day-0',
       expect.objectContaining({ id: 'day-0' }), 1));
     expect(writes).toEqual([]);
+  });
+
+  it('keeps a completed local draft editable without calling the new draft client as a legacy client', async () => {
+    const jobClient = { enabled: true, submit: vi.fn(), status: vi.fn(), cancel: vi.fn(), result: vi.fn() };
+    const onWeeklyCollectionChange = vi.fn();
+    const onRetryWeeklySave = vi.fn();
+    const weeklyCollections = [{ collectionId: 'synthetic-job', title: 'Synthetic weekly draft',
+      sourceLessonPlan: { title: 'Synthetic plan' }, worksheets: [
+        'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
+      ].map(day => ({ draftId: `draft-${day}`, day, title: `${day} draft`, saved: false,
+        questions: [{ localId: `question-${day}`, question: `Synthetic ${day} question` }] })) }];
+    const intervalSpy = vi.spyOn(window, 'setInterval');
+    try {
+      render(<Harness jobClient={jobClient} weeklyCollections={weeklyCollections}
+        onWeeklyCollectionChange={onWeeklyCollectionChange} onRetryWeeklySave={onRetryWeeklySave} />);
+      const collection = screen.getByRole('region', { name: 'Weekly Worksheet Collection' });
+      expect(within(collection).getByText('Synthetic weekly draft')).toBeTruthy();
+      fireEvent.click(within(collection).getByRole('button', { name: 'Open weekly collection' }));
+      expect(within(collection).getAllByRole('region', { name: / Worksheet$/ })).toHaveLength(5);
+      fireEvent.click(within(collection).getByRole('button', { name: 'Edit/Preview Monday' }));
+      expect(screen.getByRole('region', { name: 'Mock full-page editor' }).textContent).toContain('Monday draft');
+      fireEvent.click(screen.getByRole('button', { name: 'Mock edit day' }));
+      expect(onWeeklyCollectionChange).toHaveBeenCalledWith('synthetic-job', expect.any(Function));
+      expect(intervalSpy.mock.calls.some(([, delay]) => delay === 5000)).toBe(false);
+      expect(screen.queryByText('Could not load private generation jobs. Check the backend.')).toBeNull();
+      expect(screen.queryByRole('region', { name: 'Weekly generation jobs' })).toBeNull();
+      expect(jobClient.submit).not.toHaveBeenCalled();
+      expect(jobClient.status).not.toHaveBeenCalled();
+      expect(jobClient.cancel).not.toHaveBeenCalled();
+      expect(jobClient.result).not.toHaveBeenCalled();
+      expect(onRetryWeeklySave).not.toHaveBeenCalled();
+      expect(writes).toEqual([]);
+    } finally {
+      intervalSpy.mockRestore();
+    }
   });
 });

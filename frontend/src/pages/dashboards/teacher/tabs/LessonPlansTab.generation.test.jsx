@@ -494,10 +494,13 @@ describe('saved-plan draft-only weekly job handoff', () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     fireEvent.click(screen.getByRole('button', { name }));
     await flushJob();
+    const bar = screen.getByRole('progressbar', { name: 'Validated question batches' });
+    expect(bar.getAttribute('aria-valuenow')).toBe('0');
     expect(screen.getByText(/queued: 0 of 15 batches validated; 0 provider requests attempted/)).toBeTruthy();
     await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });
+    expect(bar.getAttribute('aria-valuenow')).toBe('2');
     expect(screen.getByText(/running: 2 of 15 batches validated; 2 provider requests attempted/)).toBeTruthy();
-    expect(screen.queryByText(/%|minutes remaining|tokens used/i)).toBeNull();
+    expect(screen.queryByText(/Estimated progress|Elapsed:|minutes remaining|tokens used/i)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     const calls = client.status.mock.calls.length;
     await act(async () => { vi.advanceTimersByTime(9000); });
@@ -575,6 +578,9 @@ describe('saved-plan draft-only weekly job handoff', () => {
     await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });
     expect(client.result).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/completed before cancellation/)).toBeTruthy();
+    expect(screen.getByText('Weekly job completed')).toBeTruthy();
+    expect(screen.getByRole('progressbar', { name: 'Validated question batches' })
+      .getAttribute('aria-valuenow')).toBe('15');
     await act(async () => finishResult({ kind: 'weekly-worksheet-collection', saved: false }));
     expect(handoff).toHaveBeenCalledTimes(1);
   });
@@ -641,6 +647,7 @@ describe('saved-plan draft-only weekly job handoff', () => {
       const { name } = await renderSavedJob(client, handoff);
       fireEvent.click(screen.getByRole('button', { name }));
       await flushJob();
+      expect(screen.getByRole('progressbar', { name: 'Validated question batches' })).toBeTruthy();
       expect(screen.getAllByRole('alert').some(alert => /failed|canceled|unknown outcome/i.test(alert.textContent))).toBe(true);
       expect(client.result).not.toHaveBeenCalled();
       expect(handoff).not.toHaveBeenCalled();
@@ -655,6 +662,8 @@ describe('saved-plan draft-only weekly job handoff', () => {
     const resumed = await renderSavedJob(client);
     fireEvent.click(screen.getByRole('button', { name: 'Resume weekly job' }));
     await flushJob();
+    expect(screen.getByRole('progressbar', { name: 'Validated question batches' })).toBeTruthy();
+    expect(client.submit).toHaveBeenCalledTimes(1);
     expect(client.status.mock.calls.length).toBeGreaterThan(1);
     fireEvent.click(screen.getByRole('button', { name: 'Request cancellation' }));
     await flushJob();

@@ -163,18 +163,20 @@ describe('local worksheet progress handoff', () => {
     expect(mock.writes).toEqual([]);
   });
 
-  it('shows trusted job progress and confirmed private Save without calling the long generator', async () => {
+  it('shows the original progress panel for a queued draft-only job without saving', async () => {
     mock.plans = [savedPlan()];
     const jobClient = { enabled: true,
-      submit: vi.fn(async () => ({ id: 'job-1', status: 'QUEUED', completedValidatedBatches: 0,
-        plannedProviderCalls: 15, attemptedProviderCalls: 0 })),
-      status: vi.fn(async () => ({ id: 'job-1', status: 'COMPLETED', saved: true,
-        completedValidatedBatches: 15, plannedProviderCalls: 15, attemptedProviderCalls: 15 })),
+      submit: vi.fn(async () => ({ id: 'job-1', status: 'QUEUED', completedBatches: 0,
+        plannedCalls: 15, attemptedCalls: 0, failureCategory: null })),
+      status: vi.fn(async () => ({ id: 'job-1', status: 'QUEUED', completedBatches: 0,
+        plannedCalls: 15, attemptedCalls: 0, failureCategory: null })),
     };
     const onGeneratedDraft = vi.fn();
     render(<MemoryRouter><LessonPlansTab jobClient={jobClient} onGeneratedDraft={onGeneratedDraft} /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button', { name: 'Generate Worksheet from Plant cells' }));
-    expect(await screen.findByText(/Saved private weekly collection/)).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Weekly worksheet generation' });
+    expect(await within(dialog).findByRole('progressbar', { name: 'Validated question batches' })).toBeTruthy();
+    expect(within(dialog).getByText(/queued: 0 of 15 batches validated; 0 provider requests attempted/)).toBeTruthy();
     expect(jobClient.submit).toHaveBeenCalledTimes(1);
     expect(jobClient.status).toHaveBeenCalledWith('job-1');
     expect(mock.generatorCalls).toBe(0);

@@ -87,3 +87,37 @@ it('uses static text with no cross-fade for reduced motion', () => {
   expect(screen.queryByTestId('weekly-generation-old')).toBeNull();
   expect(screen.getByTestId('weekly-generation-fill').className).toContain('reduced');
 });
+
+it('uses the original panel with server-confirmed batch counts and no estimated timer for a durable job', () => {
+  vi.useFakeTimers();
+  const job = { status: 'QUEUED', completedBatches: 0, plannedCalls: 15,
+    attemptedCalls: 0, failureCategory: null };
+  const { rerender } = render(<WeeklyGenerationProgress job={job} />);
+  const bar = screen.getByRole('progressbar', { name: 'Validated question batches' });
+  expect(bar.getAttribute('aria-valuenow')).toBe('0');
+  expect(bar.getAttribute('aria-valuemax')).toBe('15');
+  expect(screen.getByText(/queued: 0 of 15 batches validated; 0 provider requests attempted/)).toBeTruthy();
+  expect(screen.queryByText(/Estimated progress|Elapsed:|keep this page open/i)).toBeNull();
+  expect(vi.getTimerCount()).toBe(0);
+  rerender(<WeeklyGenerationProgress job={{ ...job, status: 'RUNNING',
+    completedBatches: 2, attemptedCalls: 3 }} />);
+  expect(bar.getAttribute('aria-valuenow')).toBe('2');
+  expect(screen.getByText(/running: 2 of 15 batches validated; 3 provider requests attempted/)).toBeTruthy();
+  expect(screen.getByTestId('weekly-generation-fill').style.width).toBe(`${2 / 15 * 100}%`);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([
+  ['CANCELED', null, /Cancellation is confirmed/],
+  ['FAILED', 'capacity', /Generation failed: provider capacity/],
+  ['INTERRUPTED_UNKNOWN_OUTCOME', null, /unknown outcome/],
+  ['COMPLETED', null, /Confirming its five unsaved drafts/],
+])('shows the authoritative %s outcome without starting a progress timer', (status, failureCategory, message) => {
+  vi.useFakeTimers();
+  render(<WeeklyGenerationProgress job={{ status, completedBatches: 6,
+    plannedCalls: 10, attemptedCalls: 7, failureCategory }} />);
+  expect(screen.getByTestId('weekly-generation-current').textContent).toMatch(message);
+  expect(screen.getByRole('progressbar', { name: 'Validated question batches' })
+    .getAttribute('aria-valuenow')).toBe('6');
+  expect(vi.getTimerCount()).toBe(0);
+});

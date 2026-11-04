@@ -1581,6 +1581,10 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
           {worksheetRun.kind === 'weekly' && ['generating', 'generation-complete'].includes(worksheetRun.status) &&
             <WeeklyGenerationProgress plannedCalls={5 * weeklyQuestionCount / 10}
               completed={worksheetRun.status === 'generation-complete'} onComplete={finishWeeklyProgress} />}
+          {worksheetRun.jobRequestId && worksheetRun.job
+            && (['job', 'result-unknown'].includes(worksheetRun.status)
+              || ['FAILED', 'CANCELED', 'INTERRUPTED_UNKNOWN_OUTCOME'].includes(worksheetRun.job.status))
+            && <WeeklyGenerationProgress job={worksheetRun.job} />}
           {['validating', 'generating', 'validating-result'].includes(worksheetRun.status)
             && !(worksheetRun.kind === 'weekly' && worksheetRun.status === 'generating') && <p role="status" className="flex items-center gap-2">
             <Loader2 size={18} className="animate-spin" aria-hidden="true" />
@@ -1595,9 +1599,6 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
             : 'Sample generated from a test Assessment fixture — not live AI. View the unsaved draft on Worksheets, then choose View/Edit to open the editor.'}</p>}
           {worksheetRun.status === 'submitting' && <p role="status">Submitting the weekly draft job…</p>}
           {worksheetRun.status === 'submit-unknown' && <p role="alert">{worksheetRun.message}</p>}
-          {worksheetRun.status === 'job' && <p role="status">{worksheetRun.job.status.toLowerCase()}:
-            {' '}{worksheetRun.job.completedBatches} of {worksheetRun.job.plannedCalls} batches validated;
-            {' '}{worksheetRun.job.attemptedCalls} provider requests attempted. Progress is confirmed by the server.</p>}
           {worksheetRun.notice && <p role="alert">{worksheetRun.notice}</p>}
           {worksheetRun.status === 'result-unknown' && <p role="alert">{worksheetRun.message}</p>}
           {worksheetRun.status === 'saved' && <p role="status">Saved private weekly collection. Open Worksheets to review all five days.</p>}

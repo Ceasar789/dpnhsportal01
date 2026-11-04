@@ -139,13 +139,14 @@ test('separate worker invocations rotate claimed batches through configured prov
       apiKey: configured.NVIDIA_API_KEY },
   ];
   const selected = [];
-  for (let batchIndex = 0; batchIndex < 6; batchIndex++) {
+  for (let batchIndex = 0; batchIndex < 7; batchIndex++) {
     const signal = new AbortController().signal;
     const responseSchema = { type: 'OBJECT' };
     const router = createWeeklyDraftWorkerComposition({ env: configured,
       getServiceRoleClient: () => ({ rpc: async () => { throw new Error('unexpected RPC'); } }),
       createJobAdapter: () => ({ discoverWork: async () => ({ jobId, action: 'claim' }) }),
-      createBatchService: ({ providerBatch }) => ({ async processOneBatch() {
+      createBatchService: ({ providerBatch, providerNameForBatch }) => ({ async processOneBatch() {
+        assert.equal(providerNameForBatch(batchIndex), expected[batchIndex % expected.length].provider);
         await providerBatch('Synthetic prompt.', { batchIndex, signal,
           responseSchema, maxOutputTokens: 8192 });
         return { status: 'checkpointed' };
@@ -166,7 +167,7 @@ test('separate worker invocations rotate claimed batches through configured prov
       assert.deepEqual(await result.json(), { status: 'checkpointed' });
     });
   }
-  assert.equal(selected.length, 6);
+  assert.equal(selected.length, 7);
   selected.forEach((options, index) => {
     const { signal: _signal, responseSchema: _schema, maxOutputTokens: _tokens,
       ...providerOptions } = options;
@@ -230,7 +231,8 @@ test('explicit Gemini selection forwards one batch to the worksheet transport', 
       WEEKLY_WORKSHEET_PROVIDERS: undefined, GROQ_API_KEY: undefined },
     getServiceRoleClient: () => ({ rpc: async () => { throw new Error('unexpected RPC'); } }),
     createJobAdapter: () => ({ discoverWork: async () => ({ jobId, action: 'claim' }) }),
-    createBatchService: ({ providerBatch }) => ({ async processOneBatch() {
+    createBatchService: ({ providerBatch, providerNameForBatch }) => ({ async processOneBatch() {
+      assert.equal(providerNameForBatch(0), 'gemini');
       await providerBatch('Synthetic prompt.', { signal, responseSchema, maxOutputTokens: 8192 });
       return { status: 'checkpointed' };
     } }),

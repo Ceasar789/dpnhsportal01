@@ -7,6 +7,22 @@ const DEFAULT_POLL_MS = 2_000;
 const LEASE_MS = 110_000;
 const FUNCTION_MS = 120_000;
 const CHECKPOINT_MARGIN_MS = 15_000;
+const SAFE_PROVIDERS = new Set(['cloudflare', 'groq', 'nvidia', 'mistral', 'gemini']);
+
+const validationSubreason = error => {
+  switch (error?.validation?.category) {
+    case 'syntax': return 'malformed_json';
+    case 'question_count':
+    case 'content_coverage': return 'wrong_question_count';
+    case 'invalid_answer_key': return 'invalid_answer_key';
+    case 'duplicate_question': return 'duplicate_question';
+    case 'missing_required':
+    case 'unsupported_question_type':
+    case 'invalid_field':
+    case 'invalid_essay': return 'invalid_question_structure';
+    default: return error?.validation ? 'other_validation' : 'unexpected_parser_exception';
+  }
+};
 
 const failureCategory = error => error?.code === 'AI_RESPONSE_INVALID' ? 'validation'
   : error?.code === 'PROVIDER_TIMEOUT' ? 'timeout'
@@ -14,10 +30,12 @@ const failureCategory = error => error?.code === 'AI_RESPONSE_INVALID' ? 'valida
       : 'provider';
 
 export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
+  providerNameForBatch = () => 'unknown', parseBatch = parseDailyBatch, log = console,
   deadlineMs = DEFAULT_DEADLINE_MS, statusPollMs = DEFAULT_POLL_MS, clock = globalThis } = {}) {
   if (typeof jobAdapter?.claim !== 'function' || typeof jobAdapter?.workerStatus !== 'function'
     || typeof jobAdapter?.reserveDispatch !== 'function' || typeof jobAdapter?.finishBatch !== 'function'
-    || typeof providerBatch !== 'function' || !Number.isSafeInteger(deadlineMs)
+    || typeof providerBatch !== 'function' || typeof providerNameForBatch !== 'function'
+    || typeof parseBatch !== 'function' || !Number.isSafeInteger(deadlineMs)
     || deadlineMs < 1 || deadlineMs > 90_000 || !Number.isSafeInteger(statusPollMs)
     || statusPollMs < 1 || statusPollMs >= deadlineMs
     || typeof clock.performance?.now !== 'function'
@@ -49,6 +67,17 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       const claim = await jobAdapter.claim(jobId);
       if (claim === null) return { status: 'no_claim' };
       if (!hasDispatchBudget()) return { status: 'not_dispatched' };
+      const logValidation = (stage, subreason) => {
+        // Log only values chosen by this code; diagnostics must not affect the job outcome.
+        try {
+          const batchIndex = Number.isSafeInteger(claim.batchIndex)
+            && claim.batchIndex >= 0 && claim.batchIndex < 20 ? claim.batchIndex : null;
+          const selected = batchIndex === null ? 'unknown' : providerNameForBatch(batchIndex);
+          log?.warn?.(JSON.stringify({ event: 'weekly_draft_validation',
+            provider: SAFE_PROVIDERS.has(selected) ? selected : 'unknown',
+            batchIndex, stage, subreason }));
+        } catch { /* Logging is best effort. */ }
+      };
 
       const initial = await jobAdapter.workerStatus(jobId);
       if (initial.status !== 'RUNNING' || initial.cancelRequested !== false)
@@ -115,16 +144,27 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
 
       let checkpoint = null;
       let category = null;
+      let validationDiagnostic = null;
       if (outcome.kind === 'timeout') category = 'timeout';
-      else if (outcome.kind === 'provider_error') category = failureCategory(outcome.error);
+      else if (outcome.kind === 'provider_error') {
+        category = failureCategory(outcome.error);
+        if (category === 'validation') validationDiagnostic = ['provider_request', 'provider_ai_response_invalid'];
+      }
       else {
+        let stage = 'daily_parser';
         try {
-          checkpoint = parseDailyBatch(outcome.raw, claim.plan, source, BATCH_SIZE, batch);
+          checkpoint = parseBatch(outcome.raw, claim.plan, source, BATCH_SIZE, batch);
+          stage = 'same_day_duplicate_check';
           validateSameDayBatchQuestions(checkpoint.questions, priorQuestions, source.day);
         } catch (error) {
-          if (error?.code !== 'AI_RESPONSE_INVALID') throw error;
+          if (error?.code !== 'AI_RESPONSE_INVALID') {
+            logValidation(stage, stage === 'daily_parser'
+              ? 'unexpected_parser_exception' : 'unexpected_duplicate_check_exception');
+            throw error;
+          }
           checkpoint = null;
           category = 'validation';
+          validationDiagnostic = [stage, validationSubreason(error)];
         }
       }
 
@@ -133,6 +173,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
         return { status: current.status === 'CANCELED' ? 'canceled' : 'stale' };
       const finished = await jobAdapter.finishBatch(jobId, claim.leaseToken, checkpoint, category);
       if (finished !== true) return { status: 'stale' };
+      if (validationDiagnostic) logValidation(...validationDiagnostic);
       return category ? { status: 'failed', failureCategory: category }
         : { status: 'checkpointed', batchIndex: claim.batchIndex };
     },

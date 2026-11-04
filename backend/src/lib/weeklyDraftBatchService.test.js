@@ -22,8 +22,10 @@ const response = () => JSON.stringify({ title: 'Synthetic Monday worksheet', dir
 function setup({ claimed = claim, status = () => 'RUNNING', reserve = true,
   finish = true, provider = async () => response(), deadlineMs = 100,
   statusPollMs = 5, claimDelayMs = 0, statusDelayMs = 0,
-  reserveDelayMs = 0, invocationElapsedMs = 0 } = {}) {
+  reserveDelayMs = 0, invocationElapsedMs = 0,
+  parseBatch, providerNameForBatch = () => 'cloudflare' } = {}) {
   const calls = { claim: 0, workerStatus: 0, reserve: 0, provider: 0, finish: [] };
+  const diagnostics = [];
   let now = INVOCATION_START + invocationElapsedMs;
   const advance = ms => { now += ms; };
   const clock = { performance: { now: () => now }, setTimeout, clearTimeout,
@@ -53,9 +55,10 @@ function setup({ claimed = claim, status = () => 'RUNNING', reserve = true,
   };
   const rawService = createWeeklyDraftBatchService({ jobAdapter: adapter,
     providerBatch: (...args) => { calls.provider++; return provider(...args); },
-    deadlineMs, statusPollMs, clock });
+    providerNameForBatch, parseBatch,
+    log: { warn: value => diagnostics.push(value) }, deadlineMs, statusPollMs, clock });
   const service = { processOneBatch: id => rawService.processOneBatch(id, INVOCATION_START) };
-  return { service, rawService, calls, advance };
+  return { service, rawService, calls, diagnostics, advance };
 }
 
 test('missing or invalid monotonic invocation start refuses work before claim', async () => {
@@ -184,6 +187,96 @@ test('malformed provider output and provider capacity failure use fixed categori
     { status: 'failed', failureCategory: 'capacity' });
   assert.deepEqual(capacity.calls.finish, [{ checkpoint: null, failureCategory: 'capacity' }]);
   assert.equal(capacity.calls.provider, 1);
+});
+
+test('validation diagnostics classify only fixed parser and provider reasons', async () => {
+  const cases = [
+    ['malformed_json', () => '{invalid json', 'daily_parser'],
+    ['wrong_question_count', () => {
+      const entry = JSON.parse(response()); entry.questions.pop(); return JSON.stringify(entry);
+    }, 'daily_parser'],
+    ['invalid_question_structure', () => {
+      const entry = JSON.parse(response()); entry.questions[0].points = -1; return JSON.stringify(entry);
+    }, 'daily_parser'],
+    ['invalid_answer_key', () => {
+      const entry = JSON.parse(response()); entry.questions[0].correct_answer = 'Neither';
+      return JSON.stringify(entry);
+    }, 'daily_parser'],
+    ['duplicate_question', () => {
+      const entry = JSON.parse(response()); entry.questions[1].question = entry.questions[0].question;
+      return JSON.stringify(entry);
+    }, 'daily_parser'],
+  ];
+  for (const [subreason, makeResponse, stage] of cases) {
+    const { service, calls, diagnostics } = setup({ claimed: { ...claim, batchIndex: 6 },
+      provider: async () => makeResponse() });
+    assert.deepEqual(await service.processOneBatch(jobId),
+      { status: 'failed', failureCategory: 'validation' });
+    assert.equal(calls.provider, 1);
+    assert.equal(calls.reserve, 1);
+    assert.deepEqual(calls.finish, [{ checkpoint: null, failureCategory: 'validation' }]);
+    assert.deepEqual(diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+      provider: 'cloudflare', batchIndex: 6, stage, subreason }]);
+  }
+
+  const providerInvalid = setup({ provider: async () => {
+    throw Object.assign(new Error('synthetic private provider detail'), { code: 'AI_RESPONSE_INVALID' });
+  } });
+  assert.deepEqual(await providerInvalid.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'validation' });
+  assert.equal(providerInvalid.calls.provider, 1);
+  assert.deepEqual(providerInvalid.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'cloudflare', batchIndex: 0, stage: 'provider_request',
+    subreason: 'provider_ai_response_invalid' }]);
+});
+
+test('same-day duplicate and unexpected parser exception have distinct safe diagnostics', async () => {
+  const prior = Array.from({ length: 10 }, (_, index) => `Synthetic prior item ${index + 1}.`);
+  const duplicate = setup({ claimed: { ...claim, batchIndex: 1, priorQuestions: prior },
+    provider: async () => {
+      const entry = JSON.parse(response()); entry.questions[0].question = prior[0];
+      return JSON.stringify(entry);
+    } });
+  assert.deepEqual(await duplicate.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'validation' });
+  assert.deepEqual(duplicate.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'cloudflare', batchIndex: 1, stage: 'same_day_duplicate_check',
+    subreason: 'duplicate_question' }]);
+
+  const sentinel = 'SYNTHETIC_PRIVATE_EXCEPTION_TEXT';
+  const unexpected = setup({ parseBatch: () => { throw new Error(sentinel); } });
+  await assert.rejects(unexpected.service.processOneBatch(jobId), error => error.message === sentinel);
+  assert.equal(unexpected.calls.provider, 1);
+  assert.deepEqual(unexpected.calls.finish, []);
+  assert.deepEqual(unexpected.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser',
+    subreason: 'unexpected_parser_exception' }]);
+  assert.equal(JSON.stringify(unexpected.diagnostics).includes(sentinel), false);
+});
+
+test('diagnostics redact synthetic secrets, content, and untrusted validation labels', async () => {
+  const sentinels = ['SYNTHETIC_API_KEY', 'SYNTHETIC_QUESTION_CONTENT',
+    'SYNTHETIC_ANSWER_CONTENT', 'SYNTHETIC_PROVIDER_MESSAGE'];
+  const invalid = setup({ providerNameForBatch: () => `cloudflare-${sentinels[0]}`,
+    parseBatch: () => { throw Object.assign(new Error(sentinels[3]), {
+      code: 'AI_RESPONSE_INVALID', validation: { category: sentinels[1], subreason: sentinels[2] },
+    }); } });
+  assert.deepEqual(await invalid.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'validation' });
+  assert.equal(invalid.calls.provider, 1);
+  assert.deepEqual(invalid.calls.finish, [{ checkpoint: null, failureCategory: 'validation' }]);
+  assert.deepEqual(invalid.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'unknown', batchIndex: 0, stage: 'daily_parser', subreason: 'other_validation' }]);
+  for (const sentinel of sentinels) assert.equal(JSON.stringify(invalid.diagnostics).includes(sentinel), false);
+
+  const malformed = setup({ provider: async () =>
+    `{${sentinels[0]} ${sentinels[1]} ${sentinels[2]} ${sentinels[3]}` });
+  assert.deepEqual(await malformed.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'validation' });
+  assert.equal(malformed.calls.provider, 1);
+  assert.deepEqual(malformed.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser', subreason: 'malformed_json' }]);
+  for (const sentinel of sentinels) assert.equal(JSON.stringify(malformed.diagnostics).includes(sentinel), false);
 });
 
 test('Cancel during a pending call aborts locally and discards its late success', async () => {

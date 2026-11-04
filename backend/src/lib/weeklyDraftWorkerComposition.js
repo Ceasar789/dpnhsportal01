@@ -37,8 +37,10 @@ export function createWeeklyDraftWorkerComposition({ env = process.env,
       createCoordinator, createRouter].some(factory => typeof factory !== 'function')) invalid();
 
   let providerBatch;
+  let providerNameForBatch;
   if (useGemini) {
     if (!configured(env.GEMINI_API_KEY)) invalid();
+    providerNameForBatch = () => 'gemini';
     providerBatch = (prompt, { signal, responseSchema, maxOutputTokens }) =>
       geminiRequest(prompt, { apiKey: env.GEMINI_API_KEY.trim(), signal, responseSchema, maxOutputTokens });
   } else {
@@ -55,18 +57,20 @@ export function createWeeklyDraftWorkerComposition({ env = process.env,
       return { provider: entry.name, model: entry.model, apiKey: apiKey.trim(),
         ...(accountName ? { accountId } : {}) };
     });
-    providerBatch = (prompt, { batchIndex, ...options }) => {
+    const selectedProvider = batchIndex => {
       if (!Number.isSafeInteger(batchIndex) || batchIndex < 0 || batchIndex >= 20) invalid();
-      return providerRequest(prompt, { ...options,
-        ...configuredEntries[batchIndex % configuredEntries.length] });
+      return configuredEntries[batchIndex % configuredEntries.length];
     };
+    providerNameForBatch = batchIndex => selectedProvider(batchIndex).provider;
+    providerBatch = (prompt, { batchIndex, ...options }) =>
+      providerRequest(prompt, { ...options, ...selectedProvider(batchIndex) });
   }
 
   const serviceRoleClient = getServiceRoleClient();
   if (typeof serviceRoleClient?.rpc !== 'function') invalid();
   const jobAdapter = createJobAdapter({ serviceRoleClient,
     teacherClientForJwt: () => { throw new TypeError('Worker has no teacher session.'); } });
-  const batchService = createBatchService({ jobAdapter, providerBatch });
+  const batchService = createBatchService({ jobAdapter, providerBatch, providerNameForBatch });
   const assemblyService = createAssemblyService({ jobAdapter });
   const coordinator = createCoordinator({ jobAdapter, batchService, assemblyService });
   return createRouter({ coordinator, workerSecret: env.WEEKLY_DRAFT_WORKER_SECRET });

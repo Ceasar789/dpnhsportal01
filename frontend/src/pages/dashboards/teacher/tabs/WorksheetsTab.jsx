@@ -24,6 +24,7 @@ import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedCollectionEditor from '../worksheets/SavedCollectionEditor';
 import SavedArchivedList from '../worksheets/SavedArchivedList';
 import { weeklyWorksheetSaveFlagEnabled } from '../persistence/aiWeeklyWorksheetSaveClient';
+import { weeklyProductionSaveFlagEnabled } from '../persistence/weeklyWorksheetProductionSaveClient';
 import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
 import EncodeScoresModal from '../worksheets/EncodeScoresModal';
 import useDialogSafety from '../worksheets/useDialogSafety';
@@ -113,7 +114,7 @@ const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEnc
 
 const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGeneratedDraft,
   weeklyCollections = [], onWeeklyCollectionChange, onDiscardWeeklyCollection,
-  weeklySaveStates = {}, onRetryWeeklySave,
+  weeklySaveStates = {}, onRetryWeeklySave, onSaveCompletedWeeklyJob,
   manualDrafts = [], onCreateManualDraft, onManualDraftChange, onDiscardManualDraft,
   localDistributions = [], onLocalDistribution, onClearLocalDistributions,
   jobClient = weeklyJobClient }) => {
@@ -494,13 +495,15 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         onDiscardDraft={() => { onDiscardManualDraft(activeManualDraft.draftId); setActiveManualDraftId(null); }} />
     </div>
   ) : showGeneratedEditor && activeGeneratedDraft
-    && !['saving', 'saved'].includes(weeklySaveStates[activeWeeklyCollectionId]?.status) ? (
+    && !['saving', 'saved'].includes(weeklySaveStates[activeWeeklyCollectionId]?.status)
+    && !(weeklyCollection?.sourceJobId && weeklySaveStates[activeWeeklyCollectionId]?.status === 'unknown') ? (
     <div className="p-4 sm:p-6 min-w-0">
       <QuestionBuilderModal key={activeGeneratedDraft.draftId} worksheet={activeGeneratedDraft} draft={activeGeneratedDraft}
         onDraftChange={changeActiveGeneratedDraft} allowDiscard={!weeklyCollection && !activeSavedDraft}
         onClose={() => {
           if (activeSavedDraft) setActiveSavedDraft(null);
-          else if (activeGeneratedDraft.saved) changeActiveGeneratedDraft(restoreLocallySavedWorksheet(activeGeneratedDraft));
+          else if (activeGeneratedDraft.saved && !weeklyCollection?.sourceJobId)
+            changeActiveGeneratedDraft(restoreLocallySavedWorksheet(activeGeneratedDraft));
           setShowGeneratedEditor(false);
           requestAnimationFrame(() => weeklyCollection
             ? worksheetsHeadingRef.current?.focus({ preventScroll: true })
@@ -698,7 +701,14 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               aria-expanded={openWeeklyCollectionId === collection.collectionId}>
               {openWeeklyCollectionId === collection.collectionId ? 'Hide daily worksheets' : 'Open weekly collection'}
             </Btn>
-            {['failed', 'unknown'].includes(save?.status) && <Btn onClick={() => onRetryWeeklySave?.(collection, true)}>
+            {collection.sourceJobId && weeklyProductionSaveFlagEnabled()
+              && <Btn disabled={['saving', 'saved', 'blocked'].includes(save?.status)}
+                onClick={() => onSaveCompletedWeeklyJob?.(collection, save?.status === 'unknown')}>
+                {save?.status === 'unknown' ? 'Confirm Save' : 'Save Worksheets'}</Btn>}
+            {collection.sourceJobId && !save && <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+              These edits stay in this browser session until you save. Unsaved edits may be lost on refresh.
+            </p>}
+            {!collection.sourceJobId && ['failed', 'unknown'].includes(save?.status) && <Btn onClick={() => onRetryWeeklySave?.(collection, true)}>
               Retry Save</Btn>}
             <Btn variant="danger" disabled={['saving', 'saved', 'unknown', 'blocked'].includes(save?.status)}
               onClick={() => setConfirmWeeklyDeleteId(collection.collectionId)}>Delete collection</Btn>
@@ -717,7 +727,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                   {draft.distributionNote && <p>{draft.distributionNote}</p>}
                 </details>}
                 <div className="flex flex-wrap gap-2">
-                  {!['saving', 'saved'].includes(save?.status) && <>
+                  {!['saving', 'saved'].includes(save?.status)
+                    && !(collection.sourceJobId && save?.status === 'unknown') && <>
                     <Btn onClick={() => { setActiveWeeklyCollectionId(collection.collectionId); setActiveDailyDraftId(draft.draftId); setShowGeneratedEditor(true); }}>Edit/Preview {draft.day}</Btn>
                     <Btn variant="outline" onClick={() => onWeeklyCollectionChange(collection.collectionId, current =>
                       updateWeeklyWorksheet(current, shuffleWeeklyWorksheet(draft)))}>Shuffle Questions</Btn>

@@ -7,10 +7,11 @@ import { createWeeklyJobClient } from './persistence/weeklyJobClient';
 import { createWeeklyJobDraftCollection } from './worksheets/weeklyWorksheetCollection';
 import { editableDraftItems, updateGeneratedDraft, validateGeneratedWorksheet } from './worksheets/generatedDraftModel';
 
-const { logoutMock, profileGuard, teacherState, weeklySaveMock, weeklyGate,
+const { logoutMock, profileGuard, teacherState, weeklySaveMock, weeklyGate, productionSaveMock, productionGate,
   completedJobPayload, renderedCollections } = vi.hoisted(() => ({
   logoutMock: vi.fn(), profileGuard: { mode: 'clean', action: null }, teacherState: { uid: 'teacher-1' },
   weeklySaveMock: vi.fn(), weeklyGate: { enabled: false },
+  productionSaveMock: vi.fn(), productionGate: { enabled: false },
   completedJobPayload: { current: null }, renderedCollections: { current: [] },
 }));
 const completedJobId = '823ebbd4-1bfe-459c-97e6-0200e738a5cb';
@@ -46,6 +47,10 @@ vi.mock('./persistence/aiWeeklyWorksheetSaveClient', () => ({
   weeklyWorksheetSaveFlagEnabled: () => weeklyGate.enabled,
   saveAiWeeklyWorksheets: weeklySaveMock,
 }));
+vi.mock('./persistence/weeklyWorksheetProductionSaveClient', () => ({
+  weeklyProductionSaveFlagEnabled: () => productionGate.enabled,
+  saveWeeklyJobCollection: productionSaveMock,
+}));
 
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({
@@ -76,7 +81,7 @@ vi.mock('./tabs/LessonPlansTab', () => ({ default: ({ onGeneratedDraft, onComple
     Hand off completed draft job</button>
 </> }));
 vi.mock('./tabs/WorksheetsTab', () => ({ default: ({ generatedDraft, weeklyCollections,
-  weeklySaveStates, onRetryWeeklySave, onWeeklyCollectionChange }) => {
+  weeklySaveStates, onRetryWeeklySave, onWeeklyCollectionChange, onSaveCompletedWeeklyJob }) => {
   renderedCollections.current = weeklyCollections;
   return <>
   <h1>Worksheets content</h1>
@@ -91,6 +96,13 @@ vi.mock('./tabs/WorksheetsTab', () => ({ default: ({ generatedDraft, weeklyColle
     <p>First answer: {collection.worksheets[0]?.answerKey?.[0]?.correct_answer}</p>
     <button onClick={() => onWeeklyCollectionChange(collection.collectionId, current => ({ ...current,
       worksheets: [{ ...current.worksheets[0], questions: [{ question: 'Edited question' }] }] }))}>Edit weekly</button>
+    {collection.sourceJobId && <>
+      <button onClick={() => onWeeklyCollectionChange(collection.collectionId, current => ({ ...current,
+        worksheets: current.worksheets.map((day, index) => index === 0
+          ? { ...day, title: 'Reviewed Monday' } : day) }))}>Review Monday</button>
+      <button onClick={() => onSaveCompletedWeeklyJob(collection,
+        weeklySaveStates[collection.collectionId]?.status === 'unknown')}>Save Worksheets</button>
+    </>}
     <button onClick={() => onRetryWeeklySave(collection, true)}>Retry weekly</button>
   </section>)}
 </>;
@@ -113,7 +125,9 @@ describe('Teacher shell navigation', () => {
     profileGuard.mode = 'clean';
     profileGuard.action = null;
     weeklyGate.enabled = false;
+    productionGate.enabled = false;
     weeklySaveMock.mockReset();
+    productionSaveMock.mockReset();
     completedJobPayload.current = null;
     renderedCollections.current = [];
     originalOffsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
@@ -137,6 +151,7 @@ describe('Teacher shell navigation', () => {
   afterEach(() => {
     cleanup();
     weeklyGate.enabled = false;
+    productionGate.enabled = false;
     if (originalOffsetParent) Object.defineProperty(HTMLElement.prototype, 'offsetParent', originalOffsetParent);
     else delete HTMLElement.prototype.offsetParent;
     window.requestAnimationFrame = originalAnimationFrame;
@@ -228,6 +243,37 @@ describe('Teacher shell navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hand off completed draft job' }));
     expect(screen.getByText('Weekly collections: 1')).toBeTruthy();
     expect(weeklySaveMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps reviewed days during navigation and explicitly replays one frozen Save attempt', async () => {
+    productionGate.enabled = true;
+    let resolveFirst;
+    productionSaveMock.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }))
+      .mockResolvedValueOnce({ status: 'saved', code: null, receipt: { collectionId: planId,
+        worksheets: weekdays.map((_, index) => ({ day: index + 1, id: planId, items: 20 })) } });
+    render(<MemoryRouter initialEntries={['/teacher-dashboard/lesson-plans']}>
+      <Routes><Route path="/teacher-dashboard/*" element={<TeacherDashboard />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off completed draft job' }));
+    expect(productionSaveMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Review Monday' }));
+    expect(renderedCollections.current[0].worksheets[0].title).toBe('Reviewed Monday');
+    fireEvent.click(screen.getByRole('link', { name: 'Lesson Plans', exact: true }));
+    fireEvent.click(screen.getByRole('link', { name: 'Worksheets', exact: true }));
+    expect(renderedCollections.current[0].worksheets[0].title).toBe('Reviewed Monday');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Worksheets' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Worksheets' }));
+    expect(productionSaveMock).toHaveBeenCalledTimes(1);
+    expect(productionSaveMock.mock.calls[0][1].collection.worksheets).toHaveLength(5);
+    expect(productionSaveMock.mock.calls[0][1].collection.worksheets[0].title).toBe('Reviewed Monday');
+    await act(async () => resolveFirst({ status: 'unknown', code: 'save_unconfirmed', receipt: null }));
+    await waitFor(() => expect(screen.getByText('Weekly status: unknown')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Review Monday' }));
+    expect(renderedCollections.current[0].worksheets[0].title).toBe('Reviewed Monday');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Worksheets' }));
+    await waitFor(() => expect(productionSaveMock).toHaveBeenCalledTimes(2));
+    expect(productionSaveMock.mock.calls[1][1]).toEqual(productionSaveMock.mock.calls[0][1]);
+    await waitFor(() => expect(screen.getByText('Weekly status: saved')).toBeTruthy());
   });
 
   it('carries the finalized five-day result through the real client, editable adapter, and unsaved dashboard handoff', async () => {

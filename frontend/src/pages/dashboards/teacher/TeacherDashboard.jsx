@@ -28,6 +28,7 @@ import WorksheetsTab from './tabs/WorksheetsTab';
 import { restoreLocallySavedWorksheet } from './worksheets/generatedDraftModel';
 import { createWeeklyJobDraftCollection } from './worksheets/weeklyWorksheetCollection';
 import { saveAiWeeklyWorksheets, weeklyWorksheetSaveFlagEnabled } from './persistence/aiWeeklyWorksheetSaveClient';
+import { saveWeeklyJobCollection, weeklyProductionSaveFlagEnabled } from './persistence/weeklyWorksheetProductionSaveClient';
 import GradesTab from './tabs/GradesTab';
 import EssayReviewLab from './worksheets/EssayReviewLab';
 import AttendanceTab from './tabs/AttendanceTab';
@@ -346,6 +347,7 @@ const TeacherDashboard = () => {
   const [weeklySaveStates, setWeeklySaveStates] = useState({});
   const weeklySaveStatesRef = useRef({});
   const weeklySnapshotsRef = useRef(new Map());
+  const weeklyJobSaveAttemptsRef = useRef(new Map());
   const weeklyInFlightRef = useRef(new Set());
   const weeklyOwnerRef = useRef(userData?.uid);
   weeklyOwnerRef.current = userData?.uid;
@@ -387,6 +389,36 @@ const TeacherDashboard = () => {
       weeklyInFlightRef.current.delete(id);
     }
   }, [recordWeeklySave, userData?.uid]);
+  const saveCompletedWeeklyJob = useCallback(async (collection, retry = false) => {
+    if (!weeklyProductionSaveFlagEnabled() || collection?.sourceJobId !== collection?.collectionId
+      || collection.teacherId !== userData?.uid) return;
+    const id = collection.collectionId;
+    const previous = weeklySaveStatesRef.current[id];
+    if (weeklyInFlightRef.current.has(id) || ['saved', 'blocked'].includes(previous?.status)
+      || (retry && previous?.status !== 'unknown')) return;
+    const attempt = previous?.status === 'unknown'
+      ? weeklyJobSaveAttemptsRef.current.get(id)
+      : { requestId: crypto.randomUUID(), collection: structuredClone(collection) };
+    if (!attempt) return;
+    weeklyJobSaveAttemptsRef.current.set(id, attempt);
+    weeklyInFlightRef.current.add(id);
+    const owner = userData.uid;
+    recordWeeklySave(id, { status: 'saving', code: null, message: '', receipt: null });
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+      const result = await saveWeeklyJobCollection(apiBase, { jobId: id, ...attempt });
+      if (weeklyOwnerRef.current !== owner) return;
+      const status = result.status === 'saved' ? 'saved'
+        : result.status === 'unknown' ? 'unknown'
+          : result.code === 'idempotency_conflict' ? 'blocked' : 'failed';
+      recordWeeklySave(id, { ...result, status });
+      if (status !== 'unknown') weeklyJobSaveAttemptsRef.current.delete(id);
+    } catch {
+      if (weeklyOwnerRef.current === owner) recordWeeklySave(id, { status: 'unknown',
+        code: 'save_unconfirmed', message: 'Could not confirm the save. Retry the same attempt before editing further.',
+        receipt: null });
+    } finally { weeklyInFlightRef.current.delete(id); }
+  }, [recordWeeklySave, userData?.uid]);
   const openGeneratedDraft = useCallback(draft => {
     if (draft?.kind === 'weekly-worksheet-collection') {
       setWeeklyCollections(current => current.some(item => item.collectionId === draft.collectionId)
@@ -417,6 +449,7 @@ const TeacherDashboard = () => {
   const discardGeneratedDraft = useCallback(() => { setGeneratedDraft(null); setLocalDistributions([]); }, []);
   const updateWeeklyCollection = useCallback((collectionId, update) => setWeeklyCollections(current => current.map(collection =>
     collection.collectionId === collectionId && !['saving', 'saved'].includes(weeklySaveStatesRef.current[collectionId]?.status)
+      && !(collection.sourceJobId && weeklySaveStatesRef.current[collectionId]?.status === 'unknown')
       ? typeof update === 'function' ? update(collection) : update : collection)), []);
   const discardWeeklyCollection = useCallback(collectionId => setWeeklyCollections(current =>
     current.filter(collection => collection.collectionId !== collectionId)), []);
@@ -428,6 +461,7 @@ const TeacherDashboard = () => {
       setWeeklyCollections([]);
       weeklySaveStatesRef.current = {};
       weeklySnapshotsRef.current.clear();
+      weeklyJobSaveAttemptsRef.current.clear();
       weeklyInFlightRef.current.clear();
       setWeeklySaveStates({});
       setManualDrafts([]);
@@ -467,6 +501,7 @@ const TeacherDashboard = () => {
               onGeneratedDraftChange={updateGeneratedDraft} onDiscardGeneratedDraft={discardGeneratedDraft}
               weeklyCollections={weeklyCollections.filter(collection => collection.teacherId === userData?.uid)}
                weeklySaveStates={weeklySaveStates} onRetryWeeklySave={saveWeeklyCollection}
+               onSaveCompletedWeeklyJob={saveCompletedWeeklyJob}
               onWeeklyCollectionChange={updateWeeklyCollection} onDiscardWeeklyCollection={discardWeeklyCollection}
               manualDrafts={manualDrafts.filter(item => item.teacherId === userData?.uid)}
               onCreateManualDraft={draft => setManualDrafts(current => [...current, draft])}

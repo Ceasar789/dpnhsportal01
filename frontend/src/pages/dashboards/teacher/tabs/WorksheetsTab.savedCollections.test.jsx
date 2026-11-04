@@ -46,6 +46,26 @@ beforeEach(() => { vi.stubEnv('VITE_AI_WEEKLY_WORKSHEET_SAVE_ENABLED', '0'); fix
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
 describe('saved weekly worksheet collections', () => {
+  it('offers an explicit Save for a job draft only when the production gate is enabled', async () => {
+    const jobId = '22345678-1234-4234-8234-123456789abc';
+    const onSaveCompletedWeeklyJob = vi.fn();
+    const collection = { collectionId: jobId, sourceJobId: jobId, teacherId: userData.uid,
+      title: 'Synthetic reviewed week', sourceLessonPlan: { title: 'Source Lesson Plan' },
+      worksheets: days.map(day => ({ day, draftId: `${jobId}:${day}`, title: `${day} draft`,
+        questions: [{}], answerKey: [] })) };
+    const off = renderTab({ weeklyCollections: [collection], onSaveCompletedWeeklyJob });
+    expect(screen.queryByRole('button', { name: 'Save Worksheets' })).toBeNull();
+    off.unmount();
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_WEEKLY_WORKSHEET_PRODUCTION_SAVE_ENABLED', 'true');
+    renderTab({ weeklyCollections: [collection], onSaveCompletedWeeklyJob });
+    expect(onSaveCompletedWeeklyJob).not.toHaveBeenCalled();
+    expect(screen.getByText(/Unsaved edits may be lost on refresh/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save Worksheets' }));
+    expect(onSaveCompletedWeeklyJob).toHaveBeenCalledOnce();
+    expect(onSaveCompletedWeeklyJob).toHaveBeenCalledWith(collection, false);
+  });
+
   it('groups five saved rows in weekday order and removes their plain cards', async () => {
     fixture.worksheets = [row(5), row(3), row(1), row(4), row(2)];
     fixture.collections = [{ id: 'db-week', title: 'Filipino 7 - Weekly Worksheets' }];

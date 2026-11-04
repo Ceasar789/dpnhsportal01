@@ -32,7 +32,7 @@ describe('local weekly worksheet collection', () => {
           localId: `draft-${index + 1}`, correct_answer: `${day} answer ${index + 1}` })),
       })) };
     const collection = createWeeklyJobDraftCollection({ jobId, result, teacherId });
-    expect(collection).toMatchObject({ collectionId: jobId, teacherId, saved: false,
+    expect(collection).toMatchObject({ collectionId: jobId, sourceJobId: jobId, teacherId, saved: false,
       status: 'local-draft', sourceLessonPlan: { id: plan.id, title: plan.title } });
     expect(collection.worksheets.map(day => day.day)).toEqual(WEEKDAYS);
     expect(collection.worksheets.map(day => day.draftId)).toEqual(WEEKDAYS.map(day => `${jobId}:${day}`));

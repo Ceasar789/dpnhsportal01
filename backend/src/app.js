@@ -14,6 +14,7 @@ import express from 'express';
 import cors from 'cors';
 import aiRoutes from './routes/ai.js';
 import { createAiLessonPlanSaveRouter } from './routes/aiLessonPlanSave.js';
+import { createWeeklyWorksheetProductionSaveRouter } from './routes/weeklyWorksheetProductionSave.js';
 import { createAiWeeklyWorksheetSaveRouter } from './routes/aiWeeklyWorksheetSave.js';
 import { createAiWeeklyWorksheetManageRouter } from './routes/aiWeeklyWorksheetManage.js';
 import { createAiWeeklyWorksheetDistributeRouter } from './routes/aiWeeklyWorksheetDistribute.js';
@@ -107,6 +108,7 @@ export function createApp({ env = process.env, loadDraftRouters = loadWeeklyDraf
   app.use('/api/ai', aiRoutes);
   app.use('/api/lesson-plans/ai-save', createAiLessonPlanSaveRouter());
   app.use('/api/weekly-worksheets/ai-save', createAiWeeklyWorksheetSaveRouter());
+  app.use('/api/weekly-worksheets/production-save', createWeeklyWorksheetProductionSaveRouter({ env }));
   app.use('/api/weekly-worksheets/manage', createAiWeeklyWorksheetManageRouter());
   app.use('/api/weekly-worksheets/distribute', createAiWeeklyWorksheetDistributeRouter());
   app.use('/api/ai', weeklyWorksheetRoutes);

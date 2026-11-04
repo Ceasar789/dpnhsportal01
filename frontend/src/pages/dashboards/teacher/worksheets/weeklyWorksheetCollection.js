@@ -67,10 +67,10 @@ export function createWeeklyJobDraftCollection({ jobId, result, teacherId }) {
     teacher_id: teacherId, subject_id: first.subjectId || null,
     subject: first.subjectName || null, grade_level: first.gradeLevel || null,
     academic_year: first.schoolYear || null };
-  return createWeeklyWorksheetCollection({ plan, teacherId, collectionId: jobId,
+  return { ...createWeeklyWorksheetCollection({ plan, teacherId, collectionId: jobId,
     sources: result.worksheets.map(day => day.sourceContext), responses: result.worksheets,
     questionCount: first.questions.length, draftIdForDay: day => `${jobId}:${day}`,
-    preserveQuestionOrder: true });
+    preserveQuestionOrder: true }), sourceJobId: jobId };
 }
 
 export function shuffleWeeklyWorksheet(worksheet, random = Math.random) {

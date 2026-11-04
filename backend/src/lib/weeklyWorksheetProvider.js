@@ -101,13 +101,15 @@ export const configuredWeeklyWorksheetProviders = () => {
 };
 
 export async function requestOpenAICompatibleWorksheetJson(prompt, { provider, model, apiKey,
+  accountId: suppliedAccountId,
   fetchImpl = fetch, maxOutputTokens = 4096, responseSchema, signal, onGroqUsage,
   onHttpStatus, onFinishReason, onRequestMetadata, operationId = randomUUID(), log = console } = {}) {
   const definition = Object.hasOwn(OPENAI_COMPATIBLE_PROVIDERS, provider)
     ? OPENAI_COMPATIBLE_PROVIDERS[provider] : undefined;
   if (!apiKey || !definition || !model || /gemini/i.test(model))
     throw providerError('PROVIDER_NOT_CONFIGURED', 'The weekly provider is unavailable.');
-  const accountId = definition.accountIdEnv ? process.env[definition.accountIdEnv]?.trim() : undefined;
+  const accountId = definition.accountIdEnv
+    ? (suppliedAccountId ?? process.env[definition.accountIdEnv])?.trim() : undefined;
   if (definition.accountIdEnv && !/^[0-9a-f]{32}$/i.test(accountId || ''))
     throw providerError('PROVIDER_NOT_CONFIGURED', 'The weekly provider is unavailable.');
   const schemaMode = definition.schemaMode?.(model);

@@ -12,7 +12,7 @@ const configured = value => typeof value === 'string' && !!value.trim();
 const invalid = () => { throw new TypeError('Weekly draft worker configuration is unavailable.'); };
 
 // Construction only: no job read, RPC, provider request, or scheduler is started.
-// The first configured provider is fixed for this worker; no batch failover occurs.
+// Each claimed batch selects one chain entry; no batch failover occurs.
 export function createWeeklyDraftWorkerComposition({ env = process.env,
   getServiceRoleClient = adminClient,
   providerRequest = requestOpenAICompatibleWorksheetJson,
@@ -45,14 +45,21 @@ export function createWeeklyDraftWorkerComposition({ env = process.env,
     let entries;
     try { entries = parseWeeklyWorksheetProviders(env.WEEKLY_WORKSHEET_PROVIDERS); }
     catch { invalid(); }
-    const selected = entries[0];
-    const keyName = weeklyProviderKeyEnv(selected?.name);
-    const accountName = weeklyProviderAccountIdEnv(selected?.name);
-    const apiKey = keyName && env[keyName];
-    if (!configured(apiKey) || (accountName && !/^[0-9a-f]{32}$/i.test(env[accountName] || '')))
-      invalid();
-    providerBatch = (prompt, options) => providerRequest(prompt, { ...options,
-      provider: selected.name, model: selected.model, apiKey: apiKey.trim() });
+    const configuredEntries = entries.map(entry => {
+      const keyName = weeklyProviderKeyEnv(entry.name);
+      const accountName = weeklyProviderAccountIdEnv(entry.name);
+      const apiKey = keyName && env[keyName];
+      const accountId = accountName && env[accountName];
+      if (!configured(apiKey) || (accountName && !/^[0-9a-f]{32}$/i.test(accountId || '')))
+        invalid();
+      return { provider: entry.name, model: entry.model, apiKey: apiKey.trim(),
+        ...(accountName ? { accountId } : {}) };
+    });
+    providerBatch = (prompt, { batchIndex, ...options }) => {
+      if (!Number.isSafeInteger(batchIndex) || batchIndex < 0 || batchIndex >= 20) invalid();
+      return providerRequest(prompt, { ...options,
+        ...configuredEntries[batchIndex % configuredEntries.length] });
+    };
   }
 
   const serviceRoleClient = getServiceRoleClient();

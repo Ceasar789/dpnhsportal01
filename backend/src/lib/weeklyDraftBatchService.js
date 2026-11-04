@@ -101,7 +101,8 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       let outcome;
       try {
         const call = (async () => providerBatch(prompt, {
-          signal: controller.signal, maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA,
+          batchIndex: claim.batchIndex, signal: controller.signal,
+          maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA,
         }))().then(raw => ({ kind: 'response', raw }), error => ({ kind: 'provider_error', error }));
         outcome = await Promise.race([call, interrupted]);
       } finally {

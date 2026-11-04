@@ -121,6 +121,7 @@ test('one valid batch uses claimed context and stores one fully parsed checkpoin
     assert.match(prompt, /Synthetic fractions plan/);
     assert.match(prompt, /Monday, batch 1/);
     assert.match(prompt, /Study Monday fractions/);
+    assert.equal(options.batchIndex, 0);
     assert.equal(options.maxOutputTokens, 8192);
     assert.ok(options.responseSchema);
     providerSignal = options.signal;
@@ -142,7 +143,8 @@ test('one valid batch uses claimed context and stores one fully parsed checkpoin
 test('a repeated earlier question rejects the whole batch without a checkpoint or retry', async () => {
   const priorQuestions = Array.from({ length: 10 }, (_, index) => `Prior fraction question ${index + 1}.`);
   const { service, calls } = setup({ claimed: { ...claim, batchIndex: 1, priorQuestions },
-    provider: async prompt => {
+    provider: async (prompt, options) => {
+      assert.equal(options.batchIndex, 1);
       assert.match(prompt, /Monday, batch 2/);
       assert.ok(prompt.includes(JSON.stringify(priorQuestions)));
       const value = JSON.parse(response());

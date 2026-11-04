@@ -59,6 +59,29 @@ test('Cloudflare uses the account URL and content only, without unverified reque
   }
 });
 
+test('Cloudflare accepts the selected worker account ID independently of process defaults', async () => {
+  const previous = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const accountId = '0123456789abcdef0123456789abcdef';
+  process.env.CLOUDFLARE_ACCOUNT_ID = 'invalid-default';
+  try {
+    const content = fixture('Monday', 1);
+    const result = await requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+      provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b',
+      apiKey: 'synthetic-cloudflare-token', accountId,
+      fetchImpl: async url => {
+        assert.equal(url, `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`);
+        return { ok: true, status: 200, headers: new Headers(), json: async () => ({
+          choices: [{ finish_reason: 'stop', message: { content } }],
+        }) };
+      },
+    });
+    assert.equal(result, content);
+  } finally {
+    if (previous === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = previous;
+  }
+});
+
 test('Cloudflare max_tokens accepts bounded integer overrides and warns safely on invalid values', async () => {
   const previous = { account: process.env.CLOUDFLARE_ACCOUNT_ID,
     max: process.env.CLOUDFLARE_MAX_TOKENS };

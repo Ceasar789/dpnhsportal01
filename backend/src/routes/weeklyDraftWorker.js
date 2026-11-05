@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 
 const SUCCESS_STATUSES = new Set(['idle', 'no_claim', 'canceled', 'stale',
-  'not_dispatched', 'failed', 'checkpointed',
+  'not_dispatched', 'failed', 'checkpointed', 'retry_queued',
   'completed', 'not_completed']);
 
 export function createWeeklyDraftWorkerRouter({ coordinator, workerSecret,

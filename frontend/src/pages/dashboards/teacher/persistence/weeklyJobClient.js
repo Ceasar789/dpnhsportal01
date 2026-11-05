@@ -32,8 +32,9 @@ const summary = (value, id) => {
     !== 'attemptedCalls|completedBatches|failureCategory|id|plannedCalls|status'
     || !uuid(value.id) || (id && value.id !== id) || !STATUSES.has(value.status)
     || ![10, 15, 20].includes(value.plannedCalls)
-    || !integer(value.attemptedCalls, 0, value.plannedCalls)
-    || !integer(value.completedBatches, 0, value.attemptedCalls)
+    || !integer(value.attemptedCalls, 0, value.plannedCalls + 2)
+    || !integer(value.completedBatches, 0, value.plannedCalls)
+    || value.completedBatches > value.attemptedCalls
     || (value.failureCategory !== null && !FAILURES.has(value.failureCategory))) fail('malformed_response');
   return value;
 };

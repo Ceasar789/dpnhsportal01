@@ -48,6 +48,14 @@ test('waits for each confirmed checkpoint before requesting another action', asy
   }
 });
 
+test('continues only after a confirmed fresh retry reservation, without replaying one HTTP request', async () => {
+  let calls = 0;
+  const result = await runWeeklyDraftWorkerTick({ endpoint, secret, clock: fakeClock(),
+    request: async () => response(++calls === 1 ? 'retry_queued' : 'completed') });
+  assert.deepEqual(result, { status: 'completed', requests: 2 });
+  assert.equal(calls, 2);
+});
+
 test('stops on every confirmed outcome that cannot justify another immediate action', async () => {
   for (const status of ['idle', 'completed', 'canceled', 'failed', 'no_claim', 'stale',
     'not_dispatched', 'not_completed']) {
@@ -108,12 +116,12 @@ test('rejects redirects and malformed or unknown responses without another reque
   }
 });
 
-test('limits a run to 21 confirmed requests and refuses another when time is short', async () => {
+test('limits a run to 23 confirmed requests and refuses another when time is short', async () => {
   let calls = 0;
   const capped = await runWeeklyDraftWorkerTick({ endpoint, secret, clock: fakeClock(),
     request: async () => { calls++; return response('checkpointed'); } });
-  assert.deepEqual(capped, { status: 'action_cap', requests: 21 });
-  assert.equal(calls, 21);
+  assert.deepEqual(capped, { status: 'action_cap', requests: 23 });
+  assert.equal(calls, 23);
 
   const clock = fakeClock();
   calls = 0;

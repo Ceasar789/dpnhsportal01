@@ -50,8 +50,9 @@ const validPlan = (plan, sourceLessonPlanId) => object(plan)
 function summary(data, id) {
   if (!object(data) || !uuid(data.id) || (id && data.id !== id)
     || !STATUSES.has(data.status) || ![10, 15, 20].includes(data.plannedCalls)
-    || !integer(data.attemptedCalls, 0, data.plannedCalls)
-    || !integer(data.completedBatches, 0, data.attemptedCalls)
+    || !integer(data.attemptedCalls, 0, data.plannedCalls + 2)
+    || !integer(data.completedBatches, 0, data.plannedCalls)
+    || data.completedBatches > data.attemptedCalls
     || (Object.hasOwn(data, 'failureCategory') && data.failureCategory !== null
       && !FAILURE_CATEGORIES.has(data.failureCategory))) fail('malformed_receipt');
   return { id: data.id, status: data.status, plannedCalls: data.plannedCalls,
@@ -188,6 +189,18 @@ export function createWeeklyDraftJobRpcAdapter({ serviceRoleClient, teacherClien
         p_checkpoint: checkpoint, p_failure_category: failureCategory,
       });
       if (typeof data !== 'boolean') fail('malformed_receipt');
+      return data;
+    },
+    async finishConfirmedFailure(jobId, leaseToken, failureCategory, reason) {
+      if (!uuid(jobId) || !uuid(leaseToken)
+        || !((failureCategory === 'provider' && reason === 'groq_json_validate_failed')
+          || (failureCategory === 'validation' && reason === 'invalid_output')))
+        fail('invalid_request');
+      const data = await call(serviceRoleClient, 'weekly_draft_job_finish_confirmed_failure_v1', {
+        p_job_id: jobId, p_lease_token: leaseToken,
+        p_failure_category: failureCategory, p_reason: reason,
+      });
+      if (!['retry_queued', 'failed', 'stale'].includes(data)) fail('malformed_receipt');
       return data;
     },
     async readCheckpoints(jobId) {

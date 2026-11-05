@@ -126,6 +126,20 @@ test('one authorized synthetic tick wires one fixed provider attempt and reveals
   assert.deepEqual(calls, { client: 1, discover: 1, batch: 1, provider: 1, assembly: 0 });
 });
 
+test('confirmed retry is off by default and requires the exact server-side true value', () => {
+  for (const [setting, expected] of [[undefined, false], ['false', false],
+    ['TRUE', false], ['true', true]]) {
+    let received;
+    createWeeklyDraftWorkerComposition({ env: { ...env(),
+      WEEKLY_DRAFT_CONFIRMED_RETRY_ENABLED: setting },
+    getServiceRoleClient: () => ({ rpc: async () => ({ data: null, error: null }) }),
+    providerRequest: async () => '{}',
+    createBatchService: options => { received = options.confirmedRetryEnabled;
+      return { processOneBatch: async () => ({ status: 'no_claim' }) }; } });
+    assert.equal(received, expected);
+  }
+});
+
 test('separate worker invocations rotate claimed batches through configured providers', async () => {
   const configured = { ...env(),
     WEEKLY_WORKSHEET_PROVIDERS: 'cloudflare:@cf/openai/gpt-oss-120b,groq:openai/gpt-oss-120b,nvidia:nvidia/nemotron-3-ultra-550b-a55b',

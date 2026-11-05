@@ -46,6 +46,7 @@ test('existing internal actions use only the service-role client and exact RPC a
       weekly_draft_job_claim_v1: claimReceipt(),
       weekly_draft_job_reserve_dispatch_v1: true,
       weekly_draft_job_finish_batch_v1: true,
+      weekly_draft_job_finish_confirmed_failure_v1: 'retry_queued',
       weekly_draft_job_read_checkpoints_v1: checkpointReceipt(),
       weekly_draft_job_fail_finalization_v1: true,
       weekly_draft_job_complete_v1: true,
@@ -64,6 +65,8 @@ test('existing internal actions use only the service-role client and exact RPC a
   assert.deepEqual(await adapter.claim(jobId), claimReceipt());
   assert.equal(await adapter.reserveDispatch(jobId, leaseToken), true);
   assert.equal(await adapter.finishBatch(jobId, leaseToken, { questions: [] }), true);
+  assert.equal(await adapter.finishConfirmedFailure(jobId, leaseToken,
+    'provider', 'groq_json_validate_failed'), 'retry_queued');
   assert.deepEqual(await adapter.readCheckpoints(jobId), checkpointReceipt());
   assert.equal(await adapter.failFinalization(jobId, 'validation'), true);
   assert.equal(await adapter.complete(jobId, draft), true);
@@ -78,6 +81,9 @@ test('existing internal actions use only the service-role client and exact RPC a
     ['weekly_draft_job_reserve_dispatch_v1', { p_job_id: jobId, p_lease_token: leaseToken }],
     ['weekly_draft_job_finish_batch_v1', { p_job_id: jobId, p_lease_token: leaseToken,
       p_checkpoint: { questions: [] }, p_failure_category: null }],
+    ['weekly_draft_job_finish_confirmed_failure_v1', { p_job_id: jobId,
+      p_lease_token: leaseToken, p_failure_category: 'provider',
+      p_reason: 'groq_json_validate_failed' }],
     ['weekly_draft_job_read_checkpoints_v1', { p_job_id: jobId }],
     ['weekly_draft_job_fail_finalization_v1', { p_job_id: jobId,
       p_failure_category: 'validation' }],
@@ -85,6 +91,34 @@ test('existing internal actions use only the service-role client and exact RPC a
     ['weekly_draft_job_purge_v1', {}],
   ]);
   assert.ok(calls.every(([name]) => name.startsWith('weekly_draft_job_')));
+});
+
+test('confirmed failure receipt and over-planned attempt summary remain bounded', async () => {
+  const calls = [];
+  let finishResult = 'failed';
+  const adapter = createWeeklyDraftJobRpcAdapter({
+    serviceRoleClient: { rpc: async (name, args) => {
+      calls.push([name, args]);
+      return { data: name === 'weekly_draft_job_finish_confirmed_failure_v1'
+        ? finishResult : { ...queued, attemptedCalls: 12, completedBatches: 10,
+          status: 'COMPLETED' }, error: null };
+    } },
+    teacherClientForJwt: () => ({ rpc: async () => ({ data: {
+      ...queued, attemptedCalls: 12, completedBatches: 10, status: 'COMPLETED',
+    }, error: null }) }),
+  });
+  for (const outcome of ['retry_queued', 'failed', 'stale']) {
+    finishResult = outcome;
+    assert.equal(await adapter.finishConfirmedFailure(jobId, leaseToken,
+      'validation', 'invalid_output'), outcome);
+  }
+  assert.equal((await adapter.status('synthetic-jwt', jobId)).attemptedCalls, 12);
+  assert.ok(calls.every(([name]) => name === 'weekly_draft_job_finish_confirmed_failure_v1'));
+  finishResult = 'private-answer';
+  await errorCode(adapter.finishConfirmedFailure(jobId, leaseToken,
+    'provider', 'groq_json_validate_failed'), 'malformed_receipt');
+  await errorCode(adapter.finishConfirmedFailure(jobId, leaseToken,
+    'provider', 'invalid_output'), 'invalid_request');
 });
 
 test('submit requires an exact bounded saved-plan snapshot before its service-role RPC', async () => {

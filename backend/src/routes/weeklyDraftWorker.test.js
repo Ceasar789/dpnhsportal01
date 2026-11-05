@@ -49,7 +49,7 @@ test('factory refuses missing coordinator or empty and unusable secrets', () => 
 
 test('correct bearer runs the coordinator once and returns bounded idle or action status', async () => {
   for (const status of ['idle', 'no_claim', 'canceled', 'stale', 'not_dispatched',
-    'failed', 'checkpointed', 'completed', 'not_completed']) {
+    'failed', 'checkpointed', 'retry_queued', 'completed', 'not_completed']) {
     let calls = 0;
     const router = createWeeklyDraftWorkerRouter({ workerSecret: secret,
       coordinator: { async runOnce() {

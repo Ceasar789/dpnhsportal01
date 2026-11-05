@@ -45,6 +45,14 @@ test('claim and recover delegate exactly once to the batch service without claim
   }
 });
 
+test('a database-authorized retry remains one action in this invocation', async () => {
+  const { calls, coordinator } = setup({ work: { jobId, action: 'claim' },
+    batchResult: { status: 'retry_queued', checkpoint: { answer: 'private' } } });
+  assert.deepEqual(await coordinator.runOnce(invocationStartedAt), { status: 'retry_queued' });
+  assert.deepEqual(calls, { discover: 1, batch: [[jobId, invocationStartedAt]],
+    assembly: [], claim: 0 });
+});
+
 test('assemble delegates exactly once and does not dispatch a batch', async () => {
   const { calls, coordinator } = setup({ work: { jobId, action: 'assemble' } });
   assert.deepEqual(await coordinator.runOnce(invocationStartedAt), { status: 'completed' });

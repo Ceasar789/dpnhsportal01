@@ -1,7 +1,7 @@
 // One scheduled tick handles one discovery hint. The batch and assembly
 // services, not this coordinator, own the authoritative job transitions.
 const BATCH_STATUSES = new Set(['no_claim', 'canceled', 'stale', 'not_dispatched',
-  'unconfirmed', 'timeout', 'failed', 'checkpointed']);
+  'unconfirmed', 'timeout', 'failed', 'checkpointed', 'retry_queued']);
 const ASSEMBLY_STATUSES = new Set(['completed', 'not_completed']);
 const ACTIONS = new Set(['claim', 'recover', 'assemble']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

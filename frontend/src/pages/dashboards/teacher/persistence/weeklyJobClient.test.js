@@ -98,6 +98,28 @@ describe('weekly draft job client', () => {
     ]);
   });
 
+  it('accepts two bounded extra attempts without exposing a partial draft', async () => {
+    const recovered = { ...summary('QUEUED'), attemptedCalls: 17, completedBatches: 14 };
+    const fetchImpl = vi.fn(async () => response(recovered));
+    const { client } = setup(fetchImpl);
+    expect(await client.status(JOB_ID)).toEqual(recovered);
+    await expect(client.result(JOB_ID)).rejects.toMatchObject({ code: 'not_ready' });
+    expect(fetchImpl.mock.calls.every(([url]) => !url.endsWith('/result'))).toBe(true);
+    fetchImpl.mockResolvedValue(response({ ...recovered, attemptedCalls: 18 }));
+    await expect(client.status(JOB_ID)).rejects.toMatchObject({ code: 'malformed_response' });
+  });
+
+  it('fetches only a complete five-day result after ten validated batches with extra attempts', async () => {
+    const completed = { ...summary('COMPLETED'), plannedCalls: 10,
+      attemptedCalls: 12, completedBatches: 10 };
+    const fetchImpl = vi.fn(async url => response(url.endsWith('/result') ? draft() : completed));
+    const { client } = setup(fetchImpl);
+    const result = await client.result(JOB_ID);
+    expect(result.worksheets).toHaveLength(5);
+    expect(result.saved).toBe(false);
+    expect(fetchImpl.mock.calls.map(([url]) => url.endsWith('/result'))).toEqual([false, true]);
+  });
+
   it.each(['FAILED', 'CANCELED', 'INTERRUPTED_UNKNOWN_OUTCOME', 'QUEUED'])(
     'does not request a result for %s after the authoritative status read', async status => {
       const fetchImpl = vi.fn(async () => response(summary(status)));

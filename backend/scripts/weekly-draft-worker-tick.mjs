@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const WORKER_PATH = '/api/internal/weekly-draft-worker';
-const MAX_ACTIONS = 21;
+const MAX_ACTIONS = 23;
 const WALL_BUDGET_MS = 40 * 60_000;
 export const REQUEST_TIMEOUT_MS = 130_000;
 const START_MARGIN_MS = 5_000;
@@ -120,7 +120,7 @@ export async function runWeeklyDraftWorkerTick({ endpoint, secret,
       || Object.keys(payload).length !== 1 || typeof payload.status !== 'string') {
       throw new WorkerTickError('malformed_response');
     }
-    if (payload.status === 'checkpointed') continue;
+    if (payload.status === 'checkpointed' || payload.status === 'retry_queued') continue;
     if (STOP_STATUSES.has(payload.status)) return { status: payload.status, requests };
     throw new WorkerTickError('malformed_response');
   }

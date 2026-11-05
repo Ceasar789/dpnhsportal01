@@ -70,7 +70,8 @@ export function createWeeklyDraftWorkerComposition({ env = process.env,
   if (typeof serviceRoleClient?.rpc !== 'function') invalid();
   const jobAdapter = createJobAdapter({ serviceRoleClient,
     teacherClientForJwt: () => { throw new TypeError('Worker has no teacher session.'); } });
-  const batchService = createBatchService({ jobAdapter, providerBatch, providerNameForBatch });
+  const batchService = createBatchService({ jobAdapter, providerBatch, providerNameForBatch,
+    confirmedRetryEnabled: env.WEEKLY_DRAFT_CONFIRMED_RETRY_ENABLED === 'true' });
   const assemblyService = createAssemblyService({ jobAdapter });
   const coordinator = createCoordinator({ jobAdapter, batchService, assemblyService });
   return createRouter({ coordinator, workerSecret: env.WEEKLY_DRAFT_WORKER_SECRET });

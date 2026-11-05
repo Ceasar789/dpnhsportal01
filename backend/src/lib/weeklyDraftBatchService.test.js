@@ -25,7 +25,8 @@ function setup({ claimed = claim, status = () => 'RUNNING', reserve = true,
   finish = true, provider = async () => response(), deadlineMs = 100,
   statusPollMs = 5, claimDelayMs = 0, statusDelayMs = 0,
   reserveDelayMs = 0, invocationElapsedMs = 0,
-  parseBatch, providerNameForBatch = () => 'cloudflare', finishDelayMs = 0 } = {}) {
+  parseBatch, providerNameForBatch = () => 'cloudflare', finishDelayMs = 0,
+  confirmedFailure = 'retry_queued', retryEnabled = false } = {}) {
   const calls = { claim: 0, workerStatus: 0, reserve: 0, provider: 0, finish: [] };
   const diagnostics = [];
   const timings = [];
@@ -34,7 +35,8 @@ function setup({ claimed = claim, status = () => 'RUNNING', reserve = true,
   const clock = { performance: { now: () => now }, setTimeout, clearTimeout,
     setInterval, clearInterval };
   const adapter = {
-    async claim(id) { assert.equal(id, jobId); calls.claim++; advance(claimDelayMs); return claimed; },
+    async claim(id) { assert.equal(id, jobId); calls.claim++; advance(claimDelayMs);
+      return typeof claimed === 'function' ? claimed(calls.claim) : claimed; },
     async workerStatus(id) {
       assert.equal(id, jobId);
       calls.workerStatus++;
@@ -58,13 +60,22 @@ function setup({ claimed = claim, status = () => 'RUNNING', reserve = true,
       return finish;
     },
   };
+  if (retryEnabled) {
+    calls.confirmed = [];
+    adapter.finishConfirmedFailure = async (id, token, failureCategory, reason) => {
+      assert.equal(id, jobId); assert.equal(token, leaseToken);
+      calls.confirmed.push({ failureCategory, reason });
+      if (confirmedFailure instanceof Error) throw confirmedFailure;
+      return confirmedFailure;
+    };
+  }
   const rawService = createWeeklyDraftBatchService({ jobAdapter: adapter,
     providerBatch: (...args) => { calls.provider++; return provider(...args); },
     providerNameForBatch, parseBatch,
     log: { warn: value => {
       if (JSON.parse(value).event === 'weekly_draft_provider_timing') timings.push(value);
       else diagnostics.push(value);
-    } }, deadlineMs, statusPollMs, clock });
+    } }, deadlineMs, statusPollMs, clock, confirmedRetryEnabled: retryEnabled });
   const service = { processOneBatch: id => rawService.processOneBatch(id, INVOCATION_START) };
   return { service, rawService, calls, diagnostics, timings, advance };
 }
@@ -358,6 +369,177 @@ test('Cloudflare JSON keeps valid questions and identifies only a malformed fiel
   }
 });
 
+test('batch index four sends one Groq Wednesday request and records an HTTP 400 without retry', async () => {
+  const secret = 'SYNTHETIC_PRIVATE_WORKSHEET_ANSWER';
+  const requests = [];
+  const run = setup({ claimed: { ...claim, batchIndex: 4, priorQuestions: [] },
+    providerNameForBatch: () => 'groq',
+    provider: (prompt, options) => requestOpenAICompatibleWorksheetJson(prompt, {
+      ...options, provider: 'groq', model: 'openai/gpt-oss-120b', apiKey: 'synthetic-key',
+      fetchImpl: async (url, request) => {
+        requests.push({ url, body: JSON.parse(request.body) });
+        return { ok: false, status: 400, headers: new Headers(),
+          json: async () => ({ error: { type: 'invalid_request_error', message: secret } }) };
+      },
+    }) });
+  assert.deepEqual(await run.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'provider' });
+  assert.equal(run.calls.provider, 1);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, 'https://api.groq.com/openai/v1/chat/completions');
+  assert.equal(requests[0].body.model, 'openai/gpt-oss-120b');
+  assert.equal(requests[0].body.max_completion_tokens, 8192);
+  assert.equal(requests[0].body.response_format.type, 'json_schema');
+  assert.equal(requests[0].body.response_format.json_schema.strict, true);
+  assert.match(requests[0].body.messages[0].content, /Create exactly 10 distinct worksheet questions for Wednesday, batch 1/);
+  assert.match(requests[0].body.messages[0].content, /Already used in this day \(do not repeat\): \[\]/);
+  assert.deepEqual(run.calls.finish, [{ checkpoint: null, failureCategory: 'provider' }]);
+  assert.deepEqual(run.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_provider_failure',
+    provider: 'groq', batchIndex: 4, failureCategory: 'provider',
+    code: 'PROVIDER_REJECTED', httpStatus: 400 }]);
+  assert.equal(JSON.stringify(run.diagnostics).includes(secret), false);
+});
+
+test('confirmed Groq schema rejection queues one fresh reservation without a same-tick retry', async () => {
+  const sentinel = 'SYNTHETIC_PRIVATE_PROMPT_AND_ANSWER';
+  let httpRequests = 0;
+  const run = setup({ retryEnabled: true, providerNameForBatch: () => 'groq',
+    provider: (prompt, options) => requestOpenAICompatibleWorksheetJson(prompt, {
+      ...options, provider: 'groq', model: 'openai/gpt-oss-120b', apiKey: 'synthetic-key',
+      fetchImpl: async () => {
+        httpRequests++;
+        return { ok: false, status: 400, headers: new Headers(),
+          json: async () => ({ error: { code: 'json_validate_failed', message: sentinel } }) };
+      },
+    }) });
+  assert.deepEqual(await run.service.processOneBatch(jobId), { status: 'retry_queued' });
+  assert.equal(run.calls.provider, 1);
+  assert.equal(httpRequests, 1);
+  assert.deepEqual(run.calls.confirmed, [{ failureCategory: 'provider',
+    reason: 'groq_json_validate_failed' }]);
+  assert.deepEqual(run.calls.finish, []);
+  assert.equal(JSON.stringify([...run.diagnostics, ...run.timings]).includes(sentinel), false);
+});
+
+test('confirmed retry flag stays off even for a matching Groq rejection', async () => {
+  const run = setup({ providerNameForBatch: () => 'groq',
+    provider: async () => { throw Object.assign(new Error('private'), {
+      code: 'PROVIDER_REJECTED', httpStatus: 400,
+      providerErrorCode: 'json_validate_failed',
+    }); } });
+  assert.deepEqual(await run.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'provider' });
+  assert.equal(run.calls.provider, 1);
+  assert.equal(run.calls.finish.length, 1);
+});
+
+test('a generic Groq HTTP 400 is terminal without the confirmed schema failure code', async () => {
+  let httpRequests = 0;
+  const run = setup({ retryEnabled: true, providerNameForBatch: () => 'groq',
+    provider: (prompt, options) => requestOpenAICompatibleWorksheetJson(prompt, {
+      ...options, provider: 'groq', model: 'openai/gpt-oss-120b', apiKey: 'synthetic-key',
+      fetchImpl: async () => {
+        httpRequests++;
+        return { ok: false, status: 400, headers: new Headers(),
+          json: async () => ({ error: { code: 'invalid_request_error' } }) };
+      },
+    }) });
+  assert.deepEqual(await run.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'provider' });
+  assert.equal(run.calls.provider, 1);
+  assert.equal(httpRequests, 1);
+  assert.deepEqual(run.calls.confirmed, []);
+  assert.equal(run.calls.finish.length, 1);
+});
+
+test('confirmed malformed Cloudflare output queues a fresh attempt without weakening parsing', async () => {
+  const run = setup({ retryEnabled: true, providerNameForBatch: () => 'cloudflare',
+    parseBatch: () => { throw Object.assign(new Error('synthetic private answer'), {
+      code: 'AI_RESPONSE_INVALID', validation: { category: 'invalid_answer_key' },
+    }); } });
+  assert.deepEqual(await run.service.processOneBatch(jobId), { status: 'retry_queued' });
+  assert.equal(run.calls.provider, 1);
+  assert.deepEqual(run.calls.confirmed, [{ failureCategory: 'validation', reason: 'invalid_output' }]);
+  assert.deepEqual(run.calls.finish, []);
+  assert.equal(JSON.stringify([...run.diagnostics, ...run.timings]).includes('synthetic private answer'), false);
+});
+
+test('timeout and uncertain transport never queue a new attempt', async () => {
+  for (const error of [Object.assign(new Error('private timeout'), { code: 'PROVIDER_TIMEOUT' }),
+    Object.assign(new Error('private lost response'), { code: 'PROVIDER_INTERRUPTED' })]) {
+    const run = setup({ retryEnabled: true, provider: async () => { throw error; } });
+    assert.deepEqual(await run.service.processOneBatch(jobId),
+      { status: 'failed', failureCategory: error.code === 'PROVIDER_TIMEOUT' ? 'timeout' : 'provider' });
+    assert.equal(run.calls.provider, 1);
+    assert.deepEqual(run.calls.confirmed, []);
+    assert.equal(run.calls.finish.length, 1);
+  }
+});
+
+test('retry cap exhaustion and Cancel race cannot queue another batch', async () => {
+  const provider = async () => { throw Object.assign(new Error('private'), {
+    code: 'PROVIDER_REJECTED', httpStatus: 400, providerErrorCode: 'json_validate_failed',
+  }); };
+  const exhausted = setup({ retryEnabled: true, providerNameForBatch: () => 'groq',
+    provider, confirmedFailure: 'failed' });
+  assert.deepEqual(await exhausted.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'provider' });
+  assert.equal(exhausted.calls.provider, 1);
+  const canceled = setup({ retryEnabled: true, providerNameForBatch: () => 'groq',
+    provider, confirmedFailure: 'stale' });
+  assert.deepEqual(await canceled.service.processOneBatch(jobId), { status: 'stale' });
+  assert.equal(canceled.calls.provider, 1);
+});
+
+test('Cancel after a confirmed rejection prevents the retry transition', async () => {
+  let statusReads = 0;
+  const run = setup({ retryEnabled: true, providerNameForBatch: () => 'groq',
+    status: () => ++statusReads === 1 ? 'RUNNING' : 'CANCELED',
+    provider: async () => { throw Object.assign(new Error('private'), {
+      code: 'PROVIDER_REJECTED', httpStatus: 400,
+      providerErrorCode: 'json_validate_failed',
+    }); } });
+  assert.deepEqual(await run.service.processOneBatch(jobId), { status: 'canceled' });
+  assert.equal(run.calls.provider, 1);
+  assert.deepEqual(run.calls.confirmed, []);
+  assert.deepEqual(run.calls.finish, []);
+});
+
+test('a confirmed failure at the last planned batch can be followed by one validated checkpoint', async () => {
+  const earlierQuestions = Array.from({ length: 10 }, (_, index) =>
+    `Previously validated Friday question ${index + 1}`);
+  const lastBatch = { ...claim, batchIndex: 9, priorQuestions: earlierQuestions };
+  const rejected = setup({ claimed: lastBatch, retryEnabled: true,
+    parseBatch: () => { throw Object.assign(new Error('private invalid output'), {
+      code: 'AI_RESPONSE_INVALID', validation: { category: 'invalid_answer_key' },
+    }); } });
+  assert.deepEqual(await rejected.service.processOneBatch(jobId), { status: 'retry_queued' });
+  assert.deepEqual(rejected.calls.finish, []);
+  assert.deepEqual(lastBatch.priorQuestions, earlierQuestions);
+
+  const accepted = setup({ claimed: lastBatch, retryEnabled: true });
+  assert.deepEqual(await accepted.service.processOneBatch(jobId),
+    { status: 'checkpointed', batchIndex: 9 });
+  assert.equal(accepted.calls.provider, 1);
+  assert.equal(accepted.calls.finish.length, 1);
+  assert.equal(accepted.calls.finish[0].checkpoint.questions.length, 10);
+  assert.deepEqual(lastBatch.priorQuestions, earlierQuestions);
+});
+
+test('two concurrent worker hints cannot dispatch when the second authoritative claim is null', async () => {
+  const run = setup({ claimed: call => call === 1 ? claim : null });
+  const outcomes = await Promise.all([
+    run.service.processOneBatch(jobId), run.service.processOneBatch(jobId),
+  ]);
+  assert.deepEqual(outcomes, [
+    { status: 'checkpointed', batchIndex: 0 }, { status: 'no_claim' },
+  ]);
+  assert.equal(run.calls.claim, 2);
+  assert.equal(run.calls.reserve, 1);
+  assert.equal(run.calls.provider, 1);
+  assert.equal(run.calls.finish.length, 1);
+});
+
 test('untrusted validation paths cannot appear in structure diagnostics', async () => {
   const secret = 'SYNTHETIC_PRIVATE_QUESTION_AND_ANSWER';
   const run = setup({ parseBatch: () => { throw Object.assign(new Error(secret), {
@@ -446,7 +628,9 @@ test('validation diagnostics classify only fixed parser and provider reasons', a
     assert.deepEqual(calls.finish, [{ checkpoint: null, failureCategory: 'validation' }]);
     assert.deepEqual(diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
       provider: 'cloudflare', batchIndex: 6, stage, subreason,
-      ...(subreason === 'invalid_question_structure' ? { field: 'points' } : {}) }]);
+      ...(subreason === 'invalid_question_structure' ? { field: 'points' } : {}),
+      ...(subreason === 'malformed_json' ? { shape: { rawLength: 13, firstChar: 'brace',
+        lastChar: 'other', braceBalance: 1, hasFenceInside: false } } : {}) }]);
   }
 
   const providerInvalid = setup({ provider: async () => {
@@ -499,14 +683,39 @@ test('diagnostics redact synthetic secrets, content, and untrusted validation la
     provider: 'unknown', batchIndex: 0, stage: 'daily_parser', subreason: 'other_validation' }]);
   for (const sentinel of sentinels) assert.equal(JSON.stringify(invalid.diagnostics).includes(sentinel), false);
 
-  const malformed = setup({ provider: async () =>
-    `{${sentinels[0]} ${sentinels[1]} ${sentinels[2]} ${sentinels[3]}` });
+  const malformedRaw = `{${sentinels[0]} ${sentinels[1]} ${sentinels[2]} ${sentinels[3]}`;
+  const malformed = setup({ provider: async () => malformedRaw });
   assert.deepEqual(await malformed.service.processOneBatch(jobId),
     { status: 'failed', failureCategory: 'validation' });
   assert.equal(malformed.calls.provider, 1);
   assert.deepEqual(malformed.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
-    provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser', subreason: 'malformed_json' }]);
+    provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser', subreason: 'malformed_json',
+    shape: { rawLength: malformedRaw.length, firstChar: 'brace', lastChar: 'other',
+      braceBalance: 1, hasFenceInside: false } }]);
   for (const sentinel of sentinels) assert.equal(JSON.stringify(malformed.diagnostics).includes(sentinel), false);
+});
+
+test('malformed_json shape distinguishes a fenced reply and exposes no content', async () => {
+  const fenced = `\`\`\`json\n${response()}\n\`\`\``;
+  const run = setup({ provider: async () => fenced });
+  assert.deepEqual(await run.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'validation' });
+  assert.equal(run.calls.provider, 1);
+  assert.deepEqual(run.calls.finish, [{ checkpoint: null, failureCategory: 'validation' }]);
+  assert.deepEqual(run.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser', subreason: 'malformed_json',
+    shape: { rawLength: fenced.length, firstChar: 'fence', lastChar: 'fence',
+      braceBalance: 0, hasFenceInside: true } }]);
+  assert.equal(JSON.stringify(run.diagnostics).includes('Compare fraction pair'), false);
+
+  const prose = `Here is the worksheet: ${response()}`;
+  const proseRun = setup({ provider: async () => prose });
+  assert.deepEqual(await proseRun.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'validation' });
+  assert.deepEqual(proseRun.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser', subreason: 'malformed_json',
+    shape: { rawLength: prose.length, firstChar: 'other', lastChar: 'brace',
+      braceBalance: 0, hasFenceInside: false } }]);
 });
 
 test('Cancel during a pending call aborts locally and discards its late success', async () => {

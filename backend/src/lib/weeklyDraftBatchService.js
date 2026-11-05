@@ -39,6 +39,21 @@ const invalidStructureField = error => {
     ? /^questions\[\d{1,2}\]\.(question|item_type|points|options|enumeration|essay)$/.exec(path) : null;
   return match?.[1] || 'unknown';
 };
+// Bounded, content-free description of a raw provider output. Only numbers and
+// fixed labels are returned; the raw text itself is never logged.
+const rawShape = raw => {
+  if (typeof raw !== 'string') return undefined;
+  const text = raw.trim();
+  const opens = (text.match(/{/g) || []).length;
+  const closes = (text.match(/}/g) || []).length;
+  return {
+    rawLength: Math.min(raw.length, 99999),
+    firstChar: text.startsWith('```') ? 'fence' : text[0] === '{' ? 'brace' : 'other',
+    lastChar: text.endsWith('```') ? 'fence' : text.endsWith('}') ? 'brace' : 'other',
+    braceBalance: Math.max(-9, Math.min(9, opens - closes)),
+    hasFenceInside: text.includes('```'),
+  };
+};
 
 const failureCategory = error => error?.code === 'AI_RESPONSE_INVALID' ? 'validation'
   : error?.code === 'PROVIDER_TIMEOUT' ? 'timeout'
@@ -47,11 +62,14 @@ const failureCategory = error => error?.code === 'AI_RESPONSE_INVALID' ? 'valida
 
 export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
   providerNameForBatch = () => 'unknown', parseBatch = parseDailyBatch, log = console,
-  deadlineMs = DEFAULT_DEADLINE_MS, statusPollMs = DEFAULT_POLL_MS, clock = globalThis } = {}) {
+  deadlineMs = DEFAULT_DEADLINE_MS, statusPollMs = DEFAULT_POLL_MS, clock = globalThis,
+  confirmedRetryEnabled = false } = {}) {
   if (typeof jobAdapter?.claim !== 'function' || typeof jobAdapter?.workerStatus !== 'function'
     || typeof jobAdapter?.reserveDispatch !== 'function' || typeof jobAdapter?.finishBatch !== 'function'
     || typeof providerBatch !== 'function' || typeof providerNameForBatch !== 'function'
-    || typeof parseBatch !== 'function' || !Number.isSafeInteger(deadlineMs)
+    || typeof parseBatch !== 'function' || typeof confirmedRetryEnabled !== 'boolean'
+    || (confirmedRetryEnabled && typeof jobAdapter?.finishConfirmedFailure !== 'function')
+    || !Number.isSafeInteger(deadlineMs)
     || deadlineMs < 1 || deadlineMs > 90_000 || !Number.isSafeInteger(statusPollMs)
     || statusPollMs < 1 || statusPollMs >= deadlineMs
     || typeof clock.performance?.now !== 'function'
@@ -83,7 +101,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       const claim = await jobAdapter.claim(jobId);
       if (claim === null) return { status: 'no_claim' };
       if (!hasDispatchBudget()) return { status: 'not_dispatched' };
-      const logValidation = (stage, subreason, field) => {
+      const logValidation = (stage, subreason, field, shape) => {
         // Log only values chosen by this code; diagnostics must not affect the job outcome.
         try {
           const batchIndex = Number.isSafeInteger(claim.batchIndex)
@@ -92,7 +110,8 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
           log?.warn?.(JSON.stringify({ event: 'weekly_draft_validation',
             provider: SAFE_PROVIDERS.has(selected) ? selected : 'unknown',
             batchIndex, stage, subreason,
-            ...(subreason === 'invalid_question_structure' ? { field } : {}) }));
+            ...(subreason === 'invalid_question_structure' ? { field } : {}),
+            ...(subreason === 'malformed_json' && shape ? { shape } : {}) }));
         } catch { /* Logging is best effort. */ }
       };
       const logTimeout = timeoutOrigin => {
@@ -238,7 +257,9 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
           }
           checkpoint = null;
           category = 'validation';
-          validationDiagnostic = [stage, validationSubreason(error), invalidStructureField(error)];
+          const subreason = validationSubreason(error);
+          validationDiagnostic = [stage, subreason, invalidStructureField(error),
+            subreason === 'malformed_json' ? rawShape(outcome.raw) : undefined];
         }
         const validationMs = roundedElapsedMs(validationStartedAt, clock.performance.now());
         if (validationMs !== null) phases.validationMs = validationMs;
@@ -247,9 +268,30 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       const current = await jobAdapter.workerStatus(jobId);
       if (current.status !== 'RUNNING' || current.cancelRequested !== false)
         return { status: current.status === 'CANCELED' ? 'canceled' : 'stale' };
+      // A fresh reservation is permitted only after a confirmed rejection or
+      // after our parser has inspected a returned batch. Transport uncertainty,
+      // timeouts, truncation, and provider-side malformed bodies stay terminal.
+      let confirmedReason = null;
+      if (confirmedRetryEnabled && outcome.kind === 'response' && category === 'validation') {
+        confirmedReason = 'invalid_output';
+      } else if (confirmedRetryEnabled && outcome.kind === 'provider_error' && category === 'provider') {
+        try {
+          if (providerNameForBatch(claim.batchIndex) === 'groq'
+            && outcome.error?.code === 'PROVIDER_REJECTED'
+            && outcome.error?.httpStatus === 400
+            && typeof outcome.error?.providerErrorCode === 'string'
+            && /(?:^|\/)json_validate_failed(?:\/|$)/.test(outcome.error.providerErrorCode))
+            confirmedReason = 'groq_json_validate_failed';
+        } catch { /* A provider selection error cannot authorize recovery. */ }
+      }
+      const finishConfirmed = confirmedRetryEnabled && confirmedReason;
       const finishStartedAt = clock.performance.now();
       let finished;
-      try { finished = await jobAdapter.finishBatch(jobId, claim.leaseToken, checkpoint, category); }
+      try {
+        finished = finishConfirmed
+          ? await jobAdapter.finishConfirmedFailure(jobId, claim.leaseToken, category, confirmedReason)
+          : await jobAdapter.finishBatch(jobId, claim.leaseToken, checkpoint, category);
+      }
       catch (error) {
         const elapsed = roundedElapsedMs(finishStartedAt, clock.performance.now());
         if (elapsed !== null) phases.finishRpcMs = elapsed;
@@ -258,6 +300,18 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       }
       const finishRpcMs = roundedElapsedMs(finishStartedAt, clock.performance.now());
       if (finishRpcMs !== null) phases.finishRpcMs = finishRpcMs;
+      if (finishConfirmed && finished === 'retry_queued') {
+        logTiming('retry_queued');
+        if (validationDiagnostic) logValidation(...validationDiagnostic);
+        if (category === 'provider') logProviderFailure(outcome.error);
+        return { status: 'retry_queued' };
+      }
+      if (finishConfirmed && finished === 'failed') {
+        logTiming('failed');
+        if (validationDiagnostic) logValidation(...validationDiagnostic);
+        if (category === 'provider') logProviderFailure(outcome.error);
+        return { status: 'failed', failureCategory: category };
+      }
       if (finished !== true) {
         logTiming('finish_refused');
         return { status: 'stale' };

@@ -486,6 +486,17 @@ describe('saved-plan draft-only weekly job handoff', () => {
       .toEqual(['jobId', 'planId', 'questionCount', 'requestId', 'teacherId']);
   });
 
+  it('keeps polling a queued job when automatic start was not confirmed', async () => {
+    const client = jobClient({ submit: vi.fn(async () => ({ ...jobSummary(), wakeStatus: 'unconfirmed' })) });
+    const { name } = await renderSavedJob(client);
+    fireEvent.click(screen.getByRole('button', { name }));
+    await flushJob();
+    expect(screen.getByText(/Automatic start was not confirmed/)).toBeTruthy();
+    expect(client.status).toHaveBeenCalledWith(jobId);
+    expect(client.submit).toHaveBeenCalledTimes(1);
+    expect(mock.writes).toEqual([]);
+  });
+
   it('polls confirmed counts without an estimate and stops after closing the view', async () => {
     const client = jobClient({ status: vi.fn()
       .mockResolvedValueOnce(jobSummary('QUEUED'))

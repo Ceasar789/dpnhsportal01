@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { adminClient, requireAuth } from '../middleware/requireAuth.js';
 import { resolveWeeklyDraftSourceDays } from '../lib/weeklyDraftSourceResolver.js';
 import { createWeeklyDraftJobRpcAdapter } from '../persistence/weeklyDraftJobRpcAdapter.js';
+import { createWeeklyDraftWorkflowWake } from '../lib/weeklyDraftWorkflowWake.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SOURCE_COLUMNS = 'id,teacher_id,status,title,objectives,subject,grade_level,subject_id,academic_year,ai_generated';
@@ -48,7 +49,7 @@ const defaultAdapter = () => createWeeklyDraftJobRpcAdapter({
 // This module is intentionally unmounted. A later composition patch must
 // explicitly wire it after the draft-job migration and worker are ready.
 export function createWeeklyDraftJobsRouter({ auth = requireAuth(['teacher']),
-  loadPlan = defaultLoadPlan, jobAdapter } = {}) {
+  loadPlan = defaultLoadPlan, jobAdapter, wake = createWeeklyDraftWorkflowWake() } = {}) {
   const router = Router();
   const adapter = () => { jobAdapter ??= defaultAdapter(); return jobAdapter; };
   router.use(auth);
@@ -57,8 +58,8 @@ export function createWeeklyDraftJobsRouter({ auth = requireAuth(['teacher']),
     if (!validId(req.user.id) || !bearer(req)) return safeFailure(res, 'not_authenticated');
     return next();
   });
-  const action = (fn, successStatus = 200) => async (req, res) => {
-    try { return res.status(successStatus).json(await fn(req)); }
+  const action = (fn, successStatus = 200, respond = (_res, data) => data) => async (req, res) => {
+    try { return res.status(successStatus).json(respond(res, await fn(req))); }
     catch (error) { return safeFailure(res, error?.code); }
   };
 
@@ -78,10 +79,20 @@ export function createWeeklyDraftJobsRouter({ auth = requireAuth(['teacher']),
     }
     const sourceDays = resolveWeeklyDraftSourceDays(plan);
     const expectedSource = Object.fromEntries(SNAPSHOT_FIELDS.map(field => [field, plan[field]]));
-    return adapter().submit({ teacherId: req.user.id, requestId: body.requestId,
+    const job = await adapter().submit({ teacherId: req.user.id, requestId: body.requestId,
       sourceLessonPlanId: plan.id, questionCount: body.questionCount,
       sourceDays, expectedSource });
-  }, 202));
+    if (job.status !== 'QUEUED') return { job, wakeStatus: 'not_needed' };
+    let wakeStatus;
+    try { wakeStatus = await wake(); }
+    catch { wakeStatus = 'unconfirmed'; }
+    return { job, wakeStatus: ['accepted', 'unavailable', 'unconfirmed'].includes(wakeStatus)
+      ? wakeStatus : 'unconfirmed' };
+  }, 202, (res, { job, wakeStatus }) => {
+    res.set('X-Weekly-Workflow-Wake', wakeStatus);
+    res.set('Access-Control-Expose-Headers', 'X-Weekly-Workflow-Wake');
+    return job;
+  }));
 
   const jobId = req => {
     if (!validId(req.params.jobId)) throw Object.assign(new Error(), { code: 'invalid_request' });

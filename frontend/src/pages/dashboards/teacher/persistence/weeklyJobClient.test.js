@@ -10,7 +10,8 @@ const TEACHER_ID = 'de0eb356-120c-4a10-a3b2-b730912f1f35';
 const summary = (status = 'QUEUED') => ({ id: JOB_ID, status, plannedCalls: 15,
   attemptedCalls: status === 'COMPLETED' ? 15 : 0,
   completedBatches: status === 'COMPLETED' ? 15 : 0, failureCategory: null });
-const response = (data, status = 200) => ({ ok: status < 400, status,
+const response = (data, status = 200, wakeStatus) => ({ ok: status < 400, status,
+  headers: { get: name => name === 'X-Weekly-Workflow-Wake' ? wakeStatus : null },
   text: async () => JSON.stringify(data) });
 const draft = () => ({ kind: 'weekly-worksheet-collection', status: 'local-draft', saved: false,
   teacherId: TEACHER_ID, sourceLessonPlan: { id: PLAN_ID, title: 'Synthetic plan' },
@@ -71,6 +72,19 @@ describe('weekly draft job client', () => {
       expect(JSON.parse(options.body)).toEqual({ lessonPlanId: PLAN_ID,
         questionCount: 30, requestId: 'same-request' });
     }
+  });
+
+  it('accepts only bounded wake-up status on submit, never on job status', async () => {
+    const input = { sourceLessonPlanId: PLAN_ID, questionCount: 30, requestId: 'same-request' };
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(response(summary(), 202, 'unconfirmed'))
+      .mockResolvedValueOnce(response({ ...summary(), checkpoints: ['private'] }, 202, 'accepted'))
+      .mockResolvedValueOnce(response(summary('QUEUED'), 200, 'accepted'));
+    const { client } = setup(fetchImpl);
+    expect(await client.submit(input)).toEqual({ ...summary(), wakeStatus: 'unconfirmed' });
+    await expect(client.submit(input)).rejects.toMatchObject({ code: 'malformed_response' });
+    expect(await client.status(JOB_ID)).toEqual(summary());
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
   it('reads status before fetching the authorized completed draft and makes no submit request', async () => {

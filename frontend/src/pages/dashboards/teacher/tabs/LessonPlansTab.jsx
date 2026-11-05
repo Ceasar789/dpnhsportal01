@@ -233,7 +233,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
             && (current.cancelUnconfirmed || current.cancelCompleted)
             ? 'The job completed before cancellation. Opening its unsaved draft.'
             : current.cancelUnconfirmed
-              ? 'Could not confirm cancellation. Checking the job status; you may request cancellation again.' : '' }
+              ? 'Could not confirm cancellation. Checking the job status; you may request cancellation again.'
+              : job.status === 'QUEUED' && ['unconfirmed', 'unavailable'].includes(current.wakeStatus)
+                ? 'Automatic start was not confirmed. Checking the job; the scheduled worker may pick it up.' : '' }
           : current);
         if (job.status !== 'COMPLETED' || handedOffJobsRef.current.has(jobId)) return;
         const result = await jobClient.result(jobId);
@@ -286,7 +288,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       rememberWeeklyJob({ teacherId: ownerId, planId: plan.id, jobId: job.id,
         requestId: jobRequestId, questionCount });
       setWorksheetRun({ plan, kind: 'weekly', status: 'job', attemptToken,
-        jobRequestId, questionCount, job });
+        jobRequestId, questionCount, job, wakeStatus: job.wakeStatus,
+        notice: ['unconfirmed', 'unavailable'].includes(job.wakeStatus)
+          ? 'Automatic start was not confirmed. Checking the job; the scheduled worker may pick it up.' : '' });
     } catch (error) {
       if (attemptToken !== worksheetRequestRef.current || worksheetTeacherRef.current !== ownerId) return;
       if (['submit_unconfirmed', 'malformed_response', 'job_unavailable'].includes(error?.code)) {

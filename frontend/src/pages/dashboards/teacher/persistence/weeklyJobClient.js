@@ -37,6 +37,15 @@ const summary = (value, id) => {
     || (value.failureCategory !== null && !FAILURES.has(value.failureCategory))) fail('malformed_response');
   return value;
 };
+const submitReceipt = value => {
+  if (!object(value)) fail('malformed_response');
+  const { wakeStatus, ...job } = value;
+  const confirmed = summary(job);
+  if (wakeStatus === undefined) return confirmed;
+  if (!['accepted', 'unconfirmed', 'unavailable', 'not_needed'].includes(wakeStatus))
+    fail('malformed_response');
+  return { ...confirmed, wakeStatus };
+};
 const cancelReceipt = (value, id) => {
   if (!object(value) || Object.keys(value).sort().join('|') !== 'id|status'
     || value.id !== id || !['CANCELED', 'COMPLETED', 'FAILED', 'INTERRUPTED_UNKNOWN_OUTCOME'].includes(value.status)) fail('cancel_unconfirmed');
@@ -79,7 +88,7 @@ const draft = value => {
 
 export function createWeeklyJobClient({ enabled = false, apiBase = API_BASE,
   getSession = () => supabase.auth.getSession(), fetchImpl = (...args) => fetch(...args) } = {}) {
-  const request = async (method, path, body, uncertainCode) => {
+  const request = async (method, path, body, uncertainCode, includeWake = false) => {
     if (!enabled) return fail('job_unavailable');
     let session;
     try { ({ data: { session } } = await getSession()); }
@@ -105,7 +114,8 @@ export function createWeeklyJobClient({ enabled = false, apiBase = API_BASE,
         return fail('cancel_unconfirmed');
       return fail(ERROR_CODES.has(payload?.code) ? payload.code : uncertainCode);
     }
-    return payload;
+    return includeWake ? { ...payload,
+      wakeStatus: response.headers?.get?.('X-Weekly-Workflow-Wake') ?? undefined } : payload;
   };
 
   const status = async id => {
@@ -117,8 +127,8 @@ export function createWeeklyJobClient({ enabled = false, apiBase = API_BASE,
       if (!uuid(sourceLessonPlanId) || ![20, 30, 40].includes(questionCount)
         || typeof requestId !== 'string' || !requestId.trim() || requestId.length > 128)
         return fail('invalid_request');
-      return summary(await request('POST', '/', { lessonPlanId: sourceLessonPlanId,
-        questionCount, requestId }, 'submit_unconfirmed'));
+      return submitReceipt(await request('POST', '/', { lessonPlanId: sourceLessonPlanId,
+        questionCount, requestId }, 'submit_unconfirmed', true));
     },
     status,
     cancel: async id => {

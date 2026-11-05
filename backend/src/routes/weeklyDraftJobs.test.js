@@ -50,7 +50,9 @@ const auth = (req, res, next) => {
   req.user = { id: teacherId, role: 'teacher' };
   return next();
 };
-const response = () => ({ statusCode: 200, status(code) { this.statusCode = code; return this; },
+const response = () => ({ statusCode: 200, headers: {},
+  set(name, value) { this.headers[name] = value; return this; },
+  status(code) { this.statusCode = code; return this; },
   json(body) { this.body = body; return body; } });
 const request = (body, path = '/') => ({ body, params: path === '/' ? {} : { jobId },
   get: name => name === 'authorization' ? `Bearer ${token}` : '' });
@@ -85,6 +87,7 @@ test('owned saved AI and Manual ILAW plans submit only verified row content and 
     const res = await dispatch(router, 'POST', '/', request(body()));
     assert.equal(res.statusCode, 202);
     assert.deepEqual(res.body, { id: jobId, status: 'QUEUED' });
+    assert.equal(res.headers['X-Weekly-Workflow-Wake'], 'unavailable');
     assert.deepEqual(calls[0], ['read', planId, teacherId]);
     const submitted = calls[1][1];
     assert.equal(submitted.teacherId, teacherId);
@@ -97,6 +100,65 @@ test('owned saved AI and Manual ILAW plans submit only verified row content and 
       'academic_year', 'ai_generated'].map(key => [key, plan[key]])));
     assert.equal(JSON.stringify(res.body).includes(plan.objectives), false);
   }
+});
+
+test('QUEUED new and replayed submissions each send at most one wake-up for the same job', async () => {
+  let submits = 0;
+  let wakes = 0;
+  const router = createWeeklyDraftJobsRouter({ auth, loadPlan: async () => aiPlan(),
+    jobAdapter: adapter({ submit: async () => { submits++;
+      return { id: jobId, status: 'QUEUED' }; } }),
+    wake: async () => { wakes++; return 'accepted'; } });
+  for (let index = 0; index < 2; index++) {
+    const res = await dispatch(router, 'POST', '/', request(body()));
+    assert.equal(res.statusCode, 202);
+    assert.deepEqual(res.body, { id: jobId, status: 'QUEUED' });
+    assert.equal(res.headers['X-Weekly-Workflow-Wake'], 'accepted');
+    assert.equal(res.headers['Access-Control-Expose-Headers'], 'X-Weekly-Workflow-Wake');
+  }
+  assert.equal(submits, 2);
+  assert.equal(wakes, 2);
+});
+
+test('terminal and running submit receipts never wake a worker', async () => {
+  for (const status of ['RUNNING', 'COMPLETED', 'FAILED', 'CANCELED',
+    'INTERRUPTED_UNKNOWN_OUTCOME']) {
+    let wakes = 0;
+    const router = createWeeklyDraftJobsRouter({ auth, loadPlan: async () => aiPlan(),
+      jobAdapter: adapter({ submit: async () => ({ id: jobId, status }) }),
+      wake: async () => { wakes++; return 'accepted'; } });
+    const res = await dispatch(router, 'POST', '/', request(body()));
+    assert.equal(res.statusCode, 202);
+    assert.deepEqual(res.body, { id: jobId, status });
+    assert.equal(res.headers['X-Weekly-Workflow-Wake'], 'not_needed');
+    assert.equal(wakes, 0);
+  }
+});
+
+test('an unconfirmed wake keeps the same durable job and never retries within the request', async () => {
+  let wakes = 0;
+  const router = createWeeklyDraftJobsRouter({ auth, loadPlan: async () => aiPlan(),
+    jobAdapter: adapter(), wake: async () => { wakes++; throw new Error('synthetic secret'); } });
+  const res = await dispatch(router, 'POST', '/', request(body()));
+  assert.equal(res.statusCode, 202);
+  assert.deepEqual(res.body, { id: jobId, status: 'QUEUED' });
+  assert.equal(res.headers['X-Weekly-Workflow-Wake'], 'unconfirmed');
+  assert.equal(wakes, 1);
+  assert.equal(JSON.stringify(res.body).includes('synthetic secret'), false);
+});
+
+test('invalid, unauthenticated, and failed submissions never wake a worker', async () => {
+  let wakes = 0;
+  const router = createWeeklyDraftJobsRouter({ auth, loadPlan: async () => aiPlan(),
+    jobAdapter: adapter({ submit: async () => {
+      throw Object.assign(new Error('private details'), { code: 'source_changed' });
+    } }), wake: async () => { wakes++; return 'accepted'; } });
+  const unauthenticated = request(body());
+  unauthenticated.get = () => '';
+  assert.equal((await dispatch(router, 'POST', '/', unauthenticated)).statusCode, 401);
+  assert.equal((await dispatch(router, 'POST', '/', request({ ...body(), questionCount: 25 }))).statusCode, 400);
+  assert.equal((await dispatch(router, 'POST', '/', request(body()))).statusCode, 409);
+  assert.equal(wakes, 0);
 });
 
 test('foreign, missing, or ineligible saved plans do not submit', async () => {

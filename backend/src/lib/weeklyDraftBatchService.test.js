@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createWeeklyDraftBatchService } from './weeklyDraftBatchService.js';
 import { parseDailyBatch } from './weeklyWorksheetGenerator.js';
+import { requestOpenAICompatibleWorksheetJson } from './weeklyWorksheetProvider.js';
 
 const jobId = '33333333-3333-4333-8333-333333333333';
 const planId = '22222222-2222-4222-8222-222222222222';
@@ -132,6 +133,74 @@ test('provider timeout and batch deadline omit unavailable transport phases', as
     provider: 'cloudflare', batchIndex: 0, outcome: 'failed', providerStartMs: 0,
     finishRpcMs: 0, providerToFinishMs: 0 }]);
   assert.equal(deadline.calls.provider, 1);
+});
+
+test('Groq provider failures keep fixed transport codes and bounded HTTP statuses after finish', async () => {
+  const secret = 'SYNTHETIC_PRIVATE_PROVIDER_BODY_AND_KEY';
+  const cases = [
+    [400, 'PROVIDER_REJECTED'], [401, 'PROVIDER_AUTH_FAILED'],
+    [403, 'PROVIDER_ACCESS_DENIED'], [500, 'PROVIDER_UNAVAILABLE'],
+    [200, 'PROVIDER_TRUNCATED'], [201, 'PROVIDER_INVALID_RESPONSE'],
+  ];
+  for (const [status, code] of cases) {
+    let requests = 0;
+    const run = setup({ claimed: { ...claim, batchIndex: 1 },
+      providerNameForBatch: () => 'groq',
+      provider: (prompt, options) => requestOpenAICompatibleWorksheetJson(prompt, {
+        ...options, provider: 'groq', model: 'openai/gpt-oss-120b', apiKey: secret,
+        fetchImpl: async () => {
+          requests++;
+          return { ok: status < 300, status, headers: new Headers(),
+            json: async () => status >= 400 ? { error: { message: secret } }
+              : { choices: status === 200
+                ? [{ finish_reason: 'length', message: { content: secret } }] : [] } };
+        },
+      }),
+    });
+    assert.deepEqual(await run.service.processOneBatch(jobId),
+      { status: 'failed', failureCategory: 'provider' });
+    assert.equal(requests, 1);
+    assert.equal(run.calls.provider, 1);
+    assert.deepEqual(run.calls.finish, [{ checkpoint: null, failureCategory: 'provider' }]);
+    assert.deepEqual(run.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_provider_failure',
+      provider: 'groq', batchIndex: 1, failureCategory: 'provider', code,
+      ...(status >= 400 ? { httpStatus: status } : {}) }]);
+    assert.equal(JSON.stringify(run.diagnostics).includes(secret), false);
+    assert.equal(JSON.stringify(run.diagnostics).includes(jobId), false);
+    assert.equal(JSON.stringify(run.diagnostics).includes(planId), false);
+  }
+});
+
+test('unrecognized provider errors and refused finishes cannot leak private error fields', async () => {
+  const secret = 'SYNTHETIC_PRIVATE_ERROR_AND_QUESTION';
+  const provider = async () => { throw Object.assign(new Error(secret), {
+    code: secret, httpStatus: 999, responseBody: secret,
+  }); };
+  const failed = setup({ providerNameForBatch: () => `groq-${secret}`, provider });
+  assert.deepEqual(await failed.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'provider' });
+  assert.deepEqual(failed.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_provider_failure',
+    provider: 'unknown', batchIndex: 0, failureCategory: 'provider', code: 'other' }]);
+  assert.equal(JSON.stringify(failed.diagnostics).includes(secret), false);
+  assert.equal(failed.calls.provider, 1);
+
+  const deceptiveError = new Error(secret);
+  let codeReads = 0;
+  Object.defineProperty(deceptiveError, 'code', { get: () => ++codeReads <= 4
+    ? 'PROVIDER_REJECTED' : secret });
+  deceptiveError.httpStatus = 400;
+  const deceptive = setup({ provider: async () => { throw deceptiveError; } });
+  assert.deepEqual(await deceptive.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'provider' });
+  assert.deepEqual(deceptive.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_provider_failure',
+    provider: 'cloudflare', batchIndex: 0, failureCategory: 'provider',
+    code: 'PROVIDER_REJECTED', httpStatus: 400 }]);
+  assert.equal(JSON.stringify(deceptive.diagnostics).includes(secret), false);
+
+  const stale = setup({ finish: false, providerNameForBatch: () => 'groq', provider });
+  assert.deepEqual(await stale.service.processOneBatch(jobId), { status: 'stale' });
+  assert.deepEqual(stale.diagnostics, []);
+  assert.equal(stale.calls.provider, 1);
 });
 
 test('refused finish records a fixed outcome without a timeout success diagnostic', async () => {

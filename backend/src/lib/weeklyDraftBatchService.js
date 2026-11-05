@@ -11,6 +11,12 @@ const MAX_TIMING_MS = 120_000;
 const roundedElapsedMs = (start, end) => Number.isFinite(start) && Number.isFinite(end) && end >= start
   ? Math.min(MAX_TIMING_MS, Math.round((end - start) / 100) * 100) : null;
 const SAFE_PROVIDERS = new Set(['cloudflare', 'groq', 'nvidia', 'mistral', 'gemini']);
+const PROVIDER_FAILURE_CODES = new Set(['PROVIDER_REJECTED', 'PROVIDER_AUTH_FAILED',
+  'PROVIDER_ACCESS_DENIED', 'PROVIDER_UNAVAILABLE', 'PROVIDER_TRUNCATED',
+  'PROVIDER_INVALID_RESPONSE', 'PROVIDER_INTERRUPTED', 'PROVIDER_NOT_CONFIGURED',
+  'GENERATION_CANCELLED']);
+const HTTP_FAILURE_CODES = new Set(['PROVIDER_REJECTED', 'PROVIDER_AUTH_FAILED',
+  'PROVIDER_ACCESS_DENIED', 'PROVIDER_UNAVAILABLE']);
 
 const validationSubreason = error => {
   switch (error?.validation?.category) {
@@ -92,6 +98,21 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
             batchIndex, failureCategory: 'timeout',
             timeoutOrigin: ['batch_deadline', 'provider_timeout'].includes(timeoutOrigin)
               ? timeoutOrigin : 'unknown' }));
+        } catch { /* Logging is best effort. */ }
+      };
+      const logProviderFailure = error => {
+        try {
+          const batchIndex = Number.isSafeInteger(claim.batchIndex)
+            && claim.batchIndex >= 0 && claim.batchIndex < 20 ? claim.batchIndex : null;
+          const selected = batchIndex === null ? 'unknown' : providerNameForBatch(batchIndex);
+          const reportedCode = error?.code;
+          const code = PROVIDER_FAILURE_CODES.has(reportedCode) ? reportedCode : 'other';
+          const status = error?.httpStatus;
+          log?.warn?.(JSON.stringify({ event: 'weekly_draft_provider_failure',
+            provider: SAFE_PROVIDERS.has(selected) ? selected : 'unknown',
+            batchIndex, failureCategory: 'provider', code,
+            ...(HTTP_FAILURE_CODES.has(code) && Number.isInteger(status)
+              && status >= 300 && status <= 599 ? { httpStatus: status } : {}) }));
         } catch { /* Logging is best effort. */ }
       };
 
@@ -236,6 +257,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       logTiming(category ? 'failed' : 'checkpointed');
       if (validationDiagnostic) logValidation(...validationDiagnostic);
       if (category === 'timeout') logTimeout(timeoutOrigin);
+      if (category === 'provider') logProviderFailure(outcome.error);
       return category ? { status: 'failed', failureCategory: category }
         : { status: 'checkpointed', batchIndex: claim.batchIndex };
     },

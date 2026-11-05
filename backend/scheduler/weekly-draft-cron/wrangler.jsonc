@@ -1,0 +1,8 @@
+{
+  "name": "eduscribe-weekly-draft-cron",
+  "main": "./index.mjs",
+  "compatibility_date": "2026-11-05",
+  "workers_dev": false,
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "secrets": { "required": ["WEEKLY_DRAFT_WORKER_SECRET"] }
+}

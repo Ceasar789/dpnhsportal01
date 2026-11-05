@@ -18,6 +18,8 @@ export class WorkerTickError extends Error {
   }
 }
 
+export const workerTickExitCode = result => result?.status === 'failed' ? 1 : 0;
+
 function validateConfiguration(endpoint, secret) {
   let url;
   if (typeof endpoint !== 'string') throw new WorkerTickError('configuration');
@@ -132,6 +134,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
       secret: process.env.WEEKLY_DRAFT_WORKER_SECRET,
     });
     console.log(`Weekly draft worker: ${result.status}; requests=${result.requests}.`);
+    process.exitCode = workerTickExitCode(result);
   } catch (error) {
     console.error(error instanceof WorkerTickError ? error.message
       : 'Weekly draft worker stopped: unexpected.');

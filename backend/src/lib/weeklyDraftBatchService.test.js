@@ -347,7 +347,7 @@ test('unconfirmed worker status during a provider call aborts and discards late 
 
 test('deadline aborts the provider and checkpoints timeout without another call', async () => {
   let signal;
-  const { service, calls } = setup({ deadlineMs: 15,
+  const { service, calls, diagnostics } = setup({ deadlineMs: 15,
     provider: async (_prompt, options) => {
       signal = options.signal;
       return new Promise(() => {});
@@ -357,6 +357,41 @@ test('deadline aborts the provider and checkpoints timeout without another call'
   assert.equal(signal.aborted, true);
   assert.equal(calls.provider, 1);
   assert.deepEqual(calls.finish, [{ checkpoint: null, failureCategory: 'timeout' }]);
+  assert.deepEqual(diagnostics.map(JSON.parse), [{ event: 'weekly_draft_timeout',
+    provider: 'cloudflare', batchIndex: 0, failureCategory: 'timeout',
+    timeoutOrigin: 'batch_deadline' }]);
+});
+
+test('provider timeout logs only after the terminal failure is recorded, without retry or private data', async () => {
+  const secret = 'SYNTHETIC_PRIVATE_KEY_AND_WORKSHEET_CONTENT';
+  const timedOut = setup({ claimed: { ...claim, batchIndex: 2 },
+    providerNameForBatch: () => 'nvidia', provider: async () => {
+      throw Object.assign(new Error(secret), { code: 'PROVIDER_TIMEOUT', privateResponse: secret });
+    } });
+  assert.deepEqual(await timedOut.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'timeout' });
+  assert.equal(timedOut.calls.provider, 1);
+  assert.deepEqual(timedOut.calls.finish, [{ checkpoint: null, failureCategory: 'timeout' }]);
+  assert.deepEqual(timedOut.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_timeout',
+    provider: 'nvidia', batchIndex: 2, failureCategory: 'timeout',
+    timeoutOrigin: 'provider_timeout' }]);
+  assert.equal(JSON.stringify(timedOut.diagnostics).includes(secret), false);
+
+  const redacted = setup({ providerNameForBatch: () => `nvidia-${secret}`,
+    provider: async () => { throw Object.assign(new Error(secret), { code: 'PROVIDER_TIMEOUT' }); } });
+  assert.deepEqual(await redacted.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'timeout' });
+  assert.equal(redacted.calls.provider, 1);
+  assert.deepEqual(redacted.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_timeout',
+    provider: 'unknown', batchIndex: 0, failureCategory: 'timeout',
+    timeoutOrigin: 'provider_timeout' }]);
+  assert.equal(JSON.stringify(redacted.diagnostics).includes(secret), false);
+
+  const stale = setup({ finish: false, providerNameForBatch: () => secret,
+    provider: async () => { throw Object.assign(new Error(secret), { code: 'PROVIDER_TIMEOUT' }); } });
+  assert.deepEqual(await stale.service.processOneBatch(jobId), { status: 'stale' });
+  assert.equal(stale.calls.provider, 1);
+  assert.deepEqual(stale.diagnostics, []);
 });
 
 test('a false finish result discards a valid response as stale', async () => {

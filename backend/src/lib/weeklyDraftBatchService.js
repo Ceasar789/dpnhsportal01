@@ -78,6 +78,19 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
             batchIndex, stage, subreason }));
         } catch { /* Logging is best effort. */ }
       };
+      const logTimeout = timeoutOrigin => {
+        // Only fixed timeout origins are recorded after the failure checkpoint commits.
+        try {
+          const batchIndex = Number.isSafeInteger(claim.batchIndex)
+            && claim.batchIndex >= 0 && claim.batchIndex < 20 ? claim.batchIndex : null;
+          const selected = batchIndex === null ? 'unknown' : providerNameForBatch(batchIndex);
+          log?.warn?.(JSON.stringify({ event: 'weekly_draft_timeout',
+            provider: SAFE_PROVIDERS.has(selected) ? selected : 'unknown',
+            batchIndex, failureCategory: 'timeout',
+            timeoutOrigin: ['batch_deadline', 'provider_timeout'].includes(timeoutOrigin)
+              ? timeoutOrigin : 'unknown' }));
+        } catch { /* Logging is best effort. */ }
+      };
 
       const initial = await jobAdapter.workerStatus(jobId);
       if (initial.status !== 'RUNNING' || initial.cancelRequested !== false)
@@ -145,9 +158,14 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       let checkpoint = null;
       let category = null;
       let validationDiagnostic = null;
-      if (outcome.kind === 'timeout') category = 'timeout';
+      let timeoutOrigin = null;
+      if (outcome.kind === 'timeout') {
+        category = 'timeout';
+        timeoutOrigin = 'batch_deadline';
+      }
       else if (outcome.kind === 'provider_error') {
         category = failureCategory(outcome.error);
+        if (category === 'timeout') timeoutOrigin = 'provider_timeout';
         if (category === 'validation') validationDiagnostic = ['provider_request', 'provider_ai_response_invalid'];
       }
       else {
@@ -174,6 +192,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       const finished = await jobAdapter.finishBatch(jobId, claim.leaseToken, checkpoint, category);
       if (finished !== true) return { status: 'stale' };
       if (validationDiagnostic) logValidation(...validationDiagnostic);
+      if (category === 'timeout') logTimeout(timeoutOrigin);
       return category ? { status: 'failed', failureCategory: category }
         : { status: 'checkpointed', batchIndex: claim.batchIndex };
     },

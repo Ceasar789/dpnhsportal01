@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { runWeeklyDraftWorkerTick, REQUEST_TIMEOUT_MS } from './weekly-draft-worker-tick.mjs';
+import { runWeeklyDraftWorkerTick, REQUEST_TIMEOUT_MS,
+  workerTickExitCode } from './weekly-draft-worker-tick.mjs';
 
 const endpoint = 'https://example.test/api/internal/weekly-draft-worker';
 const secret = 'synthetic-worker-secret';
@@ -55,6 +56,19 @@ test('stops on every confirmed outcome that cannot justify another immediate act
       request: async () => { calls++; return response(status); }, clock: fakeClock() });
     assert.deepEqual(result, { status, requests: 1 });
     assert.equal(calls, 1);
+  }
+});
+
+test('a terminal failed response fails QA after one request; idle and completed remain successful', async () => {
+  for (const [status, exitCode] of [['failed', 1], ['idle', 0],
+    ['completed', 0], ['checkpointed', 0]]) {
+    let calls = 0;
+    const result = status === 'checkpointed'
+      ? { status, requests: 1 }
+      : await runWeeklyDraftWorkerTick({ endpoint, secret, clock: fakeClock(),
+        request: async () => { calls++; return response(status); } });
+    assert.equal(workerTickExitCode(result), exitCode);
+    if (status !== 'checkpointed') assert.equal(calls, 1);
   }
 });
 

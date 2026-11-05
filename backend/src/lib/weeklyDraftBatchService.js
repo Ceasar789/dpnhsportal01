@@ -32,6 +32,13 @@ const validationSubreason = error => {
     default: return error?.validation ? 'other_validation' : 'unexpected_parser_exception';
   }
 };
+const invalidStructureField = error => {
+  const path = error?.validation?.path;
+  if (path === 'questions') return 'batch_fields';
+  const match = typeof path === 'string'
+    ? /^questions\[\d{1,2}\]\.(question|item_type|points|options|enumeration|essay)$/.exec(path) : null;
+  return match?.[1] || 'unknown';
+};
 
 const failureCategory = error => error?.code === 'AI_RESPONSE_INVALID' ? 'validation'
   : error?.code === 'PROVIDER_TIMEOUT' ? 'timeout'
@@ -76,7 +83,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       const claim = await jobAdapter.claim(jobId);
       if (claim === null) return { status: 'no_claim' };
       if (!hasDispatchBudget()) return { status: 'not_dispatched' };
-      const logValidation = (stage, subreason) => {
+      const logValidation = (stage, subreason, field) => {
         // Log only values chosen by this code; diagnostics must not affect the job outcome.
         try {
           const batchIndex = Number.isSafeInteger(claim.batchIndex)
@@ -84,7 +91,8 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
           const selected = batchIndex === null ? 'unknown' : providerNameForBatch(batchIndex);
           log?.warn?.(JSON.stringify({ event: 'weekly_draft_validation',
             provider: SAFE_PROVIDERS.has(selected) ? selected : 'unknown',
-            batchIndex, stage, subreason }));
+            batchIndex, stage, subreason,
+            ...(subreason === 'invalid_question_structure' ? { field } : {}) }));
         } catch { /* Logging is best effort. */ }
       };
       const logTimeout = timeoutOrigin => {
@@ -230,7 +238,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
           }
           checkpoint = null;
           category = 'validation';
-          validationDiagnostic = [stage, validationSubreason(error)];
+          validationDiagnostic = [stage, validationSubreason(error), invalidStructureField(error)];
         }
         const validationMs = roundedElapsedMs(validationStartedAt, clock.performance.now());
         if (validationMs !== null) phases.validationMs = validationMs;

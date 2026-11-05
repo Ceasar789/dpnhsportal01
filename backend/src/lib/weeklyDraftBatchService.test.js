@@ -310,6 +310,68 @@ test('one valid batch uses claimed context and stores one fully parsed checkpoin
   assert.equal(calls.finish[0].checkpoint.sourceLessonPlan.id, planId);
 });
 
+test('Cloudflare JSON keeps valid questions and identifies only a malformed field family', async () => {
+  const secret = 'SYNTHETIC_PRIVATE_QUESTION_CONTENT';
+  const accountId = '0123456789abcdef0123456789abcdef';
+  const cases = [
+    ['question', item => { delete item.question; }],
+    ['answer_key', item => { delete item.correct_answer; }],
+    ['options', item => { delete item.options; }],
+    ['points', item => { delete item.points; }],
+    ['item_type', item => { item.item_type = 'unknown-private-type'; }],
+    ['essay', item => {
+      Object.assign(item, { item_type: 'essay', points: 5, correct_answer: '',
+        essay: { referenceAnswer: '', minWords: 10, maxWords: 20,
+          rubric: [{ criterion: 'Accuracy', points: 5 }] } });
+    }],
+  ];
+  for (const [expectedField, change] of [['valid', null], ...cases]) {
+    let requests = 0;
+    const value = JSON.parse(response());
+    if (change) change(value.questions[0]);
+    value.questions[1].question = secret;
+    const run = setup({ provider: (prompt, options) => requestOpenAICompatibleWorksheetJson(prompt, {
+      ...options, provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b',
+      apiKey: 'synthetic-key', accountId, fetchImpl: async () => {
+        requests++;
+        return { ok: true, status: 200, headers: new Headers(),
+          json: async () => ({ choices: [{ finish_reason: 'stop',
+            message: { content: JSON.stringify(value) } }] }) };
+      },
+    }) });
+    const result = await run.service.processOneBatch(jobId);
+    assert.equal(requests, 1);
+    assert.equal(run.calls.provider, 1);
+    if (expectedField === 'valid') {
+      assert.deepEqual(result, { status: 'checkpointed', batchIndex: 0 });
+      assert.equal(run.calls.finish[0].checkpoint.questions.length, 10);
+      assert.deepEqual(run.diagnostics, []);
+    } else {
+      assert.deepEqual(result, { status: 'failed', failureCategory: 'validation' });
+      assert.deepEqual(run.calls.finish, [{ checkpoint: null, failureCategory: 'validation' }]);
+      assert.deepEqual(run.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+        provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser',
+        subreason: expectedField === 'answer_key' ? 'invalid_answer_key' : 'invalid_question_structure',
+        ...(expectedField === 'answer_key' ? {} : { field: expectedField }) }]);
+    }
+    assert.equal(JSON.stringify(run.diagnostics).includes(secret), false);
+  }
+});
+
+test('untrusted validation paths cannot appear in structure diagnostics', async () => {
+  const secret = 'SYNTHETIC_PRIVATE_QUESTION_AND_ANSWER';
+  const run = setup({ parseBatch: () => { throw Object.assign(new Error(secret), {
+    code: 'AI_RESPONSE_INVALID', validation: { category: 'invalid_field', path: secret },
+  }); } });
+  assert.deepEqual(await run.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'validation' });
+  assert.deepEqual(run.diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
+    provider: 'cloudflare', batchIndex: 0, stage: 'daily_parser',
+    subreason: 'invalid_question_structure', field: 'unknown' }]);
+  assert.equal(JSON.stringify(run.diagnostics).includes(secret), false);
+  assert.equal(run.calls.provider, 1);
+});
+
 test('a repeated earlier question rejects the whole batch without a checkpoint or retry', async () => {
   const priorQuestions = Array.from({ length: 10 }, (_, index) => `Prior fraction question ${index + 1}.`);
   const { service, calls } = setup({ claimed: { ...claim, batchIndex: 1, priorQuestions },
@@ -383,7 +445,8 @@ test('validation diagnostics classify only fixed parser and provider reasons', a
     assert.equal(calls.reserve, 1);
     assert.deepEqual(calls.finish, [{ checkpoint: null, failureCategory: 'validation' }]);
     assert.deepEqual(diagnostics.map(JSON.parse), [{ event: 'weekly_draft_validation',
-      provider: 'cloudflare', batchIndex: 6, stage, subreason }]);
+      provider: 'cloudflare', batchIndex: 6, stage, subreason,
+      ...(subreason === 'invalid_question_structure' ? { field: 'points' } : {}) }]);
   }
 
   const providerInvalid = setup({ provider: async () => {

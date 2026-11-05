@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createWeeklyDraftBatchService } from './weeklyDraftBatchService.js';
+import { parseDailyBatch } from './weeklyWorksheetGenerator.js';
 
 const jobId = '33333333-3333-4333-8333-333333333333';
 const planId = '22222222-2222-4222-8222-222222222222';
@@ -23,9 +24,10 @@ function setup({ claimed = claim, status = () => 'RUNNING', reserve = true,
   finish = true, provider = async () => response(), deadlineMs = 100,
   statusPollMs = 5, claimDelayMs = 0, statusDelayMs = 0,
   reserveDelayMs = 0, invocationElapsedMs = 0,
-  parseBatch, providerNameForBatch = () => 'cloudflare' } = {}) {
+  parseBatch, providerNameForBatch = () => 'cloudflare', finishDelayMs = 0 } = {}) {
   const calls = { claim: 0, workerStatus: 0, reserve: 0, provider: 0, finish: [] };
   const diagnostics = [];
+  const timings = [];
   let now = INVOCATION_START + invocationElapsedMs;
   const advance = ms => { now += ms; };
   const clock = { performance: { now: () => now }, setTimeout, clearTimeout,
@@ -50,16 +52,112 @@ function setup({ claimed = claim, status = () => 'RUNNING', reserve = true,
     async finishBatch(id, token, checkpoint, failureCategory) {
       assert.equal(id, jobId); assert.equal(token, leaseToken);
       calls.finish.push({ checkpoint, failureCategory });
+      advance(finishDelayMs);
+      if (finish instanceof Error) throw finish;
       return finish;
     },
   };
   const rawService = createWeeklyDraftBatchService({ jobAdapter: adapter,
     providerBatch: (...args) => { calls.provider++; return provider(...args); },
     providerNameForBatch, parseBatch,
-    log: { warn: value => diagnostics.push(value) }, deadlineMs, statusPollMs, clock });
+    log: { warn: value => {
+      if (JSON.parse(value).event === 'weekly_draft_provider_timing') timings.push(value);
+      else diagnostics.push(value);
+    } }, deadlineMs, statusPollMs, clock });
   const service = { processOneBatch: id => rawService.processOneBatch(id, INVOCATION_START) };
-  return { service, rawService, calls, diagnostics, advance };
+  return { service, rawService, calls, diagnostics, timings, advance };
 }
+
+test('successful batch records only bounded monotonic phase durations', async () => {
+  let advanceTime;
+  const secret = 'SYNTHETIC_PRIVATE_WORKSHEET_AND_KEY';
+  const run = setup({ finishDelayMs: 70,
+    provider: async (_prompt, options) => {
+      advanceTime(1_200);
+      options.onTiming('headers_received');
+      advanceTime(3_800);
+      options.onTiming('body_parsed');
+      options.onTiming(secret);
+      return response();
+    },
+    parseBatch: (...args) => { advanceTime(130); return parseDailyBatch(...args); },
+  });
+  advanceTime = run.advance;
+  assert.deepEqual(await run.service.processOneBatch(jobId),
+    { status: 'checkpointed', batchIndex: 0 });
+  assert.equal(run.calls.provider, 1);
+  assert.deepEqual(run.timings.map(JSON.parse), [{ event: 'weekly_draft_provider_timing',
+    provider: 'cloudflare', batchIndex: 0, outcome: 'checkpointed',
+    providerStartMs: 0, headersMs: 1_200, bodyMs: 5_000, validationMs: 100,
+    finishRpcMs: 100, providerToFinishMs: 5_200 }]);
+  for (const privateValue of [secret, jobId, planId, response()])
+    assert.equal(JSON.stringify(run.timings).includes(privateValue), false);
+});
+
+test('timing durations are capped and never expose fake provider fields', async () => {
+  let advanceTime;
+  const run = setup({ provider: async (_prompt, options) => {
+    advanceTime(150_000);
+    options.onTiming('headers_received');
+    options.onTiming({ privateResponse: 'SYNTHETIC_PRIVATE_CONTENT' });
+    return response();
+  } });
+  advanceTime = run.advance;
+  assert.deepEqual(await run.service.processOneBatch(jobId),
+    { status: 'checkpointed', batchIndex: 0 });
+  assert.deepEqual(run.timings.map(JSON.parse), [{ event: 'weekly_draft_provider_timing',
+    provider: 'cloudflare', batchIndex: 0, outcome: 'checkpointed',
+    providerStartMs: 0, headersMs: 120_000, validationMs: 0,
+    finishRpcMs: 0, providerToFinishMs: 120_000 }]);
+  assert.equal(JSON.stringify(run.timings).includes('SYNTHETIC_PRIVATE_CONTENT'), false);
+});
+
+test('provider timeout and batch deadline omit unavailable transport phases', async () => {
+  const timedOut = setup({ claimed: { ...claim, batchIndex: 2 },
+    providerNameForBatch: () => 'nvidia', provider: async (_prompt, options) => {
+      options.onTiming('headers_received');
+      throw Object.assign(new Error('SYNTHETIC_PRIVATE_KEY'), { code: 'PROVIDER_TIMEOUT' });
+    } });
+  assert.deepEqual(await timedOut.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'timeout' });
+  assert.deepEqual(timedOut.timings.map(JSON.parse), [{ event: 'weekly_draft_provider_timing',
+    provider: 'nvidia', batchIndex: 2, outcome: 'failed',
+    providerStartMs: 0, headersMs: 0, finishRpcMs: 0, providerToFinishMs: 0 }]);
+  assert.equal(timedOut.calls.provider, 1);
+
+  const deadline = setup({ deadlineMs: 15, provider: async () => new Promise(() => {}) });
+  assert.deepEqual(await deadline.service.processOneBatch(jobId),
+    { status: 'failed', failureCategory: 'timeout' });
+  assert.deepEqual(deadline.timings.map(JSON.parse), [{ event: 'weekly_draft_provider_timing',
+    provider: 'cloudflare', batchIndex: 0, outcome: 'failed', providerStartMs: 0,
+    finishRpcMs: 0, providerToFinishMs: 0 }]);
+  assert.equal(deadline.calls.provider, 1);
+});
+
+test('refused finish records a fixed outcome without a timeout success diagnostic', async () => {
+  const run = setup({ finish: false, providerNameForBatch: () => 'private-provider',
+    provider: async () => response() });
+  assert.deepEqual(await run.service.processOneBatch(jobId), { status: 'stale' });
+  assert.equal(run.calls.provider, 1);
+  assert.deepEqual(run.diagnostics, []);
+  assert.deepEqual(run.timings.map(JSON.parse), [{ event: 'weekly_draft_provider_timing',
+    provider: 'unknown', batchIndex: 0, outcome: 'finish_refused',
+    providerStartMs: 0, validationMs: 0, finishRpcMs: 0, providerToFinishMs: 0 }]);
+});
+
+test('unconfirmed finish keeps its persistence error and logs no private detail', async () => {
+  const secret = 'SYNTHETIC_PRIVATE_PERSISTENCE_DETAIL';
+  const failure = new Error(secret);
+  const run = setup({ finish: failure, provider: async () => response() });
+  await assert.rejects(run.service.processOneBatch(jobId), error => error === failure);
+  assert.equal(run.calls.provider, 1);
+  assert.equal(run.calls.finish.length, 1);
+  assert.deepEqual(run.diagnostics, []);
+  assert.deepEqual(run.timings.map(JSON.parse), [{ event: 'weekly_draft_provider_timing',
+    provider: 'cloudflare', batchIndex: 0, outcome: 'finish_unconfirmed',
+    providerStartMs: 0, validationMs: 0, finishRpcMs: 0, providerToFinishMs: 0 }]);
+  assert.equal(JSON.stringify(run.timings).includes(secret), false);
+});
 
 test('missing or invalid monotonic invocation start refuses work before claim', async () => {
   const { rawService, calls } = setup();

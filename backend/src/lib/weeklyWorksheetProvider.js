@@ -103,7 +103,8 @@ export const configuredWeeklyWorksheetProviders = () => {
 export async function requestOpenAICompatibleWorksheetJson(prompt, { provider, model, apiKey,
   accountId: suppliedAccountId,
   fetchImpl = fetch, maxOutputTokens = 4096, responseSchema, signal, onGroqUsage,
-  onHttpStatus, onFinishReason, onRequestMetadata, operationId = randomUUID(), log = console } = {}) {
+  onHttpStatus, onFinishReason, onRequestMetadata, onTiming,
+  operationId = randomUUID(), log = console } = {}) {
   const definition = Object.hasOwn(OPENAI_COMPATIBLE_PROVIDERS, provider)
     ? OPENAI_COMPATIBLE_PROVIDERS[provider] : undefined;
   if (!apiKey || !definition || !model || /gemini/i.test(model))
@@ -136,6 +137,7 @@ export async function requestOpenAICompatibleWorksheetJson(prompt, { provider, m
   }
   if (provider === 'nvidia') onRequestMetadata?.({ thinking: extraBody?.chat_template_kwargs
     ? String(extraBody.chat_template_kwargs.enable_thinking) : 'unset' });
+  const noteTiming = phase => { try { onTiming?.(phase); } catch { /* Observability is best effort. */ } };
   let response;
   try {
     const baseUrl = typeof definition.baseUrl === 'function' ? definition.baseUrl(accountId) : definition.baseUrl;
@@ -154,6 +156,7 @@ export async function requestOpenAICompatibleWorksheetJson(prompt, { provider, m
     throw providerError(error?.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_INTERRUPTED',
       'The worksheet provider request was interrupted.');
   }
+  noteTiming('headers_received');
   onHttpStatus?.(response.status);
   if (!response.ok) {
     const code = response.status === 401 ? 'PROVIDER_AUTH_FAILED'
@@ -163,7 +166,8 @@ export async function requestOpenAICompatibleWorksheetJson(prompt, { provider, m
             : response.status >= 500 ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_REJECTED';
     const retryAfter = retryAfterSeconds(response);
     let failure;
-    try { failure = (await response.json())?.error; } catch { /* Never expose provider bodies. */ }
+    try { failure = (await response.json())?.error; noteTiming('body_parsed'); }
+    catch { /* Never expose provider bodies. */ }
     const providerErrorCode = [...new Set([safeErrorLabel(failure?.code, prompt, apiKey, accountId),
       safeErrorLabel(failure?.type, prompt, apiKey, accountId)])].filter(Boolean).join('/') || undefined;
     const providerErrorReason = safeErrorReason(failure?.message, prompt, apiKey);
@@ -179,7 +183,7 @@ export async function requestOpenAICompatibleWorksheetJson(prompt, { provider, m
     });
   }
   let data;
-  try { data = await response.json(); }
+  try { data = await response.json(); noteTiming('body_parsed'); }
   catch { throw providerError('PROVIDER_INVALID_RESPONSE', 'Worksheet provider returned unreadable JSON.'); }
   onGroqUsage?.({ remainingTokens: tokenHeader(response.headers?.get?.('x-ratelimit-remaining-tokens')),
     resetTokensMs: resetMilliseconds(response.headers?.get?.('x-ratelimit-reset-tokens')),

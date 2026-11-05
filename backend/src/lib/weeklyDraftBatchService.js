@@ -7,6 +7,9 @@ const DEFAULT_POLL_MS = 2_000;
 const LEASE_MS = 110_000;
 const FUNCTION_MS = 120_000;
 const CHECKPOINT_MARGIN_MS = 15_000;
+const MAX_TIMING_MS = 120_000;
+const roundedElapsedMs = (start, end) => Number.isFinite(start) && Number.isFinite(end) && end >= start
+  ? Math.min(MAX_TIMING_MS, Math.round((end - start) / 100) * 100) : null;
 const SAFE_PROVIDERS = new Set(['cloudflare', 'groq', 'nvidia', 'mistral', 'gemini']);
 
 const validationSubreason = error => {
@@ -113,6 +116,9 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       // remaining budget. Never dispatch or imply that it was not reserved.
       if (!hasDispatchBudget()) return { status: 'unconfirmed' };
 
+      const providerStartedAt = clock.performance.now();
+      const providerStartMs = roundedElapsedMs(invocationStartedAt, providerStartedAt);
+      const phases = {};
       const controller = new AbortController();
       let pending = true;
       let polling = false;
@@ -123,6 +129,26 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
         pending = false;
         resolveInterrupt({ kind: reason });
         controller.abort();
+      };
+      const noteTiming = phase => {
+        try {
+          if (!pending || !['headers_received', 'body_parsed'].includes(phase)) return;
+          const field = phase === 'headers_received' ? 'headersMs' : 'bodyMs';
+          const elapsed = roundedElapsedMs(providerStartedAt, clock.performance.now());
+          if (elapsed !== null && phases[field] === undefined) phases[field] = elapsed;
+        } catch { /* Timing callbacks cannot change the provider outcome. */ }
+      };
+      const logTiming = outcome => {
+        try {
+          const batchIndex = Number.isSafeInteger(claim.batchIndex)
+            && claim.batchIndex >= 0 && claim.batchIndex < 20 ? claim.batchIndex : null;
+          const selected = batchIndex === null ? 'unknown' : providerNameForBatch(batchIndex);
+          const providerToFinishMs = roundedElapsedMs(providerStartedAt, clock.performance.now());
+          log?.warn?.(JSON.stringify({ event: 'weekly_draft_provider_timing',
+            provider: SAFE_PROVIDERS.has(selected) ? selected : 'unknown', batchIndex, outcome,
+            ...(providerStartMs === null ? {} : { providerStartMs }), ...phases,
+            ...(providerToFinishMs === null ? {} : { providerToFinishMs }) }));
+        } catch { /* Timing diagnostics cannot change the job outcome. */ }
       };
       const deadlineTimer = clock.setTimeout(() => interrupt('timeout'), deadlineMs);
       const statusTimer = clock.setInterval(async () => {
@@ -144,7 +170,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
       try {
         const call = (async () => providerBatch(prompt, {
           batchIndex: claim.batchIndex, signal: controller.signal,
-          maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA,
+          maxOutputTokens: 8192, responseSchema: RESPONSE_SCHEMA, onTiming: noteTiming,
         }))().then(raw => ({ kind: 'response', raw }), error => ({ kind: 'provider_error', error }));
         outcome = await Promise.race([call, interrupted]);
       } finally {
@@ -169,6 +195,7 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
         if (category === 'validation') validationDiagnostic = ['provider_request', 'provider_ai_response_invalid'];
       }
       else {
+        const validationStartedAt = clock.performance.now();
         let stage = 'daily_parser';
         try {
           checkpoint = parseBatch(outcome.raw, claim.plan, source, BATCH_SIZE, batch);
@@ -184,13 +211,29 @@ export function createWeeklyDraftBatchService({ jobAdapter, providerBatch,
           category = 'validation';
           validationDiagnostic = [stage, validationSubreason(error)];
         }
+        const validationMs = roundedElapsedMs(validationStartedAt, clock.performance.now());
+        if (validationMs !== null) phases.validationMs = validationMs;
       }
 
       const current = await jobAdapter.workerStatus(jobId);
       if (current.status !== 'RUNNING' || current.cancelRequested !== false)
         return { status: current.status === 'CANCELED' ? 'canceled' : 'stale' };
-      const finished = await jobAdapter.finishBatch(jobId, claim.leaseToken, checkpoint, category);
-      if (finished !== true) return { status: 'stale' };
+      const finishStartedAt = clock.performance.now();
+      let finished;
+      try { finished = await jobAdapter.finishBatch(jobId, claim.leaseToken, checkpoint, category); }
+      catch (error) {
+        const elapsed = roundedElapsedMs(finishStartedAt, clock.performance.now());
+        if (elapsed !== null) phases.finishRpcMs = elapsed;
+        logTiming('finish_unconfirmed');
+        throw error;
+      }
+      const finishRpcMs = roundedElapsedMs(finishStartedAt, clock.performance.now());
+      if (finishRpcMs !== null) phases.finishRpcMs = finishRpcMs;
+      if (finished !== true) {
+        logTiming('finish_refused');
+        return { status: 'stale' };
+      }
+      logTiming(category ? 'failed' : 'checkpointed');
       if (validationDiagnostic) logValidation(...validationDiagnostic);
       if (category === 'timeout') logTimeout(timeoutOrigin);
       return category ? { status: 'failed', failureCategory: category }

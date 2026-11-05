@@ -15,6 +15,40 @@ test('worksheet chain accepts registered Groq, Mistral and NVIDIA models but nev
     assert.throws(() => parseWeeklyWorksheetProviders(value));
 });
 
+test('single-attempt provider transport reports headers and parsed body boundaries only', async () => {
+  const phases = [];
+  const secret = 'SYNTHETIC_PRIVATE_PROVIDER_CONTENT';
+  let requests = 0;
+  const result = await requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+    provider: 'nvidia', model: 'synthetic-model', apiKey: 'synthetic-key',
+    responseSchema: RESPONSE_SCHEMA, onTiming: phase => phases.push(phase),
+    fetchImpl: async () => {
+      requests++;
+      return { ok: true, status: 200, headers: new Headers(),
+        json: async () => ({ choices: [{ finish_reason: 'stop',
+          message: { content: secret } }] }) };
+    },
+  });
+  assert.equal(result, secret);
+  assert.equal(requests, 1);
+  assert.deepEqual(phases, ['headers_received', 'body_parsed']);
+
+  assert.equal(await requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+    provider: 'nvidia', model: 'synthetic-model', apiKey: 'synthetic-key',
+    responseSchema: RESPONSE_SCHEMA, onTiming: () => { throw new Error(secret); },
+    fetchImpl: async () => ({ ok: true, status: 200, headers: new Headers(),
+      json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: secret } }] }) }),
+  }), secret);
+
+  phases.length = 0;
+  await assert.rejects(requestOpenAICompatibleWorksheetJson('synthetic prompt', {
+    provider: 'nvidia', model: 'synthetic-model', apiKey: 'synthetic-key',
+    responseSchema: RESPONSE_SCHEMA, onTiming: phase => phases.push(phase),
+    fetchImpl: async () => { throw Object.assign(new Error(secret), { name: 'TimeoutError' }); },
+  }), error => error.code === 'PROVIDER_TIMEOUT');
+  assert.deepEqual(phases, []);
+});
+
 test('worksheet chain accepts Cloudflare model IDs with @ and / after the first colon', () => {
   assert.deepEqual(parseWeeklyWorksheetProviders('cloudflare:@cf/openai/gpt-oss-120b'),
     [{ name: 'cloudflare', model: '@cf/openai/gpt-oss-120b' }]);

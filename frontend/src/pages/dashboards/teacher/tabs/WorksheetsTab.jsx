@@ -318,6 +318,20 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     }
   }, [weeklySaveStates, fetchWorksheets]);
 
+  // Auto-save: once a weekly generation job completes and its collection
+  // arrives, save it permanently without waiting for a button click. The ref
+  // guards against double-saving on re-render or repeated polling.
+  const autoSaveAttemptedRef = useRef(new Set());
+  useEffect(() => {
+    if (!weeklyProductionSaveFlagEnabled() || typeof onSaveCompletedWeeklyJob !== 'function') return;
+    weeklyCollections.forEach(collection => {
+      const id = collection.collectionId;
+      if (!collection.sourceJobId || weeklySaveStates[id] || autoSaveAttemptedRef.current.has(id)) return;
+      autoSaveAttemptedRef.current.add(id);
+      onSaveCompletedWeeklyJob(collection, false);
+    });
+  }, [weeklyCollections, weeklySaveStates, onSaveCompletedWeeklyJob]);
+
   const handleAddWorksheet = async (e) => {
     e.preventDefault();
     if (savingRef.current) return;
@@ -631,7 +645,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               try { await jobClient.cancel(job.id); setOwnedJobs(await jobClient.listJobs()); }
               catch { setJobApiError('Could not confirm job cancellation.'); }
             }}>Request cancellation</Btn>}
-          {job.status === 'COMPLETED' && <p>{job.saved ? 'Saved private collection' : 'Not saved to EduScribe'}</p>}
+          {job.status === 'COMPLETED' && <p>{job.saved ? 'Saved private collection' : 'Saving…'}</p>}
         </div>)}
       </section>}
 
@@ -641,7 +655,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           <Card className="p-4 min-w-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <Badge color="var(--banner-accent)" bg="var(--card2)">{collection.durable
               ? collection.status === 'Archived' ? 'Archived private collection' : 'Saved private collection'
-              : 'Not saved to EduScribe'}</Badge>
+              : 'Saving…'}</Badge>
             <h3 className="text-lg font-semibold mt-3">Weekly Worksheets</h3>
             <Btn onClick={() => openExistingCollection(collection.id)} disabled={openingSaved}>
               {openingSaved ? 'Opening existing collection…' : 'Open weekly collection'}</Btn>
@@ -682,10 +696,11 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           const save = weeklySaveStates[collection.collectionId];
           return <section key={collection.collectionId} aria-label="Weekly Worksheet Collection" className="min-w-0 md:col-span-2 lg:col-span-3">
           <Card className="p-4 min-w-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
-            <Badge color="var(--banner-accent)" bg="var(--card2)">{save?.status === 'saved'
-              ? 'Saved permanently' : save?.status === 'unknown' ? 'Save unconfirmed · Local draft retained'
-                : save?.status === 'saving' ? 'Saving permanently...' : save?.status === 'blocked'
-                  ? 'Save needs review' : 'Local draft · Not saved to EduScribe'}</Badge>
+            <Badge color="var(--banner-accent)" bg="var(--card2)">{save?.status === 'saving' ? 'Saving…'
+              : save?.status === 'blocked' ? 'Save needs review'
+                : ['failed', 'unknown'].includes(save?.status) ? 'Save failed · Retry below'
+                  : collection.sourceJobId ? 'AI generated worksheet'
+                    : 'Local draft · Not saved to EduScribe'}</Badge>
             {save?.status === 'saving' && <p role="status">Saving permanently...</p>}
             {save?.status === 'unknown' && <p role="alert">Could not confirm the save. Retry will not create duplicates.</p>}
             {save?.status === 'failed' && <p role="alert">{save.message}</p>}
@@ -701,17 +716,12 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               aria-expanded={openWeeklyCollectionId === collection.collectionId}>
               {openWeeklyCollectionId === collection.collectionId ? 'Hide daily worksheets' : 'Open weekly collection'}
             </Btn>
-            {collection.sourceJobId && weeklyProductionSaveFlagEnabled()
-              && <Btn disabled={['saving', 'saved', 'blocked'].includes(save?.status)}
-                onClick={() => onSaveCompletedWeeklyJob?.(collection, save?.status === 'unknown')}>
-                {save?.status === 'unknown' ? 'Confirm Save' : 'Save Worksheets'}</Btn>}
-            {collection.sourceJobId && !save && <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-              These edits stay in this browser session until you save. Unsaved edits may be lost on refresh.
-            </p>}
+            {collection.sourceJobId && ['failed', 'unknown'].includes(save?.status)
+              && <Btn onClick={() => onSaveCompletedWeeklyJob?.(collection, save?.status === 'unknown')}>Retry save</Btn>}
             {!collection.sourceJobId && ['failed', 'unknown'].includes(save?.status) && <Btn onClick={() => onRetryWeeklySave?.(collection, true)}>
               Retry Save</Btn>}
-            <Btn variant="danger" disabled={['saving', 'saved', 'unknown', 'blocked'].includes(save?.status)}
-              onClick={() => setConfirmWeeklyDeleteId(collection.collectionId)}>Delete collection</Btn>
+            {!collection.sourceJobId && <Btn variant="danger" disabled={['saving', 'saved', 'unknown', 'blocked'].includes(save?.status)}
+              onClick={() => setConfirmWeeklyDeleteId(collection.collectionId)}>Delete collection</Btn>}
             {openWeeklyCollectionId === collection.collectionId && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mt-4">
               {collection.worksheets.map(draft => <section key={draft.draftId} aria-label={`${draft.day} Worksheet`} className="rounded-lg border p-3" style={{ borderColor: 'var(--border)' }}>
                 <p className="text-xs font-semibold" style={{ color: 'var(--banner-accent)' }}>{draft.day}</p>

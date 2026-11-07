@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import express from 'express';
 import { createApp } from '../app.js';
 import { createDayTaskRouter, dayTaskHandler } from './dayTasks.js';
+import { requestWorksheetJsonFromGemini } from '../lib/worksheetGenerator.js';
 
 const teacherId = '11111111-1111-4111-8111-111111111111';
 const planId = 'aaaaaaaa-2222-4222-8222-222222222222';
@@ -264,6 +265,46 @@ test('every provider error maps to a fixed message and leaks no raw text', async
     assert.equal(result.body.retryable, false);
     assert.doesNotMatch(JSON.stringify([result.body, result.calls.logs]), /RAW-PROVIDER-TEXT|five worksheets/);
     assert.equal(result.calls.provider.length, 1);
+  }
+});
+
+// The real transport with a mocked fetch: nothing leaves this process.
+const mockedGemini = (status, error) => (prompt, options) => requestWorksheetJsonFromGemini(prompt, { ...options, apiKey: 'test-key',
+  fetchImpl: async () => ({ ok: false, status, headers: new Headers(), json: async () => ({ error }) }) });
+
+test('a Gemini 400 for schema size logs a safe reason and leaks none of its message', async () => {
+  const message = 'MOCK-PROVIDER-TEXT The specified schema produces a constraint that has too many states for serving.';
+  const result = await invoke(quiz(), { requestJson: mockedGemini(400, { code: 400, status: 'INVALID_ARGUMENT', message }) });
+  assert.equal(result.status, 502);
+  assert.equal(result.body.code, 'PROVIDER_REJECTED');
+  assert.deepEqual(Object.keys(result.body).sort(), ['code', 'error', 'retryable']);
+  assert.deepEqual(result.calls.logs, ['[day-tasks] stage=generation code=PROVIDER_REJECTED taskType=quiz day=Tuesday '
+    + 'status=400 googleStatus=INVALID_ARGUMENT schemaTooComplex=true']);
+  assert.doesNotMatch(JSON.stringify([result.body, result.calls.logs]), /MOCK-PROVIDER-TEXT|too many states|constraint|for serving/);
+});
+
+test('a rejection with another reason logs false, and an unsafe Google status is dropped', async () => {
+  for (const status of ['bad status; MOCK-PROVIDER-TEXT', 'A'.repeat(41), ['INVALID_ARGUMENT'], undefined]) {
+    const result = await invoke(quiz(), { requestJson: mockedGemini(404, { status, message: 'MOCK-PROVIDER-TEXT' }) });
+    assert.equal(result.status, 502);
+    assert.match(result.calls.logs[0], / status=404 googleStatus=none schemaTooComplex=false$/);
+    assert.doesNotMatch(result.calls.logs[0], /MOCK-PROVIDER-TEXT/);
+  }
+});
+
+test('the rejection fields never use the httpStatus name the weekly chain retries on', async () => {
+  const rejected = await mockedGemini(400, { status: 'INVALID_ARGUMENT' })('prompt').catch(error => error);
+  assert.equal(rejected.code, 'PROVIDER_REJECTED');
+  assert.equal(rejected.providerHttpStatus, 400);
+  assert.equal(Object.hasOwn(rejected, 'httpStatus'), false);
+});
+
+test('only a rejection carries the diagnostic', async () => {
+  for (const status of [429, 500, 503]) {
+    const result = await invoke(quiz(), { requestJson: mockedGemini(status, { status: 'UNAVAILABLE', message: 'too many states' }) });
+    assert.doesNotMatch(result.calls.logs[0], /status=|schemaTooComplex/);
+    const failed = await mockedGemini(status, { status: 'UNAVAILABLE' })('prompt').catch(error => error);
+    assert.equal(Object.hasOwn(failed, 'providerHttpStatus'), false);
   }
 });
 

@@ -1,4 +1,4 @@
-import { buildDayTaskPrompt, DAY_TASK_SCHEMAS } from './dayTaskPrompts.js';
+import { buildDayTaskPrompt, DAY_TASK_SCHEMAS, quizResponseSchema } from './dayTaskPrompts.js';
 import { parseDayTask } from './dayTaskParser.js';
 
 const ACTIVITY_LABELS = {
@@ -27,7 +27,7 @@ export function renderActivityInstructions(activity) {
 // Exactly one provider call: no retry, no provider chain, no fallback.
 export async function generateDayTask({ plan, source, task, requestJson, signal }) {
   const raw = await requestJson(buildDayTaskPrompt(task, plan, source), {
-    responseSchema: DAY_TASK_SCHEMAS[task.taskType],
+    responseSchema: task.taskType === 'quiz' ? quizResponseSchema(task.typeCounts) : DAY_TASK_SCHEMAS[task.taskType],
     maxOutputTokens: task.taskType === 'quiz' ? 16384 : 8192,
     signal,
   });

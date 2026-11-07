@@ -180,3 +180,35 @@ test('error messages never repeat AI text', () => {
   assert.throws(() => parseDayTask(JSON.stringify(value), quizTask),
     error => !JSON.stringify({ message: error.message, ...error.validation }).includes('SECRET-AI-TEXT'));
 });
+
+// The shapes behind the two real Quiz failures, split 5/3/2/0.
+{
+  const task = { taskType: 'quiz', itemCount: 10, typeCounts: { multiple_choice: 5, true_false: 3, identification: 2, enumeration: 0 } };
+  const choice = index => ({ question: `Which choice ${index}?`, item_type: 'multiple_choice',
+    options: [`A${index}`, `B${index}`, `C${index}`, `D${index}`], correct_answer: `A${index}` });
+  const statement = index => ({ question: `Statement ${index} holds.`, item_type: 'true_false', options: [], correct_answer: 'True' });
+  const term = (index, answer = `term${index}`) => ({ question: `Name term ${index}.`, item_type: 'identification', options: [], correct_answer: answer });
+  const listItem = enumeration => ({ question: 'List two conflicts.', item_type: 'enumeration', options: [], correct_answer: 'self, nature', enumeration });
+  const response = last => JSON.stringify({ title: 'Quiz', directions: 'Answer.',
+    questions: [...[0, 1, 2, 3, 4].map(choice), ...[5, 6, 7].map(statement), term(8), last] });
+  const rejectedAt = (raw, category, path) => assert.throws(() => parseDayTask(raw, task),
+    error => error.code === 'AI_RESPONSE_INVALID' && error.validation.category === category && error.validation.path === path);
+
+  test('a valid enumeration item in a split with no enumeration fails the type split', () => {
+    rejectedAt(response(listItem({ alternatives: [], orderSensitive: false })), 'type_distribution', 'questions');
+  });
+
+  test('extra answers listed singly in alternatives fail at that item', () => {
+    rejectedAt(response(listItem({ alternatives: ['society', 'character'], orderSensitive: false })), 'invalid_field', 'questions[9].enumeration');
+  });
+
+  test('a wrong-size alternative fails at that item', () => {
+    rejectedAt(response(listItem({ alternatives: ['self, nature, society'], orderSensitive: false })), 'invalid_field', 'questions[9].enumeration');
+  });
+
+  test('an identification item with several answers is accepted as equivalents', () => {
+    const parsed = parseDayTask(response(term(9, 'self, nature, society, character')), task);
+    assert.equal(parsed.questions.length, 10);
+    assert.equal(parsed.answerKey.at(-1).correct_answer, 'self, nature, society, character');
+  });
+}

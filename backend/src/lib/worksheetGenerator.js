@@ -201,10 +201,17 @@ export async function requestWorksheetJsonFromGemini(prompt, { fetchImpl = fetch
       ? Math.ceil(Number(retryDelay.slice(0, -1))) : undefined;
     const retryAfter = retryAfterSeconds(response) || (Number.isInteger(bodyDelay) && bodyDelay > 0
       && bodyDelay <= 86400 ? bodyDelay : undefined);
-    throw providerError(dailyQuota ? 'PROVIDER_DAILY_QUOTA' : response.status === 429 ? 'PROVIDER_RATE_LIMIT'
+    const code = dailyQuota ? 'PROVIDER_DAILY_QUOTA' : response.status === 429 ? 'PROVIDER_RATE_LIMIT'
       : response.status === 503 ? 'PROVIDER_OVERLOADED'
-        : response.status >= 500 ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_REJECTED',
-    'Worksheet generation service is unavailable.', retryAfter ? { retryAfterSeconds: retryAfter } : {});
+        : response.status >= 500 ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_REJECTED';
+    // Not named httpStatus: the weekly chain reads that name and retries on a 400.
+    // The provider message is only tested here, never kept.
+    const googleStatus = failure?.error?.status;
+    const rejection = code === 'PROVIDER_REJECTED' ? { providerHttpStatus: response.status,
+      ...(typeof googleStatus === 'string' && /^[A-Z_]{1,40}$/.test(googleStatus) ? { googleStatus } : {}),
+      schemaTooComplex: /too many states/i.test(failure?.error?.message || '') } : {};
+    throw providerError(code, 'Worksheet generation service is unavailable.',
+      { ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}), ...rejection });
   }
   let data;
   try { data = await response.json(); }

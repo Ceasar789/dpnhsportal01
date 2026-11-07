@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateDayTask, renderActivityInstructions } from './dayTaskGenerator.js';
-import { DAY_TASK_SCHEMAS } from './dayTaskPrompts.js';
+import { DAY_TASK_SCHEMAS, quizResponseSchema } from './dayTaskPrompts.js';
 
 const plan = { id: 'plan-1', title: 'Cells', subject: 'Science', grade_level: 'Grade 7' };
 const source = { day: 'Monday', objective: 'Describe cells', activity: 'Observe cells', assessment: 'Explain cells' };
@@ -59,12 +59,63 @@ test('one provider call with the task schema, token limit, and signal', async ()
     requestJson: async (prompt, options) => { calls.push({ prompt, options }); return JSON.stringify(quiz); } });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].options.maxOutputTokens, 16384);
-  assert.equal(calls[0].options.responseSchema, DAY_TASK_SCHEMAS.quiz);
+  assert.deepEqual(calls[0].options.responseSchema, quizResponseSchema(task.typeCounts));
   assert.equal(calls[0].options.signal, signal);
   assert.equal(result.instructions, 'Answer.');
   assert.equal(result.activity, null);
   assert.equal(result.providerCalls, 1);
   assert.equal(result.saved, false);
+});
+
+const sentSchema = async (task) => {
+  let schema;
+  await generateDayTask({ plan, source, task, requestJson: async (_prompt, options) => { schema = options.responseSchema; return '{}'; } })
+    .catch(() => {});
+  return schema;
+};
+const quizTask = typeCounts => ({ taskType: 'quiz', day: 'Monday', itemCount: 10, typeCounts });
+const itemSchema = schema => schema.properties.questions.items;
+const NO_ENUMERATION = { multiple_choice: 5, true_false: 3, identification: 2, enumeration: 0 };
+const WITH_ENUMERATION = { multiple_choice: 4, true_false: 3, identification: 1, enumeration: 2 };
+
+test('a quiz with no enumeration cannot be sent the enumeration type or field', async () => {
+  const item = itemSchema(await sentSchema(quizTask(NO_ENUMERATION)));
+  assert.deepEqual(item.properties.item_type.enum, ['multiple_choice', 'true_false', 'identification']);
+  assert.equal(Object.hasOwn(item.properties, 'enumeration'), false);
+  assert.deepEqual(item.required, ['question', 'item_type', 'options', 'correct_answer']);
+});
+
+test('a quiz with enumeration keeps the type and the optional field', async () => {
+  const item = itemSchema(await sentSchema(quizTask(WITH_ENUMERATION)));
+  assert.deepEqual(item.properties.item_type.enum, ['multiple_choice', 'true_false', 'identification', 'enumeration']);
+  assert.deepEqual(item.properties.enumeration, itemSchema(DAY_TASK_SCHEMAS.quiz).properties.enumeration);
+  assert.equal(item.required.includes('enumeration'), false);
+});
+
+test('only requested types are sent, and everything else in the schema stays the same', async () => {
+  const schema = await sentSchema(quizTask({ multiple_choice: 10, true_false: 0, identification: 0, enumeration: 0 }));
+  assert.deepEqual(itemSchema(schema).properties.item_type.enum, ['multiple_choice']);
+  const expected = structuredClone(DAY_TASK_SCHEMAS.quiz);
+  itemSchema(expected).properties.item_type.enum = ['multiple_choice'];
+  delete itemSchema(expected).properties.enumeration;
+  assert.deepEqual(schema, expected);
+});
+
+test('requests never change the shared schema or each other', async () => {
+  const before = JSON.stringify(DAY_TASK_SCHEMAS);
+  const first = await sentSchema(quizTask(NO_ENUMERATION));
+  const second = await sentSchema(quizTask(WITH_ENUMERATION));
+  assert.equal(JSON.stringify(DAY_TASK_SCHEMAS), before);
+  assert.notEqual(first, DAY_TASK_SCHEMAS.quiz);
+  itemSchema(first).properties.question.type = 'CHANGED';
+  assert.equal(itemSchema(second).properties.question.type, 'STRING');
+  assert.equal(itemSchema(DAY_TASK_SCHEMAS.quiz).properties.question.type, 'STRING');
+  assert.equal(JSON.stringify(DAY_TASK_SCHEMAS), before);
+});
+
+test('activity and assignment send their shared schemas unchanged', async () => {
+  assert.equal(await sentSchema({ taskType: 'activity', day: 'Monday' }), DAY_TASK_SCHEMAS.activity);
+  assert.equal(await sentSchema({ taskType: 'assignment', day: 'Monday', itemCount: 1, typeCounts: { essay: 1 } }), DAY_TASK_SCHEMAS.assignment);
 });
 
 test('activity and assignment use the smaller token limit', async () => {

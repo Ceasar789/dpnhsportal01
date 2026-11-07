@@ -122,7 +122,9 @@ export async function dayTaskHandler(req, res, { loadPlan = defaultLoadPlan, req
     const [status, message] = known ? generationFailures[code]
       : [500, 'The backend could not complete task generation. Nothing was saved.'];
     // Only values this codebase produces are logged, never error.message or provider text.
-    const detail = code === 'AI_RESPONSE_INVALID' ? ` category=${error.validation?.category} path=${error.validation?.path}` : '';
+    const detail = code === 'AI_RESPONSE_INVALID' ? ` category=${error.validation?.category} path=${error.validation?.path}`
+      : code === 'PROVIDER_REJECTED'
+        ? ` status=${error.providerHttpStatus} googleStatus=${error.googleStatus ?? 'none'} schemaTooComplex=${error.schemaTooComplex === true}` : '';
     log.error(`[day-tasks] stage=generation code=${code} taskType=${task.taskType} day=${task.day}${detail}`);
     return fail(res, status, code, message);
   } finally {

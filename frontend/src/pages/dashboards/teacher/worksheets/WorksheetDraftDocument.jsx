@@ -1,13 +1,28 @@
+import { Fragment } from 'react';
 import IlawHybridHeader from '../ilaw/IlawHybridHeader';
+import { parseActivityText } from './activityTextBlocks';
 import { studentDraftPreview } from './generatedDraftModel';
 import './WorksheetDraftDocument.css';
 
 const answerText = (answer, itemType) => Array.isArray(answer) ? answer.join(', ')
   : answer || (itemType === 'essay' ? 'Teacher-scored' : 'Not set');
 
+// Text nodes only: saved instructions come from the AI and are never HTML.
+function ActivityBody({ text }) {
+  return <div className="activity-body">{parseActivityText(text).map((block, index) => {
+    if (block.type === 'fields') return <dl key={index} className="activity-fields">{block.rows.map(([label, value], row) =>
+      <Fragment key={row}><dt>{label}</dt><dd>{value}</dd></Fragment>)}</dl>;
+    if (block.type === 'heading') return <h4 key={index} className="activity-heading">{block.text}</h4>;
+    if (block.type === 'p') return <p key={index} className="activity-para">{block.text}</p>;
+    const List = block.type;
+    return <List key={index} className="activity-list">{block.items.map((item, row) => <li key={row}>{item}</li>)}</List>;
+  })}</div>;
+}
+
 // A presentation of the local draft, not a saved worksheet or an export format.
 // The student branch receives only the stripped student payload.
-export default function WorksheetDraftDocument({ draft, audience = 'student' }) {
+export default function WorksheetDraftDocument({ draft, audience = 'student', variant = 'default', heading, structuredDirections = false }) {
+  const dayTask = variant === 'day-task';
   const student = studentDraftPreview(draft);
   const totalPoints = Math.round(student.questions.reduce((sum, item) => {
     const points = Number(item.points);
@@ -16,20 +31,24 @@ export default function WorksheetDraftDocument({ draft, audience = 'student' }) 
   const answerById = audience === 'teacher'
     ? new Map(draft.answerKey.map(item => [item.localId, item.correct_answer])) : null;
 
-  return <article className="worksheet-draft-document" aria-label={audience === 'student' ? 'Student-facing worksheet' : 'Teacher answer key'}>
+  return <article className={dayTask ? 'worksheet-draft-document worksheet-draft-document--day-task' : 'worksheet-draft-document'} aria-label={audience === 'student' ? 'Student-facing worksheet' : 'Teacher answer key'}>
     <IlawHybridHeader />
-    <h3>{audience === 'student' ? 'WORKSHEET' : 'TEACHER ANSWER KEY'}</h3>
+    <h3>{audience === 'student' ? (dayTask && heading) || 'WORKSHEET' : 'TEACHER ANSWER KEY'}</h3>
     <p className="worksheet-draft-title">{student.title}</p>
     <div className="worksheet-draft-meta">
       <p><strong>Subject:</strong> {student.subjectName || 'Not specified'}</p>
       <p><strong>Grade:</strong> {student.gradeLevel || 'Not specified'}</p>
-      <p><strong>Total points:</strong> {totalPoints}</p>
+      {!(dayTask && totalPoints === 0) && <p><strong>Total points:</strong> {totalPoints}</p>}
     </div>
-    {audience === 'student' && <div className="worksheet-draft-student-fields">
+    {audience === 'student' && (dayTask ? <div className="worksheet-draft-student-fields">
+      <p>Student name: <span className="line" aria-hidden="true" /></p>
+      <p className="short">Section: <span className="line" aria-hidden="true" /></p>
+    </div> : <div className="worksheet-draft-student-fields">
       <p>Student name: <span aria-hidden="true">____________________________</span></p>
       <p>Section: <span aria-hidden="true">________________</span></p>
-    </div>}
-    {draft.instructions?.trim()
+    </div>)}
+    {dayTask && structuredDirections && draft.instructions?.trim() ? <ActivityBody text={draft.instructions} />
+      : draft.instructions?.trim()
       ? <p className="worksheet-draft-directions"><strong>Directions:</strong> {draft.instructions}</p>
       : !draft.sections && <p className="worksheet-draft-directions"><strong>Directions:</strong> Not provided in this local sample.</p>}
     {student.sections.map((section, sectionIndex) => <section key={sectionIndex} className="worksheet-draft-section"

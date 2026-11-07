@@ -179,7 +179,8 @@ describe('distributeTask', () => {
     rpcTakes(hookReceipt({ added: ['s1'], alreadyAssigned: ['s2'], assignedElsewhere: ['s3'] }));
     const assessment = await enabled();
     const response = await assessment.distributeTask(...task);
-    expect(response).toEqual({ ok: true, added: ['s1'], skipped: 2, message: '', notified: true });
+    expect(response).toEqual({ ok: true, added: ['s1'], skipped: 2, message: '', notified: true,
+      alreadyAssigned: ['s2'], assignedElsewhere: ['s3'] });
     expect(notifications()).toHaveLength(1);
     expect(notifications()[0].rows.map(row => row.user_id)).toEqual(['s1']);
     expect(notifications()[0].rows[0]).toMatchObject({ title: 'Quiz', related_entity_id: 'worksheet-id' });
@@ -198,7 +199,7 @@ describe('distributeTask', () => {
     rpcTakes(hookReceipt({ added: [], alreadyAssigned: ['s1', 's2', 's3'] }));
     const assessment = await enabled();
     expect(await assessment.distributeTask(...task)).toEqual({ ok: true, added: [], skipped: 3, postingSaved: true,
-      message: 'Everyone ticked already has this task.' });
+      message: 'Everyone ticked already has this task.', alreadyAssigned: ['s1', 's2', 's3'], assignedElsewhere: [] });
     expect(notifications()).toEqual([]);
   });
 

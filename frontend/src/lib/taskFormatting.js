@@ -40,6 +40,12 @@ export function localNowTimestamp(now = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+// Whether a combineDateAndTime value is still ahead of "now". The school's fixed
+// offset is applied here, so the answer does not depend on the browser's timezone.
+export function isFutureManila(wallClock, now = new Date()) {
+  return Date.parse(`${wallClock}+08:00`) > new Date(now).getTime();
+}
+
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;

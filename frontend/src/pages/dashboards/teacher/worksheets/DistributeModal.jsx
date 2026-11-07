@@ -23,8 +23,15 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
 import { useTheme } from '../hooks';
-import { combineDateAndTime, DEFAULT_DUE_TIME } from '../../../../lib/taskFormatting';
+import { combineDateAndTime, DEFAULT_DUE_TIME, isFutureManila } from '../../../../lib/taskFormatting';
 import useDialogSafety from './useDialogSafety';
+
+const MAX_STUDENTS = 200;
+const CHECKING_MODES = [
+  { value: 'auto', label: 'Auto-check', help: 'Answers are marked for you when you open Check submissions.' },
+  { value: 'manual', label: 'Manual check', help: 'You mark every answer yourself.' },
+];
+const modeLabel = mode => CHECKING_MODES.find(option => option.value === mode)?.label;
 
 const DistributeModal = ({
   task, sections, sectionsError, onRetrySections,
@@ -68,6 +75,9 @@ const DistributeModal = ({
   const [ticked, setTicked] = useState(() => new Set());
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState(null); // { tone, text }
+  const [chosenMode, setChosenMode] = useState(task.checking_mode === 'auto' ? 'auto' : 'manual');
+  const [reviewing, setReviewing] = useState(false);
+  const sendingRef = useRef(false);
 
   const aliveRef = useRef(true);
   useEffect(() => {
@@ -109,13 +119,6 @@ const DistributeModal = ({
 
   useEffect(() => { loadRoster(); }, [loadRoster]);
 
-  // Every box starts ticked, per section — this fires again whenever the
-  // roster for a NEWLY selected section comes in, which is exactly when a
-  // fresh "everyone ticked" default is wanted.
-  useEffect(() => {
-    setTicked(new Set(roster.map(r => r.student_id)));
-  }, [roster]);
-
   const assignedIds = useMemo(() => new Set(assignees.map(a => a.student_id)), [assignees]);
   const startedIds = useMemo(() => new Set(submissions.map(s => s.student_id)), [submissions]);
 
@@ -134,17 +137,32 @@ const DistributeModal = ({
   const readFailed = rosterError || assigneesError || submissionsError;
   const retryAll = () => { loadRoster(); loadMeta(); };
 
-  // "N will receive this" has to mean what it says: only students this click
-  // actually adds. Anyone already assigned is force-ticked (isTicked) so the
-  // roster reads honestly, but counting them here would claim a send that
-  // distributeTask itself will skip. Reported separately instead of folded
-  // into one misleading total.
-  const newlyTicked = roster.filter(r => isTicked(r.student_id) && !assignedIds.has(r.student_id)).length;
-  const alreadyTicked = roster.filter(r => isTicked(r.student_id) && assignedIds.has(r.student_id)).length;
-  const willReceive = newlyTicked;
+  // Only ticked new students are sent. Anyone who already holds or has started
+  // this task is shown ticked so the roster reads honestly, but is never counted
+  // or requested here.
+  const selectable = roster.filter(r => !assignedIds.has(r.student_id) && !startedIds.has(r.student_id));
+  const selectedIds = selectable.filter(r => ticked.has(r.student_id)).map(r => r.student_id);
+  const allSelected = selectable.length > 0 && selectedIds.length === selectable.length;
+  const toggleAll = () => setTicked(allSelected ? new Set() : new Set(selectable.map(r => r.student_id)));
+  const alreadyTicked = roster.filter(r => assignedIds.has(r.student_id)).length;
+  const tooMany = selectedIds.length > MAX_STUDENTS;
+
+  const storedMode = task.checking_mode === 'auto' ? 'auto' : 'manual';
+  const modeLocked = assignees.length > 0;
+  // The row carries no item types: an Assignment is essays and zero items is an
+  // Activity. The database also refuses auto for any other task with an essay.
+  const manualOnly = task.task_type === 'assignment' || !Number(task.items);
+  const checkingMode = modeLocked ? storedMode : manualOnly ? 'manual' : chosenMode;
+
+  const dueAt = combineDateAndTime(dueDate, dueTime);
+  const dueInFuture = Boolean(dueAt) && isFutureManila(dueAt);
+  const dueMessage = !dueDate ? 'Choose a due date.'
+    : !dueInFuture ? 'The due date and time must be in the future (Manila time).' : '';
+  const sectionName = sections.find(s => s.id === sectionId)?.name;
+
   const dirty = sectionId !== (sections[0]?.id || '') || dueDate !== ''
     || dueTime !== DEFAULT_DUE_TIME
-    || roster.some(r => ticked.has(r.student_id) !== true)
+    || ticked.size > 0 || chosenMode !== storedMode
     || result?.postingSaved;
   const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
     dirty, pending: saving, onClose,
@@ -154,23 +172,27 @@ const DistributeModal = ({
   });
 
   const submit = async () => {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
     setResult(null);
-    const dueAt = combineDateAndTime(dueDate, dueTime);
-    const ids = roster.filter(r => isTicked(r.student_id)).map(r => r.student_id);
     setSaving(true);
-    const res = await distributeTask(task.id, sectionId, ids, dueAt);
+    const res = await distributeTask(task.id, sectionId, selectedIds, dueAt, checkingMode);
     if (!aliveRef.current) return;
+    sendingRef.current = false;
     setSaving(false);
+    setReviewing(false);
+    const elsewhere = res.assignedElsewhere?.length
+      ? `${res.assignedElsewhere.length} student(s) already have this task in another section.` : '';
     if (res.ok) {
       // `added` empty means the write happened but inserted nobody — every
-      // ticked student already held this task (distributeTask's own
-      // skip-set, recomputed fresh at write time, came up empty). That is
+      // ticked student already held this task (the database skipped them
+      // all at write time). That is
       // not a distribution: closing here would let the teacher believe
       // students were just sent a task when nothing changed. Keep the modal
       // open and say so, using distributeTask's own message.
       if (!res.added || res.added.length === 0) {
         setResult({ tone: 'warning', postingSaved: Boolean(res.postingSaved),
-          text: res.message || 'Nothing new was distributed.' });
+          text: [res.message || 'Nothing new was distributed.', elsewhere].filter(Boolean).join(' ') });
         return;
       }
       // The task itself was genuinely distributed even when notified is
@@ -179,32 +201,25 @@ const DistributeModal = ({
       // section between the roster load and this submit, so
       // teaches_student no longer holds for them). Say both things: the
       // distribution succeeded, and who could not be told.
-      if (res.notified === false) {
-        showToast?.(
-          'Task distributed, but the students could not be notified. They will still see it in their task list.',
-          'error'
-        );
-      }
+      const notifiedText = res.notified === false
+        ? 'Task distributed, but the students could not be notified. They will still see it in their task list.'
+        : `Task distributed to ${res.added.length} student(s).`;
+      showToast?.([notifiedText, elsewhere].filter(Boolean).join(' '), res.notified === false ? 'error' : 'success');
       onClose();
       return;
     }
-    // Distribution is two writes with no client transaction (the section
-    // posting, then the assignee rows). A failure here can therefore be
-    // partial — the posting may already be recorded while nobody was
-    // actually assigned. The modal stays open, with the failure named
-    // rather than silently swallowed, and resubmitting is safe: the upsert
-    // on worksheet_sections is idempotent and the assignee insert re-derives
-    // who still needs adding from a fresh loadAssignees call.
-    setResult({
-      tone: 'error', postingSaved: Boolean(res.postingSaved),
-      text: res.postingSaved
-        ? `The section posting was saved, but no new students were assigned. ${res.message}`
-        : res.message,
-    });
+    // Distribution is one database transaction, so a failure wrote nothing.
+    // The modal stays open with the failure named, and resubmitting is safe:
+    // the database skips anyone who already holds the task.
+    setResult({ tone: 'error', text: res.message });
   };
 
-  const disableSubmit = rosterLoading || readFailed || metaLoading
-    || !sectionId || !dueDate || willReceive === 0;
+  const disableReview = rosterLoading || readFailed || metaLoading
+    || !sectionId || !dueInFuture || selectedIds.length === 0 || tooMany;
+  const closeReview = () => { if (!sendingRef.current) setReviewing(false); };
+  const sectionOption = s => <option key={s.id} value={s.id}>{s.name} ({s.grade_level})</option>;
+  const advisorySections = sections.filter(s => s.isAdviser);
+  const handledSections = sections.filter(s => !s.isAdviser);
 
   return (
     <>{routeBlocker}<Modal title={`Distribute "${task.title}"`} onClose={requestClose} size="max-w-2xl">
@@ -227,13 +242,10 @@ const DistributeModal = ({
               <div className="flex-1 basis-full sm:basis-auto min-w-0">
                 <label htmlFor="teacher-distribute-section" className="text-xs font-semibold" style={muted}>Section</label>
                 <select id="teacher-distribute-section" value={sectionId} disabled={saving}
-                  onChange={e => setSectionId(e.target.value)}
+                  onChange={e => { setSectionId(e.target.value); setTicked(new Set()); }}
                   className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle}>
-                  {sections.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.grade_level}){s.isAdviser ? ' — advisory' : ''}
-                    </option>
-                  ))}
+                  {advisorySections.length > 0 && <optgroup label="Advisory section">{advisorySections.map(sectionOption)}</optgroup>}
+                  {handledSections.length > 0 && <optgroup label="Handled sections">{handledSections.map(sectionOption)}</optgroup>}
                 </select>
               </div>
               <div className="flex-1 min-w-0">
@@ -249,6 +261,23 @@ const DistributeModal = ({
                   className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
               </div>
             </div>
+
+            {dueDate !== '' && dueMessage && <p role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{dueMessage}</p>}
+            {dueDate === '' && <p className="text-xs" style={muted}>{dueMessage}</p>}
+
+            <fieldset>
+              <legend className="text-xs font-semibold" style={muted}>Checking mode</legend>
+              {CHECKING_MODES.map(option => (
+                <label key={option.value} className="flex items-start gap-2 mt-1 text-sm" style={bodyText}>
+                  <input type="radio" name="teacher-distribute-mode" className="mt-1" value={option.value}
+                    checked={checkingMode === option.value} disabled={saving || modeLocked || manualOnly}
+                    onChange={() => setChosenMode(option.value)} />
+                  <span>{option.label}<span className="block text-xs" style={muted}>{option.help}</span></span>
+                </label>
+              ))}
+              {modeLocked ? <p className="text-xs mt-1" style={muted}>Locked after the first distribution.</p>
+                : manualOnly && <p className="text-xs mt-1" style={muted}>Auto-check is not available for this task</p>}
+            </fieldset>
 
             {result && (
               <p role={result.tone === 'error' ? 'alert' : 'status'} className="text-xs font-semibold" style={{
@@ -281,6 +310,12 @@ const DistributeModal = ({
               </p>
             ) : (
               <div className="flex flex-col gap-1 max-h-64 overflow-y-auto pr-1">
+                <label className="flex items-center gap-3 py-1.5 text-sm font-semibold" style={bodyText}>
+                  <input type="checkbox" checked={allSelected} disabled={saving || selectable.length === 0}
+                    ref={element => { if (element) element.indeterminate = selectedIds.length > 0 && !allSelected; }}
+                    onChange={toggleAll} />
+                  Select all
+                </label>
                 {roster.map((s, i) => {
                   const started = startedIds.has(s.student_id);
                   const assigned = assignedIds.has(s.student_id);
@@ -293,12 +328,10 @@ const DistributeModal = ({
                         onChange={() => toggle(s.student_id)} />
                       <span className="text-xs w-6" style={muted}>{i + 1}</span>
                       <span className="text-sm flex-1" style={bodyText}>{s.name}</span>
-                      {started ? (
-                        <span className="text-[11px]" style={{ color: '#d97706' }}>
-                          Already started — clear their submission first
-                        </span>
-                      ) : assigned ? (
-                        <span className="text-[11px]" style={muted}>Already assigned</span>
+                      {assigned ? (
+                        <span className="text-[11px]" style={muted}>Already has this task</span>
+                      ) : started ? (
+                        <span className="text-[11px]" style={{ color: '#d97706' }}>Already started</span>
                       ) : null}
                     </label>
                   );
@@ -306,22 +339,38 @@ const DistributeModal = ({
               </div>
             )}
 
+            {tooMany && <p role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>
+              You can send to at most {MAX_STUDENTS} students at a time. Untick some students.
+            </p>}
+
             <div className="flex items-center justify-end gap-2 pt-1">
               {!rosterLoading && !metaLoading && !readFailed && roster.length > 0 && (
                 <span className="text-xs mr-auto" style={muted}>
-                  {willReceive} will receive this
+                  {selectedIds.length} selected
                   {alreadyTicked > 0 && ` · ${alreadyTicked} already have it`}
                 </span>
               )}
               <Btn variant="outline" onClick={requestClose}>Cancel</Btn>
-              <Btn variant="primary" onClick={submit} disabled={disableSubmit} busy={saving}>
-                {saving ? 'Distributing…' : 'Distribute'}
-              </Btn>
+              <Btn variant="primary" onClick={() => setReviewing(true)} disabled={disableReview}>Review</Btn>
             </div>
           </>
         )}
       </div>
-    </Modal></>
+    </Modal>
+    {reviewing && <Modal title="Confirm distribution" onClose={closeReview} escapeCloses closeDisabled={saving}>
+      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm mb-5" style={bodyText}>
+        <dt style={muted}>Section</dt><dd>{sectionName}</dd>
+        <dt style={muted}>Students</dt><dd>{selectedIds.length}</dd>
+        <dt style={muted}>Due</dt><dd>{dueDate} at {dueTime} (Manila time)</dd>
+        <dt style={muted}>Checking mode</dt><dd>{modeLabel(checkingMode)}</dd>
+      </dl>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Btn variant="outline" className="min-h-11" onClick={closeReview} disabled={saving}>Back</Btn>
+        <Btn variant="primary" className="min-h-11" onClick={submit} disabled={saving} busy={saving}>
+          {saving ? 'Distributing…' : 'Confirm'}
+        </Btn>
+      </div>
+    </Modal>}</>
   );
 };
 

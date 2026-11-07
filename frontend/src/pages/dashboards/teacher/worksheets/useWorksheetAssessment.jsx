@@ -824,10 +824,10 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     fetchPostings();
     fetchAssigneeCounts();
 
-    const { added } = result.receipt;
+    const { added, alreadyAssigned, assignedElsewhere } = result.receipt;
     if (added.length === 0) {
       return { ok: true, added: [], skipped: studentIds.length, postingSaved: true,
-        message: 'Everyone ticked already has this task.' };
+        message: 'Everyone ticked already has this task.', alreadyAssigned, assignedElsewhere };
     }
 
     // The task already went out — a failed notification here must not turn
@@ -841,7 +841,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     const message = `"${meta.title}" is due ${deadline}.`;
     const notified = await notifyStudents(added, { title, message, taskId });
 
-    return { ok: true, added, skipped: studentIds.length - added.length, message: '', notified };
+    return { ok: true, added, skipped: studentIds.length - added.length, message: '', notified, alreadyAssigned, assignedElsewhere };
   };
 
   return {

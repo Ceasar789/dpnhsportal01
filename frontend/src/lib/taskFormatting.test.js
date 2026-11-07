@@ -3,6 +3,7 @@ import {
   TASK_TYPES, TASK_TYPE_LABELS, DEFAULT_DUE_TIME,
   formatCountdown, combineDateAndTime, formatClockTime,
 } from './taskFormatting';
+import { isFutureManila } from './taskFormatting';
 
 const NOW = new Date('2026-09-21T10:00:00');
 
@@ -102,5 +103,31 @@ describe('formatClockTime', () => {
     for (const bad of [null, undefined, '', 'noon', '25:00:00', '10:99:00', 42]) {
       expect(formatClockTime(bad)).toBeNull();
     }
+  });
+});
+
+describe('isFutureManila', () => {
+  const NOW_UTC = new Date('2030-11-01T02:00:00Z'); // 10:00 on Nov 1 in Manila
+
+  it('is false for a past Manila time', () => {
+    expect(isFutureManila('2030-11-01T09:59:00', NOW_UTC)).toBe(false);
+  });
+
+  it('is false for exactly now', () => {
+    expect(isFutureManila('2030-11-01T10:00:00', NOW_UTC)).toBe(false);
+  });
+
+  it('is true for a future Manila time', () => {
+    expect(isFutureManila('2030-11-01T10:01:00', NOW_UTC)).toBe(true);
+  });
+
+  it('compares in Manila when the UTC date and the Manila date differ', () => {
+    const lateUtc = new Date('2030-11-01T20:00:00Z'); // still Nov 1 in UTC, 04:00 on Nov 2 in Manila
+    expect(isFutureManila('2030-11-02T03:59:00', lateUtc)).toBe(false);
+    expect(isFutureManila('2030-11-02T04:01:00', lateUtc)).toBe(true);
+  });
+
+  it('is false for a value that is not a date', () => {
+    for (const value of ['', null, undefined, 'soon']) expect(isFutureManila(value, NOW_UTC)).toBe(false);
   });
 });

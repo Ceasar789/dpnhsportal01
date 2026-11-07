@@ -85,6 +85,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [preview, setPreview] = useState(null);
+  const [saving, setSaving] = useState(false);
   const controllerRef = useRef(null);
   const startedAtRef = useRef(0);
   const headingRef = useRef(null);
@@ -136,6 +137,19 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
     }
   };
 
+  // Never rejects, and Btn ignores a second click until this promise settles.
+  const applyDraft = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await onUseDraft(preview.result, { day, taskType, storedTaskType: toStoredTaskType(taskType) });
+    } catch (failure) {
+      setError(failure?.message || 'The draft could not be saved. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const cancel = () => {
     controllerRef.current?.abort();
     controllerRef.current = null;
@@ -158,7 +172,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
   );
 
   return (
-    <Modal title="Generate Day Task" onClose={onClose} size="max-w-2xl" closeDisabled={step === 'generating'}
+    <Modal title="Generate Day Task" onClose={onClose} size="max-w-2xl" closeDisabled={step === 'generating' || saving}
       description={`Generate one task for one day of ${plan.title}.`}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -246,12 +260,17 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
         {step === 'preview' && preview && (
           <div className="space-y-4">
             <TaskPreview result={preview.result} seconds={preview.seconds} />
+            {error && (
+              <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                {error}
+              </p>
+            )}
             <div className="flex flex-wrap justify-end gap-2">
-              <Btn variant="outline" className="min-h-11" onClick={() => setStep('task')}>Back</Btn>
-              <Btn variant="pastel" className="min-h-11" onClick={() => { void generate(); }}>Regenerate</Btn>
+              <Btn variant="outline" className="min-h-11" disabled={saving} onClick={() => { setError(''); setStep('task'); }}>Back</Btn>
+              <Btn variant="pastel" className="min-h-11" disabled={saving} onClick={() => { void generate(); }}>Regenerate</Btn>
               {onUseDraft && (
-                <Btn className="min-h-11" onClick={() => { onUseDraft(preview.result, { day, taskType, storedTaskType: toStoredTaskType(taskType) }); }}>
-                  Use this draft
+                <Btn className="min-h-11" disabled={saving} onClick={applyDraft}>
+                  {saving ? 'Saving…' : 'Use this draft'}
                 </Btn>
               )}
             </div>

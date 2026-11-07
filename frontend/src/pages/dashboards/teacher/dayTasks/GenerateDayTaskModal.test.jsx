@@ -308,6 +308,45 @@ describe('GenerateDayTaskModal preview', () => {
     expect(onUseDraft.mock.calls[0][1]).toEqual({ day: 'Tuesday', taskType: 'activity', storedTaskType: 'worksheet' });
   });
 
+  it('waits for an async save: pending state, no second call, and no close', async () => {
+    let finish;
+    const onUseDraft = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    await toPreview({ onUseDraft });
+    const button = screen.getByRole('button', { name: 'Use this draft' });
+    act(() => { button.click(); button.click(); });
+    expect(onUseDraft).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Saving…' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Back' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Regenerate' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Close Generate Day Task' }).disabled).toBe(true);
+    await act(async () => { finish(); });
+    expect(screen.getByRole('button', { name: 'Use this draft' }).disabled).toBe(false);
+    expect(screen.getByRole('button', { name: 'Close Generate Day Task' }).disabled).toBe(false);
+  });
+
+  it('a failed save keeps the preview, shows the message, and allows another try', async () => {
+    const log = vi.spyOn(console, 'error');
+    const onUseDraft = vi.fn().mockRejectedValueOnce(new Error('The draft could not be saved. Check Worksheets before trying again.'));
+    await toPreview({ onUseDraft });
+    click('Use this draft');
+    expect((await screen.findByRole('alert')).textContent).toBe('The draft could not be saved. Check Worksheets before trying again.');
+    expect(screen.getByText('Cells quiz')).toBeTruthy();
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+    onUseDraft.mockResolvedValueOnce();
+    click('Use this draft');
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(onUseDraft).toHaveBeenCalledTimes(2);
+  });
+
+  it('Back clears a save error so it does not follow the teacher', async () => {
+    await toPreview({ onUseDraft: vi.fn().mockRejectedValue(new Error('Save failed.')) });
+    click('Use this draft');
+    await screen.findByRole('alert');
+    click('Back');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('hides Use this draft without a handler', async () => {
     await toPreview();
     expect(screen.queryByRole('button', { name: 'Use this draft' })).toBeNull();

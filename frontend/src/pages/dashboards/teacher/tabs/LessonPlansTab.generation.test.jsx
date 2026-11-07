@@ -78,11 +78,20 @@ const jobClient = (overrides = {}) => ({ enabled: true,
   cancel: vi.fn(async () => ({ id: jobId, status: 'CANCELED' })),
   result: vi.fn(async () => ({ kind: 'weekly-worksheet-collection', saved: false })),
   ...overrides });
-const renderSavedJob = async (client, onCompletedWeeklyJobDraft = vi.fn(), manual = false) => {
+const JOB_KEY = 'eduscribe-weekly-draft-job-v1';
+// The Generate button is gone. A stored job with no job id reaches the same
+// submitWeeklyJob path through the retry button that remains.
+const seedUnconfirmedJob = (questionCount = 30) => {
+  if (sessionStorage.getItem(JOB_KEY)) return;
+  sessionStorage.setItem(JOB_KEY, JSON.stringify({ teacherId: mock.teacherId, planId: savedPlanId, jobId: null,
+    requestId: '0f1e2d3c-4b5a-4678-9abc-def012345678', questionCount }));
+};
+const renderSavedJob = async (client, onCompletedWeeklyJobDraft = vi.fn(), manual = false, questionCount = 30) => {
   mock.plans.splice(0, mock.plans.length, savedPlan(manual));
+  seedUnconfirmedJob(questionCount);
   const view = render(<MemoryRouter><LessonPlansTab jobClient={client}
     onCompletedWeeklyJobDraft={onCompletedWeeklyJobDraft} onGeneratedDraft={vi.fn()} /></MemoryRouter>);
-  const name = `Generate Worksheet from ${mock.plans[0].title}`;
+  const name = JSON.parse(sessionStorage.getItem(JOB_KEY)).jobId ? 'Resume weekly job' : 'Retry unconfirmed weekly request';
   await screen.findByRole('button', { name });
   return { view, name, onCompletedWeeklyJobDraft };
 };
@@ -456,10 +465,9 @@ describe('AI lesson plan generation with synthetic services', () => {
 });
 
 describe('saved-plan draft-only weekly job handoff', () => {
-  it.each([false, true])('submits an owned saved %s plan with the selected count and no fixture or save', async manual => {
+  it.each([false, true])('submits an owned saved %s plan with the stored count and no fixture or save', async manual => {
     const client = jobClient();
-    const { name } = await renderSavedJob(client, vi.fn(), manual);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Questions per day' }), { target: { value: '40' } });
+    const { name } = await renderSavedJob(client, vi.fn(), manual, 40);
     fireEvent.click(screen.getByRole('button', { name }));
     await flushJob();
     expect(client.submit).toHaveBeenCalledTimes(1);
@@ -525,9 +533,10 @@ describe('saved-plan draft-only weekly job handoff', () => {
     const client = jobClient({ status: vi.fn(async () => jobSummary('COMPLETED', 15)),
       result: vi.fn(async () => result) });
     mock.plans.push(savedPlan());
+    seedUnconfirmedJob();
     render(<MemoryRouter><LessonPlansTab jobClient={client} onCompletedWeeklyJobDraft={handoff}
       onGeneratedDraft={oldHandoff} /></MemoryRouter>);
-    const button = await screen.findByRole('button', { name: /Generate Worksheet from Synthetic AI ILAW/ });
+    const button = await screen.findByRole('button', { name: 'Retry unconfirmed weekly request' });
     fireEvent.click(button);
     await flushJob();
     expect(client.result).toHaveBeenCalledTimes(1);
@@ -618,15 +627,17 @@ describe('saved-plan draft-only weekly job handoff', () => {
   it('reports a changed source or expired job without opening a draft', async () => {
     const handoff = vi.fn();
     const client = jobClient({ submit: vi.fn(async () => { throw { code: 'source_changed' }; }) });
-    const { name } = await renderSavedJob(client, handoff);
+    const { name, view } = await renderSavedJob(client, handoff);
     fireEvent.click(screen.getByRole('button', { name }));
     await flushJob();
     expect(screen.getByText(/saved lesson plan changed/)).toBeTruthy();
     expect(handoff).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    view.unmount();
+    const retried = await renderSavedJob(client, handoff);
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     client.submit.mockResolvedValueOnce(jobSummary());
-    fireEvent.click(screen.getByRole('button', { name }));
+    fireEvent.click(screen.getByRole('button', { name: retried.name }));
     await flushJob();
     client.status.mockRejectedValueOnce({ code: 'not_found' });
     await act(async () => { vi.advanceTimersByTime(3000); await Promise.resolve(); });

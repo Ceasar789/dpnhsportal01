@@ -24,6 +24,7 @@ vi.mock('../../../../lib/supabaseRetry', () => ({ withRetry: query => query() })
 vi.mock('../worksheets/useWorksheetAssessment', () => ({ useWorksheetAssessment: () => ({
   ...state, assigneeCounts: {}, assigneeCountsLoading: false, assigneeCountsError: false,
   postings: [], postingsError: false, fetchMySubject: vi.fn(), fetchAssigneeCounts: vi.fn(), fetchPostings: vi.fn(),
+  loadItems: state.loadItems,
 }) }));
 vi.mock('../worksheets/useDialogSafety', () => ({ default: () => ({ requestClose: vi.fn(), routeBlocker: null, busyNotice: '' }) }));
 vi.mock('../worksheets/QuestionBuilderModal', () => ({ default: ({ draft, manualEligibility, onDraftChange, onLocalSave, onDurableSave }) => <section aria-label="Mock full-page editor">
@@ -51,8 +52,64 @@ beforeEach(() => {
   state.schoolYear = '2030-2031';
   worksheetRows.value = [];
   writes.length = 0;
+  state.loadItems = vi.fn(async () => ({ items: [], keys: {} }));
 });
 afterEach(cleanup);
+
+describe('Saved day task preview', () => {
+  const dayTask = { id: 'day-task', title: 'Cells - Tuesday Activity', subject: 'Science', grade_level: 'Grade 7',
+    source_lesson_plan_id: 'plan-1', instructions: 'Objective: Describe cells.', items: 0 };
+  const openPreview = async (row, label = 'Preview') => {
+    worksheetRows.value = [row];
+    render(<Harness />);
+    await screen.findByText(row.title);
+    fireEvent.click(screen.getByRole('button', { name: label }));
+  };
+
+  it('opens the worksheet template for a saved day task with no file', async () => {
+    await openPreview(dayTask);
+    expect(await screen.findByRole('article', { name: 'Student-facing worksheet' })).toBeTruthy();
+    expect(state.loadItems).toHaveBeenCalledWith('day-task');
+    expect(screen.queryByText('File Information')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close Preview: Cells - Tuesday Activity' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('keeps the old preview for a worksheet with a file, even if it has a lesson plan', async () => {
+    await openPreview({ ...dayTask, file_url: 'https://synthetic.invalid/a.pdf' }, 'View');
+    expect(screen.getByText('File Information')).toBeTruthy();
+    expect(state.loadItems).not.toHaveBeenCalled();
+    expect(screen.queryByRole('article', { name: 'Student-facing worksheet' })).toBeNull();
+  });
+
+  it('keeps the old preview for a worksheet with no lesson plan', async () => {
+    await openPreview({ ...dayTask, source_lesson_plan_id: null });
+    expect(screen.getByText('File Information')).toBeTruthy();
+    expect(screen.getByText('No file attached')).toBeTruthy();
+    expect(state.loadItems).not.toHaveBeenCalled();
+  });
+
+  it.each([[0], [null], ['']])('labels items %j with instructions as a text-only activity', async (items) => {
+    worksheetRows.value = [{ ...dayTask, items }];
+    render(<Harness />);
+    expect(await screen.findByText('Science · — pages · Activity · text only')).toBeTruthy();
+  });
+
+  it('leaves every other card line unchanged', async () => {
+    worksheetRows.value = [
+      { ...dayTask, id: 'a', title: 'Quiz with items', items: 10 },
+      { ...dayTask, id: 'b', title: 'Empty no instructions', items: 0, instructions: null, subject: 'Math' },
+      { ...dayTask, id: 'c', title: 'Blank instructions', items: null, instructions: '   ', subject: 'English' },
+      { id: 'd', title: 'Legacy', subject: 'Art', pages: '3', items: 5 },
+    ];
+    render(<Harness />);
+    expect(await screen.findByText('Science · — pages · 10 items')).toBeTruthy();
+    expect(screen.getByText('Math · — pages · — items')).toBeTruthy();
+    expect(screen.getByText('English · — pages · — items')).toBeTruthy();
+    expect(screen.getByText('Art · 3 pages · 5 items')).toBeTruthy();
+    expect(screen.queryByText(/text only/)).toBeNull();
+  });
+});
 
 describe('Worksheet manual authoring entry', () => {
   it('labels saved rows by origin and removes AI edit and individual delete actions', async () => {

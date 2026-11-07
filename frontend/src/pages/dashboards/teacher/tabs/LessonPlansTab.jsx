@@ -33,13 +33,15 @@ import { createTemporaryManualIlawDraft } from '../ilaw/fullManualIlawModel';
 import { parseManualIlawV2, validateManualIlawCompletion } from '../ilaw/manualIlawV2';
 import { savedPlanType, SAVED_PLAN_TYPE_LABEL } from '../lessonPlans/savedPlanType';
 import { prepareDevelopmentWorksheetContext } from '../lessonPlans/worksheetContext';
-import { extractWeeklyWorksheetSource } from '../lessonPlans/weeklyWorksheetSource';
+import { extractWeeklyWorksheetSource, WEEKDAYS } from '../lessonPlans/weeklyWorksheetSource';
 import { savedAiMetadata } from '../lessonPlans/aiAssignment';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
 import { weeklyWorksheetSaveFlagEnabled } from '../persistence/aiWeeklyWorksheetSaveClient';
 import WeeklyGenerationProgress from './WeeklyGenerationProgress';
+import GenerateDayTaskModal from '../dayTasks/GenerateDayTaskModal';
+import { saveDayTaskDraft } from '../dayTasks/dayTaskSave';
 import '../ilaw/IlawActivePreview.css';
 
 // Where the EduScribe API lives. Deployment sets VITE_API_BASE_URL.
@@ -166,6 +168,14 @@ const weeklyJobFailure = job => job.status === 'CANCELED'
       ? 'The saved lesson plan changed during generation. No draft was opened.'
       : 'Weekly generation failed. No draft was opened.';
 
+// Objective snippets are a convenience. A plan without readable weekday columns
+// (every Manual ILAW, for one) still offers all five days.
+const dayTaskDaysFor = plan => {
+  let source = null;
+  try { source = extractWeeklyWorksheetSource(plan.objectives); } catch { /* Snippets are optional. */ }
+  return WEEKDAYS.map(day => ({ day, objective: source?.days?.find(entry => entry.day === day)?.objective }));
+};
+
 const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generatedDraft,
   weeklySaveStates = {}, jobClient = weeklyJobClient }) => {
   const navigate = useNavigate();
@@ -176,7 +186,10 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   const activeWeeklySave = worksheetRun?.draft?.collectionId
     ? weeklySaveStates[worksheetRun.draft.collectionId] : null;
   const [worksheetGenerationError, setWorksheetGenerationError] = useState(null);
-  const [weeklyQuestionCount, setWeeklyQuestionCount] = useState(30);
+  const [weeklyQuestionCount] = useState(30);
+  const [dayTaskPlan, setDayTaskPlan] = useState(null);
+  const [dayTaskSaving, setDayTaskSaving] = useState(false);
+  const dayTaskSavingRef = useRef(false);
   const worksheetGenerationRef = useRef(false);
   const worksheetRequestRef = useRef(0);
   const worksheetAbortRef = useRef(null);
@@ -276,6 +289,28 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
     forgetWeeklyJob, onCompletedWeeklyJobDraft]);
 
   const worksheetEligibility = plan => prepareDevelopmentWorksheetContext({ plan, teacherId: userData?.uid });
+
+  const dayTaskDays = useMemo(() => (dayTaskPlan ? dayTaskDaysFor(dayTaskPlan) : []), [dayTaskPlan]);
+
+  const closeDayTask = () => { if (!dayTaskSavingRef.current) setDayTaskPlan(null); };
+
+  // A rejection reaches the modal, which keeps the draft open and shows the message.
+  const saveDayTask = async (result, { day, taskType }) => {
+    if (dayTaskSavingRef.current) return;
+    const plan = plans.find(item => item.id === dayTaskPlan?.id && item.teacher_id === userData?.uid);
+    if (!plan) throw new Error('This lesson plan is no longer available. Nothing was saved.');
+    dayTaskSavingRef.current = true;
+    setDayTaskSaving(true);
+    try {
+      await saveDayTaskDraft({ plan: { id: plan.id, title: plan.title, subject: plan.subject,
+        grade_level: plan.grade_level, subject_id: plan.subject_id }, result, day, taskType, teacherId: userData.uid });
+      setDayTaskPlan(null);
+      showToast('Saved as a Draft in Worksheets', 'success');
+    } finally {
+      dayTaskSavingRef.current = false;
+      setDayTaskSaving(false);
+    }
+  };
 
   const submitWeeklyJob = async (plan, questionCount, jobRequestId, attemptToken, ownerId) => {
     rememberWeeklyJob({ teacherId: ownerId, planId: plan.id, jobId: null,
@@ -1483,7 +1518,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                     const status = PLAN_STATUS[plan.status || 'draft'] || PLAN_STATUS.draft;
                     const planType = savedPlanType(plan);
                     const mockSaved = plan.localMock && parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState === 'saved';
-                    const jobEligible = jobClient.enabled && !plan.localMock && plan.teacher_id === userData?.uid
+                    const dayTaskEligible = !plan.localMock && plan.teacher_id === userData?.uid
                       && ['draft', 'published'].includes(plan.status?.toLowerCase())
                       && ['ai', 'manual'].includes(planType);
                     const worksheetPreview = (planType === 'ai' || (import.meta.env.DEV && planType === 'manual')) && (!plan.localMock || mockSaved)
@@ -1513,22 +1548,12 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                         {plan.file_name && <p className="text-xs mt-2 break-all" style={{ color: 'var(--text-muted)' }}><FileText size={14} className="inline mr-1" aria-hidden="true" />{plan.file_name}</p>}
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
-                          {(planType === 'ai' || jobEligible) && (!plan.localMock || mockSaved) && <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text)' }}>
-                            Questions per day
-                            <select aria-label="Questions per day" value={weeklyQuestionCount} disabled={worksheetRun !== null}
-                              onChange={event => setWeeklyQuestionCount(Number(event.target.value))}
-                              className="min-h-11 rounded-lg px-2" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text)' }}>
-                              {[20, 30, 40].map(count => <option key={count} value={count}>{count}</option>)}
-                            </select>
-                          </label>}
-                          {(planType === 'ai' || (import.meta.env.DEV && planType === 'manual') || jobEligible) && (!plan.localMock || mockSaved) &&
-                            <button type="button" onClick={() => handleGenerateWorksheet(plan)}
-                              disabled={(!jobEligible && worksheetPreview?.status !== 'ready') || worksheetRun !== null
-                                || (jobClient.enabled && persistedJob !== null)}
-                              aria-label={`Generate Worksheet from ${plan.title || 'lesson plan'}`}
+                          {dayTaskEligible &&
+                            <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
+                              aria-label={`Generate Task for ${plan.title || 'lesson plan'}`}
                               className="min-h-11 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
                               style={{ color: 'var(--banner-accent)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                              <Sparkles size={15} aria-hidden="true" />{planType === 'ai' ? 'Generate Weekly Worksheets' : 'Generate Worksheet'}
+                              <Sparkles size={15} aria-hidden="true" />Generate Task
                             </button>}
                           {jobClient.enabled && persistedJob?.planId === plan.id && worksheetRun === null &&
                             <Btn variant="outline" onClick={() => resumeWeeklyJob(plan)}>
@@ -1574,6 +1599,10 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
         </div>
         </>
       )}
+
+      {dayTaskPlan && !dayTaskPlan.localMock && dayTaskPlan.teacher_id === userData?.uid && <GenerateDayTaskModal
+        plan={{ id: dayTaskPlan.id, title: dayTaskPlan.title, subject: dayTaskPlan.subject, grade_level: dayTaskPlan.grade_level }} days={dayTaskDays}
+        onClose={closeDayTask} onUseDraft={saveDayTask} />}
 
       {worksheetRun && <Modal title={worksheetRun.kind === 'weekly' ? 'Weekly worksheet generation' : 'Sample worksheet generation'} onClose={cancelWorksheetRun}
         escapeCloses description={worksheetRun.jobRequestId ? 'Generation creates five unsaved daily drafts for review.'

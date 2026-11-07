@@ -20,6 +20,7 @@ import { createAiWeeklyWorksheetManageRouter } from './routes/aiWeeklyWorksheetM
 import { createAiWeeklyWorksheetDistributeRouter } from './routes/aiWeeklyWorksheetDistribute.js';
 import weeklyWorksheetRoutes from './routes/weeklyWorksheets.js';
 import { createWeeklyJobRouter } from './routes/weeklyJobs.js';
+import { createDayTaskRouter } from './routes/dayTasks.js';
 import { adminUsersRouter, onboardingRouter } from './routes/onboarding.js';
 
 // localhost, 127.x, ::1, and the three private IPv4 ranges — on any port.
@@ -113,6 +114,7 @@ export function createApp({ env = process.env, loadDraftRouters = loadWeeklyDraf
   app.use('/api/weekly-worksheets/distribute', createAiWeeklyWorksheetDistributeRouter());
   app.use('/api/ai', weeklyWorksheetRoutes);
   app.use('/api/ai/weekly-jobs', createWeeklyJobRouter());
+  app.use('/api/ai/day-tasks', createDayTaskRouter());
   app.use('/api/admin/users', adminUsersRouter);
   app.use('/api/onboarding', onboardingRouter);
 

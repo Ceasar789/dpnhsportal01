@@ -11,8 +11,7 @@ const TASK_DESCRIPTIONS = {
   assignment: `${ASSIGNMENT_MIN} to ${ASSIGNMENT_MAX} essay tasks.`,
 };
 const STEP_HEADINGS = { day: 'Choose a day', task: 'Choose a task', generating: 'Generating', preview: 'Preview' };
-// Drafts shown in the worksheet template. An Activity keeps TaskPreview.
-const DOCUMENT_HEADINGS = { quiz: 'QUIZ', assignment: 'ASSIGNMENT' };
+const DOCUMENT_HEADINGS = { activity: 'ACTIVITY', quiz: 'QUIZ', assignment: 'ASSIGNMENT' };
 const CARD_STYLE = { backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text)' };
 const SELECTED_CARD_STYLE = { ...CARD_STYLE, border: '2px solid var(--banner-accent, #1908DF)' };
 const MUTED = { color: 'var(--text-muted)' };
@@ -20,76 +19,21 @@ const MUTED = { color: 'var(--text-muted)' };
 // An empty field must fail validation, but Number('') would quietly read as 0.
 const toCount = value => (value.trim() === '' ? NaN : Number(value));
 const toInputs = counts => Object.fromEntries(QUIZ_ITEM_TYPES.map(type => [type, String(counts[type])]));
-const pointsLabel = points => `${points} ${points === 1 ? 'pt' : 'pts'}`;
-
-function EssayKey({ essay }) {
-  return (
-    <div className="mt-2 text-sm space-y-1" style={{ color: 'var(--text)' }}>
-      <p className="whitespace-pre-wrap"><strong>Reference answer:</strong> {essay.referenceAnswer}</p>
-      <p><strong>Word range:</strong> {essay.minWords}-{essay.maxWords} words</p>
-      <p><strong>Rubric:</strong></p>
-      <ul className="list-disc pl-5">
-        {essay.rubric.map((part, index) => <li key={index}>{part.criterion} ({pointsLabel(part.points)})</li>)}
-      </ul>
-    </div>
-  );
-}
-
-function QuestionPreview({ question, index, answer }) {
-  return (
-    <li className="rounded-lg p-3" style={CARD_STYLE}>
-      <div className="flex flex-wrap items-center gap-2 mb-1 text-xs" style={MUTED}>
-        <span>Item {index + 1}</span>
-        <Badge bg="var(--banner-pill-bg, rgba(25,8,223,.08))" color="var(--banner-accent, #1908DF)">{ITEM_TYPE_LABELS[question.item_type]}</Badge>
-        <span>{pointsLabel(question.points)}</span>
-      </div>
-      <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text)' }}>{question.question}</p>
-      {question.item_type === 'multiple_choice' ? (
-        <ul className="mt-2 space-y-1 text-sm" style={{ color: 'var(--text)' }}>
-          {question.options.map((option, optionIndex) => (
-            <li key={optionIndex} className={option === answer ? 'font-semibold' : ''}>
-              {option}{option === answer && ' (Correct answer)'}
-            </li>
-          ))}
-        </ul>
-      ) : question.item_type === 'essay' ? <EssayKey essay={question.essay} /> : (
-        <p className="mt-2 text-sm" style={{ color: 'var(--text)' }}><strong>Answer:</strong> {answer}</p>
-      )}
-    </li>
-  );
-}
-
-function TaskPreview({ result, seconds }) {
-  const answers = new Map(result.answerKey.map(key => [key.localId, key.correct_answer]));
-  return (
-    <div className="space-y-3">
-      <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>{result.title}</p>
-      <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text)' }}>{result.instructions}</p>
-      {result.questions.length > 0 && (
-        <ol className="space-y-2">
-          {result.questions.map((question, index) => (
-            <QuestionPreview key={question.localId} question={question} index={index} answer={answers.get(question.localId)} />
-          ))}
-        </ol>
-      )}
-      <p className="text-xs" style={MUTED}>Generated in {seconds} s</p>
-    </div>
-  );
-}
 
 // One document at a time, answers first: the teacher is reviewing before saving.
 function DocumentPreview({ result, plan, seconds, heading }) {
   const [showAnswerKey, setShowAnswerKey] = useState(true);
+  const isActivity = result.taskType === 'activity';
   const showReviewNote = showAnswerKey && result.taskType === 'assignment' && result.questions.some(question => question.essay);
   return (
     <div className="space-y-3">
       {showReviewNote && <p className="text-xs" style={MUTED}>The reference answer, length and rubric below are for review only. They are not saved with the Assignment.</p>}
       <WorksheetDraftDocument draft={{ ...result, subjectName: plan.subject, gradeLevel: plan.grade_level }}
-        audience={showAnswerKey ? 'teacher' : 'student'} variant="day-task" heading={heading} />
-      <label className="flex items-center gap-2 min-h-11 text-sm" style={{ color: 'var(--text)' }}>
+        audience={showAnswerKey && !isActivity ? 'teacher' : 'student'} variant="day-task" heading={heading} structuredDirections={isActivity} />
+      {!isActivity && <label className="flex items-center gap-2 min-h-11 text-sm" style={{ color: 'var(--text)' }}>
         <input type="checkbox" checked={showAnswerKey} onChange={event => setShowAnswerKey(event.target.checked)} />
         Show teacher answer key
-      </label>
+      </label>}
       <p className="text-xs" style={MUTED}>Generated in {seconds} s</p>
     </div>
   );
@@ -282,9 +226,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
 
         {step === 'preview' && preview && (
           <div className="space-y-4">
-            {DOCUMENT_HEADINGS[taskType]
-              ? <DocumentPreview result={preview.result} plan={plan} seconds={preview.seconds} heading={DOCUMENT_HEADINGS[taskType]} />
-              : <TaskPreview result={preview.result} seconds={preview.seconds} />}
+            <DocumentPreview result={preview.result} plan={plan} seconds={preview.seconds} heading={DOCUMENT_HEADINGS[taskType]} />
             {error && (
               <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
                 {error}

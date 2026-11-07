@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const mock = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('../../../../lib/backendApi', () => ({ backendRequest: mock.request }));
 
 import { ThemeContext } from '../hooks';
 import { ilawBrandAssets } from '../ilaw/ilawBrandAssets';
+import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
 import GenerateDayTaskModal from './GenerateDayTaskModal';
 
 const plan = { id: 'plan-1', title: 'Cells' };
@@ -88,7 +89,7 @@ describe('GenerateDayTaskModal flow', () => {
     await screen.findByText('Cell map');
     expect(mock.request.mock.calls[0][0]).toBe('/api/ai/day-tasks');
     expect(body()).toEqual({ lessonPlanId: 'plan-1', day: 'Tuesday', taskType: 'activity' });
-    expect(screen.getByText('Objective: Describe cells.').className).toContain('whitespace-pre-wrap');
+    expect(screen.getByText('Describe cells.').closest('dl').className).toContain('activity-fields');
     expect(screen.getByText(/^Generated in \d+ s$/)).toBeTruthy();
   });
 
@@ -432,16 +433,103 @@ describe('GenerateDayTaskModal preview', () => {
     expect(dialogClass()).toContain('max-w-2xl');
   });
 
-  it('an Activity draft keeps its own preview, in the wider modal', async () => {
+  it('an Activity draft uses the template in the wider modal', async () => {
     mock.request.mockResolvedValue(activityResponse());
     open();
     chooseTask('Activity');
     generate();
     await screen.findByText(/^Generated in \d+ s$/);
-    expect(screen.queryByRole('article')).toBeNull();
+    expect(screen.getByRole('article', { name: 'Student-facing worksheet' })).toBeTruthy();
     expect(screen.queryByRole('checkbox')).toBeNull();
-    expect(screen.getByText('Cells')).toBeTruthy();
+    expect(screen.queryByText('Cells')).toBeNull();
     expect(dialogClass()).toContain('max-w-4xl');
+  });
+
+  describe('activity draft', () => {
+    const INSTRUCTIONS = ['Objective: Describe cells.', 'Grouping: Pairs', 'Materials:', '- Paper', 'Procedure:', '1. Draw a cell.', '2. Label it.'].join('\n');
+    const activityDraft = (extra = {}) => response({ taskType: 'activity', questions: [], answerKey: [], title: 'Cell map',
+      instructions: INSTRUCTIONS, activity: { language: 'en', title: 'Cell map' }, ...extra });
+    const fullPlan = { ...plan, title: 'English 7', subject: 'English', grade_level: 'Grade 7' };
+    const toActivity = async ({ result = activityDraft(), ...props } = {}) => {
+      mock.request.mockResolvedValue(result);
+      open(props);
+      chooseTask('Activity');
+      generate();
+      return screen.findByRole('article', { name: 'Student-facing worksheet' });
+    };
+
+    it('shows the school header, ACTIVITY heading, one title, Subject and Grade', async () => {
+      const document = await toActivity({ plan: fullPlan, result: activityDraft({ title: 'English 7' }) });
+      expect(document.className).toContain('worksheet-draft-document--day-task');
+      expect(document.textContent).toContain('DELA PAZ NATIONAL HIGH SCHOOL');
+      expect(document.querySelector('h3').textContent).toBe('ACTIVITY');
+      expect(screen.getAllByText('English 7')).toHaveLength(1);
+      expect(document.querySelector('.worksheet-draft-title').textContent).toBe('English 7');
+      expect(document.textContent).toContain('Subject: English');
+      expect(document.textContent).toContain('Grade: Grade 7');
+      expect(document.textContent).not.toContain('Total points');
+    });
+
+    it('shows the activity text through the structured directions', async () => {
+      const document = await toActivity();
+      const label = within(document).getByText('Objective');
+      expect(label.tagName).toBe('DT');
+      expect(label.nextElementSibling.textContent).toBe('Describe cells.');
+      expect([...document.querySelectorAll('ol.activity-list li')].map(node => node.textContent)).toEqual(['Draw a cell.', 'Label it.']);
+      expect(document.querySelector('.worksheet-draft-directions')).toBeNull();
+    });
+
+    it('has no answer key, checkbox or review note', async () => {
+      await toActivity();
+      expect(screen.queryByRole('checkbox')).toBeNull();
+      expect(screen.queryByRole('article', { name: 'Teacher answer key' })).toBeNull();
+      expect(screen.queryByText(/for review only/)).toBeNull();
+    });
+
+    it('renders AI markup as plain text and creates no image', async () => {
+      const attack = '<img src=x onerror=alert(1)>';
+      const document = await toActivity({ result: activityDraft({ title: `T ${attack}`,
+        instructions: `Objective: O ${attack}\n1. S ${attack}\nP ${attack}` }) });
+      for (const value of [`T ${attack}`, `O ${attack}`, `S ${attack}`, `P ${attack}`]) expect(document.textContent).toContain(value);
+      expectOnlyTemplateLogos();
+    });
+
+    it('the footer buttons and Generated line behave as before', async () => {
+      const onUseDraft = vi.fn();
+      await toActivity({ onUseDraft });
+      expect(screen.getByText(/^Generated in \d+ s$/).className).toContain('text-xs');
+      click('Use this draft');
+      await waitFor(() => expect(onUseDraft).toHaveBeenCalledWith(activityDraft(), { day: 'Tuesday', taskType: 'activity', storedTaskType: 'worksheet' }));
+      mock.request.mockResolvedValue(activityDraft({ title: 'Second map' }));
+      click('Regenerate');
+      await screen.findByText('Second map');
+      click('Back');
+      expect(screen.getByRole('button', { name: 'Generate' })).toBeTruthy();
+    });
+
+    it('Quiz and Assignment drafts keep the Directions paragraph, not the structured body', async () => {
+      for (const [type, result] of [['Quiz', response()], ['Assignment', essayResponse()]]) {
+        mock.request.mockResolvedValue(result);
+        open();
+        chooseTask(type);
+        generate();
+        const document = await screen.findByRole('article', { name: 'Teacher answer key' });
+        expect(document.querySelector('.worksheet-draft-directions').textContent).toBe('Directions: Line one\nLine two');
+        expect(document.querySelector('.activity-body')).toBeNull();
+        cleanup();
+      }
+    });
+
+    it('shows the same text as the saved Activity preview for the same input', async () => {
+      const draft = (await toActivity({ plan: fullPlan })).textContent;
+      cleanup();
+      render(<ThemeContext.Provider value={{ dark: false }}>
+        <SavedDayTaskPreview worksheet={{ id: 'w1', title: 'Cell map', subject: 'English', grade_level: 'Grade 7', task_type: 'worksheet', instructions: INSTRUCTIONS }}
+          loadItems={async () => ({ items: [], keys: {} })} onClose={vi.fn()} />
+      </ThemeContext.Provider>);
+      const saved = (await screen.findByRole('article', { name: 'Student-facing worksheet' })).textContent;
+      expect(draft).toBe(saved);
+    });
   });
 
   describe('assignment draft', () => {

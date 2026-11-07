@@ -21,6 +21,7 @@ import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import DistributeModal from '../worksheets/DistributeModal';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
+import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
 import SavedCollectionEditor from '../worksheets/SavedCollectionEditor';
 import SavedArchivedList from '../worksheets/SavedArchivedList';
 import { weeklyWorksheetSaveFlagEnabled } from '../persistence/aiWeeklyWorksheetSaveClient';
@@ -213,6 +214,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
   const [savedPreviewWorksheet, setSavedPreviewWorksheet] = useState(null);
+  const [dayTaskPreviewWorksheet, setDayTaskPreviewWorksheet] = useState(null);
   const [formData, setFormData] = useState(EMPTY_WORKSHEET);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
@@ -396,6 +398,10 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const handleDelete = (id) => setConfirmWorksheetDelete(id);
 
   const handlePreview = (worksheet) => {
+    if (!worksheet.file_url && worksheet.source_lesson_plan_id) {
+      setDayTaskPreviewWorksheet(worksheet);
+      return;
+    }
     setPreviewingWorksheet(worksheet);
     setShowPreviewModal(true);
   };
@@ -892,7 +898,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               )}
             </div>
             <h3 className="text-sm font-semibold mb-1 break-words" style={{ color: 'var(--text)' }}>{ws.title}</h3>
-            <p className="text-xs mb-3 break-words" style={{ color: 'var(--text-muted)' }}>{ws.subject || 'Subject unavailable'} · {ws.pages || '—'} pages · {ws.items || '—'} items</p>
+            <p className="text-xs mb-3 break-words" style={{ color: 'var(--text-muted)' }}>{ws.subject || 'Subject unavailable'} · {ws.pages || '—'} pages · {!Number(ws.items) && ws.instructions?.trim() ? 'Activity · text only' : `${ws.items || '—'} items`}</p>
             <div className="flex gap-2 mt-auto">
               <button onClick={() => handlePreview(ws)} className="flex-1 min-w-0 h-10 rounded-lg text-sm font-semibold"
                 style={{ backgroundColor: 'var(--banner-accent)', color: '#ffffff' }}>
@@ -957,6 +963,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
 
       {savedPreviewWorksheet && <SavedWorksheetPreview worksheet={savedPreviewWorksheet}
         loadItems={assessment.loadItems} onClose={() => setSavedPreviewWorksheet(null)} />}
+      {dayTaskPreviewWorksheet && <SavedDayTaskPreview key={dayTaskPreviewWorksheet.id} worksheet={dayTaskPreviewWorksheet}
+        loadItems={assessment.loadItems} onClose={() => setDayTaskPreviewWorksheet(null)} />}
       {showPreviewModal && previewingWorksheet && (
         <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)} dismissible>
           <div className="flex flex-col gap-4">

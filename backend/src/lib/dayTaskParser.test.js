@@ -21,7 +21,7 @@ const assignment = () => ({ title: 'Cells essay', directions: 'Write in sentence
     essay: { referenceAnswer: 'Cells divide to grow and repair.', minWords: 40, maxWords: 80,
       rubric: [{ criterion: 'Accuracy', points: 3 }, { criterion: 'Clarity', points: 2 }] } },
 ] });
-const activity = () => ({ title: 'Cell map', objective: 'Describe cells.', materials: ['Paper'],
+const activity = () => ({ language: 'en', title: 'Cell map', objective: 'Describe cells.', materials: ['Paper'],
   procedure: ['Draw a cell.', 'Label it.', 'Share it.'], grouping: 'Pairs', durationMinutes: 20,
   successCriteria: ['Labels are correct.', 'Parts are explained.'] });
 
@@ -161,6 +161,18 @@ test('activity fields are enforced', () => {
   rejects({ ...activity(), durationMinutes: 20.5 }, activityTask, 'invalid_field');
   rejects({ ...activity(), successCriteria: ['One'] }, activityTask, 'invalid_field');
   rejects({ ...activity(), grouping: '' }, activityTask, 'invalid_field');
+});
+
+test('activity language must be exactly en or fil', () => {
+  for (const language of ['en', 'fil']) {
+    assert.equal(parseDayTask(JSON.stringify({ ...activity(), language }), activityTask).activity.language, language);
+  }
+  const missing = activity();
+  delete missing.language;
+  rejects(missing, activityTask, 'invalid_field');
+  for (const language of ['es', 'FIL', ' en', 'Filipino', '', null, 1, ['en']]) {
+    rejects({ ...activity(), language }, activityTask, 'invalid_field');
+  }
 });
 
 test('error messages never repeat AI text', () => {

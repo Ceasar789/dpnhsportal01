@@ -20,6 +20,25 @@ test('every prompt marks the source as data and carries the full daily source', 
   }
 });
 
+test('quiz and activity prompts carry the bracket and comma rules', () => {
+  for (const task of [
+    { taskType: 'activity', day: 'Tuesday' },
+    { taskType: 'quiz', day: 'Tuesday', itemCount: 10, typeCounts: { multiple_choice: 10 } },
+  ]) {
+    const prompt = buildDayTaskPrompt(task, plan, source);
+    assert.ok(prompt.includes('Never use the characters < or > anywhere. Write comparisons in words (for example \'greater than\', \'less than\').'));
+    assert.ok(prompt.includes('For identification and enumeration: Commas are used only to separate answers or items. Never put a comma inside a single answer or item.'));
+  }
+});
+
+test('activity prompt and schema require a closed language value', () => {
+  const prompt = buildDayTaskPrompt({ taskType: 'activity', day: 'Tuesday' }, plan, source);
+  assert.ok(prompt.includes('Set language to "fil" if the lesson title and daily source are mainly Filipino, otherwise "en".'));
+  assert.match(prompt, /Return \{language, title,/);
+  assert.ok(DAY_TASK_SCHEMAS.activity.required.includes('language'));
+  assert.deepEqual(DAY_TASK_SCHEMAS.activity.properties.language, { type: 'STRING', enum: ['en', 'fil'] });
+});
+
 test('task lines state the requested day and exact counts', () => {
   const quiz = buildDayTaskPrompt({ taskType: 'quiz', day: 'Tuesday', itemCount: 12,
     typeCounts: { multiple_choice: 6, true_false: 3, identification: 1, enumeration: 2 } }, plan, source);

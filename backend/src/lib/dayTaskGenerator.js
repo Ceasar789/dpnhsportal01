@@ -1,17 +1,25 @@
 import { buildDayTaskPrompt, DAY_TASK_SCHEMAS } from './dayTaskPrompts.js';
 import { parseDayTask } from './dayTaskParser.js';
 
+const ACTIVITY_LABELS = {
+  en: { objective: 'Objective', grouping: 'Grouping', duration: 'Duration', minutes: 'minutes',
+    materials: 'Materials', procedure: 'Procedure', successCriteria: 'Success criteria' },
+  fil: { objective: 'Layunin', grouping: 'Pagpapangkat', duration: 'Tagal', minutes: 'minuto',
+    materials: 'Mga Kagamitan', procedure: 'Pamamaraan', successCriteria: 'Pamantayan sa Tagumpay' },
+};
+
 // Built here, not by the AI, so the text can only ever repeat validated fields.
 export function renderActivityInstructions(activity) {
+  const labels = ACTIVITY_LABELS[activity.language];
   const bullets = items => items.map(item => `- ${item}`);
   return [
-    `Objective: ${activity.objective}`,
-    `Grouping: ${activity.grouping}`,
-    `Duration: ${activity.durationMinutes} minutes`,
-    ...(activity.materials.length ? ['Materials:', ...bullets(activity.materials)] : []),
-    'Procedure:',
+    `${labels.objective}: ${activity.objective}`,
+    `${labels.grouping}: ${activity.grouping}`,
+    `${labels.duration}: ${activity.durationMinutes} ${labels.minutes}`,
+    ...(activity.materials.length ? [`${labels.materials}:`, ...bullets(activity.materials)] : []),
+    `${labels.procedure}:`,
     ...activity.procedure.map((step, index) => `${index + 1}. ${step.replace(/^\d+[.)]\s*/, '')}`),
-    'Success criteria:',
+    `${labels.successCriteria}:`,
     ...bullets(activity.successCriteria),
   ].join('\n');
 }

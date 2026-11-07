@@ -100,9 +100,11 @@ function parseItem(item, index, seen) {
 }
 
 function parseActivity(entry) {
-  const durationMinutes = entry.durationMinutes;
+  const { language, durationMinutes } = entry;
+  if (!['en', 'fil'].includes(language)) invalid('invalid_field', 'language');
   if (!Number.isInteger(durationMinutes) || durationMinutes < 5 || durationMinutes > 90) invalid('invalid_field', 'durationMinutes');
   return {
+    language,
     title: text(entry.title, 300, 'title'),
     objective: text(entry.objective, 2000, 'objective'),
     materials: list(entry.materials, 0, 10, 300, 'materials'),

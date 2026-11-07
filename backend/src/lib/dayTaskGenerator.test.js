@@ -5,7 +5,7 @@ import { DAY_TASK_SCHEMAS } from './dayTaskPrompts.js';
 
 const plan = { id: 'plan-1', title: 'Cells', subject: 'Science', grade_level: 'Grade 7' };
 const source = { day: 'Monday', objective: 'Describe cells', activity: 'Observe cells', assessment: 'Explain cells' };
-const activity = { title: 'Cell map', objective: 'Describe cells.', materials: ['Paper', 'Pens'],
+const activity = { language: 'en', title: 'Cell map', objective: 'Describe cells.', materials: ['Paper', 'Pens'],
   procedure: ['1. Draw a cell.', '2) Label it.', 'Share it.'], grouping: 'Pairs', durationMinutes: 20,
   successCriteria: ['Labels are correct.', 'Parts are explained.'] };
 const quiz = { title: 'Quiz', directions: 'Answer.', questions: [
@@ -20,6 +20,25 @@ test('activity instructions are rendered in code and numbered once', () => {
     'Success criteria:', '- Labels are correct.', '- Parts are explained.',
   ].join('\n'));
   assert.doesNotMatch(renderActivityInstructions({ ...activity, materials: [] }), /Materials:/);
+});
+
+test('language fil renders Filipino labels and en keeps English ones', () => {
+  const filipino = renderActivityInstructions({ ...activity, language: 'fil' });
+  assert.equal(filipino, [
+    'Layunin: Describe cells.', 'Pagpapangkat: Pairs', 'Tagal: 20 minuto',
+    'Mga Kagamitan:', '- Paper', '- Pens',
+    'Pamamaraan:', '1. Draw a cell.', '2. Label it.', '3. Share it.',
+    'Pamantayan sa Tagumpay:', '- Labels are correct.', '- Parts are explained.',
+  ].join('\n'));
+  assert.doesNotMatch(filipino, /Objective|Grouping|Duration|minutes|Materials|Procedure|Success criteria/);
+  assert.doesNotMatch(renderActivityInstructions(activity), /Layunin|Pagpapangkat|Tagal|minuto|Kagamitan|Pamamaraan|Pamantayan/);
+});
+
+test('the validated language is returned and drives the instructions', async () => {
+  const result = await generateDayTask({ plan, source, task: { taskType: 'activity', day: 'Monday' },
+    requestJson: async () => JSON.stringify({ ...activity, language: 'fil' }) });
+  assert.equal(result.activity.language, 'fil');
+  assert.match(result.instructions, /^Layunin: /);
 });
 
 test('activity result has no questions and carries instructions built from the activity', async () => {

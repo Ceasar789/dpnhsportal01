@@ -27,7 +27,7 @@ const makeItem = (type, index) => ({
 const makeTask = counts => JSON.stringify({ title: 'Task', directions: 'Do this.',
   questions: Object.entries(counts).flatMap(([type, count]) => Array.from({ length: count }, () => type))
     .map((type, index) => makeItem(type, index)) });
-const activityJson = JSON.stringify({ title: 'Cell map', objective: 'Describe cells.', materials: [],
+const activityJson = JSON.stringify({ language: 'en', title: 'Cell map', objective: 'Describe cells.', materials: [],
   procedure: ['Draw.', 'Label.', 'Share.'], grouping: 'Pairs', durationMinutes: 20,
   successCriteria: ['Correct labels.', 'Clear explanation.'] });
 

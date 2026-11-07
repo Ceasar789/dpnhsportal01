@@ -8,6 +8,8 @@ const sharedLines = (plan, source) => [
   'Use only this day\'s objective, activity, assessment, and the weekly competency. Do not invent objectives, materials, references, or competencies.',
   'Write every human-readable field in the language the lesson title and daily source are mainly written in (English source -> English only; Filipino source -> Filipino only). JSON keys, item_type names, and True/False values stay exactly as the schema requires.',
   'Plain text only: no HTML, no Markdown, no angle brackets.',
+  'Never use the characters < or > anywhere. Write comparisons in words (for example \'greater than\', \'less than\').',
+  'For identification and enumeration: Commas are used only to separate answers or items. Never put a comma inside a single answer or item.',
   `Lesson title: ${plan.title}`,
   `Subject: ${plan.subject}`,
   `Grade: ${plan.grade_level}`,
@@ -18,7 +20,8 @@ const sharedLines = (plan, source) => [
 const activityLines = ({ day }) => [
   `Create exactly 1 classroom activity for ${day} under Academic & Classroom Activities (e.g. think-pair-share, group task, guided practice, role play, concept mapping, board work, performance task).`,
   'It must be doable in class with the day\'s own activity and assessment, support the day\'s objective, and be text-only: no quiz questions, no answer key, no images, no links.',
-  'Return {title, objective, materials[0-10], procedure[3-8 short numbered-step strings, student-facing], grouping, durationMinutes (integer 5-90), successCriteria[2-4 observable criteria]}.',
+  'Set language to "fil" if the lesson title and daily source are mainly Filipino, otherwise "en".',
+  'Return {language, title, objective, materials[0-10], procedure[3-8 short numbered-step strings, student-facing], grouping, durationMinutes (integer 5-90), successCriteria[2-4 observable criteria]}.',
 ];
 
 const quizLines = ({ day, itemCount, typeCounts }) => {
@@ -60,8 +63,9 @@ const ESSAY = { type: 'OBJECT', required: ['referenceAnswer', 'minWords', 'maxWo
 
 export const DAY_TASK_SCHEMAS = {
   activity: { type: 'OBJECT',
-    required: ['title', 'objective', 'materials', 'procedure', 'grouping', 'durationMinutes', 'successCriteria'],
+    required: ['language', 'title', 'objective', 'materials', 'procedure', 'grouping', 'durationMinutes', 'successCriteria'],
     properties: {
+      language: { type: 'STRING', enum: ['en', 'fil'] },
       title: STRING, objective: STRING, materials: { ...STRINGS, maxItems: 10 }, procedure: { ...STRINGS, maxItems: 8 },
       grouping: STRING, durationMinutes: { type: 'INTEGER' }, successCriteria: { ...STRINGS, maxItems: 4 },
     } },

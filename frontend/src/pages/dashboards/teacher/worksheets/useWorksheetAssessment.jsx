@@ -10,6 +10,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { normalizePoints, round2 } from '../../../../lib/worksheetChecking';
 import { TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
+import { distributeDayTask } from './dayTaskDistributeClient';
 
 const validSchoolYear = value => typeof value === 'string' && /^(\d{4})-\d{4}$/.test(value)
   && Number(value.slice(5)) === Number(value.slice(0, 4)) + 1;
@@ -18,7 +19,7 @@ const validSchoolYear = value => typeof value === 'string' && /^(\d{4})-\d{4}$/.
 const trustedDistributionAvailable = false;
 const trustedScoreWritesAvailable = false;
 
-export const useWorksheetAssessment = (showToast) => {
+export const useWorksheetAssessment = (showToast, { distributionEnabled = trustedDistributionAvailable } = {}) => {
   const { userData } = useAuth();
 
   const [mySections, setMySections] = useState([]);
@@ -794,89 +795,53 @@ export const useWorksheetAssessment = (showToast) => {
     return data || [];
   }, []);
 
-  // Writes the section posting and one assignee row per student. Students
-  // already assigned are skipped rather than re-inserted, so re-opening the
-  // modal to add a latecomer does not disturb anybody else or notify them
-  // twice. Returns the ids actually added so the caller can notify exactly
-  // those and nobody else.
-  //
-  // section_id on every inserted row is the SECTION PASSED IN, never a fresh
-  // lookup of the student's current live enrolment. task_assignees.section_id
-  // is what the RLS submission-insert check (student_assigned_task_in_section)
-  // pins worksheet_submissions.section_id to, so writing anything other than
-  // the section this distribution actually happened under would let that
-  // student's own submission get rejected by the database with a bare RLS
-  // error the student cannot make sense of.
-  const distributeTask = async (taskId, sectionId, studentIds, dueAt) => {
-    if (!trustedDistributionAvailable) {
+  // One database transaction records the posting and adds every student who
+  // does not already hold the task, so a failure leaves nothing half written.
+  // Students already assigned are skipped there, and the receipt's `added` list
+  // is exactly who gets notified, so re-opening the modal for a latecomer tells
+  // nobody twice. Without a checkingMode the stored mode is sent unchanged.
+  const distributeTask = async (taskId, sectionId, studentIds, dueAt, checkingMode) => {
+    if (!distributionEnabled) {
       return { ok: false, message: 'Distribution is unavailable until trusted authorization is connected. No students were assigned.' };
     }
     if (!sectionId) return { ok: false, message: 'Pick a section first.' };
     if (!dueAt) return { ok: false, message: 'Set a deadline first.' };
     if (studentIds.length === 0) return { ok: false, message: 'Tick at least one student.' };
 
-    const existing = await loadAssignees(taskId);
-    if (existing === null) {
-      return { ok: false, message: 'Could not check who already has this task — nothing was sent.' };
-    }
-    const already = new Set(existing.map(a => a.student_id));
-    const toAdd = studentIds.filter(id => !already.has(id));
-
-    // Records that the task reached this section. Phase 2's teacher-facing
-    // summary reads it; the student's own access comes from task_assignees.
-    const { error: sectionError } = await supabase.from('worksheet_sections').upsert([{
-      worksheet_id: taskId, section_id: sectionId, due_at: dueAt, posted_by: userData?.uid || null,
-    }], { onConflict: 'worksheet_id,section_id' });
-    if (sectionError) {
-      return { ok: false, message: `Could not record the posting: ${sectionError.message}` };
-    }
-
-    if (toAdd.length === 0) {
-      return { ok: true, added: [], skipped: studentIds.length, postingSaved: true,
-        message: 'Everyone ticked already has this task.' };
-    }
-
-    const { error } = await supabase.from('task_assignees').insert(
-      toAdd.map(id => ({
-        task_id: taskId, student_id: id, section_id: sectionId,
-        due_at: dueAt, assigned_by: userData?.uid || null,
-      }))
+    const { data: meta, error: metaError } = await withRetry(
+      () => supabase.from('worksheets').select('title, task_type, checking_mode').eq('id', taskId).maybeSingle(),
+      { label: 'Task metadata fetch for distribution' }
     );
-    if (error) {
-      const message = error.code === '23503'
-        ? 'One of these students is not on the class list yet. Ask your admin to add them to the section first.'
-        : error.code === '23505'
-        ? 'One of these students already has this task.'
-        : `Could not distribute: ${error.message}`;
-      return { ok: false, message, postingSaved: true };
+    if (metaError || !meta) {
+      console.warn('Task metadata fetch failed — nothing was sent', metaError?.message);
+      return { ok: false, message: 'Could not check this task — nothing was sent.' };
     }
+
+    const result = await distributeDayTask({ worksheetId: taskId, sectionId, studentIds, dueAt,
+      checkingMode: checkingMode ?? meta.checking_mode });
+    if (!result.ok) return { ok: false, message: result.message };
 
     fetchPostings();
     fetchAssigneeCounts();
 
-    // The task already went out — a failed notification here must not turn
-    // this into a failure, only into a truthful `notified: false` the modal
-    // can pass along. `toAdd` is exactly who was newly assigned above: never
-    // a student who already held this task, so a re-distribution notifies
-    // nobody twice.
-    let notified = false;
-    const { data: meta, error: metaError } = await withRetry(
-      () => supabase.from('worksheets').select('title, task_type').eq('id', taskId).maybeSingle(),
-      { label: 'Task metadata fetch for notification' }
-    );
-    if (metaError || !meta) {
-      console.warn('Task metadata fetch failed — notification skipped', metaError?.message);
-    } else {
-      const typeLabel = TASK_TYPE_LABELS[meta.task_type] || 'Task';
-      const title = mySubject?.name ? `${typeLabel} — ${mySubject.name}` : typeLabel;
-      const deadline = new Date(dueAt).toLocaleString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
-      });
-      const message = `"${meta.title}" is due ${deadline}.`;
-      notified = await notifyStudents(toAdd, { title, message, taskId });
+    const { added } = result.receipt;
+    if (added.length === 0) {
+      return { ok: true, added: [], skipped: studentIds.length, postingSaved: true,
+        message: 'Everyone ticked already has this task.' };
     }
 
-    return { ok: true, added: toAdd, skipped: studentIds.length - toAdd.length, message: '', notified };
+    // The task already went out — a failed notification here must not turn
+    // this into a failure, only into a truthful `notified: false` the modal
+    // can pass along.
+    const typeLabel = TASK_TYPE_LABELS[meta.task_type] || 'Task';
+    const title = mySubject?.name ? `${typeLabel} — ${mySubject.name}` : typeLabel;
+    const deadline = new Date(dueAt).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+    });
+    const message = `"${meta.title}" is due ${deadline}.`;
+    const notified = await notifyStudents(added, { title, message, taskId });
+
+    return { ok: true, added, skipped: studentIds.length - added.length, message: '', notified };
   };
 
   return {

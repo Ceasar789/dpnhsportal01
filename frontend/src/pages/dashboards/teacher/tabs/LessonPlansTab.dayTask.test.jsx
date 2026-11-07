@@ -158,12 +158,12 @@ describe('Generate Task button', () => {
 });
 
 describe('Generate Day Task modal wiring', () => {
-  it('opens with five weekdays and objective snippets, passing only id and title', async () => {
+  it('opens with five weekdays and objective snippets, passing only id, title, subject and grade_level, never lesson content', async () => {
     const dialog = await openModal();
     for (const day of WEEKDAYS) {
       expect(within(dialog).getByRole('button', { name: new RegExp(`^${day}`) }).textContent).toContain(`Describe ${day} cells`);
     }
-    expect(mock.modalProps.plan).toEqual({ id: planId, title: 'Plant cells' });
+    expect(mock.modalProps.plan).toEqual({ id: planId, title: 'Plant cells', subject: 'Science', grade_level: 'Grade 7' });
     expect(mock.modalProps.days.map(entry => entry.day)).toEqual(WEEKDAYS);
   });
 

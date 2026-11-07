@@ -1601,7 +1601,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       )}
 
       {dayTaskPlan && !dayTaskPlan.localMock && dayTaskPlan.teacher_id === userData?.uid && <GenerateDayTaskModal
-        plan={{ id: dayTaskPlan.id, title: dayTaskPlan.title }} days={dayTaskDays}
+        plan={{ id: dayTaskPlan.id, title: dayTaskPlan.title, subject: dayTaskPlan.subject, grade_level: dayTaskPlan.grade_level }} days={dayTaskDays}
         onClose={closeDayTask} onUseDraft={saveDayTask} />}
 
       {worksheetRun && <Modal title={worksheetRun.kind === 'weekly' ? 'Weekly worksheet generation' : 'Sample worksheet generation'} onClose={cancelWorksheetRun}

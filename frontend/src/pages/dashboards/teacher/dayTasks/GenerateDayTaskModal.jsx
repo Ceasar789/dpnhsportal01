@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Badge, Btn, Input, Modal } from '../shared/ui';
+import WorksheetDraftDocument from '../worksheets/WorksheetDraftDocument';
 import { isCancelError, requestDayTask } from './dayTaskClient';
 import { ASSIGNMENT_DEFAULT, ASSIGNMENT_MAX, ASSIGNMENT_MIN, DAY_TASK_TYPE_LABELS, DAY_TASK_TYPES, defaultQuizSplit,
   ITEM_TYPE_LABELS, QUIZ_DEFAULT, QUIZ_ITEM_TYPES, QUIZ_MAX, QUIZ_MIN, toStoredTaskType, validateOptions } from './dayTaskOptions';
@@ -10,6 +11,8 @@ const TASK_DESCRIPTIONS = {
   assignment: `${ASSIGNMENT_MIN} to ${ASSIGNMENT_MAX} essay tasks.`,
 };
 const STEP_HEADINGS = { day: 'Choose a day', task: 'Choose a task', generating: 'Generating', preview: 'Preview' };
+// Drafts shown in the worksheet template. An Activity keeps TaskPreview.
+const DOCUMENT_HEADINGS = { quiz: 'QUIZ', assignment: 'ASSIGNMENT' };
 const CARD_STYLE = { backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text)' };
 const SELECTED_CARD_STYLE = { ...CARD_STYLE, border: '2px solid var(--banner-accent, #1908DF)' };
 const MUTED = { color: 'var(--text-muted)' };
@@ -74,6 +77,24 @@ function TaskPreview({ result, seconds }) {
   );
 }
 
+// One document at a time, answers first: the teacher is reviewing before saving.
+function DocumentPreview({ result, plan, seconds, heading }) {
+  const [showAnswerKey, setShowAnswerKey] = useState(true);
+  const showReviewNote = showAnswerKey && result.taskType === 'assignment' && result.questions.some(question => question.essay);
+  return (
+    <div className="space-y-3">
+      {showReviewNote && <p className="text-xs" style={MUTED}>The reference answer, length and rubric below are for review only. They are not saved with the Assignment.</p>}
+      <WorksheetDraftDocument draft={{ ...result, subjectName: plan.subject, gradeLevel: plan.grade_level }}
+        audience={showAnswerKey ? 'teacher' : 'student'} variant="day-task" heading={heading} />
+      <label className="flex items-center gap-2 min-h-11 text-sm" style={{ color: 'var(--text)' }}>
+        <input type="checkbox" checked={showAnswerKey} onChange={event => setShowAnswerKey(event.target.checked)} />
+        Show teacher answer key
+      </label>
+      <p className="text-xs" style={MUTED}>Generated in {seconds} s</p>
+    </div>
+  );
+}
+
 export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }) {
   const [step, setStep] = useState('day');
   const [day, setDay] = useState(null);
@@ -88,6 +109,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
   const [saving, setSaving] = useState(false);
   const controllerRef = useRef(null);
   const startedAtRef = useRef(0);
+  const returnStepRef = useRef('task');
   const headingRef = useRef(null);
   const fieldId = useId();
 
@@ -120,7 +142,8 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
     startedAtRef.current = startedAt;
     setElapsed(0);
     setError('');
-    setPreview(null);
+    // The draft stays until a new one replaces it, so Regenerate can fall back to it.
+    returnStepRef.current = step === 'preview' ? 'preview' : 'task';
     setStep('generating');
     try {
       const result = await requestDayTask({ lessonPlanId: plan.id, day, taskType, ...options,
@@ -133,7 +156,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
       if (controllerRef.current !== controller) return;
       controllerRef.current = null;
       if (!isCancelError(failure)) setError(failure?.message || 'The task could not be generated. Nothing was saved.');
-      setStep('task');
+      setStep(returnStepRef.current);
     }
   };
 
@@ -153,7 +176,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
   const cancel = () => {
     controllerRef.current?.abort();
     controllerRef.current = null;
-    setStep('task');
+    setStep(returnStepRef.current);
   };
 
   const toggleCustomized = (checked) => {
@@ -172,7 +195,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
   );
 
   return (
-    <Modal title="Generate Day Task" onClose={onClose} size="max-w-2xl" closeDisabled={step === 'generating' || saving}
+    <Modal title="Generate Day Task" onClose={onClose} size={step === 'preview' ? 'max-w-4xl' : 'max-w-2xl'} closeDisabled={step === 'generating' || saving}
       description={`Generate one task for one day of ${plan.title}.`}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -181,7 +204,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
           </h3>
           {step !== 'day' && <Badge bg="var(--banner-pill-bg, rgba(25,8,223,.08))" color="var(--banner-accent, #1908DF)">{day}</Badge>}
         </div>
-        <p className="text-sm truncate" style={MUTED}>{plan.title}</p>
+        {!(step === 'preview' && DOCUMENT_HEADINGS[taskType]) && <p className="text-sm truncate" style={MUTED}>{plan.title}</p>}
 
         {step === 'day' && (
           <div className="space-y-2">
@@ -259,7 +282,9 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
 
         {step === 'preview' && preview && (
           <div className="space-y-4">
-            <TaskPreview result={preview.result} seconds={preview.seconds} />
+            {DOCUMENT_HEADINGS[taskType]
+              ? <DocumentPreview result={preview.result} plan={plan} seconds={preview.seconds} heading={DOCUMENT_HEADINGS[taskType]} />
+              : <TaskPreview result={preview.result} seconds={preview.seconds} />}
             {error && (
               <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
                 {error}

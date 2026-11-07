@@ -6,6 +6,7 @@ const mock = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('../../../../lib/backendApi', () => ({ backendRequest: mock.request }));
 
 import { ThemeContext } from '../hooks';
+import { ilawBrandAssets } from '../ilaw/ilawBrandAssets';
 import GenerateDayTaskModal from './GenerateDayTaskModal';
 
 const plan = { id: 'plan-1', title: 'Cells' };
@@ -36,6 +37,14 @@ const open = (props = {}) => render(<ThemeContext.Provider value={{ dark: false 
 </ThemeContext.Provider>);
 const chooseTask = (type) => { click(/^Tuesday/); click(new RegExp(`^${type}`)); };
 const generate = () => click('Generate');
+const answerKeyBox = () => screen.getByRole('checkbox', { name: 'Show teacher answer key' });
+const dialogClass = () => screen.getByRole('dialog').className;
+// The template's own three logos are the only images allowed on the page.
+const expectOnlyTemplateLogos = () => {
+  expect([...document.querySelectorAll('img')].map(image => image.getAttribute('src')).sort())
+    .toEqual(Object.values(ilawBrandAssets).sort());
+  expect(document.querySelector('img[src="x"], [onerror]')).toBeNull();
+};
 const body = (index = 0) => JSON.parse(mock.request.mock.calls[index][1].body);
 const setValue = (label, value) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const abortableRequest = () => mock.request.mockImplementation((_path, { signal }) => new Promise((_resolve, reject) => {
@@ -90,13 +99,13 @@ describe('GenerateDayTaskModal flow', () => {
     generate();
     await screen.findByText('Cells quiz');
     expect(body()).toEqual({ lessonPlanId: 'plan-1', day: 'Tuesday', taskType: 'quiz', itemCount: 10 });
-    expect(screen.getByText('Nucleus (Correct answer)')).toBeTruthy();
-    expect(screen.getByText('Wall')).toBeTruthy();
+    expect(screen.getByText('Nucleus')).toBeTruthy();
     expect(screen.getByText('True')).toBeTruthy();
     expect(screen.getByText('mitochondrion')).toBeTruthy();
     expect(screen.getByText('plant, animal')).toBeTruthy();
-    for (const label of ['Multiple choice', 'True / False', 'Identification', 'Enumeration']) expect(screen.getByText(label)).toBeTruthy();
-    expect(screen.getByText('2 pts')).toBeTruthy();
+    expect(screen.getByText('2 points')).toBeTruthy();
+    fireEvent.click(answerKeyBox());
+    expect(screen.getByText('Wall')).toBeTruthy();
   });
 
   it('a chosen quiz count is sent as a number', async () => {
@@ -158,9 +167,9 @@ describe('GenerateDayTaskModal flow', () => {
     generate();
     await screen.findByText('To grow and repair.');
     expect(body()).toEqual({ lessonPlanId: 'plan-1', day: 'Tuesday', taskType: 'assignment', itemCount: 3 });
-    expect(screen.getByText('30-60 words', { exact: false })).toBeTruthy();
-    expect(screen.getByText('Accuracy (3 pts)')).toBeTruthy();
-    expect(screen.getByText('Clarity (2 pts)')).toBeTruthy();
+    expect(screen.getByText('30–60 words', { exact: false })).toBeTruthy();
+    expect(screen.getByText('Accuracy: 3 points')).toBeTruthy();
+    expect(screen.getByText('Clarity: 2 points')).toBeTruthy();
   });
 });
 
@@ -367,8 +376,311 @@ describe('GenerateDayTaskModal preview', () => {
     generate();
     await screen.findByText(`T ${attack}`);
     for (const value of [`I ${attack}`, `Q ${attack}`]) expect(screen.getByText(value)).toBeTruthy();
-    for (const value of [`O ${attack}`, `A ${attack}`, `R ${attack}`, `C ${attack}`]) expect(document.body.textContent).toContain(value);
-    expect(document.querySelector('img')).toBeNull();
+    for (const value of [`A ${attack}`, `R ${attack}`, `C ${attack}`]) expect(document.body.textContent).toContain(value);
+    expectOnlyTemplateLogos();
+    fireEvent.click(answerKeyBox());
+    expect(document.body.textContent).toContain(`O ${attack}`);
+    expectOnlyTemplateLogos();
+  });
+
+  it('a quiz draft uses the template with Subject and Grade from the plan, and no repeated plan title', async () => {
+    mock.request.mockResolvedValue(response({ title: 'English 7' }));
+    open({ plan: { ...plan, title: 'English 7', subject: 'English', grade_level: 'Grade 7' } });
+    chooseTask('Quiz');
+    generate();
+    const key = await screen.findByRole('article', { name: 'Teacher answer key' });
+    expect(key.className).toContain('worksheet-draft-document--day-task');
+    expect(key.textContent).toContain('Subject: English');
+    expect(key.textContent).toContain('Grade: Grade 7');
+    expect(screen.getAllByText('English 7')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: 'Preview' })).toBeTruthy();
+    expect(screen.getByText('Tuesday')).toBeTruthy();
+    expect(screen.getByText(/^Generated in \d+ s$/).className).toContain('text-xs');
+  });
+
+  it('the checkbox swaps one document for the other, and hides answers from the student copy', async () => {
+    await toPreview();
+    expect(answerKeyBox().checked).toBe(true);
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    const key = screen.getByRole('article', { name: 'Teacher answer key' });
+    expect(key.querySelector('h3').textContent).toBe('TEACHER ANSWER KEY');
+    expect(key.textContent).toContain('Answer: mitochondrion');
+    fireEvent.click(answerKeyBox());
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    const student = screen.getByRole('article', { name: 'Student-facing worksheet' });
+    expect(student.querySelector('h3').textContent).toBe('QUIZ');
+    expect(student.textContent).toContain('Student name:');
+    for (const option of ['Nucleus', 'Wall', 'Vacuole', 'Ribosome']) expect(student.textContent).toContain(option);
+    for (const hidden of ['Answer:', 'mitochondrion', 'plant, animal']) expect(student.textContent).not.toContain(hidden);
+    fireEvent.click(answerKeyBox());
+    expect(screen.getByRole('article', { name: 'Teacher answer key' })).toBeTruthy();
+  });
+
+  it('only the preview step is wide', async () => {
+    let finish;
+    mock.request.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    open();
+    expect(dialogClass()).toContain('max-w-2xl');
+    chooseTask('Quiz');
+    expect(dialogClass()).toContain('max-w-2xl');
+    generate();
+    expect(dialogClass()).toContain('max-w-2xl');
+    await act(async () => { finish(response()); });
+    expect(dialogClass()).toContain('max-w-4xl');
+    expect(dialogClass()).not.toContain('max-w-2xl');
+    click('Back');
+    expect(dialogClass()).toContain('max-w-2xl');
+  });
+
+  it('an Activity draft keeps its own preview, in the wider modal', async () => {
+    mock.request.mockResolvedValue(activityResponse());
+    open();
+    chooseTask('Activity');
+    generate();
+    await screen.findByText(/^Generated in \d+ s$/);
+    expect(screen.queryByRole('article')).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByText('Cells')).toBeTruthy();
+    expect(dialogClass()).toContain('max-w-4xl');
+  });
+
+  describe('assignment draft', () => {
+    const essays = (extra = {}) => response({ taskType: 'assignment', answerKey: [], questions: [
+      essayResponse().questions[0],
+      { localId: 'draft-2', question: 'Describe one cell part.', item_type: 'essay', options: [], points: 5,
+        essay: { referenceAnswer: 'The nucleus stores DNA.', minWords: 40, maxWords: 80,
+          rubric: [{ criterion: 'Detail', points: 3 }, { criterion: 'Grammar', points: 2 }] } },
+    ], ...extra });
+    const toAssignment = async ({ result = essays(), ...props } = {}) => {
+      mock.request.mockResolvedValue(result);
+      open(props);
+      chooseTask('Assignment');
+      generate();
+      return screen.findByRole('article', { name: 'Teacher answer key' });
+    };
+
+    it('uses the template with Subject and Grade, no repeated plan title, in the wider modal', async () => {
+      const key = await toAssignment({ result: essays({ title: 'English 7' }),
+        plan: { ...plan, title: 'English 7', subject: 'English', grade_level: 'Grade 7' } });
+      expect(key.className).toContain('worksheet-draft-document--day-task');
+      expect(key.textContent).toContain('Subject: English');
+      expect(key.textContent).toContain('Grade: Grade 7');
+      expect(screen.getAllByText('English 7')).toHaveLength(1);
+      expect(screen.getByRole('heading', { name: 'Preview' })).toBeTruthy();
+      expect(screen.getByText('Tuesday')).toBeTruthy();
+      expect(screen.getByText(/^Generated in \d+ s$/).className).toContain('text-xs');
+      expect(dialogClass()).toContain('max-w-4xl');
+      click('Back');
+      expect(dialogClass()).toContain('max-w-2xl');
+    });
+
+    it('the teacher copy shows the reference answer, word range and rubric for every essay', async () => {
+      const key = await toAssignment();
+      expect(answerKeyBox().checked).toBe(true);
+      expect(key.querySelector('h3').textContent).toBe('TEACHER ANSWER KEY');
+      const [first, second] = key.querySelectorAll('ol.worksheet-draft-questions > li');
+      for (const value of ['Reference answer: To grow and repair.', 'Length: 30–60 words', 'Accuracy: 3 points', 'Clarity: 2 points'])
+        expect(first.textContent).toContain(value);
+      for (const value of ['Reference answer: The nucleus stores DNA.', 'Length: 40–80 words', 'Detail: 3 points', 'Grammar: 2 points'])
+        expect(second.textContent).toContain(value);
+    });
+
+    it('the student copy shows the questions and points, and none of the key', async () => {
+      await toAssignment();
+      fireEvent.click(answerKeyBox());
+      expect(screen.getAllByRole('article')).toHaveLength(1);
+      const student = screen.getByRole('article', { name: 'Student-facing worksheet' });
+      expect(student.querySelector('h3').textContent).toBe('ASSIGNMENT');
+      for (const value of ['Explain why cells divide.', 'Describe one cell part.', '5 points', 'Total points: 10', 'Student name:'])
+        expect(student.textContent).toContain(value);
+      expect(student.querySelectorAll('.worksheet-draft-answer-space')).toHaveLength(2);
+      for (const hidden of ['Answer:', 'Teacher-scored', 'Reference answer', 'To grow and repair.', 'The nucleus stores DNA.', 'Length:',
+        '30–60', '40–80', 'Accuracy', 'Clarity', 'Detail', 'Grammar']) expect(student.textContent).not.toContain(hidden);
+      fireEvent.click(answerKeyBox());
+      expect(screen.getByRole('article', { name: 'Teacher answer key' })).toBeTruthy();
+    });
+
+    it('Back, Regenerate and Use this draft keep their behavior', async () => {
+      const onUseDraft = vi.fn();
+      await toAssignment({ onUseDraft });
+      click('Use this draft');
+      await waitFor(() => expect(onUseDraft).toHaveBeenCalledWith(essays(), { day: 'Tuesday', taskType: 'assignment', storedTaskType: 'assignment' }));
+      mock.request.mockResolvedValue(essays({ title: 'Second assignment' }));
+      click('Regenerate');
+      await screen.findByText('Second assignment');
+      expect(mock.request).toHaveBeenCalledTimes(2);
+      expect(body(1)).toEqual(body(0));
+      click('Back');
+      expect(screen.getByLabelText(/Number of items/).value).toBe('3');
+      expect(mock.request).toHaveBeenCalledTimes(2);
+    });
+
+    const REVIEW_NOTE = 'The reference answer, length and rubric below are for review only. They are not saved with the Assignment.';
+
+    it('shows the review note directly above the teacher copy, and hides it with the box', async () => {
+      const key = await toAssignment();
+      const note = screen.getByText(REVIEW_NOTE);
+      expect(note.nextElementSibling).toBe(key);
+      expect(note.className).toContain('text-xs');
+      fireEvent.click(answerKeyBox());
+      expect(screen.queryByText(REVIEW_NOTE)).toBeNull();
+      fireEvent.click(answerKeyBox());
+      expect(screen.getByText(REVIEW_NOTE)).toBeTruthy();
+    });
+
+    it('shows no review note when no question has essay data', async () => {
+      await toAssignment({ result: response({ taskType: 'assignment' }) });
+      expect(screen.queryByText(REVIEW_NOTE)).toBeNull();
+    });
+
+    it('never shows the review note for a Quiz, even with essay data, or for an Activity', async () => {
+      const quiz = response();
+      mock.request.mockResolvedValue({ ...quiz, questions: [...quiz.questions, essayResponse().questions[0]] });
+      open();
+      chooseTask('Quiz');
+      generate();
+      await screen.findByRole('article', { name: 'Teacher answer key' });
+      expect(screen.queryByText(REVIEW_NOTE)).toBeNull();
+      fireEvent.click(answerKeyBox());
+      expect(screen.queryByText(REVIEW_NOTE)).toBeNull();
+      cleanup();
+      mock.request.mockResolvedValue(activityResponse());
+      open();
+      chooseTask('Activity');
+      generate();
+      await screen.findByText(/^Generated in \d+ s$/);
+      expect(screen.queryByText(REVIEW_NOTE)).toBeNull();
+    });
+
+    it('AI markup stays literal text in both copies, and creates no image', async () => {
+      const attack = '<img src=x onerror=alert(1)>';
+      await toAssignment({ result: response({ taskType: 'assignment', title: `T ${attack}`, instructions: `I ${attack}`, answerKey: [], questions: [
+        { localId: 'draft-1', question: `Q ${attack}`, item_type: 'essay', options: [], points: 5,
+          essay: { referenceAnswer: `R ${attack}`, minWords: 1, maxWords: 2, rubric: [{ criterion: `C ${attack}`, points: 5 }] } },
+      ] }) });
+      for (const value of [`T ${attack}`, `I ${attack}`, `Q ${attack}`, `R ${attack}`, `C ${attack}`]) expect(document.body.textContent).toContain(value);
+      expectOnlyTemplateLogos();
+      fireEvent.click(answerKeyBox());
+      for (const value of [`T ${attack}`, `I ${attack}`, `Q ${attack}`]) expect(document.body.textContent).toContain(value);
+      expectOnlyTemplateLogos();
+    });
+  });
+
+  describe('when Regenerate does not produce a new draft', () => {
+    const QUOTA = 'The AI provider reported a daily quota limit. Wait for the quota to reset before trying again.';
+    const NETWORK = 'The server response could not be received.';
+    const expectPreviousDraft = () => {
+      expect(screen.getByText('Cells quiz')).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Preview' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Regenerate' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Generate' })).toBeNull();
+      expect(dialogClass()).toContain('max-w-4xl');
+    };
+    const failRegenerate = async (failure, message) => {
+      mock.request.mockRejectedValue(failure);
+      click('Regenerate');
+      expect((await screen.findByRole('alert')).textContent).toBe(message);
+    };
+
+    it('a quota failure keeps the previous draft and shows the error in the preview step', async () => {
+      await toPreview();
+      await failRegenerate(new Error(QUOTA), QUOTA);
+      expectPreviousDraft();
+      expect(screen.getByRole('alert').className).toContain('rounded-lg');
+      click('Back');
+      expect(screen.getByLabelText(/Number of items/).value).toBe('11');
+    });
+
+    it('a network failure keeps the previous draft and shows the error', async () => {
+      await toPreview();
+      await failRegenerate(Object.assign(new Error(NETWORK), { kind: 'transport' }), NETWORK);
+      expectPreviousDraft();
+    });
+
+    it('an unexpected response keeps the previous draft and shows the error', async () => {
+      await toPreview();
+      mock.request.mockResolvedValue(response({ status: 'RAW-RESPONSE-TEXT' }));
+      click('Regenerate');
+      expect((await screen.findByRole('alert')).textContent).toBe('The server returned an unexpected response. Nothing was saved.');
+      expectPreviousDraft();
+      expect(document.body.textContent).not.toContain('RAW-RESPONSE-TEXT');
+    });
+
+    it('Cancel keeps the previous draft with no error', async () => {
+      await toPreview();
+      abortableRequest();
+      click('Regenerate');
+      expect(screen.getByRole('status')).toBeTruthy();
+      expect(dialogClass()).toContain('max-w-2xl');
+      click('Cancel');
+      await act(async () => {});
+      expectPreviousDraft();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('an abort that did not come from Cancel keeps the previous draft with no error', async () => {
+      await toPreview();
+      mock.request.mockRejectedValue(Object.assign(new Error(NETWORK), { cause: new DOMException('Aborted', 'AbortError') }));
+      click('Regenerate');
+      await screen.findByText('Cells quiz');
+      expectPreviousDraft();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('a response arriving after Cancel does not replace the previous draft', async () => {
+      await toPreview();
+      let resolve;
+      mock.request.mockImplementation(() => new Promise((done) => { resolve = done; }));
+      click('Regenerate');
+      click('Cancel');
+      await act(async () => { resolve(response({ title: 'Late quiz' })); });
+      expectPreviousDraft();
+      expect(screen.queryByText('Late quiz')).toBeNull();
+    });
+
+    it('a later success shows the new draft and clears the old error', async () => {
+      await toPreview();
+      await failRegenerate(new Error(QUOTA), QUOTA);
+      mock.request.mockResolvedValue(response({ title: 'Second quiz' }));
+      click('Regenerate');
+      await screen.findByText('Second quiz');
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.queryByText('Cells quiz')).toBeNull();
+    });
+
+    it('the kept draft is still the one saved, unchanged', async () => {
+      const onUseDraft = vi.fn();
+      await toPreview({ onUseDraft });
+      await failRegenerate(new Error(QUOTA), QUOTA);
+      click('Use this draft');
+      await waitFor(() => expect(onUseDraft).toHaveBeenCalledWith(response(), { day: 'Tuesday', taskType: 'quiz', storedTaskType: 'quiz' }));
+    });
+
+    it('a first Generate that fails still goes to the task step', async () => {
+      mock.request.mockRejectedValue(new Error(QUOTA));
+      open();
+      chooseTask('Quiz');
+      generate();
+      expect((await screen.findByRole('alert')).textContent).toBe(QUOTA);
+      expect(screen.getByRole('button', { name: 'Generate' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull();
+    });
+
+    it('Generate after Back is a fresh start: failure and Cancel stay on the task step', async () => {
+      await toPreview();
+      click('Back');
+      mock.request.mockRejectedValue(new Error(QUOTA));
+      generate();
+      expect((await screen.findByRole('alert')).textContent).toBe(QUOTA);
+      expect(screen.getByRole('button', { name: 'Generate' })).toBeTruthy();
+      expect(screen.queryByText('Cells quiz')).toBeNull();
+      abortableRequest();
+      generate();
+      click('Cancel');
+      await act(async () => {});
+      expect(screen.getByRole('button', { name: 'Generate' })).toBeTruthy();
+      expect(screen.queryByText('Cells quiz')).toBeNull();
+    });
   });
 
   it('moves focus to the step heading so it is not lost', async () => {

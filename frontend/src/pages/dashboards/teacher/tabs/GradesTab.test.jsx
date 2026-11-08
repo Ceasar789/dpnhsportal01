@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import GradesTab from './GradesTab';
+import { formatDateTime } from '../../../../lib/formatDate';
 
 const fixture = vi.hoisted(() => ({
-  uid: 'teacher-a', rows: [], error: null, reads: [], submissions: [], loadSubmissions: vi.fn(),
+  uid: 'teacher-a', rows: [], error: null, reads: [], submissions: [], loadSubmissions: vi.fn(), loadAssigneeRoster: vi.fn(),
 }));
 vi.mock('../../../../context/AuthContext', () => ({ useAuth: () => ({ userData: { uid: fixture.uid } }) }));
 vi.mock('../../../../config/supabase', () => ({ supabase: {
@@ -27,7 +28,7 @@ vi.mock('../hooks', () => ({
 }));
 vi.mock('../worksheets/useWorksheetAssessment', () => ({ useWorksheetAssessment: () => ({
   mySections: [{ id: 'section-1', name: 'A', grade_level: 'Grade 7' }], postings: [],
-  loadSubmissions: fixture.loadSubmissions, loadItems: vi.fn(), loadAnswers: vi.fn(),
+  loadSubmissions: fixture.loadSubmissions, loadAssigneeRoster: fixture.loadAssigneeRoster, loadItems: vi.fn(), loadAnswers: vi.fn(),
   releaseScore: vi.fn(), encodeManualScore: vi.fn(), loadClassList: vi.fn(),
 }) }));
 const modalProps = vi.hoisted(() => ({ check: null, encode: null }));
@@ -45,6 +46,8 @@ beforeEach(() => {
   fixture.uid = 'teacher-a'; fixture.rows = [worksheetA, worksheetB]; fixture.error = null;
   fixture.reads.length = 0; fixture.submissions = [online, paper];
   fixture.loadSubmissions.mockReset().mockImplementation(async () => fixture.submissions);
+  fixture.roster = [];
+  fixture.loadAssigneeRoster.mockReset().mockImplementation(async () => fixture.roster);
 });
 afterEach(cleanup);
 const renderTab = () => render(<MemoryRouter><GradesTab /></MemoryRouter>);
@@ -52,7 +55,7 @@ const list = () => screen.getByRole('list', { name: 'Worksheet submissions' });
 const row = name => within(list()).getByText(name).closest('li');
 const chip = name => within(screen.getByRole('group', { name: 'Filter by status' })).getByRole('button', { name: new RegExp(`^${name} \\(`) });
 const summary = () => screen.queryByRole('region', { name: 'Summary' });
-const stat = label => within(summary()).getByText(label, { selector: 'p' }).previousElementSibling.textContent;
+const stat = label => within(summary()).getByText(label, { selector: 'dt' }).nextElementSibling.textContent;
 
 describe('Teacher Worksheet Scores destination', () => {
   it('uses owned worksheets and existing submission reads without general-grade requests', async () => {
@@ -298,5 +301,121 @@ describe('Grading: the modals keep their props', () => {
     fireEvent.click(screen.getByText('Close checking'));
     fireEvent.click(screen.getByRole('button', { name: 'Encode paper scores' }));
     expect(Object.keys(modalProps.encode).sort()).toEqual(['encodeManualScore', 'loadClassList', 'loadSubmissions', 'onClose', 'onSaved', 'postings', 'sections', 'worksheet']);
+  });
+});
+
+const assignee = (studentId, name, sectionId = 'section-1') => ({ student_id: studentId, section_id: sectionId, due_at: null, name });
+
+describe('Grading: students who have not started', () => {
+  it('merges by student: a submission wins, an assignee with none is Not started, no duplicates', async () => {
+    fixture.roster = [assignee('student-a', 'Learner A'), assignee('student-c', 'Learner C'), assignee('student-c', 'Learner C'),
+      assignee('student-d', 'Learner D', 'old-section')];
+    renderTab();
+    expect(await screen.findByText('Learner C')).toBeTruthy();
+    expect(names()).toEqual(['Learner A', 'Learner B', 'Learner C', 'Learner D']);
+    expect(within(row('Learner A')).getByText('Needs checking')).toBeTruthy();
+    expect(within(row('Learner C')).getByText('Not started')).toBeTruthy();
+    expect(row('Learner C').textContent).toContain('-');
+    expect(row('Learner C').textContent).not.toContain('Online submission');
+    expect(within(row('Learner C')).queryByRole('button')).toBeNull();
+    expect(fixture.loadAssigneeRoster).toHaveBeenCalledWith('sheet-a');
+    expect(fixture.reads).toEqual(['worksheets']);
+  });
+
+  it('has a Not started chip with its count; it filters, follows the section, and search finds those names', async () => {
+    fixture.roster = [assignee('student-c', 'Learner C'), assignee('student-d', 'Learner D', 'old-section')];
+    renderTab();
+    await screen.findByText('Learner C');
+    expect(chip('Not started').textContent).toBe('Not started (2)');
+    expect(chip('All').textContent).toBe('All (4)');
+    fireEvent.click(chip('Not started'));
+    expect(names()).toEqual(['Learner C', 'Learner D']);
+    fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'section-1' } });
+    expect(chip('Not started').textContent).toBe('Not started (1)');
+    fireEvent.click(chip('All'));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search students' }), { target: { value: ' learner c ' } });
+    expect(names()).toEqual(['Learner C']);
+  });
+
+  it('the summary shows Assigned and Not started', async () => {
+    fixture.roster = [assignee('student-a', 'Learner A'), assignee('student-c', 'Learner C')];
+    renderTab();
+    await screen.findByText('Learner C');
+    expect(stat('Assigned')).toBe('3');
+    expect(stat('Not started')).toBe('1');
+    expect(stat('Submitted')).toBe('2');
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search students' }), { target: { value: 'learner a' } });
+    expect(stat('Assigned')).toBe('3');
+  });
+
+  it('Not started rows never reach the modals: they get the hook functions, and its reads have no such rows', async () => {
+    fixture.roster = [assignee('student-c', 'Learner C')];
+    renderTab();
+    await screen.findByText('Learner C');
+    fireEvent.click(screen.getByRole('button', { name: 'Check submissions' }));
+    expect(modalProps.check.loadSubmissions).toBe(fixture.loadSubmissions);
+    expect(Object.values(modalProps.check).some(Array.isArray)).toBe(false);
+    const rowsForReleaseAll = await modalProps.check.loadSubmissions('sheet-a');
+    expect(rowsForReleaseAll.map(r => r.name)).toEqual(['Learner A', 'Learner B']);
+    fireEvent.click(screen.getByText('Close checking'));
+    fireEvent.click(screen.getByRole('button', { name: 'Encode paper scores' }));
+    expect(modalProps.encode.loadSubmissions).toBe(fixture.loadSubmissions);
+  });
+});
+
+describe('Grading: roster failure fails closed', () => {
+  it('keeps the submissions, hides the Not started parts, and Retry re-reads only the roster', async () => {
+    fixture.loadAssigneeRoster.mockRejectedValueOnce(new Error('assignee_roster_failed'));
+    fixture.roster = [assignee('student-c', 'Learner C')];
+    renderTab();
+    expect(await screen.findByText("Couldn't load students who haven't started.")).toBeTruthy();
+    expect(names()).toEqual(['Learner A', 'Learner B']);
+    expect(within(screen.getByRole('group', { name: 'Filter by status' })).queryByRole('button', { name: /^Not started/ })).toBeNull();
+    expect(within(summary()).queryByText('Assigned')).toBeNull();
+    expect(within(summary()).queryByText('Not started')).toBeNull();
+    expect(stat('Submitted')).toBe('2');
+    const submissionReads = fixture.loadSubmissions.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Learner C')).toBeTruthy();
+    expect(screen.queryByText("Couldn't load students who haven't started.")).toBeNull();
+    expect(fixture.loadSubmissions.mock.calls.length).toBe(submissionReads);
+    expect(fixture.loadAssigneeRoster).toHaveBeenCalledTimes(2);
+  });
+
+  it('a roster answer for a worksheet no longer selected is ignored', async () => {
+    let finishA;
+    fixture.loadAssigneeRoster.mockImplementation(id => (id === 'sheet-a'
+      ? new Promise(resolve => { finishA = resolve; }) : Promise.resolve([assignee('student-z', 'Learner Z')])));
+    fixture.loadSubmissions.mockImplementation(async id => (id === 'sheet-a' ? [online] : [paper]));
+    renderTab();
+    await screen.findByText('Learner A');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Worksheet' }), { target: { value: 'sheet-b' } });
+    expect(await screen.findByText('Learner Z')).toBeTruthy();
+    await act(async () => { finishA([assignee('student-x', 'Stale Student')]); });
+    expect(screen.queryByText('Stale Student')).toBeNull();
+    expect(names()).toEqual(['Learner B', 'Learner Z']);
+  });
+});
+
+describe('Grading: Late', () => {
+  it('shows Late with the Manila submission time; only Late when the time is missing; nothing otherwise', async () => {
+    fixture.submissions = [
+      make('l1', 'Late Lia', { status: 'submitted', is_late: true, submitted_at: '2030-03-10T14:05:00' }),
+      make('l2', 'Late NoTime', { status: 'checked', released: true, score: 1, total_points: 2, is_late: true, submitted_at: null }),
+      make('l3', 'On Time', { status: 'submitted', is_late: false, submitted_at: '2030-03-09T08:00:00' }),
+      make('l4', 'No Flag', { status: 'submitted', submitted_at: '2030-03-09T08:00:00' }),
+      make('l5', 'Still Working', { status: 'in_progress', is_late: true }),
+    ];
+    renderTab();
+    await screen.findByText('Late Lia');
+    expect(within(row('Late Lia')).getByText('Late')).toBeTruthy();
+    expect(within(row('Late Lia')).getByText(`Submitted ${formatDateTime('2030-03-10T14:05:00')}`)).toBeTruthy();
+    expect(row('Late Lia').textContent).toContain('2:05');
+    expect(within(row('Late NoTime')).getByText('Late')).toBeTruthy();
+    expect(row('Late NoTime').textContent).not.toMatch(/Submitted /);
+    for (const name of ['On Time', 'No Flag', 'Still Working']) {
+      expect(within(row(name)).queryByText('Late')).toBeNull();
+      expect(row(name).textContent).not.toMatch(/Submitted /);
+    }
   });
 });

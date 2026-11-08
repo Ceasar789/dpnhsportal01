@@ -370,7 +370,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
   const loadSubmissions = useCallback(async (worksheetId) => {
     const { data: subs, error } = await withRetry(
       () => supabase.from('worksheet_submissions')
-        .select('id, student_id, section_id, status, released, score, total_points, source')
+        .select('id, student_id, section_id, status, released, score, total_points, source, is_late, submitted_at')
         .eq('worksheet_id', worksheetId),
       { label: 'Worksheet submissions fetch' }
     );
@@ -814,6 +814,37 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
   // null — never [] — on a failed read: an empty array here would read as
   // "nobody has this yet" and let a re-open silently re-add students who
   // already do, or (worse) tell distributeTask nobody needs skipping.
+  // Every assignee of one worksheet with the student's name, for the Grading tab's
+  // "Not started" rows. Paged like fetchAssigneeCounts; any failed page or name
+  // read throws, so a caller never mistakes a partial roster for the whole class.
+  const loadAssigneeRoster = useCallback(async (worksheetId) => {
+    const PAGE_SIZE = 500;
+    const roster = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await withRetry(
+        () => supabase.from('task_assignees').select('student_id, section_id, due_at')
+          .eq('task_id', worksheetId).order('student_id').range(from, from + PAGE_SIZE - 1),
+        { label: 'Assignee roster fetch' }
+      );
+      if (error) throw new Error('assignee_roster_failed');
+      const page = data || [];
+      const ids = [...new Set(page.map(row => row.student_id))];
+      let names = [];
+      if (ids.length > 0) {
+        const { data: nameRows, error: nameError } = await withRetry(
+          () => supabase.from('profiles').select('id, name').in('id', ids),
+          { label: 'Assignee roster names fetch' }
+        );
+        if (nameError) throw new Error('assignee_roster_failed');
+        names = nameRows || [];
+      }
+      const nameById = new Map(names.map(row => [row.id, row.name]));
+      page.forEach(row => roster.push({ student_id: row.student_id, section_id: row.section_id, due_at: row.due_at,
+        name: nameById.get(row.student_id) || '—' }));
+      if (page.length < PAGE_SIZE) return roster;
+    }
+  }, []);
+
   const loadAssignees = useCallback(async (taskId) => {
     const { data, error } = await withRetry(
       () => supabase.from('task_assignees')
@@ -884,7 +915,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     loadClassList,
     mySubject, mySubjects, schoolYear: subjectOwner === teacherId ? schoolYear : null,
     subjectError, subjectLoading, fetchMySubject,
-    loadAssignees, distributeTask,
+    loadAssignees, loadAssigneeRoster, distributeTask,
     assigneeCounts, assigneeCountsError, assigneeCountsLoading, fetchAssigneeCounts, firstAssignedAt,
   };
 };

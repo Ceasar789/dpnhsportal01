@@ -4,22 +4,28 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
-import { CheckCircle2, ClipboardCheck, Inbox, Percent } from 'lucide-react';
+import { formatDateTime } from '../../../../lib/formatDate';
 import { useToast } from '../hooks';
-import { Badge, Btn, Card, StatCard, Toast } from '../shared/ui';
+import { Badge, Btn, Card, Toast } from '../shared/ui';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
 import EncodeScoresModal from '../worksheets/EncodeScoresModal';
 
 const fieldStyle = { color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' };
 // One status per row. Anything submitted but not yet released needs the teacher.
-const rowStatus = row => (row.released === true ? 'released' : row.status === 'in_progress' ? 'in_progress' : 'needs_checking');
+// A Not started row comes from the roster, never from worksheet_submissions.
+const rowStatus = row => (row.notStarted ? 'not_started' : row.released === true ? 'released'
+  : row.status === 'in_progress' ? 'in_progress' : 'needs_checking');
 const STATUS = {
   needs_checking: { label: 'Needs checking', color: '#b45309', bg: 'rgba(217,119,6,0.14)' },
   released: { label: 'Released', color: '#15803d', bg: 'rgba(22,163,74,0.14)' },
   in_progress: { label: 'In progress', color: 'var(--text-muted)', bg: 'var(--card2)' },
+  not_started: { label: 'Not started', color: 'var(--text-muted)', bg: 'var(--card2)' },
 };
-const CHIPS = [['', 'All'], ['needs_checking', 'Needs checking'], ['released', 'Released'], ['in_progress', 'In progress']];
+const LATE = { color: '#b91c1c', bg: 'rgba(220,38,38,0.12)' };
+const CHIPS = [['', 'All'], ['needs_checking', 'Needs checking'], ['released', 'Released'], ['in_progress', 'In progress'],
+  ['not_started', 'Not started']];
+const isLate = row => !row.notStarted && row.status !== 'in_progress' && row.is_late === true;
 // Mean of each released row's percentage; rows with no usable total are left out.
 const releasedAverage = rows => {
   const percents = rows.filter(row => row.released === true && row.score != null && Number(row.total_points) > 0)
@@ -54,6 +60,10 @@ const GradesTab = () => {
   const [savedMessage, setSavedMessage] = useState('');
   const listSeq = useRef(0);
   const scoresSeq = useRef(0);
+  // Roster: 'loading' | 'ok' | 'failed'. Read separately so a failure never hides submissions.
+  const [roster, setRoster] = useState({ target: null, state: 'loading', rows: [] });
+  const [rosterRefresh, setRosterRefresh] = useState(0);
+  const rosterSeq = useRef(0);
 
   const fetchWorksheets = useCallback(async () => {
     const seq = ++listSeq.current;
@@ -109,12 +119,42 @@ const GradesTab = () => {
     return () => { active = false; ++sequence.current; };
   }, [selectedScoreId, owner, uid, loadSubmissions, scoresRefresh]);
 
+  const loadAssigneeRoster = assessment.loadAssigneeRoster;
+  useEffect(() => {
+    let active = true;
+    const sequence = rosterSeq;
+    const seq = ++sequence.current;
+    Promise.resolve().then(async () => {
+      if (!active) return;
+      setRoster({ target: selectedScoreId ?? null, state: 'loading', rows: [] });
+      if (!selectedScoreId || owner !== uid) return;
+      let rows;
+      try { rows = await loadAssigneeRoster(selectedScoreId); } catch { rows = null; }
+      if (!active || seq !== sequence.current) return;
+      setRoster(Array.isArray(rows) ? { target: selectedScoreId, state: 'ok', rows } : { target: selectedScoreId, state: 'failed', rows: [] });
+    });
+    return () => { active = false; ++sequence.current; };
+  }, [selectedScoreId, owner, uid, loadAssigneeRoster, rosterRefresh]);
+
   const sectionNames = new Map(assessment.mySections.map(s => [String(s.id), [s.grade_level, s.name].filter(Boolean).join(' · ')]));
   const sectionName = id => sectionNames.get(String(id)) || `Section ID ${id}`;
-  const sections = [...new Set(submissions.map(s => s.section_id).filter(Boolean).map(String))];
+  // Assignees with no submission become Not started rows; a submission always wins.
+  const rosterOk = roster.state === 'ok' && roster.target === selected?.id;
+  const startedIds = new Set(submissions.map(s => String(s.student_id)));
+  const notStarted = [];
+  if (rosterOk) {
+    roster.rows.forEach(a => {
+      const id = String(a.student_id);
+      if (startedIds.has(id)) return;
+      startedIds.add(id);
+      notStarted.push({ id: `not-started-${id}`, student_id: a.student_id, section_id: a.section_id, name: a.name, notStarted: true });
+    });
+  }
+  const allRows = [...submissions, ...notStarted];
+  const sections = [...new Set(allRows.map(s => s.section_id).filter(Boolean).map(String))];
   const selectedSection = sections.includes(sectionId) ? sectionId : '';
-  const sectionRows = submissions.filter(s => !selectedSection || String(s.section_id) === selectedSection);
-  const counts = { '': sectionRows.length, needs_checking: 0, released: 0, in_progress: 0 };
+  const sectionRows = allRows.filter(s => !selectedSection || String(s.section_id) === selectedSection);
+  const counts = { '': sectionRows.length, needs_checking: 0, released: 0, in_progress: 0, not_started: 0 };
   sectionRows.forEach(s => { counts[rowStatus(s)] += 1; });
   const query = search.trim().toLowerCase();
   const visible = sectionRows.filter(s => (!chip || rowStatus(s) === chip)
@@ -179,15 +219,22 @@ const GradesTab = () => {
             : scoresError ? <Card className="p-6"><p role="alert">Could not load worksheet submissions. Scores are hidden until the read succeeds.</p>
               <Btn variant="outline" onClick={refreshScores}>Retry submissions</Btn></Card>
             : <>
-              <section aria-label="Summary" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StatCard label="Submitted" value={counts.needs_checking + counts.released} icon={Inbox} color="#2563eb" />
-                <StatCard label="Needs checking" value={counts.needs_checking} icon={ClipboardCheck} color="#d97706" />
-                <StatCard label="Released" value={counts.released} icon={CheckCircle2} color="#16a34a" />
-                <StatCard label="Average (released)" value={releasedAverage(sectionRows)} icon={Percent} color="#7c3aed" />
-              </section>
+              <Card className="p-4 min-w-0"><section aria-label="Summary">
+                <dl className="grid grid-cols-3 sm:grid-cols-6 gap-x-4 gap-y-3">
+                  {[...(rosterOk ? [['Assigned', new Set(sectionRows.map(s => String(s.student_id))).size]] : []),
+                    ['Submitted', counts.needs_checking + counts.released], ['Needs checking', counts.needs_checking],
+                    ['Released', counts.released], ...(rosterOk ? [['Not started', counts.not_started]] : []),
+                    ['Average (released)', releasedAverage(sectionRows)]].map(([label, value]) => <div key={label} className="min-w-0">
+                    <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</dt>
+                    <dd className="text-lg font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{value}</dd></div>)}
+                </dl>
+              </section></Card>
+              {roster.state === 'failed' && roster.target === selected.id && <p role="alert" className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Couldn't load students who haven't started.
+                <Btn variant="outline" onClick={() => setRosterRefresh(count => count + 1)}>Retry</Btn></p>}
               <Card className="p-4 sm:p-5 min-w-0 space-y-3">
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
-                  {CHIPS.map(([value, label]) => <button key={label} type="button" aria-pressed={chip === value}
+                  {CHIPS.filter(([value]) => value !== 'not_started' || rosterOk).map(([value, label]) => <button key={label} type="button" aria-pressed={chip === value}
                     onClick={() => setChip(value)} className="min-h-10 px-3 rounded-full text-sm font-semibold"
                     style={chip === value ? { color: '#ffffff', backgroundColor: 'var(--banner-accent)', border: '1px solid var(--banner-accent)' }
                       : { color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
@@ -196,17 +243,20 @@ const GradesTab = () => {
                 <input type="search" aria-label="Search students" placeholder="Search students by name" value={search}
                   onChange={e => setSearch(e.target.value)} className="block w-full min-h-11 px-3 rounded-lg text-sm" style={fieldStyle} />
               </Card>
-              <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>{visible.length} of {submissions.length} submissions</p>
-              {visible.length === 0 ? <Card className="p-6">{submissions.length
+              <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>{visible.length} of {allRows.length} students</p>
+              {visible.length === 0 ? <Card className="p-6">{allRows.length
                 ? <div className="flex flex-wrap items-center gap-3"><p>No students match these filters.</p>
                   <Btn variant="outline" onClick={clearFilters}>Clear filters</Btn></div>
                 : 'No submissions for this worksheet yet.'}</Card>
                 : <ul className="space-y-2" aria-label="Worksheet submissions">{visible.map(s => <li key={s.id}><Card className="p-4 min-w-0">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                     <div className="min-w-0"><p className="font-semibold break-words" style={{ color: 'var(--text)' }}>{s.name || 'Student name unavailable'}</p>
-                      <p className="text-sm break-all" style={{ color: 'var(--text-muted)' }}>{s.section_id ? sectionName(s.section_id) : 'Section unavailable'} · {s.source === 'manual' ? 'Paper score' : s.source === 'online' ? 'Online submission' : 'Source unavailable'}</p></div>
-                    <div className="sm:text-right shrink-0"><p className="font-semibold" style={{ color: 'var(--text)' }}>{scoreName(s)}</p>
-                      <p className="mt-1"><Badge color={STATUS[rowStatus(s)].color} bg={STATUS[rowStatus(s)].bg}>{STATUS[rowStatus(s)].label}</Badge></p></div>
+                      <p className="text-sm break-all" style={{ color: 'var(--text-muted)' }}>{s.section_id ? sectionName(s.section_id) : 'Section unavailable'}{s.notStarted ? ''
+                        : ` · ${s.source === 'manual' ? 'Paper score' : s.source === 'online' ? 'Online submission' : 'Source unavailable'}`}</p>
+                      {isLate(s) && s.submitted_at && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Submitted {formatDateTime(s.submitted_at)}</p>}</div>
+                    <div className="sm:text-right shrink-0"><p className="font-semibold" style={{ color: 'var(--text)' }}>{s.notStarted ? '-' : scoreName(s)}</p>
+                      <p className="mt-1 flex flex-wrap gap-1 sm:justify-end"><Badge color={STATUS[rowStatus(s)].color} bg={STATUS[rowStatus(s)].bg}>{STATUS[rowStatus(s)].label}</Badge>
+                        {isLate(s) && <Badge color={LATE.color} bg={LATE.bg}>Late</Badge>}</p></div>
                   </div>
                 </Card></li>)}</ul>}
             </>}

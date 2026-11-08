@@ -21,6 +21,7 @@ import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import DistributeModal from '../worksheets/DistributeModal';
 import CreateTaskModal from '../worksheets/CreateTaskModal';
 import { saveManualTask } from '../worksheets/manualTaskSave';
+import { SOURCE_FILTERS, worksheetSource } from './worksheetSource';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
@@ -132,6 +133,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const { userData } = useAuth();
   const { toast, showToast } = useToast();
   const [activeFilter, setActiveFilter] = useState('All');
+  const [sourceFilter, setSourceFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [worksheets, setWorksheets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -473,6 +475,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     (activeFilter === 'All' || w.subject === activeFilter)
     && (!search.trim() || `${w.title || ''} ${w.subject || ''}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
   );
+  // Cards only: weekly collection days keep using `filtered`.
+  const cardRows = filtered.filter(w => sourceFilter === 'All' || worksheetSource(w) === sourceFilter);
   const savedWeeklyGroups = [...filtered.reduce((groups, row) => {
     if (isSavedCollectionDay(row)) {
       if (!groups.has(row.collection_id)) groups.set(row.collection_id, []);
@@ -649,9 +653,23 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           </button>
         ))}
       </div>
+      <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter worksheets by source">
+        <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }} aria-hidden="true">Source</span>
+        {SOURCE_FILTERS.map(f => (
+          <button key={f} onClick={() => setSourceFilter(f)} aria-pressed={sourceFilter === f}
+            className="px-4 min-h-10 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: sourceFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
+              border: '1px solid var(--border)',
+              color: sourceFilter === f ? '#ffffff' : 'var(--text)'
+            }}>
+            {f}
+          </button>
+        ))}
+      </div>
 
       {!loading && !listError && <p role="status" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-        {filtered.length} of {worksheets.length} saved worksheets
+        {cardRows.length} of {worksheets.length} saved worksheets
         {(weeklyCollections.length || manualDrafts.length || generatedDraft) ? ` · ${weeklyCollections.reduce((sum, item) => sum + item.worksheets.length, 0)
           + manualDrafts.length + (generatedDraft ? 1 : 0)} local drafts` : ''}
       </p>}
@@ -884,7 +902,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               <Btn onClick={() => fetchWorksheets()}>Retry worksheets</Btn>
             </div>
           </Card>
-        ) : filtered.filter(ws => !isSavedCollectionDay(ws)
+        ) : cardRows.filter(ws => !isSavedCollectionDay(ws)
           && !Object.values(weeklySaveStates).flatMap(s => s?.receipt?.worksheets ?? []).map(w => w.id).includes(ws.id)).map((ws) => {
           const distributedCount = assessment.assigneeCounts[ws.id] || 0;
           // Until the count is known, edit and delete stay locked.
@@ -926,6 +944,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 </Badge>
               )}
             </div>
+            <div className="mb-1"><Badge color="var(--banner-accent)" bg="var(--card2)">{worksheetSource(ws)}</Badge></div>
             <h3 className="text-sm font-semibold mb-1 break-words" style={{ color: 'var(--text)' }}>{ws.title}</h3>
             <p className="text-xs mb-3 break-words" style={{ color: 'var(--text-muted)' }}>{ws.subject || 'Subject unavailable'} · {ws.pages || '—'} pages · {!Number(ws.items) && ws.instructions?.trim() ? 'Activity · text only' : `${ws.items || '—'} items`}</p>
             {countKnown && distributedCount > 0 && Number.isFinite(firstAssigned) && (
@@ -960,9 +979,9 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           </Card>
           );
         })}
-        {!loading && !listError && filtered.length === 0 && (
+        {!loading && !listError && cardRows.length === 0 && (
           <Card className="col-span-full text-center p-8" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
-            <p style={{ color: 'var(--text-muted)' }}>{worksheets.length ? 'No worksheets match your search or subject filter.' : 'No worksheets yet. Create one to get started.'}</p>
+            <p style={{ color: 'var(--text-muted)' }}>{worksheets.length ? 'No worksheets match your search, subject or source filter.' : 'No worksheets yet. Create one to get started.'}</p>
           </Card>
         )}
       </div>

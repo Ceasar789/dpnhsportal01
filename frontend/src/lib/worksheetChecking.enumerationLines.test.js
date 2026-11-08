@@ -53,7 +53,7 @@ describe('enumeration answers on one line', () => {
 
   it('a different type of conflict stays wrong', () => {
     expect(checkItem(item, key, ['Character vs. Nature, Character vs. Self'])).toEqual({ isCorrect: false, pointsEarned: 0 });
-    expect(checkItem(item, key, ['Character vs. Societies, Character vs Character'])).toEqual({ isCorrect: false, pointsEarned: 0 });
+    expect(checkItem(item, key, ['Character vs. Societies, Character vs Characters'])).toEqual({ isCorrect: false, pointsEarned: 0 });
   });
 
   it('a mixed list of pieces does not count as one whole answer', () => {

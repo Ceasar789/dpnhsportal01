@@ -47,6 +47,14 @@ export function normalizeAnswer(value) {
   return String(value).trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+// The looser form identification and enumeration compare with: hyphens and
+// dashes become spaces; periods, commas, apostrophes and quotes go. Letters,
+// digits and accents stay, so a different or missing word still differs.
+export function comparableAnswer(value) {
+  return normalizeAnswer(value).replace(/[-‐-―]/g, ' ')
+    .replace(/[.,'"`‘’“”]/g, '').replace(/\s+/g, ' ').trim();
+}
+
 const toList = (value) => {
   if (value === null || value === undefined) return [];
   return Array.isArray(value) ? value : [value];
@@ -77,22 +85,23 @@ export function checkItem(item, key, answer) {
   }
 
   if (item?.item_type === 'identification') {
-    const accepted = toList(key?.correct_answer).map(normalizeAnswer).filter(Boolean);
-    const given = normalizeAnswer(answer);
+    const accepted = toList(key?.correct_answer).map(comparableAnswer).filter(Boolean);
+    const given = comparableAnswer(answer);
     const ok = given !== '' && accepted.includes(given);
     return { isCorrect: ok, pointsEarned: ok ? points : 0 };
   }
 
   if (item?.item_type === 'enumeration') {
-    const expected = toList(key?.correct_answer).map(normalizeAnswer).filter(Boolean);
+    const expected = toList(key?.correct_answer).map(comparableAnswer).filter(Boolean);
     if (expected.length === 0) return { isCorrect: false, pointsEarned: 0 };
 
     // Order does not matter, and repeating one correct answer earns it once.
     // A line that matches no key whole is split on commas and semicolons, so
     // "A, B" typed on one line counts like two lines, and a key such as
-    // "Paris, France" still matches whole.
-    const pieces = given => (expected.includes(given) ? [given]
-      : given.split(/[,;]/).map(normalizeAnswer));
+    // "Paris, France" still matches whole. The split runs before commas are
+    // dropped, so only the comparison of a piece with a key is looser.
+    const pieces = line => (expected.includes(comparableAnswer(line)) ? [comparableAnswer(line)]
+      : line.split(/[,;]/).map(comparableAnswer));
     const credited = new Set();
     toList(answer).map(normalizeAnswer).filter(Boolean).flatMap(pieces).forEach((given) => {
       if (expected.includes(given)) credited.add(given);

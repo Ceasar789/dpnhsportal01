@@ -13,6 +13,7 @@ export const TASK_TYPE_LABELS = {
   assignment: 'Assignment',
   quiz: 'Quiz',
   project: 'Project',
+  exam: 'Exam',
 };
 
 // What "due Sep 25" means when the teacher sets a date and leaves the time.

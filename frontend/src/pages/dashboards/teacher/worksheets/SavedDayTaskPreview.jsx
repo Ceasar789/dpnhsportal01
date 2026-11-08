@@ -4,7 +4,7 @@ import { savedWorksheetToDraft } from './savedWorksheetDraft';
 import WorksheetDraftDocument from './WorksheetDraftDocument';
 
 // An Activity is stored with task_type 'worksheet'.
-const HEADINGS = { worksheet: 'ACTIVITY', quiz: 'QUIZ', assignment: 'ASSIGNMENT' };
+const HEADINGS = { worksheet: 'ACTIVITY', quiz: 'QUIZ', assignment: 'ASSIGNMENT', exam: 'EXAM' };
 
 // Unlike SavedWorksheetPreview, zero items is valid here: an Activity is a
 // header and directions with no questions.

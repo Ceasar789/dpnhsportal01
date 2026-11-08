@@ -2,18 +2,18 @@ import { supabase } from '../../../../config/supabase';
 
 // A task the teacher writes by hand. It is one worksheets row with no
 // questions yet; the Questions editor adds them afterwards.
-export const MANUAL_TASK_TYPES = ['activity', 'quiz', 'assignment'];
+export const MANUAL_TASK_TYPES = ['activity', 'quiz', 'assignment', 'exam'];
 export const MAX_TITLE = 150;
 export const MAX_DIRECTIONS = 2000;
 
-const STORED_TYPES = { activity: 'worksheet', quiz: 'quiz', assignment: 'assignment' };
+const STORED_TYPES = { activity: 'worksheet', quiz: 'quiz', assignment: 'assignment', exam: 'exam' };
 const INVALID = 'Check the title, type and directions, then try again.';
 // A lost response can still mean the row was written, so the list is worth a look first.
 const FAILED = 'The worksheet could not be created. Check your worksheet list, then try again.';
 
-// Only a Quiz may be auto-checked: an Activity has no questions, and an
-// Assignment is answered in writing and checked by the teacher.
-export const checkingModeFor = (taskType, chosen) => (taskType === 'quiz' && chosen === 'auto' ? 'auto' : 'manual');
+// Only a Quiz or an Exam may be auto-checked: an Activity has no questions, and
+// an Assignment is answered in writing and checked by the teacher.
+export const checkingModeFor = (taskType, chosen) => ((taskType === 'quiz' || taskType === 'exam') && chosen === 'auto' ? 'auto' : 'manual');
 
 export function buildManualTaskRow({ teacherId, title, taskType, directions, checkingMode, subject, gradeLevel }) {
   const cleanTitle = typeof title === 'string' ? title.trim() : '';

@@ -9,7 +9,7 @@ import { Modal, Btn } from '../shared/ui';
 import useDialogSafety from './useDialogSafety';
 import { MAX_DIRECTIONS, MAX_TITLE, checkingModeFor } from './manualTaskSave';
 
-const TYPES = [['activity', 'Activity'], ['quiz', 'Quiz'], ['assignment', 'Assignment']];
+const TYPES = [['activity', 'Activity'], ['quiz', 'Quiz'], ['assignment', 'Assignment'], ['exam', 'Exam']];
 const MODES = [
   { value: 'auto', label: 'Auto-check', help: 'Answers are marked for you when you open Check submissions.' },
   { value: 'manual', label: 'Manual check', help: 'You mark every answer yourself.' },

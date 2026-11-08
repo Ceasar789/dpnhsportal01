@@ -38,7 +38,7 @@ describe('the row written for each type', () => {
     ['a blank title', { taskType: 'quiz', title: '   ' }],
     ['a title over 150 characters', { taskType: 'quiz', title: 'x'.repeat(151) }],
     ['directions over 2,000 characters', { taskType: 'quiz', directions: 'x'.repeat(2001) }],
-    ['an Exam', { taskType: 'exam' }],
+    ['an unknown type', { taskType: 'bogus' }],
     ['no teacher', { taskType: 'quiz', teacherId: '' }],
     ['no subject', { taskType: 'quiz', subject: null }],
     ['no grade', { taskType: 'quiz', gradeLevel: '' }],

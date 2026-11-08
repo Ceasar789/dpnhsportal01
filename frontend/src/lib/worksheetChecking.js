@@ -88,8 +88,13 @@ export function checkItem(item, key, answer) {
     if (expected.length === 0) return { isCorrect: false, pointsEarned: 0 };
 
     // Order does not matter, and repeating one correct answer earns it once.
+    // A line that matches no key whole is split on commas and semicolons, so
+    // "A, B" typed on one line counts like two lines, and a key such as
+    // "Paris, France" still matches whole.
+    const pieces = given => (expected.includes(given) ? [given]
+      : given.split(/[,;]/).map(normalizeAnswer));
     const credited = new Set();
-    toList(answer).map(normalizeAnswer).filter(Boolean).forEach((given) => {
+    toList(answer).map(normalizeAnswer).filter(Boolean).flatMap(pieces).forEach((given) => {
       if (expected.includes(given)) credited.add(given);
     });
 

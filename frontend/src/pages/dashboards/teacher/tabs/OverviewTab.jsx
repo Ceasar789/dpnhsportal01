@@ -254,7 +254,7 @@ const OverviewTab = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           <Btn onClick={() => navigate('/teacher-dashboard/lesson-plans')} className="w-full justify-center" variant="pastel"><Plus size={16} aria-hidden="true" />Create Lesson Plan</Btn>
           <Btn onClick={() => navigate('/teacher-dashboard/worksheets')} className="w-full justify-center" variant="pastel"><Upload size={16} aria-hidden="true" />Upload Resource</Btn>
-          <Btn onClick={() => navigate('/teacher-dashboard/grades')} className="w-full justify-center" variant="pastel"><FileText size={16} aria-hidden="true" />Worksheet Scores</Btn>
+          <Btn onClick={() => navigate('/teacher-dashboard/grades')} className="w-full justify-center" variant="pastel"><FileText size={16} aria-hidden="true" />Grading</Btn>
           <Btn onClick={() => navigate('/teacher-dashboard/announcements')} className="w-full justify-center" variant="pastel"><Megaphone size={16} aria-hidden="true" />Announcements</Btn>
         </div>
       </Card>

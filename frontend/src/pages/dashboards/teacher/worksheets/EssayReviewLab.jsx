@@ -128,7 +128,7 @@ export default function EssayReviewLab() {
         <h1 className="text-xl font-bold">Essay Review Lab</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Fictional submissions only. No score is saved or released.</p>
       </div>
-      <Btn variant="outline" onClick={() => navigate('/teacher-dashboard/grades')}>Back to Worksheet Scores</Btn>
+      <Btn variant="outline" onClick={() => navigate('/teacher-dashboard/grades')}>Back to Grading</Btn>
     </header>
     <p role="status" className="rounded-lg border px-3 py-2 text-sm" style={fieldStyle}>Simulated evaluation — not live AI. Local development only.</p>
     {busyNotice && <p role="status">{busyNotice}</p>}

@@ -41,7 +41,7 @@ const Sidebar = ({ role }) => {
         { icon: Users, label: 'Students', path: '/teacher-dashboard/students' },
         { icon: BookOpen, label: 'Lesson Plans', path: '/teacher-dashboard/lesson-plans' },
         { icon: FileText, label: 'Worksheets', path: '/teacher-dashboard/worksheets' },
-        { icon: GraduationCap, label: 'Worksheet Scores', path: '/teacher-dashboard/grades' },
+        { icon: GraduationCap, label: 'Grading', path: '/teacher-dashboard/grades' },
         { icon: CalendarCheck, label: 'Attendance', path: '/teacher-dashboard/attendance' },
         { icon: Megaphone, label: 'Announcements', path: '/teacher-dashboard/announcements' },
       ],

@@ -158,7 +158,7 @@ const TeacherLayout = ({ children }) => {
     { path: '/teacher-dashboard/students', icon: Users, label: 'Students' },
     { path: '/teacher-dashboard/lesson-plans', icon: BookOpen, label: 'Lesson Plans' },
     { path: '/teacher-dashboard/worksheets', icon: ClipboardList, label: 'Worksheets' },
-    { path: '/teacher-dashboard/grades', icon: GraduationCap, label: 'Worksheet Scores' },
+    { path: '/teacher-dashboard/grades', icon: GraduationCap, label: 'Grading' },
     { path: '/teacher-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
     { path: '/teacher-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
   ];

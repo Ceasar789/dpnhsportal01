@@ -46,6 +46,7 @@ vi.mock('../../../../config/supabase', () => ({
 }));
 
 import StudentTasksTab from './TasksTab';
+import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 
 const MC = { id: 'mc-1', position: 1, question: 'Pick one', item_type: 'multiple_choice', options: ['One', 'Two'], points: 1 };
 const ESSAY = { id: 'es-1', position: 2, question: 'Explain', item_type: 'essay', options: null, points: 3,
@@ -149,4 +150,32 @@ describe('the Tasks list', () => {
       expect(screen.getByText('Submitted — awaiting result')).toBeTruthy();
       expect(screen.queryByText(/7\/10|7 \/ 10/)).toBeNull();
     });
+});
+
+describe('Submitted late tag', () => {
+  const showList = async () => { render(<MemoryRouter><StudentTasksTab /></MemoryRouter>); await screen.findByText('Sample quiz'); };
+
+  it('the student reads is_late and submitted_at with the submission state, and never a score there', () => {
+    expect(SUBMISSION_STATE_FIELDS).toBe('id, worksheet_id, status, released, is_late, submitted_at');
+    expect(SUBMISSION_STATE_FIELDS).not.toMatch(/score|total_points/);
+  });
+
+  it.each([
+    ['a late submitted task', row({ is_late: true, submitted_at: '2030-03-10T14:05:00' })],
+    ['a late released task', row({ status: 'checked', released: true, is_late: true })],
+  ])('%s shows it next to the status', async (_name, submission) => {
+    setGraph([submission], submission.released ? [{ worksheet_id: 'worksheet-1', score: 7, total_points: 10 }] : []);
+    await showList();
+    expect(screen.getByText('Submitted late')).toBeTruthy();
+  });
+
+  it.each([
+    ['on time', row({ is_late: false })],
+    ['with no flag', row()],
+    ['still in progress', row({ status: 'in_progress', is_late: true })],
+  ])('a task %s does not show it', async (_name, submission) => {
+    setGraph([submission]);
+    await showList();
+    expect(screen.queryByText('Submitted late')).toBeNull();
+  });
 });

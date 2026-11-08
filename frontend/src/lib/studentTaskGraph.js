@@ -41,7 +41,7 @@ import { withRetry } from './supabaseRetry';
 // The exact submission columns the student's screens ever read. Named
 // explicitly, never a bare select(), so a new column on the table cannot
 // silently start handing this file scoring data it should not have.
-export const SUBMISSION_STATE_FIELDS = 'id, worksheet_id, status, released';
+export const SUBMISSION_STATE_FIELDS = 'id, worksheet_id, status, released, is_late, submitted_at';
 export const SUBMISSION_SCORE_FIELDS = 'worksheet_id, score, total_points';
 
 const empty = () => ({

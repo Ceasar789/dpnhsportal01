@@ -753,6 +753,7 @@ const StudentTasksTab = () => {
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
                     {!handedIn && !(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
                     <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>
+                    {handedIn && row.submission.is_late === true && <Badge color="#b91c1c" bg="rgba(220,38,38,0.12)">Submitted late</Badge>}
                   </div>
                   <button onClick={() => open(row)} disabled={busy}
                     className="block mt-2 text-xs font-semibold" style={{ color: '#1908DF' }}>

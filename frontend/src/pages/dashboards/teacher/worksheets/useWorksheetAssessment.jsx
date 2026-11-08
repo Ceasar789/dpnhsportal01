@@ -18,6 +18,9 @@ const validSchoolYear = value => typeof value === 'string' && /^(\d{4})-\d{4}$/.
 // but block the client-side multi-table write until a server transaction exists.
 const trustedDistributionAvailable = false;
 const trustedScoreWritesAvailable = false;
+const CHECK_FAILED = 'Could not check for existing answers — not saving.';
+const SAVE_FAILED = 'Your questions could not be saved. Keep this window open and press Save again.';
+const COUNT_FAILED = 'Your questions were saved, but the question count could not be updated. Press Save again.';
 // task_assignees.assigned_at is a naive TIMESTAMP holding UTC wall-clock time.
 const utcMs = value => typeof value === 'string'
   ? Date.parse(/(Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value.replace(' ', 'T')}Z`) : NaN;
@@ -239,6 +242,19 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
   // than pretending success, and the teacher can immediately reopen the
   // builder and re-save — the guard above still protects them because no
   // submissions exist yet at this point (that's the case that got them here).
+  // The count is retried once: a wrong count hides real questions from the card's
+  // distribute rule and from the student Activity check.
+  const updateItemCount = async (worksheetId, count) => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const { error } = await supabase.from('worksheets').update({ items: count }).eq('id', worksheetId);
+        if (!error) return true;
+      } catch { /* try again once */ }
+    }
+    return false;
+  };
+
+  // Returns { ok, message }. Database text is never shown; the editor shows the message.
   const saveItems = useCallback(async (worksheetId, items) => {
     // Keyed on WORK, not on a row existing. The student surface inserts a
     // submission the moment someone taps Start — before answering anything,
@@ -253,18 +269,14 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
       { label: 'Worksheet submissions guard fetch' }
     );
     if (checkError) {
-      showToast('Could not check for existing answers — not saving.', 'error');
-      return false;
+      return { ok: false, message: CHECK_FAILED };
     }
 
     const { data: openSubs, error: openError } = await withRetry(
       () => supabase.from('worksheet_submissions').select('id').eq('worksheet_id', worksheetId),
       { label: 'Worksheet open submissions fetch' }
     );
-    if (openError) {
-      showToast('Could not check for existing answers — not saving.', 'error');
-      return false;
-    }
+    if (openError) return { ok: false, message: CHECK_FAILED };
 
     let answered = [];
     if ((openSubs || []).length > 0) {
@@ -273,31 +285,24 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
           .in('submission_id', (openSubs || []).map(s => s.id)).limit(1),
         { label: 'Worksheet answers guard fetch' }
       );
-      if (answerError) {
-        showToast('Could not check for existing answers — not saving.', 'error');
-        return false;
-      }
+      if (answerError) return { ok: false, message: CHECK_FAILED };
       answered = data || [];
     }
 
     if ((finished || []).length > 0 || answered.length > 0) {
-      showToast('Students have already answered this worksheet. Its questions can no longer be changed.', 'error');
-      return false;
+      return { ok: false, message: 'Students have already answered this worksheet. Its questions can no longer be changed.' };
     }
 
+    // Old items go first: UNIQUE(worksheet_id, position) blocks inserting the new ones beside them.
+    // A transactional save function (Option B) is the planned hardening.
     const { error: clearError } = await supabase
       .from('worksheet_items').delete().eq('worksheet_id', worksheetId);
-    if (clearError) {
-      showToast(`Could not save questions: ${clearError.message}`, 'error');
-      return false;
-    }
+    if (clearError) return { ok: false, message: SAVE_FAILED };
 
     if (items.length === 0) {
-      const { error: countError } = await supabase
-        .from('worksheets').update({ items: 0 }).eq('id', worksheetId);
-      if (countError) console.warn('Worksheet item-count update failed —', countError.message);
+      if (!await updateItemCount(worksheetId, 0)) return { ok: false, message: COUNT_FAILED };
       showToast('Questions saved');
-      return true;
+      return { ok: true };
     }
 
     const rows = items.map((it, index) => ({
@@ -311,10 +316,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
 
     const { data: inserted, error: insertError } = await supabase
       .from('worksheet_items').insert(rows).select('id, position');
-    if (insertError) {
-      showToast(`Could not save questions: ${insertError.message}`, 'error');
-      return false;
-    }
+    if (insertError) return { ok: false, message: SAVE_FAILED };
 
     const keyRows = (inserted || [])
       .map(row => {
@@ -333,37 +335,19 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
         // above makes the questions permanently un-fixable. So clean up the
         // half-written items immediately rather than leaving that trap.
         const insertedIds = (inserted || []).map(row => row.id);
-        const { error: cleanupError } = await supabase
-          .from('worksheet_items').delete().in('id', insertedIds);
-        if (cleanupError) {
-          showToast(
-            `Could not save the answer key (${keyError.message}), and the half-saved ` +
-            `questions could not be removed either (${cleanupError.message}). ` +
-            `Reopen this worksheet and try saving again right away.`,
-            'error'
-          );
-        } else {
-          showToast(
-            `Could not save the answer key: ${keyError.message}. ` +
-            `The half-saved questions were removed — try saving again.`,
-            'error'
-          );
-        }
-        return false;
+        // If this cleanup fails too, the next Save deletes every item for the worksheet anyway.
+        await supabase.from('worksheet_items').delete().in('id', insertedIds);
+        return { ok: false, message: SAVE_FAILED };
       }
     }
 
     // Keep the worksheet card's displayed item count truthful — it is a
     // hand-typed column from the old upload flow and saveItems is now the
     // source of truth for worksheets built here.
-    const { error: countError } = await supabase
-      .from('worksheets').update({ items: items.length }).eq('id', worksheetId);
-    if (countError) {
-      console.warn('Worksheet item-count update failed —', countError.message);
-    }
+    if (!await updateItemCount(worksheetId, items.length)) return { ok: false, message: COUNT_FAILED };
 
     showToast('Questions saved');
-    return true;
+    return { ok: true };
   }, [showToast]);
 
   const setCheckingMode = useCallback(async (worksheetId, mode) => {

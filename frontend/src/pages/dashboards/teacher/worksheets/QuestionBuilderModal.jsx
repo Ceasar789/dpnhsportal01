@@ -84,8 +84,13 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
   const currentDraft = draftMode ? updateGeneratedDraft(draft, { title, instructions, items, sections, checkingMode: mode, assignment }) : null;
   const dirty = draftMode ? hasUnsavedGeneratedChanges(currentDraft)
     : mode !== (worksheet.checking_mode || 'manual') || !sameItems(items, savedItems);
+  // A saved worksheet with an essay, or with no questions, is always checked by hand.
+  const autoBlockedBy = list => !draftMode && (list.length === 0 || list.some(it => it.item_type === 'essay'));
+  const autoBlocked = autoBlockedBy(items);
+  const [saveFailed, setSaveFailed] = useState(false);
   const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
     dirty, pending: saving, onClose,
+    discardMessage: saveFailed ? 'Your last save failed. Close anyway and lose these questions?' : undefined,
     leaveMessage: draftMode ? 'Leave Worksheets with unsaved worksheet changes?' : undefined,
   });
 
@@ -127,6 +132,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
       points: i.points,
     }));
     setItems(loadedItems);
+    if (loadedItems.length === 0 || loadedItems.some(i => i.item_type === 'essay')) setMode('manual');
     setSavedItems(loadedItems);
   }, [draftMode, worksheet.id, loadItems]);
 
@@ -185,6 +191,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
   const patch = (index, changes) => {
     clearValidation();
     setItems(prev => prev.map((it, i) => (i === index ? { ...it, ...changes } : it)));
+    if (!draftMode && changes.item_type === 'essay') setMode('manual');
   };
 
   const patchOptions = (index, optionIndex, value) => {
@@ -250,7 +257,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
     const retryModeOnly = Boolean(partialMessage) && sameItems(items, savedItems);
     setPartialMessage('');
     setSaving(true);
-    const ok = retryModeOnly || await saveItems(worksheet.id, items.map(it => ({
+    const result = retryModeOnly ? { ok: true } : await saveItems(worksheet.id, items.map(it => ({
       ...it,
       // Identification and enumeration keys are stored as lists.
       correct_answer: ['identification', 'enumeration'].includes(it.item_type)
@@ -258,17 +265,23 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
         : it.correct_answer,
       options: it.item_type === 'multiple_choice' ? it.options.filter(o => o.trim()) : null,
     })));
-    if (ok) {
-      if (!retryModeOnly) setSavedItems(items);
-      const modeSaved = await setCheckingMode(worksheet.id, mode);
-      if (!modeSaved) {
-        setPartialMessage('Questions were saved, but the checking mode was not changed. Keep this dialog open and try Save questions again.');
-        setSaving(false);
-        return;
-      }
+    // On failure the questions stay in this editor, so Save again sends them as they are.
+    if (result?.ok !== true) {
+      setLocalSaveError(result?.message || 'Your questions could not be saved. Keep this window open and press Save again.');
+      setSaveFailed(true);
+      setSaving(false);
+      return;
+    }
+    setSaveFailed(false);
+    if (!retryModeOnly) setSavedItems(items);
+    const modeSaved = await setCheckingMode(worksheet.id, autoBlocked ? 'manual' : mode);
+    if (!modeSaved) {
+      setPartialMessage('Questions were saved, but the checking mode was not changed. Keep this dialog open and try Save questions again.');
+      setSaving(false);
+      return;
     }
     setSaving(false);
-    if (ok) onClose();
+    onClose();
   };
 
   const editorBody = <>
@@ -352,13 +365,15 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
             <WorksheetDraftDocument draft={currentDraft} />
           </div> : <>
           <label className="flex items-center gap-2 text-sm" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
-            <input type="checkbox" checked={mode === 'auto'}
+            <input type="checkbox" checked={mode === 'auto' && !autoBlocked} disabled={autoBlocked}
               onChange={e => { clearValidation(); setMode(e.target.checked ? 'auto' : 'manual'); }} />
             Auto-check this worksheet when reviewing
             <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
               (off = you score every item yourself)
             </span>
           </label>
+          {autoBlocked && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {items.length === 0 ? 'Add questions first.' : 'Essay questions are checked by you.'}</p>}
           {draft?.collectionId && errorFor('checkingMode') && <p role="alert" className="text-xs" style={{ color: 'var(--red)' }}>{errorFor('checkingMode')}</p>}
 
           {draftMode && <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Teacher editor · Answer key stays private</h3>}
@@ -412,7 +427,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                  <div className="ml-auto flex gap-1">
                   <button onClick={() => move(index, -1)} aria-label={`Move question ${index + 1} up`} title="Move up"><ChevronUp size={14} aria-hidden="true" /></button>
                   <button onClick={() => move(index, 1)} aria-label={`Move question ${index + 1} down`} title="Move down"><ChevronDown size={14} aria-hidden="true" /></button>
-                  <button onClick={() => { clearValidation(); setItems(prev => prev.filter((_, i) => i !== index)); }} aria-label={`Delete question ${index + 1}`} title="Delete">
+                  <button onClick={() => { clearValidation(); setItems(prev => prev.filter((_, i) => i !== index)); if (autoBlockedBy(items.filter((_, i) => i !== index))) setMode('manual'); }} aria-label={`Delete question ${index + 1}`} title="Delete">
                     <Trash2 size={14} className="text-red-500" aria-hidden="true" />
                   </button>
                 </div>

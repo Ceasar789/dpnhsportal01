@@ -276,8 +276,8 @@ const DistributeModal = ({
           </p>
         ) : (
           <>
-            <div className="flex flex-wrap sm:flex-nowrap gap-2">
-              <div className="flex-1 basis-full sm:basis-auto min-w-0">
+            <div className="grid gap-3 min-w-0">
+              <div data-row="section" className="min-w-0">
                 <label htmlFor="teacher-distribute-section" className="text-xs font-semibold" style={muted}>Section</label>
                 <select id="teacher-distribute-section" value={sectionId} disabled={saving}
                   onChange={e => { setSectionId(e.target.value); setTicked(new Set()); }}
@@ -286,29 +286,32 @@ const DistributeModal = ({
                   {handledSections.length > 0 && <optgroup label="Handled sections">{handledSections.map(sectionOption)}</optgroup>}
                 </select>
               </div>
-              <div className="flex-1 min-w-0">
-                <label htmlFor="teacher-distribute-date" className="text-xs font-semibold" style={muted}>Due date</label>
-                <input id="teacher-distribute-date" type="date" value={dueDate} disabled={saving} min={manilaDateToday()}
-                  onChange={e => { setDueDate(e.target.value); setTimeError(''); }}
-                  className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
-              </div>
-              <fieldset className="flex-1 min-w-0">
-                <legend className="text-xs font-semibold" style={muted}>Due time</legend>
-                <div className="flex gap-1 mt-1">
-                  <select aria-label="Due hour" value={clock.hour} disabled={saving} onChange={e => setClock({ hour: e.target.value })}
-                    className="h-10 px-2 rounded-lg text-sm outline-none" style={fieldStyle}>
-                    {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                  <select aria-label="Due minute" value={clock.minute} disabled={saving} onChange={e => setClock({ minute: e.target.value })}
-                    className="h-10 px-2 rounded-lg text-sm outline-none" style={fieldStyle}>
-                    {MINUTES.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  <select aria-label="AM or PM" value={clock.period} disabled={saving} onChange={e => setClock({ period: e.target.value })}
-                    className="h-10 px-2 rounded-lg text-sm outline-none" style={fieldStyle}>
-                    <option value="AM">AM</option><option value="PM">PM</option>
-                  </select>
+              {/* Date and time wrap onto two rows on a narrow screen instead of overflowing. */}
+              <div data-row="due" className="flex flex-wrap gap-3 min-w-0">
+                <div className="flex-1 basis-40 min-w-0">
+                  <label htmlFor="teacher-distribute-date" className="text-xs font-semibold" style={muted}>Due date</label>
+                  <input id="teacher-distribute-date" type="date" value={dueDate} disabled={saving} min={manilaDateToday()}
+                    onChange={e => { setDueDate(e.target.value); setTimeError(''); }}
+                    className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
                 </div>
-              </fieldset>
+                <div role="group" aria-labelledby="teacher-distribute-time-label" className="flex-1 basis-48 min-w-0">
+                  <span id="teacher-distribute-time-label" className="text-xs font-semibold" style={muted}>Due time</span>
+                  <div data-due-time className="flex flex-wrap gap-2 mt-1">
+                    <select aria-label="Due hour" value={clock.hour} disabled={saving} onChange={e => setClock({ hour: e.target.value })}
+                      className="h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                      {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    <select aria-label="Due minute" value={clock.minute} disabled={saving} onChange={e => setClock({ minute: e.target.value })}
+                      className="h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                      {MINUTES.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <select aria-label="AM or PM" value={clock.period} disabled={saving} onChange={e => setClock({ period: e.target.value })}
+                      className="h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                      <option value="AM">AM</option><option value="PM">PM</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {dueDate !== '' && (timeError || dueMessage) && <p role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{timeError || dueMessage}</p>}

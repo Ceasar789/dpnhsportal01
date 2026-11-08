@@ -39,18 +39,22 @@ const EMPTY_WORKSHEET = { title: '', subject: '', pages: '', items: '', task_typ
 const isSavedCollectionDay = row => Boolean(row.collection_id) && Number.isInteger(row.day_of_week)
   && row.day_of_week >= 1 && row.day_of_week <= 5;
 
-const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEncode, onDownload, onDelete, busy }) => {
+const manilaDate = ms => new Date(ms).toLocaleDateString('en-US',
+  { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' });
+
+const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEncode, onDownload, onDelete, busy,
+  locked, lockReason, distributeReason }) => {
   const [open, setOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const actions = [
-    { label: 'Distribute', run: onDistribute },
-    ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Questions', run: onQuestions }]),
+    { label: 'Distribute', run: onDistribute, disabled: Boolean(distributeReason), reason: distributeReason },
+    ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Questions', run: onQuestions, disabled: locked, reason: lockReason }]),
     { label: 'Check submissions', run: onCheck },
     { label: 'Encode scores', run: onEncode },
     ...(worksheet.file_url ? [{ label: 'Open file', run: onDownload }] : []),
-    ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Delete', run: onDelete, destructive: true }]),
+    ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Delete', run: onDelete, destructive: true, disabled: locked, reason: lockReason }]),
   ];
 
   useEffect(() => {
@@ -102,11 +106,12 @@ const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEnc
         }}
         className={`absolute right-0 z-30 min-w-48 rounded-lg p-1 shadow-lg ${openAbove ? 'bottom-full mb-1' : 'top-full mt-1'}`}
         style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-        {actions.map(action => <button key={action.label} type="button" role="menuitem" disabled={busy}
+        {actions.map(action => <button key={action.label} type="button" role="menuitem" disabled={busy || Boolean(action.disabled)}
           onClick={() => { close(true); action.run(); }}
           className="block w-full text-left px-3 py-2 rounded-md text-sm font-medium"
           style={{ color: action.destructive ? 'var(--red)' : 'var(--text)' }}>
-          {action.label}<span className="sr-only"> for {worksheet.title || 'worksheet'}</span>
+          {action.label}{action.reason && <span className="block text-xs" style={{ color: 'var(--text-muted)' }}>{action.reason}</span>}
+          <span className="sr-only"> for {worksheet.title || 'worksheet'}</span>
         </button>)}
       </div>}
     </div>
@@ -228,7 +233,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     discardMessage: 'Close without saving? Your draft will remain available until you leave Worksheets.',
     leaveMessage: 'Discard your unsaved worksheet draft and leave Worksheets?',
   });
-  const assessment = useWorksheetAssessment(showToast);
+  const assessment = useWorksheetAssessment(showToast, { distributionEnabled: true });
   const [subjectChoice, setSubjectChoice] = useState(null);
   const [gradeChoice, setGradeChoice] = useState(null);
   const eligibleSubjects = assessment.mySubjects || [];
@@ -865,6 +870,13 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         ) : filtered.filter(ws => !isSavedCollectionDay(ws)
           && !Object.values(weeklySaveStates).flatMap(s => s?.receipt?.worksheets ?? []).map(w => w.id).includes(ws.id)).map((ws) => {
           const distributedCount = assessment.assigneeCounts[ws.id] || 0;
+          // Until the count is known, edit and delete stay locked.
+          const countKnown = !assessment.assigneeCountsLoading && !assessment.assigneeCountsError;
+          const firstAssigned = assessment.firstAssignedAt?.[ws.id];
+          // Mirrors what the distribute database function accepts.
+          const distributeReason = ws.collection_id ? 'Part of a weekly collection'
+            : Number(ws.items) > 0 || (ws.task_type === 'worksheet' && typeof ws.instructions === 'string' && ws.instructions.trim())
+              ? null : 'No questions or directions yet';
           return (
           <Card key={ws.id} className="p-4 min-w-0 flex flex-col" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
@@ -899,13 +911,18 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             </div>
             <h3 className="text-sm font-semibold mb-1 break-words" style={{ color: 'var(--text)' }}>{ws.title}</h3>
             <p className="text-xs mb-3 break-words" style={{ color: 'var(--text-muted)' }}>{ws.subject || 'Subject unavailable'} · {ws.pages || '—'} pages · {!Number(ws.items) && ws.instructions?.trim() ? 'Activity · text only' : `${ws.items || '—'} items`}</p>
+            {countKnown && distributedCount > 0 && Number.isFinite(firstAssigned) && (
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Distributed on {manilaDate(firstAssigned)}</p>
+            )}
             <div className="flex gap-2 mt-auto">
               <button onClick={() => handlePreview(ws)} className="flex-1 min-w-0 h-10 rounded-lg text-sm font-semibold"
                 style={{ backgroundColor: 'var(--banner-accent)', color: '#ffffff' }}>
                 {ws.file_url ? 'View' : 'Preview'}
               </button>
               <WorksheetActions worksheet={ws} busy={deletingId === ws.id}
-                onDistribute={() => showToast('Distribution is unavailable until trusted authorization is connected. No students were assigned.', 'error')}
+                locked={!countKnown || distributedCount > 0} lockReason={countKnown && distributedCount > 0 ? 'Already distributed' : null}
+                distributeReason={distributeReason}
+                onDistribute={() => setDistributingTask(ws)}
                  onQuestions={() => { if (ws.origin !== 'ai_generated') setBuildingWorksheet(ws); }} onCheck={() => setCheckingWorksheet(ws)}
                 onEncode={() => { setScoreSavedMessage(''); setEncodingWorksheet(ws); }} onDownload={() => downloadWorksheet(ws)}
                 onDelete={() => handleDelete(ws.id)} />

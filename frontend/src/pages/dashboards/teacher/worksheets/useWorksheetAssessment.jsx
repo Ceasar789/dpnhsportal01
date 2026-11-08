@@ -18,6 +18,9 @@ const validSchoolYear = value => typeof value === 'string' && /^(\d{4})-\d{4}$/.
 // but block the client-side multi-table write until a server transaction exists.
 const trustedDistributionAvailable = false;
 const trustedScoreWritesAvailable = false;
+// task_assignees.assigned_at is a naive TIMESTAMP holding UTC wall-clock time.
+const utcMs = value => typeof value === 'string'
+  ? Date.parse(/(Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value.replace(' ', 'T')}Z`) : NaN;
 
 export const useWorksheetAssessment = (showToast, { distributionEnabled = trustedDistributionAvailable } = {}) => {
   const { userData } = useAuth();
@@ -116,6 +119,8 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
   const [assigneeCounts, setAssigneeCounts] = useState({});
   const [assigneeCountsError, setAssigneeCountsError] = useState(false);
   const [assigneeCountsLoading, setAssigneeCountsLoading] = useState(true);
+  // Earliest assigned_at per task, as epoch milliseconds.
+  const [firstAssignedAt, setFirstAssignedAt] = useState({});
 
   // Paged rather than one unbounded select: task_assignees is one row per
   // (task, student), so a modest school (30 tasks x 40 students) clears
@@ -139,12 +144,13 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     const PAGE_SIZE = 500;
     const seen = new Set();
     const counts = {};
+    const first = {};
     let from = 0;
     try {
       while (true) {
         const { data, error } = await withRetry(
           () => supabase.from('task_assignees')
-            .select('task_id, student_id')
+            .select('task_id, student_id, assigned_at')
             .range(from, from + PAGE_SIZE - 1),
           { label: 'Task assignee counts fetch' }
         );
@@ -154,6 +160,8 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
           return;
         }
         (data || []).forEach(row => {
+          const at = utcMs(row.assigned_at);
+          if (Number.isFinite(at) && !(first[row.task_id] <= at)) first[row.task_id] = at;
           const key = `${row.task_id}:${row.student_id}`;
           if (seen.has(key)) return;
           seen.add(key);
@@ -164,6 +172,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
       }
       setAssigneeCountsError(false);
       setAssigneeCounts(counts);
+      setFirstAssignedAt(first);
     } finally {
       // Cleared here, structurally, rather than at every return above —
       // so an exception thrown anywhere in this chain (rather than the
@@ -853,6 +862,6 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     mySubject, mySubjects, schoolYear: subjectOwner === teacherId ? schoolYear : null,
     subjectError, subjectLoading, fetchMySubject,
     loadAssignees, distributeTask,
-    assigneeCounts, assigneeCountsError, assigneeCountsLoading, fetchAssigneeCounts,
+    assigneeCounts, assigneeCountsError, assigneeCountsLoading, fetchAssigneeCounts, firstAssignedAt,
   };
 };

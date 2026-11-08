@@ -187,13 +187,13 @@ describe('Worksheet manual authoring entry', () => {
     expect(writes).toEqual([]);
   });
 
-  it('blocks legacy distribution before opening a roster or writing', async () => {
+  it('opens distribution without writing from the tab', async () => {
     worksheetRows.value = [{ id: 'saved-1', title: 'Existing worksheet', subject: 'English', pages: 2, items: 5 }];
     render(<Harness />);
     await waitFor(() => expect(screen.getByText('Existing worksheet')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'More actions for Existing worksheet' }));
     fireEvent.click(screen.getByText('Distribute', { exact: true }));
-    expect(screen.getByText(/Distribution is unavailable until trusted authorization/)).toBeTruthy();
+    expect(screen.queryByText(/Distribution is unavailable until trusted authorization/)).toBeNull();
     expect(writes).toEqual([]);
   });
 

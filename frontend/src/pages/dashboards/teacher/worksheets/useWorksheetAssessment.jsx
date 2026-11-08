@@ -476,15 +476,19 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
 
   // Keep the modal's arguments; the database recomputes both totals and writes
   // all item marks with the released submission in one transaction.
-  const releaseScore = async (submissionId, worksheetId, score, totalPoints, perItem) => {
+  // Returns true or false. Release all passes { quiet: true, onFailure } so it can
+  // show one summary instead of a toast per student; the friendly reason goes to onFailure.
+  const releaseScore = async (submissionId, worksheetId, score, totalPoints, perItem, { quiet = false, onFailure } = {}) => {
     void worksheetId;
     void score;
     void totalPoints;
     const unconfirmed = 'Could not confirm the release. Check the submission and try again.';
-    if (typeof supabase.rpc !== 'function') {
-      showToast(unconfirmed, 'error');
+    const fail = (message) => {
+      if (!quiet) showToast(message, 'error');
+      onFailure?.(message);
       return false;
-    }
+    };
+    if (typeof supabase.rpc !== 'function') return fail(unconfirmed);
     try {
       const { data, error } = await supabase.rpc('eduscribe_worksheet_score_release_v1', {
         p_submission_id: submissionId,
@@ -497,19 +501,16 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
           invalid_state: 'This submission is not ready for score release. Refresh and review its status.',
           invalid_marks: 'One or more item scores are invalid. Review every mark and try again.',
         };
-        showToast(Object.prototype.hasOwnProperty.call(messages, error.message)
-          ? messages[error.message] : unconfirmed, 'error');
-        return false;
+        return fail(Object.prototype.hasOwnProperty.call(messages, error.message)
+          ? messages[error.message] : unconfirmed);
       }
       if (data?.ok !== true || String(data.submissionId).toLowerCase() !== String(submissionId).toLowerCase()) {
-        showToast(unconfirmed, 'error');
-        return false;
+        return fail(unconfirmed);
       }
-      showToast('Score released to the student');
+      if (!quiet) showToast('Score released to the student');
       return true;
     } catch {
-      showToast(unconfirmed, 'error');
-      return false;
+      return fail(unconfirmed);
     }
   };
 

@@ -25,6 +25,18 @@ import { useTheme } from '../hooks';
 import { scoreSubmission, round2 } from '../../../../lib/worksheetChecking';
 import useDialogSafety from './useDialogSafety';
 
+// The marks one release sends, for Release and Release all alike.
+const perItemMarks = (items, keys, marks) => items.map(i => {
+  const unscorable = i.item_type === 'essay' || keys[i.id] === undefined;
+  const earned = Number(marks[i.id]) || 0;
+  const max = Number(i.points) || 0;
+  // A zero-point item is not "correct" just because 0 >= 0.
+  return { item_id: i.id, isCorrect: unscorable ? null : (max > 0 && earned >= max), pointsEarned: earned };
+});
+
+const BULK_WARNING = 'Auto-check can mark valid answers wrong on open-ended questions such as enumeration. Open a submission to review it before releasing.';
+const BULK_UNCONFIRMED = 'Could not confirm the release. Check the submission and try again.';
+
 const sameMarks = (a, b) => {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   return [...keys].every(key => a[key] === b[key]);
@@ -55,8 +67,12 @@ const CheckSubmissionsModal = ({
   const [saving, setSaving] = useState(false);
   const [releaseError, setReleaseError] = useState(false);
   const [reviewApproved, setReviewApproved] = useState(false);
+  // Release all: null, or { phase: 'checking' | 'confirm' | 'running' | 'done', ... }.
+  const [bulk, setBulk] = useState(null);
+  const bulkRef = useRef({ cancelled: false, running: false });
   const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
-    dirty: Boolean(active) && (!sameMarks(marks, loadedMarks) || Object.values(feedback).some(Boolean)), pending: saving, onClose,
+    dirty: Boolean(active) && (!sameMarks(marks, loadedMarks) || Object.values(feedback).some(Boolean)),
+    pending: saving || bulk?.phase === 'running', onClose,
   });
 
   const isAuto = worksheet.checking_mode === 'auto';
@@ -192,17 +208,7 @@ const CheckSubmissionsModal = ({
     if (!canRelease || !reviewApproved || saving) return;
     setReleaseError(false);
     setSaving(true);
-    const perItem = items.map(i => {
-      const unscorable = i.item_type === 'essay' || keys[i.id] === undefined;
-      const earned = Number(marks[i.id]) || 0;
-      const max = Number(i.points) || 0;
-      return {
-        item_id: i.id,
-        // A zero-point item is not "correct" just because 0 >= 0.
-        isCorrect: unscorable ? null : (max > 0 && earned >= max),
-        pointsEarned: earned,
-      };
-    });
+    const perItem = perItemMarks(items, keys, marks);
     const ok = await releaseScore(active.id, worksheet.id, given, total, perItem);
     if (ok) {
       let refreshed = null;
@@ -219,6 +225,71 @@ const CheckSubmissionsModal = ({
       setReleaseError(true);
     }
     setSaving(false);
+  };
+
+  // Release all is offered only when every item can be auto-checked; then only a
+  // submitted, unreleased paper with no saved marks is released, one at a time.
+  const bulkReady = isAuto && items.length > 0 && items.every(i => i.item_type !== 'essay' && keys[i.id] !== undefined);
+  const bulkCandidates = bulkReady ? submissions.filter(s => s.status === 'submitted' && !s.released) : [];
+
+  const startBulk = async () => {
+    if (bulk || bulkRef.current.running) return;
+    bulkRef.current = { cancelled: false, running: false };
+    setBulk({ phase: 'checking', done: 0, count: submissions.length });
+    const eligible = [];
+    const skipped = [];
+    for (const [index, s] of submissions.entries()) {
+      if (s.released) skipped.push({ name: s.name, reason: 'Already released' });
+      else if (s.status !== 'submitted') skipped.push({ name: s.name, reason: 'Not submitted' });
+      else {
+        const loaded = await loadAnswers(s.id);
+        const perItem = loaded ? scoreSubmission(items, keys, loaded.answers).perItem : [];
+        if (!loaded) skipped.push({ name: s.name, reason: 'Answers could not be loaded' });
+        else if (Object.keys(loaded.prior).length > 0) skipped.push({ name: s.name, reason: 'Has saved marks' });
+        else if (perItem.some(r => r.pointsEarned === null)) skipped.push({ name: s.name, reason: 'Needs a manual check' });
+        else {
+          const itemMarks = Object.fromEntries(perItem.map(r => [r.item_id, r.pointsEarned]));
+          eligible.push({ sub: s, marks: itemMarks, score: round2(perItem.reduce((sum, r) => sum + r.pointsEarned, 0)) });
+        }
+      }
+      if (bulkRef.current.cancelled || !aliveRef.current) return;
+      setBulk({ phase: 'checking', done: index + 1, count: submissions.length });
+    }
+    setBulk({ phase: 'confirm', eligible, skipped });
+  };
+
+  const runBulk = async () => {
+    if (bulkRef.current.running || bulk?.phase !== 'confirm' || bulk.eligible.length === 0) return;
+    bulkRef.current.running = true;
+    const { eligible } = bulk;
+    setBulk({ phase: 'running', done: 0, count: eligible.length });
+    const releasedIds = new Set();
+    const failed = [];
+    for (const [index, entry] of eligible.entries()) {
+      let message = '';
+      const ok = await releaseScore(entry.sub.id, worksheet.id, entry.score, total,
+        perItemMarks(items, keys, entry.marks), { quiet: true, onFailure: text => { message = text; } });
+      if (ok) releasedIds.add(entry.sub.id);
+      else failed.push({ name: entry.sub.name, message: message || BULK_UNCONFIRMED });
+      if (aliveRef.current) setBulk({ phase: 'running', done: index + 1, count: eligible.length });
+    }
+    let refreshed = null;
+    try { refreshed = await loadSubmissions(worksheet.id); } catch { /* the rows are updated locally below */ }
+    bulkRef.current.running = false;
+    if (!aliveRef.current) return;
+    if (refreshed) setSubmissions(refreshed);
+    else setSubmissions(prev => prev.map(s => {
+      const entry = releasedIds.has(s.id) && eligible.find(e => e.sub.id === s.id);
+      return entry ? { ...s, status: 'checked', released: true, score: entry.score, total_points: total } : s;
+    }));
+    setBulk({ phase: 'done', released: releasedIds.size, failed });
+  };
+
+  // Closing while checking stops the reads; while releasing it is refused until the run ends.
+  const closeBulk = () => {
+    if (bulkRef.current.running) return;
+    bulkRef.current.cancelled = true;
+    setBulk(null);
   };
 
   const muted = { color: dark ? '#64748b' : '#94a3b8' };
@@ -370,6 +441,10 @@ const CheckSubmissionsModal = ({
           on paper, use <strong>Encode scores</strong> on the worksheet card instead.
         </p>
       ) : (
+        <>
+        {bulkCandidates.length > 0 && <div className="flex justify-end mb-2">
+          <Btn variant="primary" onClick={startBulk} disabled={Boolean(bulk)}>Release all</Btn>
+        </div>}
         <ul className="flex flex-col gap-2" aria-label="Worksheet submissions">
           {submissions.map(s => (
             <li key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg min-w-0"
@@ -386,8 +461,39 @@ const CheckSubmissionsModal = ({
             </li>
           ))}
         </ul>
+        </>
       )}
-    </Modal></>
+    </Modal>
+    {bulk && <Modal title="Release all auto-checked results" onClose={closeBulk} closeDisabled={bulk.phase === 'running'} size="max-w-lg">
+      <div className="flex flex-col gap-3 text-sm" style={{ color: 'var(--text)' }}>
+        {bulk.phase === 'checking' && <p role="status">Checking submissions... {bulk.done} of {bulk.count}</p>}
+        {bulk.phase === 'confirm' && <>
+          <p role="alert" className="rounded-lg border px-3 py-2" style={{ borderColor: '#d97706', color: 'var(--text)' }}>{BULK_WARNING}</p>
+          {bulk.eligible.length > 0 ? <ul aria-label="Results to release" className="flex flex-col gap-1">
+            {bulk.eligible.map(e => <li key={e.sub.id}>{e.sub.name}: {e.score} / {total}</li>)}
+          </ul> : <p>Nothing can be released automatically.</p>}
+          {bulk.skipped.length > 0 && <div>
+            <p className="font-medium">{bulk.skipped.length} skipped</p>
+            <ul aria-label="Skipped submissions" className="flex flex-col gap-1" style={muted}>
+              {bulk.skipped.map((k, index) => <li key={index}>{k.name}: {k.reason}</li>)}
+            </ul>
+          </div>}
+        </>}
+        {bulk.phase === 'running' && <p role="status">Releasing... {bulk.done} of {bulk.count}</p>}
+        {bulk.phase === 'done' && <div role="status">
+          <p className="font-medium">Released {bulk.released}. Failed {bulk.failed.length}.</p>
+          {bulk.failed.length > 0 && <ul aria-label="Failed releases" className="flex flex-col gap-1 mt-1">
+            {bulk.failed.map((k, index) => <li key={index}>{k.name}: {k.message}</li>)}
+          </ul>}
+        </div>}
+        <div className="flex justify-end gap-2">
+          {bulk.phase !== 'running' && <Btn variant="outline" onClick={closeBulk}>{bulk.phase === 'done' ? 'Close' : 'Cancel'}</Btn>}
+          {(bulk.phase === 'confirm' || bulk.phase === 'running') && <Btn variant="primary" onClick={runBulk}
+            disabled={bulk.phase === 'running' || bulk.eligible?.length === 0} busy={bulk.phase === 'running'}>
+            {bulk.phase === 'running' ? 'Releasing…' : `Release ${bulk.eligible.length}`}</Btn>}
+        </div>
+      </div>
+    </Modal>}</>
   );
 };
 

@@ -1095,6 +1095,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           sectionsError={assessment.sectionsError}
           onRetrySections={assessment.fetchMySections}
           loadClassList={assessment.loadClassList}
+          loadItems={assessment.loadItems}
           loadAssignees={assessment.loadAssignees}
           loadSubmissions={assessment.loadSubmissions}
           distributeTask={assessment.distributeTask}

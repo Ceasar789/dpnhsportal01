@@ -41,6 +41,23 @@ export function localNowTimestamp(now = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+// "23:59" <-> { hour: '11', minute: '59', period: 'PM' }, for a 12-hour picker
+// that still hands everything else the same 24-hour "HH:mm" value.
+export function splitClockTime(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(value || ''));
+  const hours = match ? Number(match[1]) : 23;
+  return { hour: String(hours % 12 === 0 ? 12 : hours % 12), minute: match ? match[2] : '59', period: hours < 12 ? 'AM' : 'PM' };
+}
+export function joinClockTime(hour, minute, period) {
+  const hours = (Number(hour) % 12) + (period === 'PM' ? 12 : 0);
+  return `${String(hours).padStart(2, '0')}:${minute}`;
+}
+
+// Today's date in Manila as "YYYY-MM-DD", whatever the browser's timezone.
+export function manilaDateToday(now = new Date()) {
+  return new Date(new Date(now).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 // Whether a combineDateAndTime value is still ahead of "now". The school's fixed
 // offset is applied here, so the answer does not depend on the browser's timezone.
 export function isFutureManila(wallClock, now = new Date()) {

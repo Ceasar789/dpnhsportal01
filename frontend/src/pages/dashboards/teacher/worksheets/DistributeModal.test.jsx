@@ -41,7 +41,12 @@ const selectAll = () => screen.getByRole('checkbox', { name: 'Select all' });
 const student = name => screen.getByRole('checkbox', { name: new RegExp(name) });
 const setDue = (date, time) => {
   fireEvent.change(screen.getByLabelText('Due date'), { target: { value: date } });
-  if (time) fireEvent.change(screen.getByLabelText('Due time'), { target: { value: time } });
+  if (time) {
+    const [h, m] = time.split(':').map(Number);
+    fireEvent.change(screen.getByLabelText('Due hour'), { target: { value: String(h % 12 === 0 ? 12 : h % 12) } });
+    fireEvent.change(screen.getByLabelText('Due minute'), { target: { value: String(m).padStart(2, '0') } });
+    fireEvent.change(screen.getByLabelText('AM or PM'), { target: { value: h < 12 ? 'AM' : 'PM' } });
+  }
 };
 const reviewButton = () => screen.getByRole('button', { name: 'Review' });
 const toReview = (date = FUTURE) => {
@@ -270,7 +275,7 @@ describe('confirm step', () => {
     const text = dialog.textContent;
     expect(text).toContain('Rizal');
     expect(within(dialog).getByText('2')).toBeTruthy();
-    expect(text).toContain('2099-01-15 at 23:59 (Manila time)');
+    expect(text).toContain('2099-01-15 at 11:59 PM (Manila time)');
     expect(text).toContain('Auto-check');
     expect(distributeTask).not.toHaveBeenCalled();
   });
@@ -389,7 +394,7 @@ describe('safety and existing behavior', () => {
   it('keeps a named dialog and labels on every control', async () => {
     await open();
     expect(screen.getByRole('dialog', { name: 'Distribute "Cells Quiz"' })).toBeTruthy();
-    for (const label of ['Section', 'Due date', 'Due time']) expect(screen.getByLabelText(label)).toBeTruthy();
+    for (const label of ['Section', 'Due date', 'Due hour', 'Due minute', 'AM or PM']) expect(screen.getByLabelText(label)).toBeTruthy();
     expect(screen.getByRole('group', { name: 'Checking mode' })).toBeTruthy();
   });
 

@@ -23,7 +23,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
 import { useTheme } from '../hooks';
-import { combineDateAndTime, DEFAULT_DUE_TIME, isFutureManila } from '../../../../lib/taskFormatting';
+import { combineDateAndTime, DEFAULT_DUE_TIME, formatClockTime, isFutureManila, joinClockTime, manilaDateToday,
+  splitClockTime } from '../../../../lib/taskFormatting';
 import useDialogSafety from './useDialogSafety';
 
 const MAX_STUDENTS = 200;
@@ -32,11 +33,14 @@ const CHECKING_MODES = [
   { value: 'manual', label: 'Manual check', help: 'You mark every answer yourself.' },
 ];
 const modeLabel = mode => CHECKING_MODES.find(option => option.value === mode)?.label;
+const LATER_THAN_NOW = 'Choose a due time that is later than now.';
+const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
 const DistributeModal = ({
   task, sections, sectionsError, onRetrySections,
   loadClassList, loadAssignees, loadSubmissions, distributeTask, onClose,
-  showToast,
+  showToast, loadItems,
 }) => {
   const { dark } = useTheme();
 
@@ -58,6 +62,16 @@ const DistributeModal = ({
   }, [sections, sectionId]);
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState(DEFAULT_DUE_TIME);
+  const [timeError, setTimeError] = useState('');
+  const clock = splitClockTime(dueTime);
+  const setClock = change => {
+    const next = { ...clock, ...change };
+    setDueTime(joinClockTime(next.hour, next.minute, next.period));
+    setTimeError('');
+  };
+  // With loadItems, Auto is offered only if the real items allow it: the
+  // database refuses Auto for a task with any essay item.
+  const [itemCheck, setItemCheck] = useState(loadItems ? 'loading' : 'skipped');
 
   const [roster, setRoster] = useState([]);
   const [rosterError, setRosterError] = useState(false);
@@ -106,6 +120,17 @@ const DistributeModal = ({
 
   useEffect(() => { loadMeta(); }, [loadMeta]);
 
+  useEffect(() => {
+    if (!loadItems) return undefined;
+    let active = true;
+    Promise.resolve().then(() => loadItems(task.id)).then(data => {
+      if (!active) return;
+      if (!Array.isArray(data?.items)) setItemCheck('failed');
+      else setItemCheck(data.items.some(item => item.item_type === 'essay') ? 'essay' : 'ok');
+    }).catch(() => { if (active) setItemCheck('failed'); });
+    return () => { active = false; };
+  }, [loadItems, task.id]);
+
   const loadRoster = useCallback(async () => {
     if (!sectionId) { setRoster([]); setRosterError(false); return; }
     setRosterLoading(true);
@@ -152,7 +177,11 @@ const DistributeModal = ({
   // The row carries no item types: an Assignment is essays and zero items is an
   // Activity. The database also refuses auto for any other task with an essay.
   const manualOnly = task.task_type === 'assignment' || !Number(task.items);
-  const checkingMode = modeLocked ? storedMode : manualOnly ? 'manual' : chosenMode;
+  const autoBlocked = manualOnly || itemCheck === 'essay' || itemCheck === 'failed';
+  const modeReason = manualOnly ? 'Auto-check is not available for this task'
+    : itemCheck === 'essay' ? 'Auto-check is not available because this task has essay questions.'
+      : itemCheck === 'failed' ? 'Could not check the questions, so Manual check will be used.' : '';
+  const checkingMode = modeLocked ? storedMode : autoBlocked ? 'manual' : chosenMode;
 
   const dueAt = combineDateAndTime(dueDate, dueTime);
   const dueInFuture = Boolean(dueAt) && isFutureManila(dueAt);
@@ -171,8 +200,17 @@ const DistributeModal = ({
       : 'Discard unsaved distribution changes?',
   });
 
+  // Checked again with a fresh clock at Review and at Confirm: the form can sit open past the due time.
+  const dueStillLater = () => Boolean(dueAt) && isFutureManila(dueAt, new Date());
+  const startReview = () => {
+    if (!dueStillLater()) { setTimeError(LATER_THAN_NOW); return; }
+    setTimeError('');
+    setReviewing(true);
+  };
+
   const submit = async () => {
     if (sendingRef.current) return;
+    if (!dueStillLater()) { setReviewing(false); setTimeError(LATER_THAN_NOW); return; }
     sendingRef.current = true;
     setResult(null);
     setSaving(true);
@@ -214,7 +252,7 @@ const DistributeModal = ({
     setResult({ tone: 'error', text: res.message });
   };
 
-  const disableReview = rosterLoading || readFailed || metaLoading
+  const disableReview = rosterLoading || readFailed || metaLoading || itemCheck === 'loading'
     || !sectionId || !dueInFuture || selectedIds.length === 0 || tooMany;
   const closeReview = () => { if (!sendingRef.current) setReviewing(false); };
   const sectionOption = s => <option key={s.id} value={s.id}>{s.name} ({s.grade_level})</option>;
@@ -250,19 +288,30 @@ const DistributeModal = ({
               </div>
               <div className="flex-1 min-w-0">
                 <label htmlFor="teacher-distribute-date" className="text-xs font-semibold" style={muted}>Due date</label>
-                <input id="teacher-distribute-date" type="date" value={dueDate} disabled={saving}
-                  onChange={e => setDueDate(e.target.value)}
+                <input id="teacher-distribute-date" type="date" value={dueDate} disabled={saving} min={manilaDateToday()}
+                  onChange={e => { setDueDate(e.target.value); setTimeError(''); }}
                   className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
               </div>
-              <div className="flex-1 min-w-0">
-                <label htmlFor="teacher-distribute-time" className="text-xs font-semibold" style={muted}>Due time</label>
-                <input id="teacher-distribute-time" type="time" value={dueTime} disabled={saving}
-                  onChange={e => setDueTime(e.target.value || DEFAULT_DUE_TIME)}
-                  className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
-              </div>
+              <fieldset className="flex-1 min-w-0">
+                <legend className="text-xs font-semibold" style={muted}>Due time</legend>
+                <div className="flex gap-1 mt-1">
+                  <select aria-label="Due hour" value={clock.hour} disabled={saving} onChange={e => setClock({ hour: e.target.value })}
+                    className="h-10 px-2 rounded-lg text-sm outline-none" style={fieldStyle}>
+                    {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                  <select aria-label="Due minute" value={clock.minute} disabled={saving} onChange={e => setClock({ minute: e.target.value })}
+                    className="h-10 px-2 rounded-lg text-sm outline-none" style={fieldStyle}>
+                    {MINUTES.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <select aria-label="AM or PM" value={clock.period} disabled={saving} onChange={e => setClock({ period: e.target.value })}
+                    className="h-10 px-2 rounded-lg text-sm outline-none" style={fieldStyle}>
+                    <option value="AM">AM</option><option value="PM">PM</option>
+                  </select>
+                </div>
+              </fieldset>
             </div>
 
-            {dueDate !== '' && dueMessage && <p role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{dueMessage}</p>}
+            {dueDate !== '' && (timeError || dueMessage) && <p role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{timeError || dueMessage}</p>}
             {dueDate === '' && <p className="text-xs" style={muted}>{dueMessage}</p>}
 
             <fieldset>
@@ -270,13 +319,14 @@ const DistributeModal = ({
               {CHECKING_MODES.map(option => (
                 <label key={option.value} className="flex items-start gap-2 mt-1 text-sm" style={bodyText}>
                   <input type="radio" name="teacher-distribute-mode" className="mt-1" value={option.value}
-                    checked={checkingMode === option.value} disabled={saving || modeLocked || manualOnly}
+                    checked={checkingMode === option.value} disabled={saving || modeLocked || autoBlocked || itemCheck === 'loading'}
                     onChange={() => setChosenMode(option.value)} />
                   <span>{option.label}<span className="block text-xs" style={muted}>{option.help}</span></span>
                 </label>
               ))}
               {modeLocked ? <p className="text-xs mt-1" style={muted}>Locked after the first distribution.</p>
-                : manualOnly && <p className="text-xs mt-1" style={muted}>Auto-check is not available for this task</p>}
+                : itemCheck === 'loading' && !manualOnly ? <p role="status" className="text-xs mt-1" style={muted}>Checking questions...</p>
+                  : modeReason && <p className="text-xs mt-1" style={muted}>{modeReason}</p>}
             </fieldset>
 
             {result && (
@@ -351,7 +401,7 @@ const DistributeModal = ({
                 </span>
               )}
               <Btn variant="outline" onClick={requestClose}>Cancel</Btn>
-              <Btn variant="primary" onClick={() => setReviewing(true)} disabled={disableReview}>Review</Btn>
+              <Btn variant="primary" onClick={startReview} disabled={disableReview}>Review</Btn>
             </div>
           </>
         )}
@@ -361,7 +411,7 @@ const DistributeModal = ({
       <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm mb-5" style={bodyText}>
         <dt style={muted}>Section</dt><dd>{sectionName}</dd>
         <dt style={muted}>Students</dt><dd>{selectedIds.length}</dd>
-        <dt style={muted}>Due</dt><dd>{dueDate} at {dueTime} (Manila time)</dd>
+        <dt style={muted}>Due</dt><dd>{dueDate} at {formatClockTime(dueTime)} (Manila time)</dd>
         <dt style={muted}>Checking mode</dt><dd>{modeLabel(checkingMode)}</dd>
       </dl>
       <div className="flex flex-wrap justify-end gap-2">

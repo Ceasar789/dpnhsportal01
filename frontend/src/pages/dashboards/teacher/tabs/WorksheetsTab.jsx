@@ -19,6 +19,8 @@ import { Card, Input, Modal, ConfirmDialog, Badge, Btn, Toast } from '../shared/
 import { TASK_TYPES, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import DistributeModal from '../worksheets/DistributeModal';
+import CreateTaskModal from '../worksheets/CreateTaskModal';
+import { saveManualTask } from '../worksheets/manualTaskSave';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
@@ -29,7 +31,7 @@ import { weeklyProductionSaveFlagEnabled } from '../persistence/weeklyWorksheetP
 import CheckSubmissionsModal from '../worksheets/CheckSubmissionsModal';
 import EncodeScoresModal from '../worksheets/EncodeScoresModal';
 import useDialogSafety from '../worksheets/useDialogSafety';
-import { createManualWorksheetDraft, hasUnsavedGeneratedChanges, restoreLocallySavedWorksheet } from '../worksheets/generatedDraftModel';
+import { hasUnsavedGeneratedChanges, restoreLocallySavedWorksheet } from '../worksheets/generatedDraftModel';
 import { updateWeeklyWorksheet, shuffleWeeklyWorksheet } from '../worksheets/weeklyWorksheetCollection';
 
 const LocalDistributionModal = import.meta.env.DEV && import.meta.env.MODE === 'profile-e2e'
@@ -121,7 +123,7 @@ const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEnc
 const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGeneratedDraft,
   weeklyCollections = [], onWeeklyCollectionChange, onDiscardWeeklyCollection,
   weeklySaveStates = {}, onRetryWeeklySave, onSaveCompletedWeeklyJob,
-  manualDrafts = [], onCreateManualDraft, onManualDraftChange, onDiscardManualDraft,
+  manualDrafts = [], onManualDraftChange, onDiscardManualDraft,
   localDistributions = [], onLocalDistribution, onClearLocalDistributions,
   jobClient = weeklyJobClient }) => {
   const legacyJobsEnabled = jobClient.enabled && typeof jobClient.listJobs === 'function'
@@ -274,12 +276,13 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       </>}
   </div>;
   const [distributingTask, setDistributingTask] = useState(null);
+  const [creatingTask, setCreatingTask] = useState(false);
   const [buildingWorksheet, setBuildingWorksheet] = useState(null);
   const [checkingWorksheet, setCheckingWorksheet] = useState(null);
   const [encodingWorksheet, setEncodingWorksheet] = useState(null);
   const { routeBlocker: generatedRouteBlocker } = useDialogSafety({
     dirty: Boolean(generatedDraft && !generatedDraft.saved) && !showGeneratedEditor && !showAddModal && !showPreviewModal
-      && !distributingTask && !buildingWorksheet && !checkingWorksheet && !encodingWorksheet,
+      && !distributingTask && !buildingWorksheet && !checkingWorksheet && !encodingWorksheet && !creatingTask,
     pending: false, onClose: () => {},
     leaveMessage: 'Leave Worksheets and discard the unsaved generated draft?',
   });
@@ -338,6 +341,25 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       onSaveCompletedWeeklyJob(collection, false);
     });
   }, [weeklyCollections, weeklySaveStates, onSaveCompletedWeeklyJob]);
+
+  // Quiz and Assignment go straight on to the Questions editor; an Activity has no questions.
+  const createTask = async (values) => {
+    if (savingRef.current || !subjectReady) return undefined;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const result = await saveManualTask({ ...values, teacherId: userData?.uid, subject, gradeLevel });
+      if (!result.ok) return result;
+      setCreatingTask(false);
+      fetchWorksheets(true);
+      if (values.taskType === 'activity') showToast('Activity created');
+      else setBuildingWorksheet(result.row);
+      return result;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
 
   const handleAddWorksheet = async (e) => {
     e.preventDefault();
@@ -574,12 +596,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <h1 ref={worksheetsHeadingRef} tabIndex={-1} className="text-xl font-bold" style={{ color: 'var(--text)' }}>Worksheets</h1>
         <div className="flex flex-wrap gap-3">
-          <Btn disabled={!import.meta.env.DEV || !userData?.uid || !assessment.schoolYear}
-            title={!import.meta.env.DEV ? 'Manual worksheet saving is not available yet.' : !assessment.schoolYear ? 'Official academic year is unavailable.' : undefined} onClick={() => {
-            const draft = createManualWorksheetDraft(userData?.uid, assessment.schoolYear);
-            onCreateManualDraft(draft);
-            setActiveManualDraftId(draft.draftId);
-          }}><Plus size={16} /> Create Worksheet</Btn>
+          <Btn disabled={!userData?.uid || !assessment.schoolYear} onClick={() => setCreatingTask(true)}><Plus size={16} /> Create Worksheet</Btn>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
@@ -1064,6 +1081,9 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           showToast={showToast}
         />
       )}
+
+      {creatingTask && <CreateTaskModal subjectPicker={subjectFields('create-task')} subjectReady={subjectReady}
+        saving={saving} onSave={createTask} onClose={() => setCreatingTask(false)} />}
 
       {buildingWorksheet && buildingWorksheet.origin !== 'ai_generated' && (
         <QuestionBuilderModal

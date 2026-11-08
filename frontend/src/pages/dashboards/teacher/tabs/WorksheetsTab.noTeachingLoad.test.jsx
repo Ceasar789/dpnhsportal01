@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import WorksheetsTab from './WorksheetsTab';
 
@@ -72,9 +72,12 @@ describe('Worksheet Test 4 — no teaching load', () => {
     expect(screen.queryByRole('button', { name: 'Upload worksheet' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Worksheet' }));
-    expect(screen.getByRole('region', { name: 'Manual editor fixture' })).toBeTruthy();
-    expect(screen.getByText('0 eligible subjects')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Back to list' }));
+    const dialog = screen.getByRole('dialog', { name: 'Create Worksheet' });
+    expect(within(dialog).getByText(/No subject is assigned for this school year/)).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Blocked task' } });
+    fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: 'Read the story.' } });
+    expect(within(dialog).getByRole('button', { name: 'Create' }).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
     expect(screen.getByText('Previously saved worksheet')).toBeTruthy();
     expect(insert).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();

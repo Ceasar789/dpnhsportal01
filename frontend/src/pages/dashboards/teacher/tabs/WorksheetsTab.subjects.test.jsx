@@ -155,34 +155,38 @@ describe('Worksheet manual authoring entry', () => {
     expect(within(card).getByRole('alert').textContent).toContain('This collection needs review.');
     expect(within(card).queryByRole('button', { name: 'Retry Save' })).toBeNull();
   });
-  it('opens a blank local editor without creating a metadata row', () => {
+  it('opens a blank create dialog without creating a metadata row', () => {
     state.mySubjects = [{ id: 'math', name: 'Mathematics', grades: ['Grade 7'] }];
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'Create Worksheet' }));
-    expect(screen.getByRole('region', { name: 'Mock full-page editor' }).textContent).toContain('manual-authored');
-    expect(screen.getByText('Blank title')).toBeTruthy();
-    expect(screen.getByText('0 questions')).toBeTruthy();
-    expect(screen.getByText('1 eligible subjects')).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Create Worksheet' });
+    expect(within(dialog).getByLabelText('Title').value).toBe('');
+    expect(within(dialog).getByText('Mathematics')).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Mock full-page editor' })).toBeNull();
     expect(writes).toEqual([]);
   });
   it.each([
-    ['zero assignments', [], false, false, '0 eligible subjects'],
-    ['failed read', [], false, true, 'Error'],
-    ['loading', [], true, false, 'Loading'],
-  ])('passes %s to the editor without a fallback or write', (_label, subjects, loading, error, message) => {
+    ['zero assignments', [], false, false, /No subject is assigned for this school year/],
+    ['failed read', [], false, true, /Could not load your teaching load/],
+    ['loading', [], true, false, /Loading your teaching load/],
+  ])('shows %s in the create dialog with Create disabled and no write', (_label, subjects, loading, error, message) => {
     Object.assign(state, { mySubjects: subjects, subjectLoading: loading, subjectError: error });
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'Create Worksheet' }));
-    expect(screen.getByText(message)).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Create Worksheet' });
+    expect(within(dialog).getByText(message)).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Blocked task' } });
+    fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: 'Read the story.' } });
+    expect(within(dialog).getByRole('button', { name: 'Create' }).disabled).toBe(true);
     expect(writes).toEqual([]);
   });
-  it('keeps existing saved records and gives the manual draft one local card', async () => {
+  it('keeps existing saved records and adds no local draft card', async () => {
     worksheetRows.value = [{ id: 'saved-1', title: 'Existing worksheet', subject: 'English', pages: 2, items: 5 }];
     render(<Harness />);
     await waitFor(() => expect(screen.getByText('Existing worksheet')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Create Worksheet' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Mock local save' }));
-    expect(screen.getAllByRole('region', { name: 'Manual Worksheet draft entry' })).toHaveLength(1);
+    expect(screen.getByRole('dialog', { name: 'Create Worksheet' })).toBeTruthy();
+    expect(screen.queryAllByRole('region', { name: 'Manual Worksheet draft entry' })).toHaveLength(0);
     expect(screen.getByText('Existing worksheet')).toBeTruthy();
     expect(writes).toEqual([]);
   });

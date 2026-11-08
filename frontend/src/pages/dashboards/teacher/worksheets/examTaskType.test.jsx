@@ -81,13 +81,23 @@ describe('preview of an Exam', () => {
     const doc = await paper();
     expect(within(doc).getByRole('heading', { name: 'EXAM' })).toBeTruthy();
     expect(doc.textContent).toContain('Name the planet');
-    expect(screen.queryByText('No questions yet. Open Questions to add some.')).toBeNull();
+    expect(screen.queryByText(/^No questions yet\./)).toBeNull();
   });
 
-  it('an Exam with no questions shows the empty state', async () => {
+  it('an Exam with no questions shows the empty state, without Edit questions wording when there is no button', async () => {
     render(<SavedDayTaskPreview worksheet={exam} onClose={vi.fn()} loadItems={vi.fn(async () => ({ items: [], keys: {} }))} />);
     expect(within(await paper()).getByRole('heading', { name: 'EXAM' })).toBeTruthy();
-    expect(screen.getByText('No questions yet. Open Questions to add some.')).toBeTruthy();
+    expect(screen.getByText('No questions yet.')).toBeTruthy();
+    expect(screen.queryByText(/Edit questions/)).toBeNull();
+  });
+
+  it('with the Edit questions button, the empty state points to it', async () => {
+    const onEditQuestions = vi.fn();
+    render(<SavedDayTaskPreview worksheet={exam} onClose={vi.fn()} onEditQuestions={onEditQuestions}
+      loadItems={vi.fn(async () => ({ items: [], keys: {} }))} />);
+    expect(await screen.findByText('No questions yet. Use Edit questions to add some.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit questions' }));
+    expect(onEditQuestions).toHaveBeenCalledTimes(1);
   });
 
   it('renders an HTML tag in the directions and title as plain text', async () => {

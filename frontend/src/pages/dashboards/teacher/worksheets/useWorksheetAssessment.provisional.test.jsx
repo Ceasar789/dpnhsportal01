@@ -74,9 +74,10 @@ describe('saveMarks', () => {
     expect(upserts).toHaveLength(1);
     expect(upserts[0].table).toBe('worksheet_answers');
     expect(upserts[0].options).toEqual({ onConflict: 'submission_id,item_id' });
+    const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
     expect(upserts[0].rows).toEqual([
-      { submission_id: 's1', item_id: 'i1', points_earned: 2, is_correct: true },
-      { submission_id: 's1', item_id: 'i2', points_earned: 0, is_correct: false },
+      { submission_id: 's1', item_id: 'i1', points_earned: 2, is_correct: true, updated_at: expect.stringMatching(ISO) },
+      { submission_id: 's1', item_id: 'i2', points_earned: 0, is_correct: false, updated_at: expect.stringMatching(ISO) },
     ]);
     expect(toast).toHaveBeenCalledWith('Provisional marks saved');
   });

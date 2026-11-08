@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal } from '../shared/ui';
+import { Btn, Modal } from '../shared/ui';
 import { savedWorksheetToDraft } from './savedWorksheetDraft';
 import WorksheetDraftDocument from './WorksheetDraftDocument';
 
@@ -8,7 +8,7 @@ const HEADINGS = { worksheet: 'ACTIVITY', quiz: 'QUIZ', assignment: 'ASSIGNMENT'
 
 // Unlike SavedWorksheetPreview, zero items is valid here: an Activity is a
 // header and directions with no questions.
-export default function SavedDayTaskPreview({ worksheet, loadItems, onClose }) {
+export default function SavedDayTaskPreview({ worksheet, loadItems, onClose, onEditQuestions = null }) {
   const [state, setState] = useState({ status: 'loading' });
   const [showAnswerKey, setShowAnswerKey] = useState(false);
 
@@ -31,12 +31,13 @@ export default function SavedDayTaskPreview({ worksheet, loadItems, onClose }) {
     {state.status === 'ready' && <div className="space-y-4">
       <WorksheetDraftDocument draft={state.draft} audience="student" {...documentProps} />
       {state.draft.questions.length === 0 && worksheet.task_type !== 'worksheet'
-        && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>No questions yet. Open Questions to add some.</p>}
+        && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>{onEditQuestions ? 'No questions yet. Use Edit questions to add some.' : 'No questions yet.'}</p>}
       {state.draft.questions.length > 0 && <label className="flex items-center gap-2 min-h-11 text-sm" style={{ color: 'var(--text)' }}>
         <input type="checkbox" checked={showAnswerKey} onChange={event => setShowAnswerKey(event.target.checked)} />
         Show teacher answer key
       </label>}
       {showAnswerKey && <WorksheetDraftDocument draft={state.draft} audience="teacher" {...documentProps} />}
     </div>}
+    {onEditQuestions && <div className="flex justify-end mt-4"><Btn variant="outline" onClick={onEditQuestions}>Edit questions</Btn></div>}
   </Modal>;
 }

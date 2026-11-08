@@ -126,7 +126,7 @@ describe('Worksheet manual authoring entry', () => {
     expect(screen.queryByRole('region', { name: 'Mock full-page editor' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'More actions for Manual worksheet' }));
     const manualMenu = screen.getByRole('menu', { name: 'Actions for Manual worksheet' });
-    expect(within(manualMenu).getByRole('menuitem', { name: /^Questions/ })).toBeTruthy();
+    expect(within(manualMenu).queryByRole('menuitem', { name: /^Questions/ })).toBeNull();
     expect(within(manualMenu).getByRole('menuitem', { name: /^Delete/ })).toBeTruthy();
   });
 

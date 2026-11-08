@@ -45,7 +45,7 @@ const isSavedCollectionDay = row => Boolean(row.collection_id) && Number.isInteg
 const manilaDate = ms => new Date(ms).toLocaleDateString('en-US',
   { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' });
 
-const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEncode, onDownload, onDelete, busy,
+const WorksheetActions = ({ worksheet, onDistribute, onCheck, onEncode, onDownload, onDelete, busy,
   locked, lockReason, distributeReason }) => {
   const [open, setOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
@@ -53,8 +53,6 @@ const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEnc
   const menuRef = useRef(null);
   const actions = [
     { label: 'Distribute', run: onDistribute, disabled: Boolean(distributeReason), reason: distributeReason },
-    // AI-generated rows show their questions in Preview; Questions is how manual rows get theirs.
-    ...(worksheetSource(worksheet) === MANUAL ? [{ label: 'Questions', run: onQuestions, disabled: locked, reason: lockReason }] : []),
     { label: 'Check submissions', run: onCheck },
     { label: 'Encode scores', run: onEncode },
     ...(worksheet.file_url ? [{ label: 'Open file', run: onDownload }] : []),
@@ -426,6 +424,17 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     }
   };
   const handleDelete = (id) => setConfirmWorksheetDelete(id);
+
+  // Preview offers Edit questions on the same terms the old Questions menu item had:
+  // a Manual row, once the counts are known and nobody has it yet.
+  const canEditQuestions = worksheet => worksheetSource(worksheet) === MANUAL
+    && !assessment.assigneeCountsLoading && !assessment.assigneeCountsError
+    && !((assessment.assigneeCounts[worksheet.id] || 0) > 0);
+  const editQuestionsFrom = (worksheet, closePreview) => {
+    if (!canEditQuestions(worksheet)) return;
+    closePreview();
+    setBuildingWorksheet(worksheet);
+  };
 
   const handlePreview = (worksheet) => {
     // Day tasks and Create Worksheet rows are papers; a file or a collection keeps its own preview.
@@ -962,7 +971,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 locked={!countKnown || distributedCount > 0} lockReason={countKnown && distributedCount > 0 ? 'Already distributed' : null}
                 distributeReason={distributeReason}
                 onDistribute={() => setDistributingTask(ws)}
-                 onQuestions={() => { if (worksheetSource(ws) === MANUAL) setBuildingWorksheet(ws); }} onCheck={() => setCheckingWorksheet(ws)}
+                onCheck={() => setCheckingWorksheet(ws)}
                 onEncode={() => { setScoreSavedMessage(''); setEncodingWorksheet(ws); }} onDownload={() => downloadWorksheet(ws)}
                 onDelete={() => handleDelete(ws.id)} />
             </div>
@@ -1020,7 +1029,9 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       {savedPreviewWorksheet && <SavedWorksheetPreview worksheet={savedPreviewWorksheet}
         loadItems={assessment.loadItems} onClose={() => setSavedPreviewWorksheet(null)} />}
       {dayTaskPreviewWorksheet && <SavedDayTaskPreview key={dayTaskPreviewWorksheet.id} worksheet={dayTaskPreviewWorksheet}
-        loadItems={assessment.loadItems} onClose={() => setDayTaskPreviewWorksheet(null)} />}
+        loadItems={assessment.loadItems} onClose={() => setDayTaskPreviewWorksheet(null)}
+        onEditQuestions={canEditQuestions(dayTaskPreviewWorksheet)
+          ? () => editQuestionsFrom(dayTaskPreviewWorksheet, () => setDayTaskPreviewWorksheet(null)) : null} />}
       {showPreviewModal && previewingWorksheet && (
         <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)} dismissible>
           <div className="flex flex-col gap-4">
@@ -1076,6 +1087,9 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
               </div>
             )}
             <div className="flex gap-2">
+              {canEditQuestions(previewingWorksheet) && (
+                <Btn variant="outline" onClick={() => editQuestionsFrom(previewingWorksheet, () => setShowPreviewModal(false))}>Edit questions</Btn>
+              )}
               {previewingWorksheet.file_url && (
                 <button onClick={() => downloadWorksheet(previewingWorksheet)} className="flex-1 h-10 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2"
                   style={{ backgroundColor: '#3b82f6' }}>

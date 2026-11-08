@@ -505,6 +505,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     try {
       const { error } = await supabase.from('worksheet_answers').upsert(perItem.map(row => ({
         submission_id: submissionId, item_id: row.item_id, points_earned: row.pointsEarned, is_correct: row.isCorrect,
+        updated_at: new Date().toISOString(),
       })), { onConflict: 'submission_id,item_id' });
       if (error) { showToast(failed, 'error'); return false; }
       showToast('Provisional marks saved');

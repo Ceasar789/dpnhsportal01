@@ -57,7 +57,7 @@ describe('Preview of a Create Worksheet row', () => {
     expect(doc.textContent).toContain('2 points');
     expect(loader.calls).toEqual(['q1']);
     expect(screen.queryByText('File Information')).toBeNull();
-    expect(screen.queryByText('No questions yet. Open Questions to add some.')).toBeNull();
+    expect(screen.queryByText(/^No questions yet\./)).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Show teacher answer key' }));
     const key = screen.getByRole('article', { name: 'Teacher answer key' });
     expect(key.textContent).toContain('Mars');
@@ -69,20 +69,20 @@ describe('Preview of a Create Worksheet row', () => {
     const doc = await paper();
     expect(within(doc).getByRole('heading', { name: 'ACTIVITY' })).toBeTruthy();
     expect(doc.textContent).toContain('Map the conflict.');
-    expect(screen.queryByText('No questions yet. Open Questions to add some.')).toBeNull();
+    expect(screen.queryByText(/^No questions yet\./)).toBeNull();
   });
 
   it('a Quiz with no questions shows the empty state and its directions', async () => {
     await preview({ ...quiz, items: 0 });
     const doc = await paper();
     expect(doc.textContent).toContain('Answer every item.');
-    expect(screen.getByText('No questions yet. Open Questions to add some.')).toBeTruthy();
+    expect(screen.getByText('No questions yet. Use Edit questions to add some.')).toBeTruthy();
   });
 
   it('an Assignment with no questions and no directions shows the empty state', async () => {
     await preview({ ...manual, id: 's1', title: 'Essay on conflict', task_type: 'assignment', instructions: null, items: 0 });
     expect(within(await paper()).getByRole('heading', { name: 'ASSIGNMENT' })).toBeTruthy();
-    expect(screen.getByText('No questions yet. Open Questions to add some.')).toBeTruthy();
+    expect(screen.getByText('No questions yet. Use Edit questions to add some.')).toBeTruthy();
   });
 
   it('a failed load shows the friendly message', async () => {

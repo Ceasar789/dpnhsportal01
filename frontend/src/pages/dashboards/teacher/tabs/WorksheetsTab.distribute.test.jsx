@@ -104,18 +104,19 @@ describe('Distributed on date', () => {
 });
 
 describe('locks', () => {
-  it('a task with no assignees keeps Questions and Delete enabled with no reason', async () => {
+  it('a task with no assignees keeps Delete enabled with no reason, and has no Questions', async () => {
     await show([quiz]);
-    expect(item('Cells quiz', 'Questions').disabled).toBe(false);
+    expect(within(menu('Cells quiz')).queryByRole('menuitem', { name: /^Questions/ })).toBeNull();
     expect(item('Cells quiz', 'Delete').disabled).toBe(false);
     expect(screen.queryByText('Already distributed')).toBeNull();
   });
 
-  it('a distributed task locks Questions and Delete with the reason, and keeps the rest', async () => {
+  it('a distributed task locks Delete with the reason, and keeps the rest', async () => {
     counts({ q1: 2 }, { q1: MARCH_1_UTC });
     await show([quiz]);
     const actions = menu('Cells quiz');
-    for (const name of ['Questions', 'Delete']) {
+    expect(within(actions).queryByRole('menuitem', { name: /^Questions/ })).toBeNull();
+    for (const name of ['Delete']) {
       const control = within(actions).getByRole('menuitem', { name: new RegExp(`^${name}`) });
       expect(control.disabled).toBe(true);
       expect(control.textContent).toContain('Already distributed');
@@ -126,10 +127,9 @@ describe('locks', () => {
   });
 
   it.each([['loading', { assigneeCountsLoading: true }], ['failed', { assigneeCountsError: true }]])(
-    'while the count is %s, Questions and Delete stay locked with no reason', async (_name, extra) => {
+    'while the count is %s, Delete stays locked with no reason', async (_name, extra) => {
       counts({}, {}, extra);
       await show([quiz]);
-      expect(item('Cells quiz', 'Questions').disabled).toBe(true);
       expect(item('Cells quiz', 'Delete').disabled).toBe(true);
       expect(screen.queryByText('Already distributed')).toBeNull();
       expect(item('Cells quiz', 'Distribute').disabled).toBe(false);
@@ -178,13 +178,13 @@ describe('after a successful distribution', () => {
       return { ok: true };
     });
     await show([quiz]);
-    expect(item('Cells quiz', 'Questions').disabled).toBe(false);
+    expect(item('Cells quiz', 'Delete').disabled).toBe(false);
     fireEvent.click(item('Cells quiz', 'Distribute'));
     fireEvent.click(screen.getByRole('button', { name: 'Mock send' }));
     expect(await screen.findByText('Distributed on Mar 2, 2026')).toBeTruthy();
     expect(screen.getByText('Distributed · 1')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Mock close' }));
-    await waitFor(() => expect(item('Cells quiz', 'Questions').disabled).toBe(true));
+    await waitFor(() => expect(item('Cells quiz', 'Delete').disabled).toBe(true));
   });
 });
 

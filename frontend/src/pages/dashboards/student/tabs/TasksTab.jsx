@@ -18,6 +18,9 @@ import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormattin
 import { useStudentData } from '../StudentDataContext';
 import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 import StudentWorksheetHeader from './StudentWorksheetHeader';
+import { hasStudentAnswer, isHandout } from './studentAnswers';
+import { Btn, Modal } from '../../teacher/shared/ui';
+import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 
 // Colors for the countdown badge, one per formatCountdown tone. Kept in one
 // place so the meaning of a color (late vs. soon vs. plenty of time) stays
@@ -47,8 +50,6 @@ const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 // tab outright is NOT covered: there is no beforeunload handler, so React's
 // cleanup never runs and anything newer than the last write is gone.
 const TYPING_SAVE_DEBOUNCE_MS = 800;
-const hasStudentAnswer = value => typeof value === 'string'
-  ? value.trim().length > 0 : Array.isArray(value) && value.length > 0;
 
 // Maps a Postgres/PostgREST error to a sentence a student can act on,
 // while keeping the raw message (trigger text, RLS denial, constraint
@@ -85,14 +86,10 @@ const StudentTasksTab = () => {
   const [answers, setAnswers] = useState({});
   const [submission, setSubmission] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [submitPrompt, setSubmitPrompt] = useState(null);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const submittingRef = useRef(false);
   const [worksheetView, setWorksheetView] = useState(null);
   const unansweredCount = items.filter(item => !hasStudentAnswer(answers[item.id])).length;
-  const answeredCount = items.length - unansweredCount;
-  useEffect(() => {
-    if (submitPrompt === 'partial' && unansweredCount === 0) setSubmitPrompt(null);
-  }, [submitPrompt, unansweredCount]);
   const viewRequestRef = useRef(0);
   useEffect(() => () => { viewRequestRef.current += 1; }, []);
 
@@ -206,7 +203,7 @@ const StudentTasksTab = () => {
   const open = async (row) => {
     const viewRequest = ++viewRequestRef.current;
     setWorksheetView(null);
-    setSubmitPrompt(null);
+    setConfirmingSubmit(false);
     resetSaveState();
     setBusy(true);
     const { data: itemRows, error } = await withRetry(
@@ -218,6 +215,17 @@ const StudentTasksTab = () => {
     if (error) {
       showToast('Could not load the questions. Check your connection.', 'error');
       setBusy(false); return;
+    }
+
+    // The real items win: a stale count on the row must not hide real questions.
+    if (isHandout(row.sheet) && (itemRows || []).length === 0) {
+      setItems([]);
+      setAnswers({});
+      setSubmission(null);
+      setWorksheetView({ id: row.sheet.id, instructions: row.sheet.instructions });
+      setActive(row);
+      setBusy(false);
+      return;
     }
 
     let sub = row.submission;
@@ -471,7 +479,6 @@ const StudentTasksTab = () => {
         return;
       }
       showToast('Submitted. Your teacher will check it.');
-      setSubmitPrompt(null);
       setSubmission(prev => prev ? { ...prev, status: 'submitted' } : prev);
       setActive(null);
       fetchTasks();
@@ -481,17 +488,14 @@ const StudentTasksTab = () => {
       // forever with no toast telling the student anything went wrong.
       submittingRef.current = false;
       setBusy(false);
+      setConfirmingSubmit(false);
     }
   };
 
-  const requestSubmit = () => {
-    if (busy || submittingRef.current) return;
-    if (answeredCount === 0) setSubmitPrompt('empty');
-    else if (unansweredCount > 0) setSubmitPrompt('partial');
-    else { setSubmitPrompt(null); submit(); }
-  };
+  const closeConfirm = () => { if (!submittingRef.current) setConfirmingSubmit(false); };
 
   const statusLabel = (row) => {
+    if (isHandout(row.sheet)) return 'Activity';
     const s = row.submission;
     if (!s) return 'Not started';
     // The release gate: a score, however it is phrased, may only appear once
@@ -503,6 +507,7 @@ const StudentTasksTab = () => {
 
   if (active) {
     const done = submission?.status !== 'in_progress';
+    const handout = items.length === 0 && isHandout(active.sheet);
     const enrolled = graph?.enrolments?.find(entry => entry.section_id === active.assignee.section_id);
     const oneSection = Array.isArray(worksheetView?.sections) && worksheetView.sections.length === 1
       && typeof worksheetView.sections[0]?.id === 'string'
@@ -529,7 +534,7 @@ const StudentTasksTab = () => {
       <div className="p-6">
         <Toast />
         <div className="mx-auto" style={{ maxWidth: 1100 }}>
-          <button onClick={() => { viewRequestRef.current += 1; setWorksheetView(null); setSubmitPrompt(null); resetSaveState(); setActive(null); }}
+          <button onClick={() => { viewRequestRef.current += 1; setWorksheetView(null); resetSaveState(); setActive(null); }}
             className="text-sm mb-4" style={muted}>← Back</button>
           <article aria-label="Worksheet test paper" className="rounded border p-5 sm:p-8 shadow-sm"
             style={{ backgroundColor: '#fffefb', borderColor: '#c9c3b8', color: '#1f1f1f',
@@ -537,13 +542,14 @@ const StudentTasksTab = () => {
             <StudentWorksheetHeader title={active.sheet.title} subject={active.sheet.subject}
               grade={enrolled?.sections?.grade_level} section={enrolled?.sections?.name}
               schoolYear={enrolled?.sections?.school_year} studentName={userData?.name}
-              instructions={worksheetView?.instructions} items={items}
+              instructions={worksheetView?.instructions} items={items} handout={handout}
               releasedScore={submission?.released === true && submission.score != null
                 && submission.total_points != null
                 ? { score: submission.score, total: submission.total_points } : null} />
         {items.length === 0 ? (
           <p className="mt-6 text-center text-sm" style={{ color: '#4b443d' }}>
-            This worksheet has no questions to answer in the app. Download it from your teacher instead.
+            {handout ? "This is an activity. Follow your teacher's directions."
+              : 'This worksheet has no questions to answer in the app. Download it from your teacher instead.'}
           </p>
         ) : (
           <div className="mt-7 space-y-6">
@@ -619,32 +625,29 @@ const StudentTasksTab = () => {
           </article>
           {items.length > 0 && <div className="mt-5 space-y-3">
             {!done && (
-              <button onClick={requestSubmit} disabled={busy}
-                className="h-10 px-5 rounded-lg text-sm font-semibold"
+              <button onClick={() => setConfirmingSubmit(true)} disabled={busy || unansweredCount > 0}
+                className="h-10 px-5 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: '#1908DF', color: '#fff' }}>
-                {busy ? 'Submitting…' : 'Submit'}
+                Submit
               </button>
             )}
-            {!done && submitPrompt === 'empty' && answeredCount === 0 &&
-              <p role="alert" className="text-sm" style={{ color: 'var(--red)' }}>
-                Answer at least one question before submitting.
-              </p>}
-            {!done && submitPrompt === 'partial' && unansweredCount > 0 &&
-              <div role="group" aria-label="Confirm incomplete worksheet" className="rounded-lg border p-3 space-y-2"
-                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card-bg)' }}>
-                <p className="text-sm" style={{ color: 'var(--text)' }}>
-                  You have {unansweredCount} unanswered {unansweredCount === 1 ? 'question' : 'questions'}. Submit anyway?
-                </p>
-                <div className="flex gap-2">
-                  <button onClick={submit} disabled={busy} className="h-10 px-4 rounded-lg text-sm font-semibold"
-                    style={{ backgroundColor: '#1908DF', color: '#fff' }}>Submit anyway</button>
-                  <button onClick={() => setSubmitPrompt(null)} disabled={busy} className="h-10 px-4 rounded-lg text-sm font-semibold"
-                    style={{ border: '1px solid var(--border)', color: 'var(--text)' }}>Go back</button>
-                </div>
-              </div>}
+            {!done && unansweredCount > 0 &&
+              <p role="status" className="text-sm" style={{ color: 'var(--text)' }}>{unansweredCount} question(s) unanswered.</p>}
             {done && <p className="text-sm" style={{ color: 'var(--text)' }}>Submitted. You cannot change your answers now.</p>}
           </div>}
         </div>
+        {/* Modal reads the teacher theme context, so the student's value is passed through it. */}
+        {confirmingSubmit && <TeacherThemeContext.Provider value={{ dark }}>
+          <Modal title="Submit your answers?" onClose={closeConfirm} escapeCloses closeDisabled={busy}>
+            <p className="text-sm mb-5" style={{ color: 'var(--text)' }}>You cannot change your answers after submitting.</p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Btn variant="outline" className="min-h-11" onClick={closeConfirm} disabled={busy}>Cancel</Btn>
+              <Btn variant="primary" className="min-h-11" onClick={submit} disabled={busy} busy={busy}>
+                {busy ? 'Submitting…' : 'Submit'}
+              </Btn>
+            </div>
+          </Modal>
+        </TeacherThemeContext.Provider>}
       </div>
     );
   }
@@ -683,6 +686,7 @@ const StudentTasksTab = () => {
             const countdown = formatCountdown(row.assignee.due_at, now);
             const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
             const typeLabel = TASK_TYPE_LABELS[row.sheet.task_type] || 'Task';
+            const handoutRow = isHandout(row.sheet);
             return (
               <Card key={row.assignee.task_id} className="p-4 flex items-center justify-between">
                 <div>
@@ -704,12 +708,12 @@ const StudentTasksTab = () => {
                 </div>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                    <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>
+                    {!(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
                     <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>
                   </div>
                   <button onClick={() => open(row)} disabled={busy}
                     className="block mt-2 text-xs font-semibold" style={{ color: '#1908DF' }}>
-                    {row.submission ? 'Open' : 'Start'}
+                    {handoutRow || row.submission ? 'Open' : 'Start'}
                   </button>
                 </div>
               </Card>

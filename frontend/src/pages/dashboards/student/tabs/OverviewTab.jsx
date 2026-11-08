@@ -24,6 +24,7 @@ import {
 import { useTheme, useToast, Card, StatCard } from '../hooks';
 import { useStudentData } from '../StudentDataContext';
 import SubjectCards from '../SubjectCards';
+import { isHandout } from './studentAnswers';
 
 const OverviewTab = () => {
   const { dark } = useTheme();
@@ -89,7 +90,8 @@ const OverviewTab = () => {
 
     // Pending: assigned, and no submission whose status is anything other
     // than 'in_progress' — a submitted or checked one is no longer pending,
-    // an in-progress one still is, and having none at all is pending too.
+    // an in-progress one still is, and having none at all is pending too. A
+    // handout has nothing to submit, so it is never pending.
     const notPendingIds = new Set(
       graph.submissionStates.filter(s => s.status !== 'in_progress').map(s => s.worksheet_id)
     );
@@ -109,7 +111,7 @@ const OverviewTab = () => {
     graph.assignees.forEach(a => {
       const sheet = graph.sheetById.get(a.task_id);
       if (!sheet) return; // task deleted out from under the assignment
-      const pending = !notPendingIds.has(a.task_id);
+      const pending = !notPendingIds.has(a.task_id) && !isHandout(sheet);
       if (pending) pendingCount += 1;
       // Every card is a subject, so a task with no subject has no card. It is
       // still counted in the pending total above, and still listed in full on

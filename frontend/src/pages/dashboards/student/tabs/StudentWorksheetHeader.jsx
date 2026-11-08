@@ -16,7 +16,7 @@ const label = value => typeof value === 'string' && value.trim() && !UUID.test(v
   ? value.trim() : null;
 
 export default function StudentWorksheetHeader({ title, subject, grade, section, schoolYear,
-  studentName, instructions, items, releasedScore }) {
+  studentName, instructions, items, releasedScore, handout = false }) {
   const totalPoints = Math.round((items || []).reduce((sum, item) => {
     const points = Number(item.points);
     return sum + (Number.isFinite(points) ? points : 0);
@@ -39,17 +39,17 @@ export default function StudentWorksheetHeader({ title, subject, grade, section,
         <img className="h-12 w-12 object-contain" src={eduscribeLogo} alt="EduScribe logo" />
       </div>
     </header>
-    <h1 className="mt-5 text-center text-lg font-bold tracking-wide">WORKSHEET</h1>
+    <h1 className="mt-5 text-center text-lg font-bold tracking-wide">{handout ? 'ACTIVITY' : 'WORKSHEET'}</h1>
     {label(title) && <p className="mt-1 text-center font-semibold">{label(title)}</p>}
     <div className="mt-5 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
       {label(studentName) && <p><strong>Name:</strong> <span className="inline-block min-w-32 border-b px-1"
         style={{ borderColor: '#6b6258' }}>{label(studentName)}</span></p>}
       {gradeAndSection && <p><strong>Grade and section:</strong> <span className="inline-block min-w-32 border-b px-1"
         style={{ borderColor: '#6b6258' }}>{gradeAndSection}</span></p>}
-      <p><strong>Score:</strong> {releasedScore
+      {!handout && <p><strong>Score:</strong> {releasedScore
         ? <span>{releasedScore.score}</span>
         : <span className="inline-block min-w-12 border-b"
-            style={{ borderColor: '#6b6258' }} aria-label="blank score">&nbsp;</span>} / {releasedScore ? releasedScore.total : totalPoints}</p>
+            style={{ borderColor: '#6b6258' }} aria-label="blank score">&nbsp;</span>} / {releasedScore ? releasedScore.total : totalPoints}</p>}
       <p><strong>Date:</strong> <span className="inline-block min-w-28 border-b px-1"
         style={{ borderColor: '#6b6258' }}>{date}</span></p>
       {label(subject) && <p><strong>Subject:</strong> <span className="inline-block min-w-28 border-b px-1"

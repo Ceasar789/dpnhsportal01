@@ -138,12 +138,13 @@ it('saves typed answers after the debounce and again on blur', async () => {
 
 it('flushes a pending answer before submitting', async () => {
   await openTask();
+  fireEvent.click(screen.getByRole('radio', { name: 'Two' }));
+  fireEvent.change(screen.getByPlaceholderText('One answer per line'), { target: { value: 'One' } });
   state.pendingWrite = new Promise(resolve => { state.finishWrite = resolve; });
   fireEvent.change(screen.getAllByRole('textbox').find(element => element.tagName === 'INPUT'), { target: { value: 'pending' } });
   fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  expect(screen.getByText('You have 2 unanswered questions. Submit anyway?')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Submit anyway' }));
-  await waitFor(() => expect(callsFor('worksheet_answers', 'upsert')).toHaveLength(1));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Submit your answers?' })).getByRole('button', { name: 'Submit' }));
+  await waitFor(() => expect(callsFor('worksheet_answers', 'upsert')).toHaveLength(3));
   expect(callsFor('worksheet_submissions', 'update')).toHaveLength(0);
   await act(async () => { state.finishWrite({ data: null, error: null }); });
   await waitFor(() => expect(callsFor('worksheet_submissions', 'update')[0].payload).toEqual({ status: 'submitted' }));
@@ -151,30 +152,31 @@ it('flushes a pending answer before submitting', async () => {
 
 it('blocks an empty worksheet response without writing on Submit', async () => {
   await openTask();
+  expect(screen.getByRole('button', { name: 'Submit' }).disabled).toBe(true);
+  expect(screen.getByText('3 question(s) unanswered.')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  expect(screen.getByRole('alert').textContent).toBe('Answer at least one question before submitting.');
   expect(callsFor('worksheet_submissions', 'update')).toHaveLength(0);
   expect(callsFor('worksheet_answers', 'upsert')).toHaveLength(0);
 });
 
-it('asks before submitting a partial response and Go back leaves it open', async () => {
+it('keeps a partial response open with Submit disabled', async () => {
   await openTask();
   fireEvent.click(screen.getByRole('radio', { name: 'Two' }));
+  expect(screen.getByRole('button', { name: 'Submit' }).disabled).toBe(true);
+  expect(screen.getByText('2 question(s) unanswered.')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  expect(screen.getByText('You have 2 unanswered questions. Submit anyway?')).toBeTruthy();
-  expect(callsFor('worksheet_submissions', 'update')).toHaveLength(0);
-  fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
-  expect(screen.queryByRole('group', { name: 'Confirm incomplete worksheet' })).toBeNull();
+  expect(screen.queryByRole('dialog', { name: 'Submit your answers?' })).toBeNull();
   expect(callsFor('worksheet_submissions', 'update')).toHaveLength(0);
 });
 
-it('submits directly when every item has an answer', async () => {
+it('submits after confirmation when every item has an answer', async () => {
   await openTask();
   fireEvent.click(screen.getByRole('radio', { name: 'Two' }));
   fireEvent.change(screen.getByPlaceholderText('One answer per line'), { target: { value: 'One' } });
   fireEvent.change(screen.getAllByRole('textbox').find(element => element.tagName === 'INPUT'), { target: { value: 'Typed' } });
   fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  expect(screen.queryByRole('group', { name: 'Confirm incomplete worksheet' })).toBeNull();
+  expect(callsFor('worksheet_submissions', 'update')).toHaveLength(0);
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Submit your answers?' })).getByRole('button', { name: 'Submit' }));
   await waitFor(() => expect(callsFor('worksheet_submissions', 'update')).toHaveLength(1));
 });
 
@@ -183,20 +185,20 @@ it('counts an empty enumeration array as unanswered', async () => {
   fireEvent.click(screen.getByRole('radio', { name: 'Two' }));
   fireEvent.change(screen.getByPlaceholderText('One answer per line'), { target: { value: ' \n ' } });
   fireEvent.change(screen.getAllByRole('textbox').find(element => element.tagName === 'INPUT'), { target: { value: 'Typed' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  expect(screen.getByText('You have 1 unanswered question. Submit anyway?')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Submit' }).disabled).toBe(true);
+  expect(screen.getByText('1 question(s) unanswered.')).toBeTruthy();
   expect(callsFor('worksheet_submissions', 'update')).toHaveLength(0);
 });
 
-it('recomputes the unanswered count while confirmation is open', async () => {
+it('recomputes the unanswered count as answers are typed', async () => {
   await openTask();
   fireEvent.click(screen.getByRole('radio', { name: 'Two' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  expect(screen.getByText('You have 2 unanswered questions. Submit anyway?')).toBeTruthy();
+  expect(screen.getByText('2 question(s) unanswered.')).toBeTruthy();
   fireEvent.change(screen.getAllByRole('textbox').find(element => element.tagName === 'INPUT'), { target: { value: 'Typed' } });
-  expect(screen.getByText('You have 1 unanswered question. Submit anyway?')).toBeTruthy();
+  expect(screen.getByText('1 question(s) unanswered.')).toBeTruthy();
   fireEvent.change(screen.getByPlaceholderText('One answer per line'), { target: { value: 'One' } });
-  await waitFor(() => expect(screen.queryByRole('group', { name: 'Confirm incomplete worksheet' })).toBeNull());
+  await waitFor(() => expect(screen.queryByText(/unanswered/)).toBeNull());
+  expect(screen.getByRole('button', { name: 'Submit' }).disabled).toBe(false);
 });
 
 it('allows only one submit update during a double click', async () => {
@@ -206,7 +208,9 @@ it('allows only one submit update during a double click', async () => {
   fireEvent.change(screen.getAllByRole('textbox').find(element => element.tagName === 'INPUT'), { target: { value: 'Typed' } });
   state.pendingSubmit = new Promise(resolve => { state.finishSubmit = resolve; });
   fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Submitting…' }));
+  const confirm = within(screen.getByRole('dialog', { name: 'Submit your answers?' })).getByRole('button', { name: 'Submit' });
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
   await waitFor(() => expect(callsFor('worksheet_submissions', 'update')).toHaveLength(1));
   await act(async () => { state.finishSubmit({ data: null, error: null }); });
   expect(callsFor('worksheet_submissions', 'update')).toHaveLength(1);
@@ -227,8 +231,10 @@ it('locks answer inputs after submitting and reopening the refreshed task', asyn
   fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
   await screen.findByRole('button', { name: 'Submit' });
   fireEvent.click(screen.getByRole('radio', { name: 'Two' }));
+  fireEvent.change(screen.getByPlaceholderText('One answer per line'), { target: { value: 'One' } });
+  fireEvent.change(screen.getAllByRole('textbox').find(element => element.tagName === 'INPUT'), { target: { value: 'Typed' } });
   fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Submit anyway' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Submit your answers?' })).getByRole('button', { name: 'Submit' }));
   await waitFor(() => expect(callsFor('worksheet_submissions', 'update')[0].payload)
     .toEqual({ status: 'submitted' }));
   state.graph = { ...state.graph, submissionStates: [{ id: 'submission-1',

@@ -312,6 +312,9 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
       item_type: it.item_type,
       options: it.options && it.options.length > 0 ? it.options : null,
       points: normalizePoints(it.points),
+      // The essay rule (auto-score-submission.sql); only essays carry one.
+      essay_min_sentences: it.item_type === 'essay' ? (it.essay_min_sentences ?? null) : null,
+      essay_min_words: it.item_type === 'essay' ? (it.essay_min_words ?? null) : null,
     }));
 
     const { data: inserted, error: insertError } = await supabase
@@ -436,7 +439,25 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
       console.warn('Worksheet answers fetch failed —', error.message);
       return null;
     }
+    // The server scorer's provisional marks (Auto with an essay). Teacher-only by
+    // RLS. A failed read leaves none, so the review works exactly as before.
+    let provisional = {};
+    try {
+      const { data: rows, error: provisionalError } = await withRetry(
+        () => supabase.from('worksheet_provisional_marks')
+          .select('item_id, points, is_correct').eq('submission_id', submissionId),
+        { label: 'Worksheet provisional marks fetch' }
+      );
+      if (provisionalError) console.warn('Worksheet provisional marks fetch failed —', provisionalError.message);
+      else {
+        provisional = Object.fromEntries((rows || []).filter(row => row.points !== null && row.points !== undefined)
+          .map(row => [row.item_id, { points: Number(row.points), isCorrect: row.is_correct ?? null }]));
+      }
+    } catch {
+      console.warn('Worksheet provisional marks fetch failed');
+    }
     return {
+      provisional,
       answers: Object.fromEntries((data || []).map(a => [a.item_id, a.answer])),
       prior: Object.fromEntries(
         (data || [])
@@ -478,6 +499,22 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
   // all item marks with the released submission in one transaction.
   // Returns true or false. Release all passes { quiet: true, onFailure } so it can
   // show one summary instead of a toast per student; the friendly reason goes to onFailure.
+  // Saves marks as real (teacher) marks without releasing: one upsert for all rows.
+  const saveMarks = async (submissionId, perItem) => {
+    const failed = 'Could not save the marks. Check your connection and try again.';
+    try {
+      const { error } = await supabase.from('worksheet_answers').upsert(perItem.map(row => ({
+        submission_id: submissionId, item_id: row.item_id, points_earned: row.pointsEarned, is_correct: row.isCorrect,
+      })), { onConflict: 'submission_id,item_id' });
+      if (error) { showToast(failed, 'error'); return false; }
+      showToast('Provisional marks saved');
+      return true;
+    } catch {
+      showToast(failed, 'error');
+      return false;
+    }
+  };
+
   const releaseScore = async (submissionId, worksheetId, score, totalPoints, perItem, { quiet = false, onFailure } = {}) => {
     void worksheetId;
     void score;
@@ -842,7 +879,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     mySections, sectionsError, fetchMySections,
     postings, postingsError, fetchPostings,
     loadItems, saveItems, setCheckingMode,
-    loadSubmissions, loadAnswers, releaseScore, encodeManualScore,
+    loadSubmissions, loadAnswers, saveMarks, releaseScore, encodeManualScore,
     loadClassList,
     mySubject, mySubjects, schoolYear: subjectOwner === teacherId ? schoolYear : null,
     subjectError, subjectLoading, fetchMySubject,

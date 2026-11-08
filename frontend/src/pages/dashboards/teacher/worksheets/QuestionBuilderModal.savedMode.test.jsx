@@ -22,11 +22,12 @@ const setType = (n, value) => fireEvent.change(screen.getByLabelText(`Question $
 const save = async () => { await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save questions' })); }); };
 
 describe('Auto-check toggle on a saved worksheet', () => {
-  it('an essay turns Auto off and disables it, with the reason', async () => {
+  it('an essay keeps a stored Auto, enabled, with the provisional-mark note', async () => {
     await show({ items: [mc, essay] });
-    expect(auto().checked).toBe(false);
-    expect(auto().disabled).toBe(true);
-    expect(screen.getByText('Essay questions are checked by you.')).toBeTruthy();
+    expect(auto().checked).toBe(true);
+    expect(auto().disabled).toBe(false);
+    expect(screen.queryByText('Essay questions are checked by you.')).toBeNull();
+    expect(screen.getByText('Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.')).toBeTruthy();
   });
 
   it('a Quiz stored as Auto with no questions opens with Auto ticked and enabled', async () => {
@@ -43,14 +44,15 @@ describe('Auto-check toggle on a saved worksheet', () => {
     expect(auto().disabled).toBe(false);
   });
 
-  it('adding an essay turns Auto off; removing it leaves Auto off but enabled', async () => {
+  it('adding an essay keeps Auto on and shows the note; removing it hides the note', async () => {
     await show();
     setType(1, 'essay');
-    expect(auto().checked).toBe(false);
-    expect(auto().disabled).toBe(true);
-    setType(1, 'multiple_choice');
+    expect(auto().checked).toBe(true);
     expect(auto().disabled).toBe(false);
-    expect(auto().checked).toBe(false);
+    expect(screen.getByText('Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.')).toBeTruthy();
+    setType(1, 'multiple_choice');
+    expect(auto().checked).toBe(true);
+    expect(screen.queryByText('Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.')).toBeNull();
   });
 
   it("deleting the last question keeps the teacher's Auto", async () => {
@@ -62,11 +64,11 @@ describe('Auto-check toggle on a saved worksheet', () => {
     expect(auto().checked).toBe(true);
   });
 
-  it('deleting the essay leaves Auto off but enabled', async () => {
+  it('deleting the essay keeps Auto as it was', async () => {
     await show({ items: [mc, essay] });
     fireEvent.click(screen.getByRole('button', { name: 'Delete question 2' }));
     expect(auto().disabled).toBe(false);
-    expect(auto().checked).toBe(false);
+    expect(auto().checked).toBe(true);
   });
 
   it('an essay worksheet stored as Auto does not count as changed on open', async () => {
@@ -76,17 +78,17 @@ describe('Auto-check toggle on a saved worksheet', () => {
     expect(screen.queryByText('Discard unsaved changes?')).toBeNull();
   });
 
-  it('a stored Auto with a loaded essay stays off after the essay is changed', async () => {
+  it('a stored Auto with a loaded essay stays on after the essay is changed', async () => {
     await show({ items: [mc, essay] });
     setType(2, 'true_false');
     expect(auto().disabled).toBe(false);
-    expect(auto().checked).toBe(false);
+    expect(auto().checked).toBe(true);
   });
 
-  it('saving with an essay sends manual', async () => {
+  it('saving with an essay sends the teacher\'s mode as it is', async () => {
     const { setCheckingMode } = await show({ items: [mc, essay] });
     await save();
-    expect(setCheckingMode).toHaveBeenCalledWith('w1', 'manual');
+    expect(setCheckingMode).toHaveBeenCalledWith('w1', 'auto');
   });
 
   it("saving with no questions sends the teacher's mode as it is", async () => {
@@ -196,5 +198,71 @@ describe('draft modes are unchanged', () => {
     fireEvent.click(auto());
     expect(auto().checked).toBe(true);
     expect(screen.queryByText('Add questions first.')).toBeNull();
+  });
+});
+
+describe('essay minimum sentences and words', () => {
+  const minSentences = n => screen.queryByLabelText(`Question ${n} minimum sentences`);
+  const minWords = n => screen.queryByLabelText(`Question ${n} minimum words`);
+  const HELPER = 'If the answer meets this, it gets full points as a PROVISIONAL mark. You still confirm it before the score is released.';
+
+  it('show only for an essay, with the helper line', async () => {
+    await show({ items: [mc, essay] });
+    expect(minSentences(1)).toBeNull();
+    expect(minWords(1)).toBeNull();
+    expect(minSentences(2)).toBeTruthy();
+    expect(minWords(2)).toBeTruthy();
+    expect(screen.getAllByText(HELPER)).toHaveLength(1);
+    setType(2, 'identification');
+    expect(minSentences(2)).toBeNull();
+    setType(1, 'essay');
+    expect(minSentences(1)).toBeTruthy();
+  });
+
+  it('load the stored values and send them back as numbers, null for others', async () => {
+    const { saveItems } = await show({ items: [mc, { ...essay, essay_min_sentences: 3, essay_min_words: 50 }] });
+    expect(minSentences(2).value).toBe('3');
+    expect(minWords(2).value).toBe('50');
+    fireEvent.change(minWords(2), { target: { value: '80' } });
+    await save();
+    const sent = saveItems.mock.calls[0][1];
+    expect(sent[0]).toMatchObject({ essay_min_sentences: null, essay_min_words: null });
+    expect(sent[1]).toMatchObject({ essay_min_sentences: 3, essay_min_words: 80 });
+  });
+
+  it('empty means no rule and sends null', async () => {
+    const { saveItems } = await show({ items: [mc, essay] });
+    await save();
+    expect(saveItems.mock.calls[0][1][1]).toMatchObject({ essay_min_sentences: null, essay_min_words: null });
+  });
+
+  it.each([
+    ['sentences', '0', 'Question 2: minimum sentences must be a whole number from 1 to 50, or empty.'],
+    ['sentences', '51', 'Question 2: minimum sentences must be a whole number from 1 to 50, or empty.'],
+    ['words', '2.5', 'Question 2: minimum words must be a whole number from 1 to 2000, or empty.'],
+    ['words', '2001', 'Question 2: minimum words must be a whole number from 1 to 2000, or empty.'],
+  ])('an invalid %s value %j blocks save with a message', async (field, value, message) => {
+    const { saveItems, setCheckingMode } = await show({ items: [mc, essay] });
+    fireEvent.change(screen.getByLabelText(`Question 2 minimum ${field}`), { target: { value } });
+    await save();
+    expect(saveItems).not.toHaveBeenCalled();
+    expect(setCheckingMode).not.toHaveBeenCalled();
+    expect(screen.getByText(message)).toBeTruthy();
+  });
+
+  it('an invalid value on a question changed away from essay is ignored', async () => {
+    const { saveItems } = await show({ items: [mc, { ...essay, essay_min_sentences: 3, essay_min_words: 50 }] });
+    fireEvent.change(minSentences(2), { target: { value: '0' } });
+    setType(2, 'identification');
+    fireEvent.change(screen.getByLabelText('Question 2 accepted answers'), { target: { value: 'x' } });
+    await save();
+    expect(saveItems.mock.calls[0][1][1]).toMatchObject({ essay_min_sentences: null, essay_min_words: null });
+  });
+
+  it('the provisional note is not shown with Manual', async () => {
+    await show({ items: [mc, essay], mode: 'manual' });
+    expect(screen.queryByText('Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.')).toBeNull();
+    fireEvent.click(auto());
+    expect(screen.getByText('Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.')).toBeTruthy();
   });
 });

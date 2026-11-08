@@ -18,7 +18,8 @@ import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormattin
 import { useStudentData } from '../StudentDataContext';
 import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 import StudentWorksheetHeader from './StudentWorksheetHeader';
-import { hasStudentAnswer, isHandout } from './studentAnswers';
+import { essayRuleText } from '../../../../lib/essayRule';
+import { hasStudentAnswer, isHandout, submittedMessage } from './studentAnswers';
 import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 
@@ -216,7 +217,7 @@ const StudentTasksTab = () => {
     setBusy(true);
     const { data: itemRows, error } = await withRetry(
       () => supabase.from('worksheet_items')
-        .select('id, position, question, item_type, options, points')
+        .select('id, position, question, item_type, options, points, essay_min_sentences, essay_min_words')
         .eq('worksheet_id', row.sheet.id).order('position'),
       { label: 'Student worksheet items fetch' }
     );
@@ -486,7 +487,36 @@ const StudentTasksTab = () => {
         showToast(toStudentMessage(error, 'Could not submit. Check your connection and try again.'), 'error');
         return;
       }
-      showToast('Submitted. Your teacher will check it.');
+      // Re-read the row: an Auto task with no essay is scored and released by the
+      // database on submit. The score is read only once released is true.
+      let state = null;
+      let scored = null;
+      try {
+        const reread = await withRetry(() => supabase.from('worksheet_submissions').select(SUBMISSION_STATE_FIELDS)
+          .eq('id', submission.id).eq('student_id', userData.uid).single(), { label: 'Student submitted state fetch' });
+        state = reread.error ? null : reread.data;
+        if (state?.released === true) {
+          const score = await withRetry(() => supabase.from('worksheet_submissions').select('score, total_points')
+            .eq('id', submission.id).eq('student_id', userData.uid).eq('released', true).single(),
+          { label: 'Student submitted score fetch' });
+          scored = score.error ? null : score.data;
+        }
+      } catch {
+        state = null;
+      }
+      // Only an unreleased essay task needs the mode; a failed read keeps the general line.
+      const hasEssay = items.some(it => it.item_type === 'essay');
+      let auto = false;
+      if (state && state.released !== true && hasEssay) {
+        try {
+          const mode = await withRetry(() => supabase.from('worksheets').select('checking_mode')
+            .eq('id', state.worksheet_id).single(), { label: 'Student task checking mode fetch' });
+          auto = !mode.error && mode.data?.checking_mode === 'auto';
+        } catch {
+          auto = false;
+        }
+      }
+      showToast(submittedMessage(state, scored, { auto, hasEssay }));
       setSubmission(prev => prev ? { ...prev, status: 'submitted' } : prev);
       setActive(null);
       fetchTasks();
@@ -508,7 +538,7 @@ const StudentTasksTab = () => {
     if (!s) return 'Not started';
     // The release gate: a score, however it is phrased, may only appear once
     // released is true — never before, regardless of status.
-    if (s.released) return `${s.score}/${s.total_points}`;
+    if (s.released) return `Score: ${s.score}/${s.total_points}`;
     if (s.status === 'submitted' || s.status === 'checked') return 'Submitted — awaiting result';
     return 'In progress';
   };
@@ -572,6 +602,9 @@ const StudentTasksTab = () => {
                 <p className="text-sm font-medium mb-2" style={{ color: '#1f1f1f' }}>
                   {paperGroup.start + index}. {it.question} <span className="text-xs" style={{ color: '#5b5147' }}>({it.points} pts)</span>
                 </p>
+                {it.item_type === 'essay' && essayRuleText({ minSentences: it.essay_min_sentences ?? null, minWords: it.essay_min_words ?? null })
+                  && <p className="text-xs mb-2" style={{ color: '#5b5147' }}>
+                    {essayRuleText({ minSentences: it.essay_min_sentences ?? null, minWords: it.essay_min_words ?? null })}</p>}
 
                 {/* Disabled on `busy` too, not just `done`: submit() awaits
                     a flush that can take a real moment on a congested pool,

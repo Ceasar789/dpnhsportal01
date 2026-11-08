@@ -186,7 +186,7 @@ const GradesTab = () => {
         </>}
       </>}
     {checking && owned.some(w => w.id === checking.id) && <CheckSubmissionsModal worksheet={checking} loadItems={assessment.loadItems}
-      loadSubmissions={assessment.loadSubmissions} loadAnswers={assessment.loadAnswers}
+      loadSubmissions={assessment.loadSubmissions} loadAnswers={assessment.loadAnswers} saveMarks={assessment.saveMarks}
       releaseScore={assessment.releaseScore} onClose={() => closeDialog(setChecking)} />}
     {encoding && owned.some(w => w.id === encoding.id) && <EncodeScoresModal worksheet={encoding} postings={assessment.postings}
       sections={assessment.mySections} loadClassList={assessment.loadClassList}

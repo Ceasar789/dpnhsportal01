@@ -13,6 +13,7 @@ import useDialogSafety from './useDialogSafety';
 import { ITEM_TYPES, TRUE_FALSE_VALUES, splitAcceptedAnswers } from '../../../../lib/worksheetChecking';
 import { editableDraftItems, hasUnsavedGeneratedChanges, orderedWorksheetItems, saveGeneratedWorksheetLocally, updateGeneratedDraft, validateGeneratedWorksheet, worksheetSections } from './generatedDraftModel';
 import WorksheetDraftDocument from './WorksheetDraftDocument';
+import { ESSAY_MAX_SENTENCES, ESSAY_MAX_WORDS, parseEssayMinimum } from '../../../../lib/essayRule';
 
 const sameValues = (a, b) => Array.isArray(a) && Array.isArray(b)
   ? a.length === b.length && a.every((value, index) => value === b[index])
@@ -23,8 +24,12 @@ const sameItems = (a, b) => a.length === b.length && a.every((item, index) => {
   return item.uid === saved.uid && item.question === saved.question
     && item.item_type === saved.item_type && item.points === saved.points
     && sameValues(item.options, saved.options)
-    && sameValues(item.correct_answer, saved.correct_answer);
+    && sameValues(item.correct_answer, saved.correct_answer)
+    && String(item.essay_min_sentences ?? '') === String(saved.essay_min_sentences ?? '')
+    && String(item.essay_min_words ?? '') === String(saved.essay_min_words ?? '');
 });
+
+const AUTO_ESSAY_NOTE = 'Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.';
 
 const TYPE_LABELS = {
   multiple_choice: 'Multiple choice',
@@ -82,12 +87,10 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
       && Boolean(eligibilitySchoolYear) && draftSchoolYear === eligibilitySchoolYear),
   } : undefined, [manualMode, selectedSubject, selectedGrade, eligibilityTeacherId, draftTeacherId, draftSchoolYear, eligibilitySchoolYear]);
   const currentDraft = draftMode ? updateGeneratedDraft(draft, { title, instructions, items, sections, checkingMode: mode, assignment }) : null;
-  // A saved worksheet with an essay is always checked by hand.
-  const autoBlockedBy = list => !draftMode && list.some(it => it.item_type === 'essay');
-  const autoBlocked = autoBlockedBy(items);
-  // The switch to Manual forced by a loaded essay is not an edit of the teacher's.
+  // Auto is allowed with essays: the server gives them provisional marks only.
+  const autoWithEssay = !draftMode && mode === 'auto' && items.some(it => it.item_type === 'essay');
   const dirty = draftMode ? hasUnsavedGeneratedChanges(currentDraft)
-    : mode !== (autoBlockedBy(savedItems) ? 'manual' : worksheet.checking_mode || 'manual') || !sameItems(items, savedItems);
+    : mode !== (worksheet.checking_mode || 'manual') || !sameItems(items, savedItems);
   const [saveFailed, setSaveFailed] = useState(false);
   const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
     dirty, pending: saving, onClose,
@@ -131,9 +134,10 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
       options: i.options || ['', '', '', ''],
       correct_answer: result.keys[i.id]?.correct_answer ?? '',
       points: i.points,
+      essay_min_sentences: i.essay_min_sentences ?? '',
+      essay_min_words: i.essay_min_words ?? '',
     }));
     setItems(loadedItems);
-    if (loadedItems.some(i => i.item_type === 'essay')) setMode('manual');
     setSavedItems(loadedItems);
   }, [draftMode, worksheet.id, loadItems]);
 
@@ -192,7 +196,6 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
   const patch = (index, changes) => {
     clearValidation();
     setItems(prev => prev.map((it, i) => (i === index ? { ...it, ...changes } : it)));
-    if (!draftMode && changes.item_type === 'essay') setMode('manual');
   };
 
   const patchOptions = (index, optionIndex, value) => {
@@ -254,6 +257,12 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
           && splitAcceptedAnswers(it.correct_answer).length === 0) {
         return reject(`Question ${i + 1}'s answer key has no usable answers.`);
       }
+      if (it.item_type === 'essay' && !parseEssayMinimum(it.essay_min_sentences, ESSAY_MAX_SENTENCES).ok) {
+        return reject(`Question ${i + 1}: minimum sentences must be a whole number from 1 to ${ESSAY_MAX_SENTENCES}, or empty.`);
+      }
+      if (it.item_type === 'essay' && !parseEssayMinimum(it.essay_min_words, ESSAY_MAX_WORDS).ok) {
+        return reject(`Question ${i + 1}: minimum words must be a whole number from 1 to ${ESSAY_MAX_WORDS}, or empty.`);
+      }
     }
     const retryModeOnly = Boolean(partialMessage) && sameItems(items, savedItems);
     setPartialMessage('');
@@ -265,6 +274,9 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
         ? splitAcceptedAnswers(it.correct_answer)
         : it.correct_answer,
       options: it.item_type === 'multiple_choice' ? it.options.filter(o => o.trim()) : null,
+      // The essay rule; empty means none, and only essays carry one.
+      essay_min_sentences: it.item_type === 'essay' ? parseEssayMinimum(it.essay_min_sentences, ESSAY_MAX_SENTENCES).value : null,
+      essay_min_words: it.item_type === 'essay' ? parseEssayMinimum(it.essay_min_words, ESSAY_MAX_WORDS).value : null,
     })));
     // On failure the questions stay in this editor, so Save again sends them as they are.
     if (result?.ok !== true) {
@@ -275,7 +287,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
     }
     setSaveFailed(false);
     if (!retryModeOnly) setSavedItems(items);
-    const modeSaved = await setCheckingMode(worksheet.id, autoBlocked ? 'manual' : mode);
+    const modeSaved = await setCheckingMode(worksheet.id, mode);
     if (!modeSaved) {
       setPartialMessage('Questions were saved, but the checking mode was not changed. Keep this dialog open and try Save questions again.');
       setSaving(false);
@@ -366,14 +378,14 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
             <WorksheetDraftDocument draft={currentDraft} />
           </div> : <>
           <label className="flex items-center gap-2 text-sm" style={{ color: dark ? '#cbd5e1' : '#374151' }}>
-            <input type="checkbox" checked={mode === 'auto' && !autoBlocked} disabled={autoBlocked}
+            <input type="checkbox" checked={mode === 'auto'}
               onChange={e => { clearValidation(); setMode(e.target.checked ? 'auto' : 'manual'); }} />
             Auto-check this worksheet when reviewing
             <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
               (off = you score every item yourself)
             </span>
           </label>
-          {autoBlocked && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Essay questions are checked by you.</p>}
+          {autoWithEssay && <p role="note" className="text-xs" style={{ color: 'var(--text-muted)' }}>{AUTO_ESSAY_NOTE}</p>}
           {draft?.collectionId && errorFor('checkingMode') && <p role="alert" className="text-xs" style={{ color: 'var(--red)' }}>{errorFor('checkingMode')}</p>}
 
           {draftMode && <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Teacher editor · Answer key stays private</h3>}
@@ -510,7 +522,22 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
 
               {it.item_type === 'essay' && (
                 <>
-                  <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>You will score this one by hand when checking.</p>
+                  {draftMode ? <p className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>You will score this one by hand when checking.</p>
+                    : <div className="grid gap-1">
+                      <div className="flex flex-wrap gap-3">
+                        <label className="text-xs" style={{ color: 'var(--text)' }}>Minimum sentences
+                          <input type="number" min="1" max={ESSAY_MAX_SENTENCES} step="1" inputMode="numeric"
+                            aria-label={`Question ${index + 1} minimum sentences`} value={it.essay_min_sentences ?? ''}
+                            onChange={event => patch(index, { essay_min_sentences: event.target.value })}
+                            className="ml-1 w-20 h-9 px-2 rounded" style={fieldStyle} /></label>
+                        <label className="text-xs" style={{ color: 'var(--text)' }}>Minimum words
+                          <input type="number" min="1" max={ESSAY_MAX_WORDS} step="1" inputMode="numeric"
+                            aria-label={`Question ${index + 1} minimum words`} value={it.essay_min_words ?? ''}
+                            onChange={event => patch(index, { essay_min_words: event.target.value })}
+                            className="ml-1 w-24 h-9 px-2 rounded" style={fieldStyle} /></label>
+                      </div>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>If the answer meets this, it gets full points as a PROVISIONAL mark. You still confirm it before the score is released.</p>
+                    </div>}
                   {draft?.collectionId && it.essay && <div className="grid gap-2" aria-label={`Question ${index + 1} essay configuration`}>
                     <textarea aria-label={`Question ${index + 1} reference answer`} value={it.essay.referenceAnswer}
                       onChange={event => patch(index, { essay: { ...it.essay, referenceAnswer: event.target.value } })}

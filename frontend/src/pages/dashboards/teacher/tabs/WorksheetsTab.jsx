@@ -1124,6 +1124,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           loadItems={assessment.loadItems}
           loadSubmissions={assessment.loadSubmissions}
           loadAnswers={assessment.loadAnswers}
+          saveMarks={assessment.saveMarks}
           releaseScore={assessment.releaseScore}
           onClose={() => setCheckingWorksheet(null)}
         />

@@ -48,7 +48,7 @@ const sameMarks = (a, b) => {
 };
 
 const CheckSubmissionsModal = ({
-  worksheet, loadItems, loadSubmissions, loadAnswers, releaseScore, onClose,
+  worksheet, loadItems, loadSubmissions, loadAnswers, saveMarks, releaseScore, onClose,
 }) => {
   const { dark } = useTheme();
   const [submissions, setSubmissions] = useState([]);
@@ -69,6 +69,10 @@ const CheckSubmissionsModal = ({
   // teacher overrides the number — only the small "auto" tag disappears.
   const [cardState, setCardState] = useState({});
   const [autoScored, setAutoScored] = useState({});
+  // Provisional marks shown but not yet saved: { [itemId]: { points, isCorrect } }.
+  // They pre-fill the box but do not count for Release until accepted or edited.
+  const [pending, setPending] = useState({});
+  const [accepting, setAccepting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [releaseError, setReleaseError] = useState(false);
   const [reviewApproved, setReviewApproved] = useState(false);
@@ -120,6 +124,7 @@ const CheckSubmissionsModal = ({
     setLoadedMarks({});
     setAutoScored({});
     setCardState({});
+    setPending({});
     setAnswersFailed(false);
     setReleaseError(false);
     setReviewApproved(false);
@@ -130,7 +135,7 @@ const CheckSubmissionsModal = ({
     if (!aliveRef.current || openTokenRef.current !== token) return;
     setAnswersLoading(false);
     if (!loaded) { setAnswersFailed(true); return; }
-    const { answers: loadedAnswers, prior } = loaded;
+    const { answers: loadedAnswers, prior, provisional = {} } = loaded;
     setAnswers(loadedAnswers);
 
     const states = {};
@@ -170,6 +175,16 @@ const CheckSubmissionsModal = ({
       });
     }
 
+    // The server's provisional marks fill items with no saved mark; a saved mark wins.
+    const pendingMarks = {};
+    Object.entries(provisional).forEach(([itemId, mark]) => {
+      if (prior[itemId] !== undefined || !items.some(it => it.id === itemId)) return;
+      prefilled[itemId] = clampMark(itemId, mark.points);
+      flagged[itemId] = true;
+      states[itemId] = 'provisional';
+      pendingMarks[itemId] = { points: prefilled[itemId], isCorrect: mark.isCorrect };
+    });
+
     // Marks already on record win over the checker's guess: they are what the
     // teacher approved last time, including any override they made.
     // Clamped like any other mark: these come from the database, so an
@@ -181,6 +196,7 @@ const CheckSubmissionsModal = ({
     });
 
     setCardState(states);
+    setPending(pendingMarks);
     setMarks(prefilled);
     setLoadedMarks(prefilled);
     setAutoScored(flagged);
@@ -201,13 +217,30 @@ const CheckSubmissionsModal = ({
   const setMark = (itemId, value) => {
     setMarks(p => ({ ...p, [itemId]: clampMark(itemId, value) }));
     setAutoScored(p => ({ ...p, [itemId]: false }));
+    setPending(p => { const rest = { ...p }; delete rest[itemId]; return rest; });
     setReviewApproved(false);
+  };
+
+  const pendingIds = Object.keys(pending);
+  const acceptProvisional = async () => {
+    if (accepting || saving || pendingIds.length === 0 || typeof saveMarks !== 'function') return;
+    setAccepting(true);
+    const ok = await saveMarks(active.id, pendingIds.map(itemId => ({
+      item_id: itemId, pointsEarned: pending[itemId].points, isCorrect: pending[itemId].isCorrect,
+    })));
+    if (aliveRef.current && ok) {
+      setLoadedMarks(previous => ({ ...previous, ...Object.fromEntries(pendingIds.map(itemId => [itemId, pending[itemId].points])) }));
+      setCardState(previous => ({ ...previous, ...Object.fromEntries(pendingIds.map(itemId => [itemId, 'accepted'])) }));
+      setPending({});
+    }
+    if (aliveRef.current) setAccepting(false);
   };
 
   const total = round2(items.reduce((sum, i) => sum + (Number(i.points) || 0), 0));
   const given = round2(Object.values(marks).reduce((sum, v) => sum + (Number(v) || 0), 0));
   const untouched = items.filter(it => marks[it.id] === undefined || marks[it.id] === '');
-  const canRelease = !answersLoading && !answersFailed && untouched.length === 0 && items.length > 0;
+  const canRelease = !answersLoading && !answersFailed && untouched.length === 0 && items.length > 0
+    && pendingIds.length === 0 && !accepting;
 
   const release = async () => {
     if (!canRelease || !reviewApproved || saving) return;
@@ -305,6 +338,8 @@ const CheckSubmissionsModal = ({
     'auto-partial': { border: '#0ea5e9', bg: 'rgba(14,165,233,0.07)', tag: 'Auto — partly right', tagColor: dark ? '#38bdf8' : '#0284c7' },
     essay: { border: '#d97706', bg: 'rgba(217,119,6,0.07)', tag: 'Essay — score by hand', tagColor: '#d97706' },
     unscorable: { border: '#d97706', bg: 'rgba(217,119,6,0.07)', tag: 'No answer key — score by hand', tagColor: '#d97706' },
+    provisional: { border: '#0ea5e9', bg: 'rgba(14,165,233,0.07)', tag: 'Auto (provisional)', tagColor: dark ? '#38bdf8' : '#0284c7' },
+    accepted: { border: '#16a34a', bg: 'rgba(22,163,74,0.07)', tag: 'Auto (provisional) — accepted', tagColor: '#16a34a' },
     manual: { border: dark ? '#334155' : '#e2e8f0', bg: 'transparent', tag: null, tagColor: null },
   };
 
@@ -364,7 +399,7 @@ const CheckSubmissionsModal = ({
                       {style.tag && (
                         <span className="text-[11px] font-semibold" style={{ color: style.tagColor }}>
                           {style.tag}
-                          {cardState[it.id]?.startsWith('auto') && autoScored[it.id] === false ? ' (edited)' : ''}
+                          {(cardState[it.id]?.startsWith('auto') || cardState[it.id] === 'provisional') && autoScored[it.id] === false ? ' (edited)' : ''}
                         </span>
                       )}
                     </div>
@@ -437,8 +472,18 @@ const CheckSubmissionsModal = ({
                   before this can be released.
                 </p>
               )}
-              <div className="flex justify-end gap-2">
+              {pendingIds.length > 0 && (
+                <p className="text-xs" style={{ color: '#d97706' }}>
+                  {pendingIds.length} provisional mark{pendingIds.length === 1 ? '' : 's'} must be accepted or changed before this can be released.
+                </p>
+              )}
+              <div className="flex justify-end gap-2 flex-wrap">
                 <Btn variant="outline" onClick={() => requestClose(() => setActive(null))}>Back</Btn>
+                {pendingIds.length > 0 && typeof saveMarks === 'function' && (
+                  <Btn variant="outline" onClick={acceptProvisional} disabled={accepting || saving} busy={accepting}>
+                    {accepting ? 'Saving…' : 'Accept provisional marks'}
+                  </Btn>
+                )}
                 <Btn variant="outline" onClick={() => setReviewApproved(true)} disabled={!canRelease || reviewApproved || saving}>
                   {reviewApproved ? 'Review approved locally' : 'Approve review locally'}
                 </Btn>

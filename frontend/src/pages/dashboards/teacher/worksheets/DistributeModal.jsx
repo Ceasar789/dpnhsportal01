@@ -69,8 +69,8 @@ const DistributeModal = ({
     setDueTime(joinClockTime(next.hour, next.minute, next.period));
     setTimeError('');
   };
-  // With loadItems, Auto is offered only if the real items allow it: the
-  // database refuses Auto for a task with any essay item.
+  // With loadItems, the real items are checked: an essay is allowed with Auto (its
+  // marks are provisional until the teacher confirms); a failed read forces Manual.
   const [itemCheck, setItemCheck] = useState(loadItems ? 'loading' : 'skipped');
 
   const [roster, setRoster] = useState([]);
@@ -175,12 +175,11 @@ const DistributeModal = ({
   const storedMode = task.checking_mode === 'auto' ? 'auto' : 'manual';
   const modeLocked = assignees.length > 0;
   // The row carries no item types: an Assignment is essays and zero items is an
-  // Activity. The database also refuses auto for any other task with an essay.
+  // Activity.
   const manualOnly = task.task_type === 'assignment' || !Number(task.items);
-  const autoBlocked = manualOnly || itemCheck === 'essay' || itemCheck === 'failed';
+  const autoBlocked = manualOnly || itemCheck === 'failed';
   const modeReason = manualOnly ? 'Auto-check is not available for this task'
-    : itemCheck === 'essay' ? 'Auto-check is not available because this task has essay questions.'
-      : itemCheck === 'failed' ? 'Could not check the questions, so Manual check will be used.' : '';
+    : itemCheck === 'failed' ? 'Could not check the questions, so Manual check will be used.' : '';
   const checkingMode = modeLocked ? storedMode : autoBlocked ? 'manual' : chosenMode;
 
   const dueAt = combineDateAndTime(dueDate, dueTime);
@@ -330,6 +329,8 @@ const DistributeModal = ({
               {modeLocked ? <p className="text-xs mt-1" style={muted}>Locked after the first distribution.</p>
                 : itemCheck === 'loading' && !manualOnly ? <p role="status" className="text-xs mt-1" style={muted}>Checking questions...</p>
                   : modeReason && <p className="text-xs mt-1" style={muted}>{modeReason}</p>}
+              {checkingMode === 'auto' && itemCheck === 'essay' && <p role="note" className="text-xs mt-1" style={muted}>
+                Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.</p>}
             </fieldset>
 
             {result && (

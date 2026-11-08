@@ -178,7 +178,7 @@ describe('confirmation', () => {
     state.submitError = null;
     fireEvent.click(mainSubmit());
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Submit' }));
-    expect(await screen.findByText('Submitted. Your teacher will check it.')).toBeTruthy();
+    expect(await screen.findByText('Submitted.')).toBeTruthy();
     expect(updates()).toHaveLength(2);
   });
 });

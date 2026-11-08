@@ -137,16 +137,17 @@ describe('the due time must be later than now', () => {
 });
 
 describe('Auto-check from the real items', () => {
-  it('an essay item forces Manual, disables Auto and says why', async () => {
+  it('an essay item allows Auto with the provisional-mark note, sent as the fifth argument', async () => {
     const { distributeTask } = await open({ loadItems: vi.fn(async () => withEssay) });
-    await screen.findByText('Auto-check is not available because this task has essay questions.');
-    expect(radio('Auto-check').disabled).toBe(true);
-    expect(radio('Manual check').checked).toBe(true);
+    await screen.findByText('Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.');
+    expect(screen.queryByText('Auto-check is not available because this task has essay questions.')).toBeNull();
+    expect(radio('Auto-check').disabled).toBe(false);
+    expect(radio('Auto-check').checked).toBe(true);
     fireEvent.click(screen.getByRole('checkbox', { name: /Ana/ }));
     pick(FUTURE);
     fireEvent.click(review());
     await confirm();
-    expect(distributeTask.mock.calls[0][4]).toBe('manual');
+    expect(distributeTask.mock.calls[0][4]).toBe('auto');
   });
 
   it('only objective items allow Auto, sent as the fifth argument', async () => {

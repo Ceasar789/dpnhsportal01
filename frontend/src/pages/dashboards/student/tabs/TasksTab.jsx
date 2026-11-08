@@ -22,6 +22,14 @@ import { hasStudentAnswer, isHandout } from './studentAnswers';
 import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 
+// A deterrent, not a guarantee: the paper cannot be selected, copied, cut,
+// dragged or right-clicked, while answer fields keep working as before.
+const inAnswerField = event => Boolean(event.target?.closest?.('input, textarea, select'));
+const blockOutsideFields = (event) => { if (!inAnswerField(event)) event.preventDefault(); };
+const PAPER_GUARD = { onCopy: blockOutsideFields, onCut: blockOutsideFields,
+  onDragStart: blockOutsideFields, onContextMenu: blockOutsideFields };
+const FIELD_SELECT = { userSelect: 'text', WebkitUserSelect: 'text' };
+
 // Colors for the countdown badge, one per formatCountdown tone. Kept in one
 // place so the meaning of a color (late vs. soon vs. plenty of time) stays
 // consistent no matter which row renders it.
@@ -536,9 +544,9 @@ const StudentTasksTab = () => {
         <div className="mx-auto" style={{ maxWidth: 1100 }}>
           <button onClick={() => { viewRequestRef.current += 1; setWorksheetView(null); resetSaveState(); setActive(null); }}
             className="text-sm mb-4" style={muted}>← Back</button>
-          <article aria-label="Worksheet test paper" className="rounded border p-5 sm:p-8 shadow-sm"
+          <article aria-label="Worksheet test paper" className="rounded border p-5 sm:p-8 shadow-sm" {...PAPER_GUARD}
             style={{ backgroundColor: '#fffefb', borderColor: '#c9c3b8', color: '#1f1f1f',
-              fontFamily: "Georgia, 'Times New Roman', serif" }}>
+              fontFamily: "Georgia, 'Times New Roman', serif", userSelect: 'none', WebkitUserSelect: 'none' }}>
             <StudentWorksheetHeader title={active.sheet.title} subject={active.sheet.subject}
               grade={enrolled?.sections?.grade_level} section={enrolled?.sections?.name}
               schoolYear={enrolled?.sections?.school_year} studentName={userData?.name}
@@ -573,7 +581,7 @@ const StudentTasksTab = () => {
                 {it.item_type === 'multiple_choice' && (it.options || []).map(opt => (
                   <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
-                      onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF' }} />
+                      onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF', ...FIELD_SELECT }} />
                     {opt}
                   </label>
                 ))}
@@ -584,7 +592,7 @@ const StudentTasksTab = () => {
                 {it.item_type === 'true_false' && TRUE_FALSE_VALUES.map(opt => (
                   <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
-                      onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF' }} />
+                      onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF', ...FIELD_SELECT }} />
                     {opt}
                   </label>
                 ))}
@@ -595,7 +603,7 @@ const StudentTasksTab = () => {
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full h-9 px-3 rounded-lg text-sm outline-none"
                     style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
-                             color: '#1f1f1f' }} />
+                             color: '#1f1f1f', ...FIELD_SELECT }} />
                 )}
 
                 {it.item_type === 'enumeration' && (
@@ -606,7 +614,7 @@ const StudentTasksTab = () => {
                     placeholder="One answer per line"
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                     style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
-                             color: '#1f1f1f' }} />
+                             color: '#1f1f1f', ...FIELD_SELECT }} />
                 )}
 
                 {it.item_type === 'essay' && (
@@ -615,7 +623,7 @@ const StudentTasksTab = () => {
                     onBlur={e => saveAnswer(it.id, e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                     style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
-                             color: '#1f1f1f' }} />
+                             color: '#1f1f1f', ...FIELD_SELECT }} />
                 )}
               </div>
             ))}
@@ -687,6 +695,8 @@ const StudentTasksTab = () => {
             const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
             const typeLabel = TASK_TYPE_LABELS[row.sheet.task_type] || 'Task';
             const handoutRow = isHandout(row.sheet);
+            // Once handed in, the deadline no longer counts down or reads as late.
+            const handedIn = Boolean(row.submission) && row.submission.status !== 'in_progress';
             return (
               <Card key={row.assignee.task_id} className="p-4 flex items-center justify-between">
                 <div>
@@ -708,7 +718,7 @@ const StudentTasksTab = () => {
                 </div>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                    {!(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
+                    {!handedIn && !(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
                     <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>
                   </div>
                   <button onClick={() => open(row)} disabled={busy}

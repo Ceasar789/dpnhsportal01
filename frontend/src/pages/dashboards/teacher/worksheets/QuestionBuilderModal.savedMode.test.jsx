@@ -29,11 +29,12 @@ describe('Auto-check toggle on a saved worksheet', () => {
     expect(screen.getByText('Essay questions are checked by you.')).toBeTruthy();
   });
 
-  it('no questions turns Auto off and disables it, with the reason', async () => {
+  it('a Quiz stored as Auto with no questions opens with Auto ticked and enabled', async () => {
     await show({ items: [] });
-    expect(auto().checked).toBe(false);
-    expect(auto().disabled).toBe(true);
-    expect(screen.getByText('Add questions first.')).toBeTruthy();
+    expect(auto().checked).toBe(true);
+    expect(auto().disabled).toBe(false);
+    expect(screen.queryByText('Add questions first.')).toBeNull();
+    expect(screen.queryByText('Essay questions are checked by you.')).toBeNull();
   });
 
   it('all objective questions keep the stored Auto', async () => {
@@ -52,14 +53,27 @@ describe('Auto-check toggle on a saved worksheet', () => {
     expect(auto().checked).toBe(false);
   });
 
-  it('deleting the last question turns Auto off', async () => {
+  it("deleting the last question keeps the teacher's Auto", async () => {
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'Delete question 1' }));
-    expect(auto().checked).toBe(false);
-    expect(auto().disabled).toBe(true);
+    expect(auto().checked).toBe(true);
+    expect(auto().disabled).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: /^Add question$/ }));
+    expect(auto().checked).toBe(true);
+  });
+
+  it('deleting the essay leaves Auto off but enabled', async () => {
+    await show({ items: [mc, essay] });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete question 2' }));
     expect(auto().disabled).toBe(false);
     expect(auto().checked).toBe(false);
+  });
+
+  it('an essay worksheet stored as Auto does not count as changed on open', async () => {
+    const { onClose } = await show({ items: [mc, essay] });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Discard unsaved changes?')).toBeNull();
   });
 
   it('a stored Auto with a loaded essay stays off after the essay is changed', async () => {
@@ -75,11 +89,15 @@ describe('Auto-check toggle on a saved worksheet', () => {
     expect(setCheckingMode).toHaveBeenCalledWith('w1', 'manual');
   });
 
-  it('saving with no questions sends manual', async () => {
+  it("saving with no questions sends the teacher's mode as it is", async () => {
     const { setCheckingMode, saveItems } = await show({ items: [] });
     await save();
     expect(saveItems).toHaveBeenCalledWith('w1', []);
-    expect(setCheckingMode).toHaveBeenCalledWith('w1', 'manual');
+    expect(setCheckingMode).toHaveBeenCalledWith('w1', 'auto');
+    cleanup();
+    const manual = await show({ items: [], mode: 'manual' });
+    await save();
+    expect(manual.setCheckingMode).toHaveBeenCalledWith('w1', 'manual');
   });
 
   it('saving all objective questions with Auto kept on sends auto', async () => {

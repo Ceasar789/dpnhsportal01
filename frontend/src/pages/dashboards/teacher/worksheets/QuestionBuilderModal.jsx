@@ -82,11 +82,12 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
       && Boolean(eligibilitySchoolYear) && draftSchoolYear === eligibilitySchoolYear),
   } : undefined, [manualMode, selectedSubject, selectedGrade, eligibilityTeacherId, draftTeacherId, draftSchoolYear, eligibilitySchoolYear]);
   const currentDraft = draftMode ? updateGeneratedDraft(draft, { title, instructions, items, sections, checkingMode: mode, assignment }) : null;
-  const dirty = draftMode ? hasUnsavedGeneratedChanges(currentDraft)
-    : mode !== (worksheet.checking_mode || 'manual') || !sameItems(items, savedItems);
-  // A saved worksheet with an essay, or with no questions, is always checked by hand.
-  const autoBlockedBy = list => !draftMode && (list.length === 0 || list.some(it => it.item_type === 'essay'));
+  // A saved worksheet with an essay is always checked by hand.
+  const autoBlockedBy = list => !draftMode && list.some(it => it.item_type === 'essay');
   const autoBlocked = autoBlockedBy(items);
+  // The switch to Manual forced by a loaded essay is not an edit of the teacher's.
+  const dirty = draftMode ? hasUnsavedGeneratedChanges(currentDraft)
+    : mode !== (autoBlockedBy(savedItems) ? 'manual' : worksheet.checking_mode || 'manual') || !sameItems(items, savedItems);
   const [saveFailed, setSaveFailed] = useState(false);
   const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
     dirty, pending: saving, onClose,
@@ -132,7 +133,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
       points: i.points,
     }));
     setItems(loadedItems);
-    if (loadedItems.length === 0 || loadedItems.some(i => i.item_type === 'essay')) setMode('manual');
+    if (loadedItems.some(i => i.item_type === 'essay')) setMode('manual');
     setSavedItems(loadedItems);
   }, [draftMode, worksheet.id, loadItems]);
 
@@ -372,8 +373,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
               (off = you score every item yourself)
             </span>
           </label>
-          {autoBlocked && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {items.length === 0 ? 'Add questions first.' : 'Essay questions are checked by you.'}</p>}
+          {autoBlocked && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Essay questions are checked by you.</p>}
           {draft?.collectionId && errorFor('checkingMode') && <p role="alert" className="text-xs" style={{ color: 'var(--red)' }}>{errorFor('checkingMode')}</p>}
 
           {draftMode && <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Teacher editor · Answer key stays private</h3>}
@@ -427,7 +427,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                  <div className="ml-auto flex gap-1">
                   <button onClick={() => move(index, -1)} aria-label={`Move question ${index + 1} up`} title="Move up"><ChevronUp size={14} aria-hidden="true" /></button>
                   <button onClick={() => move(index, 1)} aria-label={`Move question ${index + 1} down`} title="Move down"><ChevronDown size={14} aria-hidden="true" /></button>
-                  <button onClick={() => { clearValidation(); setItems(prev => prev.filter((_, i) => i !== index)); if (autoBlockedBy(items.filter((_, i) => i !== index))) setMode('manual'); }} aria-label={`Delete question ${index + 1}`} title="Delete">
+                  <button onClick={() => { clearValidation(); setItems(prev => prev.filter((_, i) => i !== index)); }} aria-label={`Delete question ${index + 1}`} title="Delete">
                     <Trash2 size={14} className="text-red-500" aria-hidden="true" />
                   </button>
                 </div>

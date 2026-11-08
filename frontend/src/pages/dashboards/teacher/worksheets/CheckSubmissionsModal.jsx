@@ -37,6 +37,11 @@ const perItemMarks = (items, keys, marks) => items.map(i => {
 const BULK_WARNING = 'Auto-check can mark valid answers wrong on open-ended questions such as enumeration. Open a submission to review it before releasing.';
 const BULK_UNCONFIRMED = 'Could not confirm the release. Check the submission and try again.';
 
+// An answer or key as readable text: a list (enumeration) shows one entry per line.
+const answerText = value => (Array.isArray(value) ? value.filter(v => String(v).trim()).join('\n')
+  : value === null || value === undefined ? '' : String(value));
+const boxClass = 'mt-1 rounded-lg border px-3 py-2 text-sm break-words whitespace-pre-wrap';
+
 const sameMarks = (a, b) => {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   return [...keys].every(key => a[key] === b[key]);
@@ -363,16 +368,26 @@ const CheckSubmissionsModal = ({
                         </span>
                       )}
                     </div>
-                    <p className="text-xs mt-2 break-words" style={muted}>
-                      Answer: {Array.isArray(answers[it.id]) ? answers[it.id].join(', ') : (answers[it.id] || '— blank —')}
-                    </p>
-                    {it.item_type !== 'essay' && (
-                      <p className="text-xs break-words" style={muted}>
-                        Expected: {Array.isArray(keys[it.id]?.correct_answer)
-                          ? keys[it.id].correct_answer.join(', ')
-                          : String(keys[it.id]?.correct_answer ?? '—')}
-                      </p>
-                    )}
+                    <div className="mt-3 grid gap-2">
+                      <div>
+                        <p className="text-xs font-bold" style={{ color: 'var(--text)' }}>Student answer</p>
+                        <div className={`${boxClass} font-semibold`} data-answer-box="student"
+                          style={{ color: 'var(--text)', borderColor: 'var(--border)', backgroundColor: 'var(--card-bg)' }}>
+                          {answerText(answers[it.id]).trim()
+                            ? answerText(answers[it.id])
+                            : <span className="font-normal" style={{ color: 'var(--text-muted)' }}>No answer</span>}
+                        </div>
+                      </div>
+                      {it.item_type !== 'essay' && (
+                        <div>
+                          <p className="text-xs font-bold" style={{ color: 'var(--text)' }}>Expected answer</p>
+                          <div className={boxClass} data-answer-box="expected"
+                            style={{ color: 'var(--text)', borderColor: 'var(--green)', backgroundColor: 'rgba(22,163,74,0.08)' }}>
+                            {answerText(keys[it.id]?.correct_answer) || '—'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       {!unscorable && (
                         <>

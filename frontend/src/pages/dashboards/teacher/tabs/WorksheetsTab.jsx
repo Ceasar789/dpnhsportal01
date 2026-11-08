@@ -427,7 +427,9 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const handleDelete = (id) => setConfirmWorksheetDelete(id);
 
   const handlePreview = (worksheet) => {
-    if (!worksheet.file_url && worksheet.source_lesson_plan_id) {
+    // Day tasks and Create Worksheet rows are papers; a file or a collection keeps its own preview.
+    if (!worksheet.file_url && !worksheet.collection_id
+      && (worksheet.source_lesson_plan_id || worksheet.origin === 'manual')) {
       setDayTaskPreviewWorksheet(worksheet);
       return;
     }

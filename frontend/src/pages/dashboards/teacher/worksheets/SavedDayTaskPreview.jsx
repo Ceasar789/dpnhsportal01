@@ -30,6 +30,8 @@ export default function SavedDayTaskPreview({ worksheet, loadItems, onClose }) {
     {state.status === 'failed' && <p role="alert">This task could not be loaded. Close this preview and try again.</p>}
     {state.status === 'ready' && <div className="space-y-4">
       <WorksheetDraftDocument draft={state.draft} audience="student" {...documentProps} />
+      {state.draft.questions.length === 0 && worksheet.task_type !== 'worksheet'
+        && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>No questions yet. Open Questions to add some.</p>}
       {state.draft.questions.length > 0 && <label className="flex items-center gap-2 min-h-11 text-sm" style={{ color: 'var(--text)' }}>
         <input type="checkbox" checked={showAnswerKey} onChange={event => setShowAnswerKey(event.target.checked)} />
         Show teacher answer key

@@ -21,7 +21,7 @@ import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import DistributeModal from '../worksheets/DistributeModal';
 import CreateTaskModal from '../worksheets/CreateTaskModal';
 import { saveManualTask } from '../worksheets/manualTaskSave';
-import { SOURCE_FILTERS, worksheetSource } from './worksheetSource';
+import { MANUAL, SOURCE_FILTERS, worksheetSource } from './worksheetSource';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
@@ -53,7 +53,8 @@ const WorksheetActions = ({ worksheet, onDistribute, onQuestions, onCheck, onEnc
   const menuRef = useRef(null);
   const actions = [
     { label: 'Distribute', run: onDistribute, disabled: Boolean(distributeReason), reason: distributeReason },
-    ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Questions', run: onQuestions, disabled: locked, reason: lockReason }]),
+    // AI-generated rows show their questions in Preview; Questions is how manual rows get theirs.
+    ...(worksheetSource(worksheet) === MANUAL ? [{ label: 'Questions', run: onQuestions, disabled: locked, reason: lockReason }] : []),
     { label: 'Check submissions', run: onCheck },
     { label: 'Encode scores', run: onEncode },
     ...(worksheet.file_url ? [{ label: 'Open file', run: onDownload }] : []),
@@ -961,7 +962,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 locked={!countKnown || distributedCount > 0} lockReason={countKnown && distributedCount > 0 ? 'Already distributed' : null}
                 distributeReason={distributeReason}
                 onDistribute={() => setDistributingTask(ws)}
-                 onQuestions={() => { if (ws.origin !== 'ai_generated') setBuildingWorksheet(ws); }} onCheck={() => setCheckingWorksheet(ws)}
+                 onQuestions={() => { if (worksheetSource(ws) === MANUAL) setBuildingWorksheet(ws); }} onCheck={() => setCheckingWorksheet(ws)}
                 onEncode={() => { setScoreSavedMessage(''); setEncodingWorksheet(ws); }} onDownload={() => downloadWorksheet(ws)}
                 onDelete={() => handleDelete(ws.id)} />
             </div>
@@ -1107,7 +1108,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       {creatingTask && <CreateTaskModal subjectPicker={subjectFields('create-task')} subjectReady={subjectReady}
         saving={saving} onSave={createTask} onClose={() => setCreatingTask(false)} />}
 
-      {buildingWorksheet && buildingWorksheet.origin !== 'ai_generated' && (
+      {buildingWorksheet && worksheetSource(buildingWorksheet) === MANUAL && (
         <QuestionBuilderModal
           worksheet={buildingWorksheet}
           loadItems={assessment.loadItems}

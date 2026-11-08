@@ -297,11 +297,18 @@ BEGIN
   v_report := v_report || ' null_mode=' || CASE WHEN v_ok THEN 'PASS' ELSE 'FAIL' END;
   IF v_ok IS NOT TRUE THEN v_failures := v_failures + 1; END IF;
 
+  -- Auto with an essay is accepted (day-task-distribute-auto-essay.sql). The block
+  -- undoes its own writes, so the later essay_manual case meets the same worksheet.
   v_ok := false;
   BEGIN
-    PERFORM public.eduscribe_day_task_distribute_v1(v_essay, v_handled, ARRAY[v_student_a], v_due, 'auto');
-  EXCEPTION WHEN OTHERS THEN v_ok := SQLERRM = 'invalid_checking_mode'; END;
-  v_report := v_report || ' essay_auto=' || CASE WHEN v_ok THEN 'PASS' ELSE 'FAIL' END;
+    v_response := public.eduscribe_day_task_distribute_v1(v_essay, v_handled, ARRAY[v_student_a], v_due, 'auto');
+    v_ok := v_response->>'checkingMode' = 'auto'
+      AND (SELECT w.checking_mode FROM public.worksheets w WHERE w.id = v_essay) = 'auto';
+    RAISE EXCEPTION 'essay_auto_undo';
+  EXCEPTION WHEN OTHERS THEN v_ok := v_ok AND SQLERRM = 'essay_auto_undo'; END;
+  v_ok := v_ok AND (SELECT w.checking_mode FROM public.worksheets w WHERE w.id = v_essay) = 'manual'
+    AND NOT EXISTS (SELECT 1 FROM public.task_assignees a WHERE a.task_id = v_essay);
+  v_report := v_report || ' essay_auto_accepted=' || CASE WHEN v_ok THEN 'PASS' ELSE 'FAIL' END;
   IF v_ok IS NOT TRUE THEN v_failures := v_failures + 1; END IF;
 
   -- One bad student rejects the whole call: nothing is half written.

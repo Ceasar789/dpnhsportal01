@@ -167,12 +167,15 @@ BEGIN
   v_report := v_report || ' f_exam_mode_locked_like_quiz=' || CASE WHEN v_ok THEN 'PASS' ELSE 'FAIL' END;
   IF v_ok IS NOT TRUE THEN v_failures := v_failures + 1; END IF;
 
-  -- (f) An exam with an essay cannot go out as auto-checked.
+  -- (f) An exam with an essay can go out as auto-checked, like a quiz
+  -- (day-task-distribute-auto-essay.sql).
   v_ok := false;
   BEGIN
-    PERFORM public.eduscribe_day_task_distribute_v1(v_exam_essay, v_section, ARRAY[v_student], v_due, 'auto');
-  EXCEPTION WHEN OTHERS THEN v_ok := SQLERRM = 'invalid_checking_mode'; END;
-  v_report := v_report || ' f_essay_exam_auto_refused=' || CASE WHEN v_ok THEN 'PASS' ELSE 'FAIL' END;
+    v_response := public.eduscribe_day_task_distribute_v1(v_exam_essay, v_section, ARRAY[v_student], v_due, 'auto');
+    v_ok := v_response->>'checkingMode' = 'auto'
+      AND (SELECT w.checking_mode FROM public.worksheets w WHERE w.id = v_exam_essay) = 'auto';
+  EXCEPTION WHEN OTHERS THEN v_ok := false; END;
+  v_report := v_report || ' f_essay_exam_auto_accepted=' || CASE WHEN v_ok THEN 'PASS' ELSE 'FAIL' END;
   IF v_ok IS NOT TRUE THEN v_failures := v_failures + 1; END IF;
 
   RAISE EXCEPTION 'selftest_forced_rollback';

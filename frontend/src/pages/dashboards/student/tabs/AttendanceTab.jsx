@@ -8,7 +8,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { AlertTriangle, CalendarCheck, CheckCircle, Clock, Loader2 } from 'lucide-react';
-import { useTheme, useToast, Card, Badge } from '../hooks';
+import { useToast, Card, Badge, StatCard } from '../hooks';
+import { BLUE, GREEN, NEUTRAL, RED, YELLOW } from '../badgeTones';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { Btn } from '../../teacher/shared/ui';
 import PageHeader from '../PageHeader';
@@ -16,9 +17,12 @@ import PageHeader from '../PageHeader';
 // Attendance status is stored capitalised ('Present', 'Absent', 'Late',
 // 'Excused'). Normalising on read means either casing renders correctly.
 const statusKey = (row) => String(row?.status || '').toLowerCase();
+// Same meanings as the teacher Attendance tab: Present green, Absent red,
+// Late yellow, Excused blue; anything else neutral.
+const STATUS_TONE = { present: GREEN, absent: RED, late: YELLOW, excused: BLUE };
+const statusTone = (row) => STATUS_TONE[statusKey(row)] || NEUTRAL;
 
 const AttendanceTab = () => {
-  const { dark } = useTheme();
   const { userData } = useAuth();
   const { showToast, Toast } = useToast();
 
@@ -79,69 +83,45 @@ const AttendanceTab = () => {
       <PageHeader title="My Attendance" subtitle="Your attendance as recorded by your adviser."
         onRefresh={fetchAttendance} refreshLabel="Refresh attendance" />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="p-6 text-center">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
-            style={{ backgroundColor: dark ? '#064e3b' : '#dcfce7' }}>
-            <CheckCircle size={24} style={{ color: '#16a34a' }} />
-          </div>
-          <p className="text-3xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : loadError ? '—' : stats.present}
-          </p>
-          <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Present</p>
-        </Card>
-        <Card className="p-6 text-center">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
-            style={{ backgroundColor: dark ? '#713f12' : '#fef3c7' }}>
-            <Clock size={24} style={{ color: '#d97706' }} />
-          </div>
-          <p className="text-3xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : loadError ? '—' : stats.late}
-          </p>
-          <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Late</p>
-        </Card>
-        <Card className="p-6 text-center">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
-            style={{ backgroundColor: dark ? '#450a0a' : '#fee2e2' }}>
-            <AlertTriangle size={24} style={{ color: '#dc2626' }} />
-          </div>
-          <p className="text-3xl font-bold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : loadError ? '—' : stats.absent}
-          </p>
-          <p className="text-sm" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Absent</p>
-        </Card>
-      </div>
+      <section aria-label="Attendance totals" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <StatCard label="Present" icon={CheckCircle}
+          value={loading ? <Loader2 className="animate-spin" size={20} /> : loadError ? '—' : stats.present} />
+        <StatCard label="Late" icon={Clock}
+          value={loading ? <Loader2 className="animate-spin" size={20} /> : loadError ? '—' : stats.late} />
+        <StatCard label="Absent" icon={AlertTriangle}
+          value={loading ? <Loader2 className="animate-spin" size={20} /> : loadError ? '—' : stats.absent} />
+      </section>
 
       {/* Attendance Rate Bar */}
       <Card className="p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Attendance Rate</h2>
-          <span className="text-sm font-bold" style={{ color: loadError ? '#dc2626' : attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#d97706' : '#dc2626' }}>
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Attendance Rate</h2>
+          <span className="text-sm font-bold" style={{ color: loadError ? 'var(--badge-red-fg)' : 'var(--text)' }}>
             {loadError ? '—' : `${attendanceRate}%`}
           </span>
         </div>
-        <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: dark ? '#334155' : '#e2e8f0' }}>
+        <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--card2)' }}>
           <div className="h-full rounded-full transition-all" 
-            style={{ width: loadError ? '0%' : `${attendanceRate}%`, backgroundColor: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#FEB300' : '#dc2626' }} />
+            style={{ width: loadError ? '0%' : `${attendanceRate}%`, backgroundColor: 'var(--accent)' }} />
         </div>
-        <p className="text-xs mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
           {loadError ? 'Could not load your attendance.' : `${stats.total} total days recorded`}
         </p>
       </Card>
 
       {/* Recent Records */}
       <Card className="overflow-hidden">
-        <div className="p-4 border-b" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
-          <h2 className="text-sm font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Recent Records</h2>
+        <div className="p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--text)' }}>Recent Records</h2>
         </div>
         {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="animate-spin" style={{ color: dark ? '#64748b' : '#94a3b8' }} /></div>
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
         ) : loadError ? (
           <div className="p-8 text-center">
-            <p className="text-base font-semibold mb-1" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+            <p className="text-base font-semibold mb-1" style={{ color: 'var(--text)' }}>
               Could not load your attendance.
             </p>
-            <p className="mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+            <p className="mb-3" style={{ color: 'var(--text-muted)' }}>
               This is a loading problem, not an empty record. Check your connection and try again.
             </p>
             <div className="flex justify-center">
@@ -150,35 +130,35 @@ const AttendanceTab = () => {
           </div>
         ) : records.length === 0 ? (
           <div className="p-8 text-center">
-            <CalendarCheck size={40} className="mx-auto mb-3" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
-            <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>No attendance has been recorded for you yet.</p>
+            <CalendarCheck size={40} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
+            <p style={{ color: 'var(--text-muted)' }}>No attendance has been recorded for you yet.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
+                <tr style={{ backgroundColor: 'var(--card2)' }}>
                   {['Date', 'Status', 'Subject', 'Notes'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold" style={{ color: dark ? '#94a3b8' : '#94a3b8' }}>{h}</th>
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {records.slice(0, 10).map((r, i) => (
-                  <tr key={r.id || i} className="transition-colors" style={{ borderTop: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-                    <td className="px-5 py-3.5 text-sm" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+                  <tr key={r.id || i} className="transition-colors" style={{ borderTop: '1px solid var(--border)' }}>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: 'var(--text)' }}>
                       {new Date(r.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge 
-                        color={statusKey(r) === 'present' ? '#16a34a' : statusKey(r) === 'late' ? '#d97706' : '#dc2626'}
-                        bg={statusKey(r) === 'present' ? 'rgba(22,163,74,0.12)' : statusKey(r) === 'late' ? 'rgba(217,119,6,0.12)' : 'rgba(220,38,38,0.12)'}
+                        color={statusTone(r).color}
+                        bg={statusTone(r).bg}
                       >
                         {r.status}
                       </Badge>
                     </td>
-                    <td className="px-5 py-3.5 text-sm" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{r.subject || '—'}</td>
-                    <td className="px-5 py-3.5 text-sm" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{r.remarks || '—'}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>{r.subject || '—'}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>{r.remarks || '—'}</td>
                   </tr>
                 ))}
               </tbody>

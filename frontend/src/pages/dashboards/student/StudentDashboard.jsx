@@ -195,7 +195,7 @@ const StudentLayout = ({ children }) => {
         <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
           <FlippingLogo className="w-12 h-12 sm:w-16 sm:h-16" />
           <div className="hidden sm:block leading-tight">
-            <h1 className="font-work font-bold text-2xl tracking-tight leading-none"><span style={{ color: '#FEB300' }}>Edu</span><span style={{ color: '#00D4FF' }}>Scribe</span></h1>
+            <h1 className="font-work font-bold text-2xl tracking-tight leading-none"><span style={{ color: 'var(--brand-gold)' }}>Edu</span><span style={{ color: 'var(--brand-cyan)' }}>Scribe</span></h1>
             <p className="font-work text-sm mt-0.5 text-white/85">Student Dashboard</p>
           </div>
         </div>
@@ -214,7 +214,7 @@ const StudentLayout = ({ children }) => {
             src={photoUrl}
             name={userData?.name || 'Student'}
             size={36}
-            bg="#FFC542"
+            bg="var(--brand-gold-bright)"
             color="#12069f"
             className="cursor-default"
             title={userData?.name || 'Student'}
@@ -275,7 +275,7 @@ const StudentLayout = ({ children }) => {
             src={photoUrl}
             name={userData?.name || 'Student User'}
             size={36}
-            bg="#FFC542"
+            bg="var(--brand-gold-bright)"
             color="#12069f"
           />
           {!sidebarCollapsed && <div>

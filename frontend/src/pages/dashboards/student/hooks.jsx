@@ -17,21 +17,16 @@ export const useTheme = () => useContext(ThemeContext);
 // ============================================
 // SHARED COMPONENTS (Theme-aware)
 // ============================================
-export const Card = ({ children, className = '', style = {} }) => {
-  const { dark } = useTheme();
-  return (
-    <div
-      className={`rounded-xl ${className}`}
-      style={{
-        backgroundColor: dark ? '#1e293b' : '#ffffff',
-        border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
-        ...style
-      }}
-    >
-      {children}
-    </div>
-  );
-};
+// Neutral card, the same surface the teacher dashboard uses (theme variables,
+// so light and dark mode both follow the dashboard theme).
+export const Card = ({ children, className = '', style = {} }) => (
+  <div
+    className={`rounded-xl ${className}`}
+    style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', ...style }}
+  >
+    {children}
+  </div>
+);
 
 
 export const Badge = ({ children, color, bg }) => (
@@ -42,24 +37,18 @@ export const Badge = ({ children, color, bg }) => (
 );
 
 
-export const StatCard = ({ label, value, sub, subColor, icon: Icon, color = '#1908DF' }) => {
-  const { dark } = useTheme();
-  const cardBg = dark ? '#1e293b' : '#ffffff';
-  return (
-    <div className="rounded-xl overflow-hidden flex flex-col h-[184px]"
-      style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-      <div className="h-1/2 flex-shrink-0 flex items-center justify-center"
-        style={{ background: `linear-gradient(180deg, ${color} 0%, ${color} 55%, ${cardBg} 100%)` }}>
-        {Icon && <Icon size={38} color="#ffffff" strokeWidth={2.1} />}
-      </div>
-      <div className="flex-1 flex flex-col justify-center px-4 py-2" style={{ backgroundColor: cardBg }}>
-        <p className="text-2xl font-bold leading-tight" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{value}</p>
-        <p className="text-xs font-bold mt-1" style={{ color: dark ? '#e2e8f0' : '#1a2b4a' }}>{label}</p>
-        {sub && <p className="text-[11px] mt-0.5" style={{ color: subColor || (dark ? '#64748b' : '#94a3b8') }}>{sub}</p>}
-      </div>
-    </div>
-  );
-};
+// Same structure and look as the teacher Overview's MetricCard: a small line
+// icon and the title in the muted text color, a big number, a muted caption.
+export const StatCard = ({ label, value, sub, icon: Icon }) => (
+  <div className="w-full min-w-0 rounded-xl p-5"
+    style={{ background: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+    <p className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
+      {Icon && <Icon size={18} aria-hidden="true" />}{label}
+    </p>
+    <p className="mt-4 text-3xl font-bold leading-none" style={{ color: 'var(--text)' }}>{value}</p>
+    {sub && <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
+  </div>
+);
 
 // ============================================
 // TOAST HELPER (new but minimal)

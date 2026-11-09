@@ -21,14 +21,13 @@ import { useAuth } from '../../../../context/AuthContext';
 import {
   BookOpen, CalendarCheck, ClipboardList, Loader2
 } from 'lucide-react';
-import { useTheme, useToast, Card, StatCard } from '../hooks';
+import { useToast, Card, StatCard } from '../hooks';
 import { useStudentData } from '../StudentDataContext';
 import SubjectCards from '../SubjectCards';
 import { isHandout } from './studentAnswers';
 import PageHeader from '../PageHeader';
 
 const OverviewTab = () => {
-  const { dark } = useTheme();
   const { userData } = useAuth();
   const { Toast } = useToast();
   const navigate = useNavigate();
@@ -133,14 +132,15 @@ const OverviewTab = () => {
 
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <Toast />
       <PageHeader title="Overview" subtitle="Your subjects, tasks and attendance at a glance."
         onRefresh={fetchOverview} refreshLabel="Refresh overview" />
 
+      {/* Plain card, the same surface as the teacher Overview cards. */}
       <div
-        className="rounded-2xl px-6 py-5 mb-6 flex items-center gap-4 relative overflow-hidden"
-        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)', boxShadow: '0 4px 16px rgba(25,8,223,.10)' }}
+        className="rounded-xl p-5 mb-6 flex items-center gap-4 relative overflow-hidden"
+        style={{ background: 'var(--card-bg)', border: '1px solid var(--border)' }}
       >
         <img
           src="/capstonelogo.png"
@@ -149,8 +149,8 @@ const OverviewTab = () => {
           onError={(e) => { e.target.style.display = 'none'; }}
         />
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>
-            Welcome back, <span style={{ color: 'var(--banner-accent)' }}>{info.name}</span>!
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
+            Welcome back, <span>{info.name}</span>!
           </h2>
           {/* Three distinct states, never collapsed into one: the read
               failed, the student is genuinely not enrolled, and the student
@@ -158,7 +158,7 @@ const OverviewTab = () => {
               would tell them something false about their own enrolment, and
               silently dropping the ID would look identical to not having
               one. */}
-          <p className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--banner-subtext)' }}>
+          <p className="text-xs font-bold tracking-widest uppercase mt-1" style={{ color: 'var(--text-muted)' }}>
             {loading
               ? 'Loading your enrolment…'
               : loadError
@@ -174,16 +174,14 @@ const OverviewTab = () => {
           </p>
         </div>
         {!loading && !loadError && info.schoolYear && (
-          <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
-            <div>
-              <p className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
-              <p className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>{info.schoolYear}</p>
-            </div>
+          <div className="hidden sm:block text-right flex-shrink-0">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>School Year</p>
+            <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text)' }}>{info.schoolYear}</p>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <section aria-label="Your progress" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           label="Worksheet Performance"
           value={loading ? <Loader2 className="animate-spin" size={20} />
@@ -193,7 +191,6 @@ const OverviewTab = () => {
             : performance ? `${performance.count} worksheet${performance.count === 1 ? '' : 's'}`
             : 'No scores yet'}
           icon={BookOpen}
-          color="#2563eb"
         />
         <StatCard
           label="Attendance"
@@ -204,7 +201,6 @@ const OverviewTab = () => {
             : attendance ? `${attendance.present} of ${attendance.total} days`
             : 'Not yet recorded'}
           icon={CalendarCheck}
-          color="#16a34a"
         />
         <StatCard
           label="Pending Tasks"
@@ -214,14 +210,12 @@ const OverviewTab = () => {
             : pendingCount === 0 ? 'Nothing due'
             : `task${pendingCount === 1 ? '' : 's'} due`}
           icon={ClipboardList}
-          subColor="#d97706"
-          color="#d97706"
         />
-      </div>
+      </section>
 
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
             Your Subjects
           </h2>
         </div>

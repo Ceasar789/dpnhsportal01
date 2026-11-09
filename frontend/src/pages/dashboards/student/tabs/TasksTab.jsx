@@ -23,6 +23,7 @@ import { hasStudentAnswer, isHandout, submittedMessage } from './studentAnswers'
 import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 import PageHeader from '../PageHeader';
+import { countdownTone, GREEN, INFO, NEUTRAL, RED, YELLOW } from '../badgeTones';
 
 // A deterrent, not a guarantee: the paper cannot be selected, copied, cut,
 // dragged or right-clicked, while answer fields keep working as before.
@@ -32,15 +33,15 @@ const PAPER_GUARD = { onCopy: blockOutsideFields, onCut: blockOutsideFields,
   onDragStart: blockOutsideFields, onContextMenu: blockOutsideFields };
 const FIELD_SELECT = { userSelect: 'text', WebkitUserSelect: 'text' };
 
-// Colors for the countdown badge, one per formatCountdown tone. Kept in one
-// place so the meaning of a color (late vs. soon vs. plenty of time) stays
-// consistent no matter which row renders it.
-const COUNTDOWN_COLORS = {
-  late: { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
-  urgent: { color: '#ea580c', bg: 'rgba(234,88,12,0.12)' },
-  soon: { color: '#ca8a04', bg: 'rgba(202,138,4,0.12)' },
-  normal: { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
-  none: { color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+// Badge colors come from badgeTones.js (theme variables, shared with
+// SubjectCards.jsx), using the teacher dashboard's meanings: released green,
+// awaiting the teacher yellow, late red, anything else neutral.
+const statusTone = (row) => {
+  const s = row.submission;
+  if (!s) return NEUTRAL;
+  if (s.released) return GREEN;
+  if (s.status === 'submitted' || s.status === 'checked') return YELLOW;
+  return NEUTRAL;
 };
 
 const PAPER_GROUPS = [
@@ -162,7 +163,7 @@ const StudentTasksTab = () => {
     saveGenRef.current += 1;
   }, []);
 
-  const muted = { color: dark ? '#64748b' : '#94a3b8' };
+  const muted = { color: 'var(--text-muted)' };
 
   // Rebuilds the list whenever the shared graph changes. The graph already
   // holds the assignments newest-first (the order the student learned about
@@ -716,7 +717,7 @@ const StudentTasksTab = () => {
         <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={32} style={muted} /></div>
       ) : loadError ? (
         <Card className="p-8 text-center">
-          <p className="text-sm font-semibold mb-2" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Could not load your tasks.</p>
+          <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>Could not load your tasks.</p>
           <p className="text-sm mb-3" style={muted}>Check your connection and try again.</p>
           <div className="flex justify-center">
             <Btn className="min-h-11" onClick={fetchTasks}>Retry</Btn>
@@ -724,12 +725,12 @@ const StudentTasksTab = () => {
         </Card>
       ) : rows.length === 0 ? (
         <Card className="p-8 text-center">
-          <FileText size={40} className="mx-auto mb-3" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
+          <FileText size={40} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
           <p style={muted}>No tasks have been assigned to you yet.</p>
         </Card>
       ) : visibleRows.length === 0 ? (
         <Card className="p-8 text-center">
-          <FileText size={40} className="mx-auto mb-3" style={{ color: dark ? '#334155' : '#cbd5e1' }} />
+          <FileText size={40} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
           <p style={muted}>No tasks match this subject.</p>
         </Card>
       ) : (
@@ -738,7 +739,7 @@ const StudentTasksTab = () => {
             // due_at is Manila wall-clock time; anchored to +08:00 so the
             // countdown and the due text are right in any browser timezone.
             const countdown = formatCountdown(manilaInstant(row.assignee.due_at), now);
-            const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
+            const countdownColors = countdownTone(countdown.tone);
             const handoutRow = isHandout(row.sheet);
             // A teacher Activity is stored as task_type 'worksheet' with no
             // questions; isHandout is that rule, so its badge reads Activity.
@@ -749,8 +750,8 @@ const StudentTasksTab = () => {
               <Card key={row.assignee.task_id} className="p-4 flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{row.sheet.title}</p>
-                    <Badge color="#7c3aed" bg="rgba(124,58,237,0.12)">{typeLabel}</Badge>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{row.sheet.title}</p>
+                    <Badge color={INFO.color} bg={INFO.bg}>{typeLabel}</Badge>
                   </div>
                   <p className="text-xs" style={muted}>{row.subjectName || row.sheet.subject}</p>
                   {row.assignee.assigned_at && (
@@ -768,8 +769,8 @@ const StudentTasksTab = () => {
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
                     {!handedIn && !(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
                     {/* An Activity's status would only repeat its Activity badge. */}
-                    {!handoutRow && <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>}
-                    {handedIn && row.submission.is_late === true && <Badge color="#b91c1c" bg="rgba(220,38,38,0.12)">Submitted late</Badge>}
+                    {!handoutRow && <Badge color={statusTone(row).color} bg={statusTone(row).bg}>{statusLabel(row)}</Badge>}
+                    {handedIn && row.submission.is_late === true && <Badge color={RED.color} bg={RED.bg}>Submitted late</Badge>}
                   </div>
                   <div className="flex justify-end mt-2">
                     <Btn variant="pastel" className="min-h-11" onClick={() => open(row)} disabled={busy}>

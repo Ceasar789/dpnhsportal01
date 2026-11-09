@@ -7,6 +7,7 @@ import { formatDateTime } from '../../../../lib/formatDate';
 
 const fixture = vi.hoisted(() => ({
   uid: 'teacher-a', rows: [], error: null, reads: [], submissions: [], loadSubmissions: vi.fn(), loadAssigneeRoster: vi.fn(),
+  paperScores: false,
 }));
 vi.mock('../../../../context/AuthContext', () => ({ useAuth: () => ({ userData: { uid: fixture.uid } }) }));
 vi.mock('../../../../config/supabase', () => ({ supabase: {
@@ -30,6 +31,7 @@ vi.mock('../worksheets/useWorksheetAssessment', () => ({ useWorksheetAssessment:
   mySections: [{ id: 'section-1', name: 'A', grade_level: 'Grade 7' }], postings: [],
   loadSubmissions: fixture.loadSubmissions, loadAssigneeRoster: fixture.loadAssigneeRoster, loadItems: vi.fn(), loadAnswers: vi.fn(),
   releaseScore: vi.fn(), encodeManualScore: vi.fn(), loadClassList: vi.fn(),
+  paperScoreEncodingAvailable: fixture.paperScores,
 }) }));
 const modalProps = vi.hoisted(() => ({ check: null, encode: null }));
 vi.mock('../worksheets/CheckSubmissionsModal', () => ({ default: (props) => { modalProps.check = props; return (
@@ -43,6 +45,9 @@ const online = { id: 'sub-a', student_id: 'student-a', name: 'Learner A', sectio
 const paper = { id: 'sub-b', student_id: 'student-b', name: 'Learner B', section_id: 'old-section', source: 'manual', status: 'checked', released: true, score: 0, total_points: 20 };
 
 beforeEach(() => {
+  fixture.paperScores = false;
+  modalProps.check = null;
+  modalProps.encode = null;
   fixture.uid = 'teacher-a'; fixture.rows = [worksheetA, worksheetB]; fixture.error = null;
   fixture.reads.length = 0; fixture.submissions = [online, paper];
   fixture.loadSubmissions.mockReset().mockImplementation(async () => fixture.submissions);
@@ -106,14 +111,15 @@ describe('Teacher Worksheet Scores destination', () => {
     expect(screen.queryByText('Learner A')).toBeNull();
   });
 
-  it('keeps the score actions in the existing checking and encoding dialogs', async () => {
+  it('keeps checking in its existing dialog; paper-score encoding is hidden while its gate is off', async () => {
     renderTab();
     await screen.findByText('Learner A');
     fireEvent.click(screen.getByRole('button', { name: 'Check submissions' }));
     expect(within(screen.getByRole('dialog')).getByText('Close checking')).toBeTruthy();
     fireEvent.click(screen.getByText('Close checking'));
-    fireEvent.click(screen.getByRole('button', { name: 'Encode paper scores' }));
-    expect(within(screen.getByRole('dialog')).getByText('Close encoding')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Encode paper scores' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Existing paper scoring workflow' })).toBeNull();
+    expect(modalProps.encode).toBeNull();
     expect(fixture.reads.every(table => table === 'worksheets')).toBe(true);
   });
 
@@ -292,15 +298,27 @@ describe('Grading: summary strip', () => {
 });
 
 describe('Grading: the modals keep their props', () => {
-  it('Check submissions and Encode paper scores get the same props as before', async () => {
+  it('Check submissions gets the same props as before, and no Encode button while the gate is off', async () => {
     renderTab();
     await screen.findByText('Learner A');
     fireEvent.click(screen.getByRole('button', { name: 'Check submissions' }));
     expect(Object.keys(modalProps.check).sort()).toEqual(['loadAnswers', 'loadItems', 'loadSubmissions', 'onClose', 'releaseScore', 'saveMarks', 'worksheet']);
     expect(modalProps.check.worksheet.id).toBe('sheet-a');
     fireEvent.click(screen.getByText('Close checking'));
+    expect(screen.queryByRole('button', { name: 'Encode paper scores' })).toBeNull();
+  });
+
+  it('with the gate on, Encode paper scores comes back with the same props as before', async () => {
+    fixture.paperScores = true;
+    renderTab();
+    await screen.findByText('Learner A');
+    fireEvent.click(screen.getByRole('button', { name: 'Check submissions' }));
+    expect(modalProps.check.paperScoresAvailable).toBe(true);
+    fireEvent.click(screen.getByText('Close checking'));
     fireEvent.click(screen.getByRole('button', { name: 'Encode paper scores' }));
+    expect(within(screen.getByRole('dialog', { name: 'Existing paper scoring workflow' })).getByText('Close encoding')).toBeTruthy();
     expect(Object.keys(modalProps.encode).sort()).toEqual(['encodeManualScore', 'loadClassList', 'loadSubmissions', 'onClose', 'onSaved', 'postings', 'sections', 'worksheet']);
+    expect(modalProps.encode.loadSubmissions).toBe(fixture.loadSubmissions);
   });
 });
 
@@ -358,8 +376,7 @@ describe('Grading: students who have not started', () => {
     const rowsForReleaseAll = await modalProps.check.loadSubmissions('sheet-a');
     expect(rowsForReleaseAll.map(r => r.name)).toEqual(['Learner A', 'Learner B']);
     fireEvent.click(screen.getByText('Close checking'));
-    fireEvent.click(screen.getByRole('button', { name: 'Encode paper scores' }));
-    expect(modalProps.encode.loadSubmissions).toBe(fixture.loadSubmissions);
+    expect(screen.queryByRole('button', { name: 'Encode paper scores' })).toBeNull();
   });
 });
 

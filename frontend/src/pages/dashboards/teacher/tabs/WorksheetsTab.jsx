@@ -54,7 +54,7 @@ const WorksheetActions = ({ worksheet, onDistribute, onCheck, onEncode, onDownlo
   const actions = [
     { label: 'Distribute', run: onDistribute, disabled: Boolean(distributeReason), reason: distributeReason },
     { label: 'Check submissions', run: onCheck },
-    { label: 'Encode scores', run: onEncode },
+    ...(onEncode ? [{ label: 'Encode scores', run: onEncode }] : []),
     ...(worksheet.file_url ? [{ label: 'Open file', run: onDownload }] : []),
     ...(worksheet.origin === 'ai_generated' ? [] : [{ label: 'Delete', run: onDelete, destructive: true, disabled: locked, reason: lockReason }]),
   ];
@@ -972,7 +972,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 distributeReason={distributeReason}
                 onDistribute={() => setDistributingTask(ws)}
                 onCheck={() => setCheckingWorksheet(ws)}
-                onEncode={() => { setScoreSavedMessage(''); setEncodingWorksheet(ws); }} onDownload={() => downloadWorksheet(ws)}
+                onEncode={assessment.paperScoreEncodingAvailable === true ? () => { setScoreSavedMessage(''); setEncodingWorksheet(ws); } : undefined}
+                onDownload={() => downloadWorksheet(ws)}
                 onDelete={() => handleDelete(ws.id)} />
             </div>
             {deletingId === ws.id && <p role="status" className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Deleting worksheet…</p>}
@@ -1141,10 +1142,11 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           saveMarks={assessment.saveMarks}
           releaseScore={assessment.releaseScore}
           onClose={() => setCheckingWorksheet(null)}
+          {...(assessment.paperScoreEncodingAvailable === true ? { paperScoresAvailable: true } : {})}
         />
       )}
 
-      {encodingWorksheet && (
+      {assessment.paperScoreEncodingAvailable === true && encodingWorksheet && (
         <EncodeScoresModal
           worksheet={encodingWorksheet}
           postings={assessment.postings}

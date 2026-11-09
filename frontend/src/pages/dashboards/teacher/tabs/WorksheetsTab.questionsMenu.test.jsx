@@ -51,17 +51,17 @@ const labels = items => items.map(item => item.childNodes[0].textContent);
 describe('Questions in the card menu', () => {
   it('a day task has no Questions; the rest of its menu is unchanged', async () => {
     await show([dayTask]);
-    expect(labels(menuItems('Cells - Monday Quiz'))).toEqual(['Distribute', 'Check submissions', 'Encode scores', 'Delete']);
+    expect(labels(menuItems('Cells - Monday Quiz'))).toEqual(['Distribute', 'Check submissions', 'Delete']);
   });
 
   it('an ai_generated row has no Questions and, as before, no Delete', async () => {
     await show([aiRow]);
-    expect(labels(menuItems('AI worksheet'))).toEqual(['Distribute', 'Check submissions', 'Encode scores']);
+    expect(labels(menuItems('AI worksheet'))).toEqual(['Distribute', 'Check submissions']);
   });
 
   it('a Create Worksheet row has no Questions; the rest of its menu is unchanged', async () => {
     await show([manual]);
-    expect(labels(menuItems('Hand quiz'))).toEqual(['Distribute', 'Check submissions', 'Encode scores', 'Delete']);
+    expect(labels(menuItems('Hand quiz'))).toEqual(['Distribute', 'Check submissions', 'Delete']);
   });
 
   it('a distributed Create Worksheet row has no Questions; Delete keeps "Already distributed"', async () => {

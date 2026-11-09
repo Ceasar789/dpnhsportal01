@@ -211,7 +211,8 @@ const GradesTab = () => {
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{selected.subject || 'Subject unavailable'} · {selected.grade_level || 'Grade unavailable'}</p></div>
               <div className="flex flex-wrap gap-2">
                 <Btn variant="outline" onClick={() => setChecking(selected)}>Check submissions</Btn>
-                <Btn variant="outline" onClick={() => setEncoding(selected)}>Encode paper scores</Btn>
+                {assessment.paperScoreEncodingAvailable === true
+                  && <Btn variant="outline" onClick={() => setEncoding(selected)}>Encode paper scores</Btn>}
               </div>
             </div>
           </Card>
@@ -264,8 +265,9 @@ const GradesTab = () => {
       </>}
     {checking && owned.some(w => w.id === checking.id) && <CheckSubmissionsModal worksheet={checking} loadItems={assessment.loadItems}
       loadSubmissions={assessment.loadSubmissions} loadAnswers={assessment.loadAnswers} saveMarks={assessment.saveMarks}
-      releaseScore={assessment.releaseScore} onClose={() => closeDialog(setChecking)} />}
-    {encoding && owned.some(w => w.id === encoding.id) && <EncodeScoresModal worksheet={encoding} postings={assessment.postings}
+      releaseScore={assessment.releaseScore} onClose={() => closeDialog(setChecking)}
+      {...(assessment.paperScoreEncodingAvailable === true ? { paperScoresAvailable: true } : {})} />}
+    {assessment.paperScoreEncodingAvailable === true && encoding && owned.some(w => w.id === encoding.id) && <EncodeScoresModal worksheet={encoding} postings={assessment.postings}
       sections={assessment.mySections} loadClassList={assessment.loadClassList}
       loadSubmissions={assessment.loadSubmissions} encodeManualScore={assessment.encodeManualScore}
       onSaved={setSavedMessage} onClose={() => closeDialog(setEncoding)} />}

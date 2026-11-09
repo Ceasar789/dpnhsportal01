@@ -49,6 +49,7 @@ const sameMarks = (a, b) => {
 
 const CheckSubmissionsModal = ({
   worksheet, loadItems, loadSubmissions, loadAnswers, saveMarks, releaseScore, onClose,
+  paperScoresAvailable = false,
 }) => {
   const { dark } = useTheme();
   const [submissions, setSubmissions] = useState([]);
@@ -497,8 +498,9 @@ const CheckSubmissionsModal = ({
         </div>
       ) : submissions.length === 0 ? (
         <p className="text-sm py-6" style={muted}>
-          No one has answered this worksheet in the app yet. If your class answered it
-          on paper, use <strong>Encode scores</strong> on the worksheet card instead.
+          No one has answered this worksheet in the app yet.
+          {paperScoresAvailable && <> If your class answered it
+          on paper, use <strong>Encode scores</strong> on the worksheet card instead.</>}
         </p>
       ) : (
         <>

@@ -828,6 +828,9 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     postings, postingsError, fetchPostings,
     loadItems, saveItems, setCheckingMode,
     loadSubmissions, loadAnswers, saveMarks, releaseScore, encodeManualScore,
+    // The one UI switch for paper-score encoding: the same gate encodeManualScore
+    // checks. While it is false the Encode buttons, menu item and modal are hidden.
+    paperScoreEncodingAvailable: trustedScoreWritesAvailable,
     loadClassList,
     mySubject, mySubjects, schoolYear: subjectOwner === teacherId ? schoolYear : null,
     subjectError, subjectLoading, fetchMySubject,

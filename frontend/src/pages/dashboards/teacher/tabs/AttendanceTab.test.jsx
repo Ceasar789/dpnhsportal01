@@ -10,9 +10,11 @@ const db = vi.hoisted(() => ({
   schedules: [], events: [], fail: {}, pending: {}, reads: [], rpc: null,
 }));
 const toast = vi.hoisted(() => vi.fn());
+// shown: the toast the mocked useToast reports as on screen (null = none).
+const shown = vi.hoisted(() => ({ toast: null }));
 const auth = vi.hoisted(() => ({ uid: 'teacher-1' }));
 vi.mock('../../../../context/AuthContext', () => ({ useAuth: () => ({ userData: { uid: auth.uid } }) }));
-vi.mock('../hooks', () => ({ useTheme: () => ({ dark: false }), useToast: () => ({ toast: null, showToast: toast }) }));
+vi.mock('../hooks', () => ({ useTheme: () => ({ dark: false }), useToast: () => ({ toast: shown.toast, showToast: toast }) }));
 vi.mock('../../../../lib/supabaseRetry', () => ({ withRetry: query => query() }));
 vi.mock('../../../../config/supabase', () => ({
   supabase: {
@@ -77,6 +79,7 @@ beforeEach(() => {
     rpc: vi.fn(async () => ({ data: { ok: true, sectionId: 'sec-1', date: TODAY, saved: 1, cleared: 0 }, error: null })),
   });
   toast.mockReset();
+  shown.toast = null;
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -413,5 +416,49 @@ describe('the class-today note', () => {
     await act(async () => {});
     expect(screen.queryByRole('note')).toBeNull();
     expect(alerts()).toEqual([]);
+  });
+});
+
+describe('toast placement', () => {
+  const toastEl = () => document.body.querySelector('.fixed.rounded-lg');
+
+  it.each([
+    ['error', 'Attendance could not be saved. Nothing was changed.'],
+    ['success', 'Attendance saved.'],
+  ])('a %s toast never covers the save bar; Save and Discard stay usable', async (type, msg) => {
+    shown.toast = { msg, type };
+    await ready();
+    fireEvent.click(btn('Ben Reyes', 'Absent'));
+    const bar = screen.getByRole('region', { name: 'Attendance save bar' });
+    const shownToast = toastEl();
+    expect(shownToast.textContent).toBe(msg);
+    expect(bar.contains(shownToast)).toBe(false);
+    expect(shownToast.className).toContain('top-4');
+    expect(shownToast.className).not.toContain('bottom-4');
+    for (const name of ['Save attendance', 'Discard']) {
+      const control = within(bar).getByRole('button', { name });
+      expect(control.disabled).toBe(false);
+    }
+    fireEvent.click(within(bar).getByRole('button', { name: 'Discard' }));
+    expect(screen.queryByText('Unsaved')).toBeNull();
+  });
+
+  it('the inline save error still shows in the bar while the toast is up', async () => {
+    db.rpc = vi.fn(async () => ({ data: null, error: { message: 'future_date' } }));
+    shown.toast = { msg: "You can't take attendance for a future date.", type: 'error' };
+    await ready();
+    fireEvent.click(btn('Ben Reyes', 'Absent'));
+    await save();
+    const bar = screen.getByRole('region', { name: 'Attendance save bar' });
+    expect(within(bar).getByRole('alert').textContent).toBe("You can't take attendance for a future date.");
+    expect(within(bar).getByRole('button', { name: 'Save attendance' }).disabled).toBe(false);
+  });
+
+  it('without a save bar the shared bottom toast is used', async () => {
+    db.links = [];
+    shown.toast = { msg: 'Could not load attendance. Check your connection and retry.', type: 'error' };
+    renderTab();
+    await screen.findByText('No students are enrolled in this advisory section.');
+    expect(toastEl().className).toContain('bottom-4');
   });
 });

@@ -6,6 +6,7 @@
 // ============================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
@@ -16,6 +17,20 @@ import { useToast } from '../hooks';
 import { Badge, Btn, Card, Toast } from '../shared/ui';
 import useDialogSafety from '../worksheets/useDialogSafety';
 import { saveAttendance } from './attendanceSaveClient';
+
+// The shared Toast sits bottom-right, on top of the sticky save bar. While the
+// bar shows, the toast is drawn at the top instead so Save and Discard stay usable.
+const TopToast = ({ toast }) => {
+  const message = toast && (
+    <div data-attendance-toast="top" className={`fixed top-4 left-4 right-4 sm:left-auto px-4 py-3 rounded-lg text-white font-semibold shadow-lg ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`} style={{ zIndex: 60 }}>
+      {toast.msg}
+    </div>
+  );
+  return createPortal(<>
+    <div role="status" aria-live="polite" data-modal-live-region="true">{toast?.type !== 'error' && message}</div>
+    <div role="alert" aria-live="assertive" data-modal-live-region="true">{toast?.type === 'error' && message}</div>
+  </>, document.body);
+};
 
 const CARD_STYLE = { backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' };
 const FIELD_STYLE = { backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text)' };
@@ -376,7 +391,7 @@ const AttendanceTab = () => {
   return (
     <div className={`p-6 min-w-0 ${showSaveBar ? 'pb-28' : ''}`}>
       {routeBlocker}
-      <Toast toast={toast} />
+      {showSaveBar ? <TopToast toast={toast} /> : <Toast toast={toast} />}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-4 gap-4">
         <div>
           <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Attendance</h1>
@@ -511,7 +526,7 @@ const AttendanceTab = () => {
 
       <p aria-live="polite" className="sr-only">{saveNotice}</p>
       {showSaveBar && (
-        <div className="sticky bottom-0 z-10 mt-4 -mx-6 px-6 py-3 border-t flex flex-col gap-2"
+        <div role="region" aria-label="Attendance save bar" className="sticky bottom-0 z-10 mt-4 -mx-6 px-6 py-3 border-t flex flex-col gap-2"
           style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           {saveError && <p role="alert" className="text-sm" style={{ color: 'var(--red)' }}>{saveError}</p>}
           {refreshFailed && <p role="alert" className="text-sm flex flex-wrap items-center gap-2" style={{ color: 'var(--text)' }}>

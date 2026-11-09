@@ -75,3 +75,77 @@ export function canTeachSection(load, subjectId, section) {
 
   return { ok: true, reason: null };
 }
+
+// ── Schedule clashes ────────────────────────────────────────────────────────
+// A browser-side check only: two admins saving at the same moment could still
+// create a clash. Database-level enforcement is future work.
+
+// "08:00" or "08:00:00" -> minutes after midnight; null for anything else.
+const minutesOf = (value) => {
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(value ?? '').trim());
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+const roomKey = (value) => String(value ?? '').trim().toLowerCase();
+
+/**
+ * The existing periods a new period would clash with, in the same school year.
+ * Overlap: same day, start < otherEnd and otherStart < end. Periods that only
+ * touch (one ends when the other starts) do not clash.
+ *   teacher  the same teacher has an overlapping period in any section
+ *   room     the same room (trimmed, case-insensitive), only when a room is entered
+ *   section  the same section already has an overlapping period
+ *
+ * @param {object} period    { section_id, teacher_id, day_of_week, start_time, end_time, room_number, school_year }
+ * @param {object[]} existing periods already saved
+ * @returns {{type: 'teacher'|'room'|'section', other: object}[]}
+ */
+export function findScheduleClashes(period, existing) {
+  const start = minutesOf(period?.start_time);
+  const end = minutesOf(period?.end_time);
+  if (start === null || end === null) return [];
+  const room = roomKey(period.room_number);
+  const clashes = [];
+  for (const other of existing || []) {
+    if (!other || other.school_year !== period.school_year || other.day_of_week !== period.day_of_week) continue;
+    const otherStart = minutesOf(other.start_time);
+    const otherEnd = minutesOf(other.end_time);
+    if (otherStart === null || otherEnd === null || !(start < otherEnd && otherStart < end)) continue;
+    if (other.teacher_id && other.teacher_id === period.teacher_id) clashes.push({ type: 'teacher', other });
+    if (room && roomKey(other.room_number) === room) clashes.push({ type: 'room', other });
+    if (other.section_id && other.section_id === period.section_id) clashes.push({ type: 'section', other });
+  }
+  return clashes;
+}
+
+const hhmm = (value) => String(value ?? '').slice(0, 5);
+const nameIn = (list, id) => (list || []).find(item => item?.id === id)?.name || null;
+
+/**
+ * One plain sentence per clash, naming the other class from names already
+ * loaded; "another class" when a name is missing. Duplicates are dropped.
+ *
+ * @param {object[]} clashes from findScheduleClashes
+ * @param {{teachers?: object[], sections?: object[], subjects?: object[], room?: string}} names
+ * @returns {string[]}
+ */
+export function describeScheduleClashes(clashes, { teachers, sections, subjects, room } = {}) {
+  const messages = (clashes || []).map(({ type, other }) => {
+    const when = `on ${other.day_of_week} ${hhmm(other.start_time)}–${hhmm(other.end_time)}`;
+    const section = nameIn(sections, other.section_id);
+    const subject = nameIn(subjects, other.subject_id);
+    if (type === 'teacher') {
+      const teacher = nameIn(teachers, other.teacher_id);
+      const what = section && subject ? `${subject} in ${section}` : 'another class';
+      return `${teacher ? `Teacher ${teacher}` : 'This teacher'} already teaches ${what} ${when}.`;
+    }
+    if (type === 'room') {
+      // The room as the other class has it stored ("Room 101"), not as typed ("room 101 ").
+      const typed = String(other.room_number || room || '').trim();
+      const label = /^room\b/i.test(typed) ? typed : `Room ${typed}`;
+      const what = section && subject ? `${section} (${subject})` : 'another class';
+      return `${label} is already used by ${what} ${when}.`;
+    }
+    return `${section || 'This section'} already has ${subject || 'another class'} ${when}.`;
+  });
+  return [...new Set(messages)];
+}

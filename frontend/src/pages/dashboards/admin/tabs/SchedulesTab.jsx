@@ -61,6 +61,7 @@ const SchedulesTab = () => {
     schedSection, schedDay, setSchedDay,
     schedStart, setSchedStart, schedEnd, setSchedEnd,
     schedRoom, setSchedRoom, schedSaving,
+    scheduleConflicts, scheduleCheckError,
   } = useAdminContext();
 
   // Rule: the skeleton only appears once the wait is long enough to notice.
@@ -423,6 +424,18 @@ const SchedulesTab = () => {
               <label className="form-label" htmlFor="schedules-room">Room</label>
               <input id="schedules-room" className="form-input" value={schedRoom} onChange={e => setSchedRoom(e.target.value)} placeholder="e.g. Room 201" />
             </div>
+            {/* Clash check from the last Create press. Nothing was saved. */}
+            {scheduleCheckError && (
+              <div id="schedules-conflict-error" className="field-error" role="alert">{scheduleCheckError}</div>
+            )}
+            {scheduleConflicts?.length > 0 && (
+              <div id="schedules-conflict-error" className="field-error" role="alert">
+                <p>Not saved. This period clashes with:</p>
+                <ul style={{ paddingLeft: 'var(--space-16)', listStyle: 'disc', margin: 'var(--space-4) 0 0' }}>
+                  {scheduleConflicts.map(message => <li key={message}>{message}</li>)}
+                </ul>
+              </div>
+            )}
 
         </Modal>
       )}

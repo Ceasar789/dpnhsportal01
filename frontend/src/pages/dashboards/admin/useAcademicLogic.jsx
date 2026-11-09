@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
-import { canTeachSection, currentSchoolYear } from '../../../lib/academicRules';
+import { canTeachSection, currentSchoolYear, describeScheduleClashes, findScheduleClashes } from '../../../lib/academicRules';
 import { hasExactDeletedIds } from '../../../lib/deleteVerification';
 import {
   validateCapacityAgainstEnrollment,
@@ -738,6 +738,12 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   const [schedRoom, setSchedRoom] = useState('');
   const [schedSaving, setSchedSaving] = useState(false);
   const savingScheduleRef = useRef(false);
+  // The last save's clash messages or check failure, tied to the form values
+  // they were found for: change the teacher, section, day, time or room and
+  // they no longer show, so a fixed form never displays an old clash.
+  const scheduleFormKey = [schedTeacher, schedSection, schedDay, schedStart, schedEnd, schedRoom.trim()].join('|');
+  const [scheduleCheck, setScheduleCheck] = useState({ key: '', conflicts: [], error: '' });
+  const scheduleCheckShown = scheduleCheck.key === scheduleFormKey ? scheduleCheck : { conflicts: [], error: '' };
 
   const fetchSchedules = useCallback(async () => {
     setSchedulesLoading(true);
@@ -811,6 +817,43 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     savingScheduleRef.current = true;
     setSchedSaving(true);
     try {
+      // Clash check against a FRESH read of this school year's periods across
+      // every section, never the list on screen, which another admin may have
+      // changed since it loaded. A failed read writes nothing.
+      const checkKey = scheduleFormKey;
+      let yearPeriods = null;
+      let checkError = null;
+      try {
+        ({ data: yearPeriods, error: checkError } = await withRetry(
+          () => supabase.from('schedules')
+            .select('id, section_id, teacher_id, subject_id, day_of_week, start_time, end_time, room_number, school_year')
+            .eq('school_year', schoolYear),
+          { label: 'Schedule clash check' }
+        ));
+      } catch (error) {
+        checkError = error;
+      }
+      if (checkError || !Array.isArray(yearPeriods)) {
+        const message = 'Could not check for schedule conflicts. Try again.';
+        setScheduleCheck({ key: checkKey, conflicts: [], error: message });
+        showToast(message, 'error');
+        return false;
+      }
+      const room = schedRoom.trim();
+      const clashes = findScheduleClashes({
+        section_id: schedSection, teacher_id: schedTeacher, day_of_week: schedDay,
+        start_time: schedStart, end_time: schedEnd, room_number: room || null, school_year: schoolYear,
+      }, yearPeriods);
+      if (clashes.length > 0) {
+        setScheduleCheck({
+          key: checkKey,
+          conflicts: describeScheduleClashes(clashes, { teachers, sections, subjects, room }),
+          error: '',
+        });
+        return false;
+      }
+      setScheduleCheck({ key: '', conflicts: [], error: '' });
+
       const { error } = await supabase.from('schedules').insert([{
         section_id: schedSection,
         teacher_id: schedTeacher,
@@ -900,6 +943,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
     schedules, schedulesLoading, schedulesError, fetchSchedules,
+    scheduleConflicts: scheduleCheckShown.conflicts, scheduleCheckError: scheduleCheckShown.error,
     scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
     schedTeacher, setSchedTeacher, schedSubject, setSchedSubject,
     schedSection, setSchedSection, schedDay, setSchedDay,

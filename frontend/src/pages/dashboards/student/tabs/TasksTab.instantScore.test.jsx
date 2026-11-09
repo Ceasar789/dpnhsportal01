@@ -66,7 +66,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const openTask = async () => {
-  render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
   await screen.findByRole('button', { name: /Back/ });
 };
@@ -134,7 +134,7 @@ describe('the toast after submitting', () => {
 });
 
 describe('the Tasks list', () => {
-  const showList = async () => { render(<MemoryRouter><StudentTasksTab /></MemoryRouter>); await screen.findByText('Sample quiz'); };
+  const showList = async () => { render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>); await screen.findByText('Sample quiz'); };
 
   it('a released submission shows "Score: x/y"', async () => {
     setGraph([row({ status: 'checked', released: true })], [{ worksheet_id: 'worksheet-1', score: 7, total_points: 10 }]);
@@ -153,7 +153,7 @@ describe('the Tasks list', () => {
 });
 
 describe('Submitted late tag', () => {
-  const showList = async () => { render(<MemoryRouter><StudentTasksTab /></MemoryRouter>); await screen.findByText('Sample quiz'); };
+  const showList = async () => { render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>); await screen.findByText('Sample quiz'); };
 
   it('the student reads is_late and submitted_at with the submission state, and never a score there', () => {
     expect(SUBMISSION_STATE_FIELDS).toBe('id, worksheet_id, status, released, is_late, submitted_at');

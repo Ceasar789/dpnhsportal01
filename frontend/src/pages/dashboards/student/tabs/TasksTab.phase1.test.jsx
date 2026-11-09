@@ -40,7 +40,7 @@ const setSheet = (sheet, assignee = {}) => {
     assignees: [{ task_id: sheet.id, section_id: 's1', assigned_at: null, due_at: '2099-01-15T23:59:00', ...assignee }],
     sheetById: new Map([[sheet.id, sheet]]) };
 };
-const show = () => render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+const show = () => render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
 
 beforeEach(() => { state.itemsError = null; state.itemReads = 0; setSheet(activity); });
 afterEach(() => cleanup());

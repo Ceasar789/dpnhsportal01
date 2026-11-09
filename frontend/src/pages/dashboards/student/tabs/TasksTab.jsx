@@ -24,6 +24,16 @@ import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 import PageHeader from '../PageHeader';
 import { countdownTone, GREEN, INFO, NEUTRAL, RED, YELLOW } from '../badgeTones';
+import { groupTasks, isOverdue, VIEWS, VIEW_LABELS } from '../taskGroups';
+
+// What each view says when it has nothing in it.
+const EMPTY_VIEW_TEXT = {
+  todo: 'Nothing to do right now.',
+  upcoming: 'Nothing coming up.',
+  done: 'Nothing handed in yet.',
+  activities: 'No activities.',
+  all: 'No tasks.',
+};
 
 // A deterrent, not a guarantee: the paper cannot be selected, copied, cut,
 // dragged or right-clicked, while answer fields keep working as before.
@@ -74,8 +84,16 @@ const StudentTasksTab = () => {
   const { dark } = useTheme();
   const { userData } = useAuth();
   const { showToast, Toast } = useToast();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const subjectFilter = searchParams.get('subject');
+  // The view chip lives in the URL (?view=) next to ?subject=, so the two
+  // combine and the Overview can link straight to one. To do is the default.
+  const view = VIEWS.includes(searchParams.get('view')) ? searchParams.get('view') : 'todo';
+  const setView = (next) => setSearchParams(prev => {
+    const params = new URLSearchParams(prev);
+    params.set('view', next);
+    return params;
+  }, { replace: true });
 
   // Every read this tab needs comes from the one shared graph held by
   // StudentDataProvider — the same rows OverviewTab reads. `fetchTasks`
@@ -201,6 +219,10 @@ const StudentTasksTab = () => {
   const visibleRows = subjectFilter
     ? rows.filter(r => r.sheet.subject_id === subjectFilter)
     : rows;
+  // Grouped within the ?subject= filter, so the chip counts are for what the
+  // student is actually looking at.
+  const groups = groupTasks(visibleRows, now);
+  const shownRows = groups[view];
 
   // Writes one submission's `submission` field into the matching `rows`
   // entry in place, without a full refetch. Called the instant a
@@ -733,9 +755,28 @@ const StudentTasksTab = () => {
           <FileText size={40} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
           <p style={muted}>No tasks match this subject.</p>
         </Card>
-      ) : (
+      ) : (<>
+        <Card className="p-4 mb-4">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter tasks">
+            {VIEWS.map(value => (
+              <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)}
+                className="min-h-11 px-3 rounded-full text-sm font-semibold"
+                style={view === value
+                  ? { color: 'var(--on-accent)', backgroundColor: 'var(--banner-accent)', border: '1px solid var(--banner-accent)' }
+                  : { color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+                {VIEW_LABELS[value]} <span>({groups[value].length})</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+        {shownRows.length === 0 ? (
+        <Card className="p-8 text-center">
+          <FileText size={40} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
+          <p style={muted}>{EMPTY_VIEW_TEXT[view]}</p>
+        </Card>
+        ) : (
         <div className="space-y-3">
-          {visibleRows.map(row => {
+          {shownRows.map(row => {
             // due_at is Manila wall-clock time; anchored to +08:00 so the
             // countdown and the due text are right in any browser timezone.
             const countdown = formatCountdown(manilaInstant(row.assignee.due_at), now);
@@ -767,6 +808,7 @@ const StudentTasksTab = () => {
                 </div>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    {isOverdue(row, now) && <Badge color={RED.color} bg={RED.bg}>Overdue</Badge>}
                     {!handedIn && !(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
                     {/* An Activity's status would only repeat its Activity badge. */}
                     {!handoutRow && <Badge color={statusTone(row).color} bg={statusTone(row).bg}>{statusLabel(row)}</Badge>}
@@ -782,7 +824,8 @@ const StudentTasksTab = () => {
             );
           })}
         </div>
-      )}
+        )}
+      </>)}
     </div>
   );
 };

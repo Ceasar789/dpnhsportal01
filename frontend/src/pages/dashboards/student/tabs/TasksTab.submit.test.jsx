@@ -61,7 +61,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const openTask = async (name = 'Start') => {
-  render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name }));
   await screen.findByRole('button', { name: /Back/ });
 };

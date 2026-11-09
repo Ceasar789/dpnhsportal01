@@ -45,7 +45,7 @@ const setSheet = (sheet, due = FUTURE_DUE) => {
   state.graph = { fatalError: null, assignees: [{ task_id: 'worksheet-1', section_id: 'section-1', assigned_at: null, due_at: due }],
     sheetById: new Map([['worksheet-1', sheet]]), submissionStates: [], releasedScores: [], subjectsById: new Map(), enrolments: [] };
 };
-const show = () => render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+const show = () => render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
 const openRow = async (name) => {
   show();
   fireEvent.click(await screen.findByRole('button', { name }));

@@ -85,7 +85,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 function renderTask() {
-  return render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+  return render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
 }
 async function openTask() {
   renderTask();
@@ -239,7 +239,7 @@ it('locks answer inputs after submitting and reopening the refreshed task', asyn
     .toEqual({ status: 'submitted' }));
   state.graph = { ...state.graph, submissionStates: [{ id: 'submission-1',
     worksheet_id: 'worksheet-1', status: 'submitted', released: false }] };
-  view.rerender(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+  view.rerender(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
   await screen.findByRole('button', { name: /Back/ });
   expect(screen.getByRole('radio', { name: 'Two' }).disabled).toBe(true);

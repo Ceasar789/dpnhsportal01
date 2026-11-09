@@ -20,7 +20,7 @@ afterEach(cleanup);
 const showWith = (sheet) => {
   state.graph = { fatalError: null, assignees: [{ task_id: sheet.id, section_id: 's1', assigned_at: null, due_at: '2099-01-15T23:59:00' }],
     sheetById: new Map([[sheet.id, sheet]]), submissionStates: [], releasedScores: [], subjectsById: new Map(), enrolments: [] };
-  render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
 };
 
 describe('student task list and Exam', () => {

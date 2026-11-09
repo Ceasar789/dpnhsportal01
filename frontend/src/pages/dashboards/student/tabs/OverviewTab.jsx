@@ -15,7 +15,7 @@
 // anything else and nothing aggregates it further.
 // ============================================
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import {
@@ -26,6 +26,8 @@ import { useStudentData } from '../StudentDataContext';
 import SubjectCards from '../SubjectCards';
 import { isHandout } from './studentAnswers';
 import PageHeader from '../PageHeader';
+import DueSoonCard from '../DueSoonCard';
+import { rowsFromGraph } from '../taskGroups';
 
 const OverviewTab = () => {
   const { userData } = useAuth();
@@ -130,6 +132,11 @@ const OverviewTab = () => {
     return { info, performance, attendance, subjects: graph.subjects, tasksBySubject: buckets, pendingCount };
   }, [graph, userData?.name]);
 
+  // "Now" for the Due today / this week card, fixed when the tab opens; the
+  // graph itself refreshes on focus and on Refresh.
+  const [now] = useState(() => new Date());
+  const taskRows = useMemo(() => (graph && !loadError ? rowsFromGraph(graph) : []), [graph, loadError]);
+
 
   return (
     <div className="p-4 sm:p-6">
@@ -212,6 +219,8 @@ const OverviewTab = () => {
           icon={ClipboardList}
         />
       </section>
+
+      <DueSoonCard rows={taskRows} now={now} loading={loading} loadError={loadError} />
 
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">

@@ -68,7 +68,7 @@ export function isFutureManila(wallClock, now = new Date()) {
 // value with no offset gets the school's fixed +08:00 (as in isFutureManila).
 // A value that already carries an offset or Z (for example a timestamptz such as
 // assigned_at) is used as it is. Returns null for anything unparseable.
-const NAIVE_TIMESTAMP = /^d{4}-d{2}-d{2}[T ]d{2}:d{2}(:d{2}(.d+)?)?$/;
+const NAIVE_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/;
 export function manilaInstant(value) {
   if (value === null || value === undefined || value === '') return null;
   const text = String(value).trim();

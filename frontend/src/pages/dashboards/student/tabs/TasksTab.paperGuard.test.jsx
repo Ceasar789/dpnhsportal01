@@ -49,12 +49,12 @@ beforeEach(() => { state.calls = []; state.items = ITEMS; state.saved = []; setG
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const openPaper = async (name = 'Start') => {
-  render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name }));
   return screen.findByRole('article', { name: 'Worksheet test paper' });
 };
 const showList = async () => {
-  render(<MemoryRouter><StudentTasksTab /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/?view=all']}><StudentTasksTab /></MemoryRouter>);
   await screen.findByText('Unit quiz');
 };
 

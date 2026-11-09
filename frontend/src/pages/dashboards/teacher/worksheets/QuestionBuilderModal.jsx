@@ -39,6 +39,22 @@ const TYPE_LABELS = {
   essay: 'Essay',
 };
 
+// Saved mode only: the question list as a paper page, and each question's key in
+// its own box. In draft mode both return their children untouched.
+const PaperFrame = ({ paper, title, children }) => (paper
+  ? <section className="qb-paper" aria-label="Question paper">
+    <h3 className="qb-paper-title">{title}</h3>
+    {children}
+  </section>
+  : children);
+
+const AnswerKeyArea = ({ paper, number, children }) => (paper
+  ? <div className="qb-paper-key" role="group" aria-label={`Question ${number} answer key`}>
+    <p className="qb-paper-key-label" aria-hidden="true">Answer key · teacher only</p>
+    {children}
+  </div>
+  : children);
+
 let uidCounter = 0;
 const genUid = () => `new-${Date.now()}-${(uidCounter += 1)}`;
 
@@ -419,27 +435,32 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                <Plus size={14} className="inline" aria-hidden="true" /> Add question to section
              </button>
            </div>)}
+          <PaperFrame paper={!draftMode} title={worksheet.title}>
            {(draftMode ? orderedWorksheetItems(items, sections) : items).map((it, index) => (
-            <div key={it.uid} className="p-3 rounded-lg flex flex-col gap-2"
-              style={{ border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold" style={{ color: dark ? '#94a3b8' : '#64748b' }}>#{index + 1}</span>
+            <div key={it.uid} className={draftMode ? 'p-3 rounded-lg flex flex-col gap-2' : 'qb-paper-row'}
+              role={draftMode ? undefined : 'group'} aria-label={draftMode ? undefined : `Question ${index + 1}`}
+              style={draftMode ? { border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` } : undefined}>
+              <div className={draftMode ? 'flex flex-wrap items-center gap-2' : 'qb-paper-toolbar flex flex-wrap items-center gap-2'}>
+                {draftMode && <span className="text-xs font-bold" style={{ color: dark ? '#94a3b8' : '#64748b' }}>#{index + 1}</span>}
                 <select aria-label={`Question ${index + 1} type`} data-validation-field={`question-${index + 1}-type`}
                   aria-invalid={Boolean(errorFor(`question-${index + 1}-type`))} value={it.item_type} onChange={e => patch(index, { item_type: e.target.value, correct_answer: '',
                     ...(e.target.value === 'essay' && draft?.collectionId && !it.essay ? { essay: { referenceAnswer: '', minWords: 20, maxWords: 100,
                       rubric: [{ criterion: '', points: Number(it.points) || 1 }] } } : {}) })}
-                  className="h-8 min-w-0 px-2 rounded text-xs outline-none" style={fieldStyle}>
+                  className={draftMode ? 'h-8 min-w-0 px-2 rounded text-xs outline-none' : 'min-h-10 min-w-0 px-2 rounded text-xs'} style={fieldStyle}>
                   {ITEM_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
                 </select>
                 <input type="number" min="0" step="0.5" aria-label={`Question ${index + 1} points`}
                   data-validation-field={`question-${index + 1}-points`} aria-invalid={Boolean(errorFor(`question-${index + 1}-points`))} value={it.points}
                   onChange={e => patch(index, { points: e.target.value })}
-                  className="h-8 w-20 px-2 rounded text-xs outline-none" style={fieldStyle} />
+                  className={draftMode ? 'h-8 w-20 px-2 rounded text-xs outline-none' : 'min-h-10 w-20 px-2 rounded text-xs'} style={fieldStyle} />
                 <span className="text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>points</span>
                  <div className="ml-auto flex gap-1">
-                  <button onClick={() => move(index, -1)} aria-label={`Move question ${index + 1} up`} title="Move up"><ChevronUp size={14} aria-hidden="true" /></button>
-                  <button onClick={() => move(index, 1)} aria-label={`Move question ${index + 1} down`} title="Move down"><ChevronDown size={14} aria-hidden="true" /></button>
-                  <button onClick={() => { clearValidation(); setItems(prev => prev.filter((_, i) => i !== index)); }} aria-label={`Delete question ${index + 1}`} title="Delete">
+                  <button onClick={() => move(index, -1)} aria-label={`Move question ${index + 1} up`} title="Move up"
+                    className={draftMode ? undefined : 'qb-paper-tool'}><ChevronUp size={14} aria-hidden="true" /></button>
+                  <button onClick={() => move(index, 1)} aria-label={`Move question ${index + 1} down`} title="Move down"
+                    className={draftMode ? undefined : 'qb-paper-tool'}><ChevronDown size={14} aria-hidden="true" /></button>
+                  <button onClick={() => { clearValidation(); setItems(prev => prev.filter((_, i) => i !== index)); }} aria-label={`Delete question ${index + 1}`} title="Delete"
+                    className={draftMode ? undefined : 'qb-paper-tool'}>
                     <Trash2 size={14} className="text-red-500" aria-hidden="true" />
                   </button>
                 </div>
@@ -455,8 +476,11 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                 aria-invalid={Boolean(errorFor(`question-${index + 1}-text`))} value={it.question}
                 onChange={e => patch(index, { question: e.target.value })}
                 className="w-full min-h-[72px] resize-y rounded-lg px-3 py-2 text-sm" style={fieldStyle} />
-                : <Input placeholder="Question" aria-label={`Question ${index + 1} text`} value={it.question}
-                  onChange={e => patch(index, { question: e.target.value })} />}
+                : <div className="qb-paper-question">
+                  <span className="qb-paper-number" aria-hidden="true">{index + 1}.</span>
+                  <Input placeholder="Question" aria-label={`Question ${index + 1} text`} value={it.question}
+                    onChange={e => patch(index, { question: e.target.value })} />
+                </div>}
 
               {it.item_type === 'multiple_choice' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -469,6 +493,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                 </div>
               )}
 
+              <AnswerKeyArea paper={!draftMode} number={index + 1}>
               {it.item_type === 'multiple_choice' && (
                 // A select over the item's own options, not free text: a
                 // typed key that doesn't exactly match an option can never
@@ -568,6 +593,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                   </div>}
                 </>
               )}
+              </AnswerKeyArea>
               {draftMode && ['text', 'type', 'points', 'choices', 'answer'].map(field => {
                 const message = errorFor(`question-${index + 1}-${field}`);
                 return message && <p key={field} role="alert" className="text-xs" style={{ color: 'var(--red)' }}>{message}</p>;
@@ -581,11 +607,12 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
            <Btn onClick={() => { clearValidation(); setItems(prev => [...prev, { ...blankItem(), ...(draftMode ? { sectionId: sections.at(-1).id } : {}) }]); }} className="self-start">
             <Plus size={14} /> Add question
           </Btn>
+          </PaperFrame>
           {draftMode && errorFor('items') && <p role="alert" className="text-xs" style={{ color: 'var(--red)' }}>{errorFor('items')}</p>}
           </>}
 
-          <div className={draftMode ? 'sticky bottom-0 z-10 flex flex-wrap justify-end gap-2 border-t py-3' : 'flex justify-end gap-2'}
-            style={draftMode ? { backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' } : undefined}>
+          <div className={draftMode ? 'sticky bottom-0 z-10 flex flex-wrap justify-end gap-2 border-t py-3' : 'sticky bottom-0 z-10 flex flex-wrap justify-end gap-2 border-t py-3'}
+            style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <Btn variant="outline" onClick={draftMode && !manualMode && !draft.saved ? onClose : requestClose}>{draftMode ? 'Back to Worksheets' : 'Cancel'}</Btn>
             {draftMode && (import.meta.env.DEV || onDurableSave) && <Btn variant="primary" onClick={saveLocal} busy={saving} disabled={saving}>
               {saving ? onDurableSave ? 'Saving to EduScribe…' : 'Saving locally…'
@@ -599,7 +626,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
       )}
   </>;
 
-  if (!draftMode) return <>{routeBlocker}<Modal title={`Questions — ${worksheet.title}`} onClose={requestClose} size="max-w-2xl">{editorBody}</Modal></>;
+  if (!draftMode) return <>{routeBlocker}<Modal title={`Questions — ${worksheet.title}`} onClose={requestClose} size="max-w-3xl">{editorBody}</Modal></>;
 
   return <>{routeBlocker}<section ref={editorRef} aria-label={manualMode ? 'Manual Worksheet editor' : 'Generated Worksheet editor'} className="mx-auto max-w-6xl min-w-0 space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3">

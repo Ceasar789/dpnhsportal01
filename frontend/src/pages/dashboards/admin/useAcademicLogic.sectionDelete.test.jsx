@@ -86,10 +86,10 @@ describe('deleteSection confirmation', () => {
     const { result } = await setup();
     act(() => result.current.logic.deleteSection('section-1'));
     expect(result.current.confirm.confirmName).toBe('7-Rizal'); // unknown while counting
-    expect(countsOf(result.current.confirm)['Students in the class list']).toBe('Counting…');
+    expect(countsOf(result.current.confirm)['Class list records (including former members)']).toBe('Counting…');
     await waitFor(() => expect(result.current.confirm.confirmName).toBeNull());
     expect(countsOf(result.current.confirm)).toEqual({
-      'Students in the class list': 0, Schedules: 0, 'Attendance records': 0, 'Student submissions': 0, 'Task assignments': 0,
+      'Class list records (including former members)': 0, Schedules: 0, 'Attendance records': 0, 'Student submissions': 0, 'Task assignments': 0,
     });
   });
 
@@ -97,10 +97,10 @@ describe('deleteSection confirmation', () => {
     h.counts = { section_students: 3, schedules: 1, attendance: 40, worksheet_submissions: 6, task_assignees: 9 };
     const { result } = await setup();
     act(() => result.current.logic.deleteSection('section-1'));
-    await waitFor(() => expect(countsOf(result.current.confirm)['Students in the class list']).toBe(3));
+    await waitFor(() => expect(countsOf(result.current.confirm)['Class list records (including former members)']).toBe(3));
     expect(result.current.confirm.confirmName).toBe('7-Rizal');
     expect(countsOf(result.current.confirm)).toEqual({
-      'Students in the class list': 3, Schedules: 1, 'Attendance records': 40, 'Student submissions': 6, 'Task assignments': 9,
+      'Class list records (including former members)': 3, Schedules: 1, 'Attendance records': 40, 'Student submissions': 6, 'Task assignments': 9,
     });
   });
 
@@ -121,7 +121,7 @@ describe('deleteSection confirmation', () => {
     h.counts = { section_students: 'error', schedules: 0, attendance: 0, worksheet_submissions: 0, task_assignees: 0 };
     const { result } = await setup();
     act(() => result.current.logic.deleteSection('section-1'));
-    await waitFor(() => expect(countsOf(result.current.confirm)['Students in the class list']).toBe('Could not be counted'));
+    await waitFor(() => expect(countsOf(result.current.confirm)['Class list records (including former members)']).toBe('Could not be counted'));
     expect(result.current.confirm.confirmName).toBe('7-Rizal');
   });
 

@@ -120,7 +120,9 @@ describe('Sections full-state presentation', () => {
     render(<SectionsTab />);
     const remove = screen.getByRole('button', { name: 'Remove Synthetic Student from this section' });
     fireEvent.click(remove);
-    fireEvent.click(remove);
+    fireEvent.click(screen.getByRole('radio', { name: /Added by mistake/ }));
+    const confirm = screen.getByRole('button', { name: 'Remove from section' });
+    fireEvent.click(confirm); fireEvent.click(confirm);
     expect(removeStudentFromSection).toHaveBeenCalledTimes(1);
     await act(async () => resolveRemoval(false));
   });

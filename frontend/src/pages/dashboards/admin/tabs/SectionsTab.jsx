@@ -4,7 +4,7 @@
 // what makes a teacher's My Students screen show anything.
 // ============================================
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import RowSheet from '../../../../components/ui/RowSheet';
 import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
@@ -13,6 +13,7 @@ import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
 import SchoolYearNotice from '../shared/SchoolYearNotice';
 import { coverageText, subjectCoverage } from '../shared/classSetup';
+import { formatEnrollmentDate, membershipStatusLabel, REMOVAL_REASONS } from '../shared/sectionMembership';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import Button from '../../../../components/ui/Button';
 import { isActiveSectionAdviser, otherAdvisedSections, validateSectionCapacity } from '../shared/sectionsValidation';
@@ -25,7 +26,7 @@ const SectionsTab = () => {
     secCapacity, setSecCapacity, secCapacityError, setSecCapacityError,
     secAdviserError, setSecAdviserError, secSaving,
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
-    activeSection, classList, classListLoading, classListError, unassignedStudents,
+    activeSection, classList, classListLoading, classListError, unassignedStudents, previousMembers,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
     showToast,
     schedules, schedulesLoading, schedulesError, subjects, subjectsLoading, subjectsError,
@@ -48,6 +49,38 @@ const SectionsTab = () => {
   const [adding, setAdding] = useState(false);
   const [removingStudentId, setRemovingStudentId] = useState(null);
   const removingStudentRef = useRef(false);
+
+  // Removing a student asks why, inside the class list (no second overlay on
+  // top of this dialog): Dropped and Transferred keep the row as history,
+  // Added by mistake deletes it. No reason is preselected.
+  const [removal, setRemoval] = useState(null);
+  const [removalReason, setRemovalReason] = useState('');
+  const removeTriggerRef = useRef(null);
+  const removalLegendRef = useRef(null);
+  useEffect(() => { if (removal) removalLegendRef.current?.focus(); }, [removal]);
+  const cancelRemoval = () => {
+    setRemoval(null);
+    setRemovalReason('');
+    removeTriggerRef.current?.focus();
+  };
+  const confirmRemoval = async () => {
+    if (!removal || !removalReason || removingStudentRef.current) return;
+    const trigger = removeTriggerRef.current;
+    // Losing focus here drops the user on the body with a modal still open over it.
+    const settle = trigger ? focusAfterRemoval(trigger, 'table', '.icon-action', '.modal-title') : () => {};
+    removingStudentRef.current = true;
+    setRemovingStudentId(removal.id);
+    try {
+      if (await removeStudentFromSection(removal.id, removalReason)) {
+        setRemoval(null);
+        setRemovalReason('');
+        settle();
+      }
+    } finally {
+      removingStudentRef.current = false;
+      setRemovingStudentId(null);
+    }
+  };
 
   // UX-062: two of these four fields are required and nothing said which.
   // The rules are unchanged and still live in saveSection; this is where
@@ -305,6 +338,34 @@ const SectionsTab = () => {
               >Add</Button>
             </div>
 
+            {removal && (
+              <fieldset aria-describedby="sections-remove-reason-help"
+                style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-12)', margin: '0 0 var(--space-12)' }}>
+                <legend ref={removalLegendRef} tabIndex={-1} style={{ fontWeight: 600, color: 'var(--text)', padding: '0 var(--space-4)' }}>
+                  Why is {removal.name} being removed from {activeSection.name}?
+                </legend>
+                <p id="sections-remove-reason-help" className="form-hint" style={{ marginTop: 0 }}>
+                  Dropped and Transferred keep the record under Previously in this section. Added by mistake deletes it.
+                </p>
+                {REMOVAL_REASONS.map(reason => (
+                  <label key={reason.value} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', minHeight: 44, cursor: 'pointer', color: 'var(--text)' }}>
+                    <input type="radio" name="sections-remove-reason" value={reason.value}
+                      checked={removalReason === reason.value} onChange={() => setRemovalReason(reason.value)} />
+                    {reason.label}
+                  </label>
+                ))}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-8)', justifyContent: 'flex-end', marginTop: 'var(--space-8)' }}>
+                  <button type="button" className="btn btn-ghost" style={{ minHeight: 44 }} onClick={cancelRemoval}>Cancel</button>
+                  <button type="button" className="btn btn-primary btn-danger-solid" style={{ minHeight: 44 }}
+                    disabled={!removalReason || removingStudentId === removal.id}
+                    aria-busy={removingStudentId === removal.id || undefined}
+                    onClick={confirmRemoval}>
+                    {removingStudentId === removal.id ? 'Removing…' : 'Remove from section'}
+                  </button>
+                </div>
+              </fieldset>
+            )}
+
             <div className="table-card"><table>
               <thead><tr><th>#</th><th>Student</th><th>Email</th><th style={{ width: 60 }}></th></tr></thead>
               <tbody>
@@ -335,27 +396,37 @@ const SectionsTab = () => {
                       title="Remove"
                       disabled={removingStudentId === c.id}
                       aria-busy={removingStudentId === c.id || undefined}
-                      onClick={async (e) => {
-                        // Losing focus here drops the user on the body with
-                        // a modal still open over it.
-                        const settle = focusAfterRemoval(
-                          e.currentTarget, 'table', '.icon-action', '.modal-title',
-                        );
+                      onClick={(e) => {
                         if (removingStudentRef.current) return;
-                        removingStudentRef.current = true;
-                        setRemovingStudentId(c.id);
-                        try {
-                          if (await removeStudentFromSection(c.id)) settle();
-                        } finally {
-                          removingStudentRef.current = false;
-                          setRemovingStudentId(null);
-                        }
+                        removeTriggerRef.current = e.currentTarget;
+                        setRemovalReason('');
+                        setRemoval(c);
                       }}
                     ><X size={15} aria-hidden="true" /></button></td>
                   </tr>
                 ))}
               </tbody>
             </table></div>
+
+            {!classListLoading && !classListError && previousMembers?.length > 0 && (
+              <details className="table-card" style={{ marginTop: 'var(--space-12)', padding: '0 var(--space-12) var(--space-8)' }}>
+                <summary style={{ minHeight: 44, paddingTop: 'var(--space-12)', cursor: 'pointer', fontWeight: 600, color: 'var(--text)' }}>
+                  Previously in this section ({previousMembers.length})
+                </summary>
+                <table aria-label="Previously in this section">
+                  <thead><tr><th>Student</th><th>Status</th><th>Enrolled</th></tr></thead>
+                  <tbody>
+                    {previousMembers.map(member => (
+                      <tr key={member.id}>
+                        <td data-cell="identity">{member.name}</td>
+                        <td data-cell="value">{membershipStatusLabel(member.status)}</td>
+                        <td data-cell="detail">{formatEnrollmentDate(member.enrollment_date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </details>
+            )}
 
         </Modal>
       )}

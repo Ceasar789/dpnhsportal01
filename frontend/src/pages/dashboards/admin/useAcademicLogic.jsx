@@ -10,6 +10,7 @@ import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { canTeachSection, currentSchoolYear, describeScheduleClashes, findScheduleClashes } from '../../../lib/academicRules';
 import { hasExactDeletedIds } from '../../../lib/deleteVerification';
+import { statusForReason } from './shared/sectionMembership';
 import {
   validateCapacityAgainstEnrollment,
   validateSectionAdviser,
@@ -523,7 +524,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
           'Any grade records and older class records (assignments, quizzes, announcements) for this section',
         ],
         counts: [
-          { label: 'Students in the class list', value: show(students) },
+          { label: 'Class list records (including former members)', value: show(students) },
           { label: 'Schedules', value: show(scheduleCount) },
           { label: 'Attendance records', value: show(attendance) },
           { label: 'Student submissions', value: show(submissions) },
@@ -573,12 +574,17 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   const [classListLoading, setClassListLoading] = useState(false);
   const [classListError, setClassListError] = useState(false);
   const [unassignedStudents, setUnassignedStudents] = useState([]);
+  // Former members (dropped, transferred, graduated): kept as history, shown
+  // read-only, and re-activated by the normal Add flow.
+  const [previousMembers, setPreviousMembers] = useState([]);
 
   const loadClassList = useCallback(async (section) => {
     setClassListLoading(true);
 
     const { data: rows, error } = await withRetry(
-      () => supabase.from('section_students').select('id, student_id').eq('section_id', section.id).eq('status', 'active'),
+      // Every row of the section, active and former; split below. Capacity and
+      // the class list still count active rows only.
+      () => supabase.from('section_students').select('id, student_id, status, enrollment_date').eq('section_id', section.id),
       { label: 'Class list fetch' }
     );
     if (error) {
@@ -588,9 +594,13 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       return;
     }
 
+    // A row with no status is the column default, 'active'.
+    const activeRows = (rows || []).filter(r => (r.status ?? 'active') === 'active');
+    const formerRows = (rows || []).filter(r => (r.status ?? 'active') !== 'active');
     // students.id references auth.users, not profiles, so the name has to be
     // fetched separately rather than through a PostgREST embed.
-    const ids = (rows || []).map(r => r.student_id);
+    const ids = activeRows.map(r => r.student_id);
+    const nameIds = [...new Set((rows || []).map(r => r.student_id))];
 
     // These two reads are independent of each other — the student pool query
     // doesn't need `ids` until the client-side filter below — so they run
@@ -598,9 +608,9 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     // connection pool this halves the round trips this function makes,
     // which is what was making every open/add/remove feel sluggish.
     const [profilesResult, allStudentsResult] = await Promise.all([
-      ids.length > 0
+      nameIds.length > 0
         ? withRetry(
-            () => supabase.from('profiles').select('id, name, email').in('id', ids),
+            () => supabase.from('profiles').select('id, name, email').in('id', nameIds),
             { label: 'Class list profiles fetch' }
           )
         : Promise.resolve({ data: [], error: null }),
@@ -621,9 +631,13 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     }
 
     const names = profilesResult.data || [];
-    setClassList((rows || []).map(r => {
+    setClassList(activeRows.map(r => {
       const p = names.find(n => n.id === r.student_id);
       return { id: r.id, student_id: r.student_id, name: p?.name || '—', email: p?.email || '' };
+    }));
+    setPreviousMembers(formerRows.map(r => {
+      const p = names.find(n => n.id === r.student_id);
+      return { id: r.id, student_id: r.student_id, name: p?.name || '—', status: r.status, enrollment_date: r.enrollment_date || null };
     }));
 
     setClassListError(false);
@@ -632,7 +646,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   }, []);
 
   const openClassList = (section) => { setActiveSection(section); loadClassList(section); };
-  const closeClassList = () => { setActiveSection(null); setClassList([]); };
+  const closeClassList = () => { setActiveSection(null); setClassList([]); setPreviousMembers([]); };
 
   const addingStudentRef = useRef(false);
   const addStudentToSection = async (studentId) => {
@@ -679,6 +693,29 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       return false;
     }
 
+    // A former member of this section already has a row (unique on section and
+    // student): set it back to active, keeping its original enrollment_date.
+    const former = previousMembers.find(member => member.student_id === studentId);
+    if (former) {
+      let reactivated;
+      try {
+        reactivated = await supabase.from('section_students').update({ status: 'active' })
+          .eq('id', former.id).eq('section_id', activeSection.id).select('id');
+      } catch (error) {
+        reactivated = { error };
+      }
+      if (reactivated.error || !hasExactDeletedIds(reactivated.data, former.id)) {
+        if (reactivated.error) console.warn('Student re-activation failed —', reactivated.error.message || String(reactivated.error));
+        showToast('Could not add the student to this section. Please try again.', 'error');
+        addingStudentRef.current = false;
+        return false;
+      }
+      showToast('Student added to section');
+      loadClassList(activeSection);
+      addingStudentRef.current = false;
+      return true;
+    }
+
     const { error } = await supabase.from('section_students').insert([{
       section_id: activeSection.id, student_id: studentId, status: 'active',
     }]);
@@ -698,8 +735,30 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     return true;
   };
 
-  const removeStudentFromSection = async (rowId) => {
+  // reason: 'dropped' or 'transferred' keeps the row with that status;
+  // 'mistake' (or no reason, as before) deletes it.
+  const removeStudentFromSection = async (rowId, reason) => {
     if (!activeSection) return false;
+    const keptStatus = statusForReason(reason);
+    if (keptStatus) {
+      let updated;
+      try {
+        updated = await supabase.from('section_students').update({ status: keptStatus })
+          .eq('id', rowId).eq('section_id', activeSection.id).select('id');
+      } catch (error) {
+        console.warn('Student membership status change request failed —', error?.message || String(error));
+        showToast('Could not remove the student from this section. Please try again.', 'error');
+        return false;
+      }
+      if (updated.error || !hasExactDeletedIds(updated.data, rowId)) {
+        if (updated.error) console.warn('Student membership status change failed —', updated.error.message);
+        showToast('Could not remove the student from this section. Please try again.', 'error');
+        return false;
+      }
+      showToast(keptStatus === 'dropped' ? 'Student marked as dropped' : 'Student marked as transferred');
+      loadClassList(activeSection);
+      return true;
+    }
     let result;
     try {
       result = await supabase.from('section_students').delete()
@@ -943,7 +1002,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     secCapacity, setSecCapacity, secCapacityError, setSecCapacityError,
     secAdviserError, setSecAdviserError, secSaving,
     openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
-    activeSection, classList, classListLoading, classListError, unassignedStudents,
+    activeSection, classList, classListLoading, classListError, unassignedStudents, previousMembers,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
     schedules, schedulesLoading, schedulesError, fetchSchedules,
     scheduleOpenSectionId, setScheduleOpenSectionId,

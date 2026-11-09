@@ -576,13 +576,6 @@ const StudentTasksTab = () => {
     const done = submission?.status !== 'in_progress';
     const handout = items.length === 0 && isHandout(active.sheet);
     const enrolled = graph?.enrolments?.find(entry => entry.section_id === active.assignee.section_id);
-    const oneSection = Array.isArray(worksheetView?.sections) && worksheetView.sections.length === 1
-      && typeof worksheetView.sections[0]?.id === 'string'
-      && typeof worksheetView.sections[0]?.title === 'string'
-      && worksheetView.sections[0].title.trim();
-    const group = oneSection ? worksheetView.sections[0] : { title: 'Questions' };
-    // Section metadata remains available, but items have no section id to group by.
-    void group;
     const orderedItems = [...items].sort((a, b) => Number(a.position) - Number(b.position));
     const knownTypes = new Set(PAPER_GROUPS.map(([type]) => type));
     const paperGroups = PAPER_GROUPS.map(([type, title]) => ({ title,
@@ -616,7 +609,7 @@ const StudentTasksTab = () => {
         {items.length === 0 ? (
           <p className="mt-6 text-center text-sm" style={{ color: '#4b443d' }}>
             {handout ? "This is an activity. Follow your teacher's directions."
-              : 'This worksheet has no questions to answer in the app. Download it from your teacher instead.'}
+              : 'Ask your teacher for this task.'}
           </p>
         ) : (
           <div className="mt-7 space-y-6">

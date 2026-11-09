@@ -95,8 +95,3 @@ export const useToast = () => {
   return { showToast, Toast };
 };
 
-// ============================================
-// STUDENT OVERVIEW TAB — Supabase + Real-time
-// ORIGINAL DESIGN PRESERVED — data now from Supabase
-// ============================================
-

@@ -1,6 +1,6 @@
 // ============================================
 // FILE: src/pages/dashboards/student/tabs/AttendanceTab.jsx
-// ATTENDANCE TAB — Supabase + Real-time
+// ATTENDANCE TAB — the student's own daily attendance rows.
 // Split from the original monolithic StudentDashboard.jsx (1,123 lines)
 // ============================================
 
@@ -227,10 +227,5 @@ const AttendanceTab = () => {
     </div>
   );
 };
-
-// ============================================
-// ANNOUNCEMENTS TAB — Supabase + Real-time
-// ORIGINAL DESIGN PRESERVED
-// ============================================
 
 export default AttendanceTab;

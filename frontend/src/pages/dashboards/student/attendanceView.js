@@ -6,12 +6,6 @@ import { formatManila, manilaDateToday } from '../../../lib/taskFormatting';
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 // Attendance status is stored capitalised ('Present', 'Absent', 'Late',
 // 'Excused'). Normalising on read means either casing renders correctly.
-// (Moved from AttendanceTab.jsx:) The teacher writes 'Present' / 'Absent' / 'Late' / 'Excused'
-// capitalised (teacher/tabs/AttendanceTab.jsx maps 'P' -> 'Present'),
-// and the CHECK constraint stores them that way. Comparing lowercase
-// here matched nothing, so this tab read 0 present, 0 late and 0 absent
-// however much attendance had actually been recorded. Compared
-// case-insensitively so either casing counts.
 export const statusKey = row => String(row?.status || '').toLowerCase();
 export const KNOWN_STATUSES = ['present', 'late', 'absent', 'excused'];
 

@@ -1,6 +1,6 @@
 // ============================================
 // FILE: src/pages/dashboards/student/tabs/AnnouncementsTab.jsx
-// ANNOUNCEMENTS TAB — Supabase + Real-time
+// ANNOUNCEMENTS TAB — published school news, read when the tab opens or on Refresh.
 // Split from the original monolithic StudentDashboard.jsx (1,123 lines)
 // ============================================
 
@@ -13,6 +13,7 @@ import { withRetry } from '../../../../lib/supabaseRetry';
 import { Btn } from '../../teacher/shared/ui';
 import PageHeader from '../PageHeader';
 import { INFO, RED } from '../badgeTones';
+import { isNewAnnouncement } from '../announcementAge';
 import { localNowTimestamp } from '../../../../lib/taskFormatting';
 
 const AnnouncementsTab = () => {
@@ -24,6 +25,8 @@ const AnnouncementsTab = () => {
   // A failed read is its own state: it must never look like "no announcements".
   const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // "Now" for the NEW badge, fixed when the tab opens.
+  const [now] = useState(() => new Date());
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -99,7 +102,7 @@ const AnnouncementsTab = () => {
           {filtered.map((announcement, i) => (
             <Card key={announcement.id || i} className="p-5">
               <div className="flex items-center gap-2 mb-2">
-                <Badge color={INFO.color} bg={INFO.bg}>NEW</Badge>
+                {isNewAnnouncement(announcement.created_at, now) && <Badge color={INFO.color} bg={INFO.bg}>NEW</Badge>}
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {new Date(announcement.created_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}
                 </span>

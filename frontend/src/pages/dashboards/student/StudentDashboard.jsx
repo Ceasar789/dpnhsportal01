@@ -318,16 +318,8 @@ const StudentLayout = ({ children }) => {
           })}
         </nav>
 
-        {/* System Status */}
+        {/* Sidebar logout: the footer keeps its divider and even padding. */}
         <div className="p-5 border-t" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-2 px-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-            {!sidebarCollapsed && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>All systems online</span>}
-          </div>
-        </div>
-
-        {/* Sidebar logout */}
-        <div className="px-5 pb-5">
           <button
             ref={logoutButtonRef}
             onClick={handleLogout}

@@ -161,7 +161,8 @@ describe('zero-item tasks that are not handouts behave as today', () => {
   ])('%s', async (_name, sheet) => {
     setSheet(sheet);
     await openRow('Start');
-    expect(screen.getByText(OLD_MESSAGE)).toBeTruthy();
+    expect(screen.getByText('Ask your teacher for this task.')).toBeTruthy();
+    expect(screen.queryByText(OLD_MESSAGE)).toBeNull();
     expect(screen.queryByText(MESSAGE)).toBeNull();
     expect(screen.getByRole('heading', { name: 'WORKSHEET' })).toBeTruthy();
     expect(screen.getByText('Score:')).toBeTruthy();

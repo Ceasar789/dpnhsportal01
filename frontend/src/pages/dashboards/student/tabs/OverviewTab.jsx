@@ -21,7 +21,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import {
   BookOpen, CalendarCheck, ClipboardList, Loader2
 } from 'lucide-react';
-import { useToast, Card, StatCard } from '../hooks';
+import { Card, StatCard } from '../hooks';
 import { useStudentData } from '../StudentDataContext';
 import SubjectCards from '../SubjectCards';
 import { isHandout } from './studentAnswers';
@@ -31,7 +31,6 @@ import { rowsFromGraph } from '../taskGroups';
 
 const OverviewTab = () => {
   const { userData } = useAuth();
-  const { Toast } = useToast();
   const navigate = useNavigate();
 
   // Every read this tab needs now comes from the one shared graph fetched by
@@ -140,7 +139,6 @@ const OverviewTab = () => {
 
   return (
     <div className="p-4 sm:p-6">
-      <Toast />
       <PageHeader title="Overview" subtitle="Your subjects, tasks and attendance at a glance."
         onRefresh={fetchOverview} refreshLabel="Refresh overview" />
 

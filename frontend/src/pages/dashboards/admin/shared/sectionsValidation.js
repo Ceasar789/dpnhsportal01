@@ -28,6 +28,16 @@ export const validateSectionAdviser = ({ adviserId, teachers, existingAdviserId 
     : { valid: false, message: 'Choose an active teacher as the section adviser.' };
 };
 
+// The OTHER sections this adviser already advises in the same school year.
+// A warning only: existing data may already have a teacher on two sections,
+// so saving is never blocked on this.
+export const otherAdvisedSections = ({ adviserId, sections, editingSectionId, schoolYear }) => {
+  if (!adviserId) return [];
+  return (sections || []).filter(section => section?.adviser_id === adviserId
+    && section.id !== editingSectionId
+    && section.school_year === schoolYear);
+};
+
 export const validateCapacityAgainstEnrollment = (capacity, enrolledCount) => (
   capacity < enrolledCount
     ? { valid: false, message: `Capacity cannot be lower than the current enrollment of ${enrolledCount}.` }

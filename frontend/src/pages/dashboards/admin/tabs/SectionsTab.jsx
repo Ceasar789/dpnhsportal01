@@ -13,7 +13,7 @@ import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import Button from '../../../../components/ui/Button';
-import { isActiveSectionAdviser, validateSectionCapacity } from '../shared/sectionsValidation';
+import { isActiveSectionAdviser, otherAdvisedSections, validateSectionCapacity } from '../shared/sectionsValidation';
 
 const SectionsTab = () => {
   const {
@@ -61,6 +61,13 @@ const SectionsTab = () => {
     ? teachers.find((teacher) => teacher.id === editingSection.adviser_id)
     : null;
   const existingAdviserIsIneligible = existingAdviser && !isActiveSectionAdviser(existingAdviser);
+  // Uses the sections already loaded for this year; never blocks saving.
+  const alsoAdvises = otherAdvisedSections({
+    adviserId: secAdviser, sections, editingSectionId: editingSection?.id, schoolYear,
+  });
+  const adviserWarning = alsoAdvises.length > 0
+    ? `${adviserName(secAdviser)} already advises ${alsoAdvises.map(s => s.name).join(', ')} this school year. A teacher normally advises one section.`
+    : '';
 
   return (
     <>
@@ -181,7 +188,8 @@ const SectionsTab = () => {
               <label className="form-label" htmlFor="sections-adviser">Adviser</label>
               <select id="sections-adviser" className={`form-input${secAdviserError ? ' is-invalid' : ''}`} value={secAdviser}
                 onChange={e => { setSecAdviser(e.target.value); setSecAdviserError(''); }}
-                aria-invalid={Boolean(secAdviserError) || undefined} aria-describedby={secAdviserError ? 'sections-adviser-error' : undefined}>
+                aria-invalid={Boolean(secAdviserError) || undefined}
+                aria-describedby={[secAdviserError && 'sections-adviser-error', adviserWarning && 'sections-adviser-warning'].filter(Boolean).join(' ') || undefined}>
                 <option value="">No adviser yet</option>
                 {existingAdviserIsIneligible && (
                   <option value={existingAdviser.id} disabled>
@@ -191,6 +199,12 @@ const SectionsTab = () => {
                 {eligibleTeachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
               </select>
               {secAdviserError && <div className="field-error" id="sections-adviser-error">{secAdviserError}</div>}
+              {adviserWarning && (
+                <div className="form-hint" id="sections-adviser-warning" role="status"
+                  style={{ color: 'var(--badge-yellow-fg)', background: 'var(--badge-yellow-bg)', border: '1px solid var(--badge-yellow-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-8)' }}>
+                  {adviserWarning}
+                </div>
+              )}
               {existingAdviserIsIneligible && secAdviser === existingAdviser.id && (
                 <div className="field-help">This adviser is no longer active. The existing assignment will be preserved unless you choose a replacement.</div>
               )}

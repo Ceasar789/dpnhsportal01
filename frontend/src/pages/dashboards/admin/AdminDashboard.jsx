@@ -1420,6 +1420,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         destructive
         busy={deleteConfirmBusy}
         busyLabel={deleteConfirm?.busyLabel || 'Deleting…'}
+        details={deleteConfirm?.details}
+        counts={deleteConfirm?.counts}
+        recommendation={deleteConfirm?.recommendation}
+        confirmName={deleteConfirm?.confirmName}
         onCancel={() => { if (!deleteConfirmBusy) setDeleteConfirm(null); }}
         onConfirm={async () => {
           const fn = deleteConfirm?.onConfirm;

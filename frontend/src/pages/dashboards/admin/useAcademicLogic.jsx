@@ -452,17 +452,61 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     return true;
   };
 
+  // What deleting a section removes, from the ON DELETE CASCADE foreign keys:
+  // section_students, schedules, attendance, grades and the legacy assignments,
+  // quizzes and class_announcements (schema/COMPLETE_DATABASE_SCHEMA_v2.sql),
+  // worksheet_sections and worksheet_submissions (phase2-01), which take their
+  // worksheet_answers (phase2-01) and worksheet_provisional_marks
+  // (auto-score-submission), and task_assignees (phase3-01).
+  const sectionDeleteRequestRef = useRef(0);
+  const countRows = async (table, sectionId) => {
+    try {
+      const { count, error } = await supabase.from(table)
+        .select('id', { count: 'exact', head: true }).eq('section_id', sectionId);
+      return error || typeof count !== 'number' ? null : count;
+    } catch {
+      return null;
+    }
+  };
+
   const deleteSection = (id, focusAfterConfirm) => {
     const section = sections.find(s => s.id === id);
-    setDeleteConfirm({
-      label: section?.name || 'this section',
-      title: 'Delete Section?',
-      message: 'This section will be permanently deleted, along with its class list and any schedules tied to it.',
-      warning: null,
-      confirmLabel: 'Yes, Delete',
-      requireConfirmedResult: true,
-      focusAfterConfirm,
-      onConfirm: async () => {
+    const requestId = ++sectionDeleteRequestRef.current;
+    const show = (value) => (value === undefined ? 'Counting…' : value === null ? 'Could not be counted' : value);
+    const build = ({ students, schedules: scheduleCount, attendance, submissions, assignments } = {}) => {
+      // Type-the-name is required unless the section is known to be empty:
+      // no students and no schedules. While a count is pending or failed, it stays required.
+      const knownEmpty = students === 0 && scheduleCount === 0;
+      return {
+        label: section?.name || 'this section',
+        title: 'Delete Section?',
+        message: 'This section will be permanently deleted, together with everything recorded for it:',
+        details: [
+          'Its class list (every student placed in this section)',
+          'All of its schedules',
+          'All attendance records for this section',
+          'All student submissions and scores for this section, with their answers and marks',
+          'All task assignments to this section, and the tasks posted to it',
+          'Any grade records and older class records (assignments, quizzes, announcements) for this section',
+        ],
+        counts: [
+          { label: 'Students in the class list', value: show(students) },
+          { label: 'Schedules', value: show(scheduleCount) },
+          { label: 'Attendance records', value: show(attendance) },
+          { label: 'Student submissions', value: show(submissions) },
+          { label: 'Task assignments', value: show(assignments) },
+        ],
+        warning: 'This cannot be undone.',
+        recommendation: 'To keep records, remove students and schedules first, or keep the section.',
+        confirmName: knownEmpty || !section?.name ? null : section.name,
+        requestId,
+        confirmLabel: 'Yes, Delete',
+        requireConfirmedResult: true,
+        focusAfterConfirm,
+        onConfirm,
+      };
+    };
+    const onConfirm = async () => {
         try {
           const { data, error } = await supabase.from('sections').delete().eq('id', id).select('id');
           if (error) throw error;
@@ -475,7 +519,18 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
         showToast('Section deleted');
         await fetchSections();
         return true;
-      },
+    };
+    setDeleteConfirm(build());
+    // The counts never block the dialog. They update it only while it is still
+    // this same request, so a dialog that was cancelled is never reopened.
+    // Schedules are counted the same way rather than from the loaded list, which
+    // is declared later in this hook and would stop the React compiler.
+    Promise.all([
+      countRows('section_students', id), countRows('schedules', id), countRows('attendance', id),
+      countRows('worksheet_submissions', id), countRows('task_assignees', id),
+    ]).then(([students, schedules, attendance, submissions, assignments]) => {
+      setDeleteConfirm(current => (current?.requestId === requestId
+        ? build({ students, schedules, attendance, submissions, assignments }) : current));
     });
   };
 

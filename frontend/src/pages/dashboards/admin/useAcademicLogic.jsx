@@ -726,6 +726,9 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
 
   // ── Schedules ─────────────────────────────────────────────────────────────
   const [schedules, setSchedules] = useState([]);
+  // The section open in the Schedules tab. Kept here, not in the tab, so the
+  // Sections tab can open a section's class setup ("Open class setup").
+  const [scheduleOpenSectionId, setScheduleOpenSectionId] = useState(null);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [schedulesError, setSchedulesError] = useState(false);
   const [scheduleModal, setScheduleModal] = useState(null);
@@ -943,6 +946,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
     schedules, schedulesLoading, schedulesError, fetchSchedules,
+    scheduleOpenSectionId, setScheduleOpenSectionId,
     scheduleConflicts: scheduleCheckShown.conflicts, scheduleCheckError: scheduleCheckShown.error,
     scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
     schedTeacher, setSchedTeacher, schedSubject, setSchedSubject,

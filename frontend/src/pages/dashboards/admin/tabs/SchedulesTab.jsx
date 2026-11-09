@@ -42,6 +42,7 @@ import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { useAdminContext } from '../AdminContext';
 import SchoolYearNotice from '../shared/SchoolYearNotice';
+import { coverageText, sortPeriods, subjectCoverage, teacherNamesFor } from '../shared/classSetup';
 import { GRADE_LEVELS, normalizeGradeLevel, canTeachSection } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
 import Button from '../../../../components/ui/Button';
@@ -56,6 +57,7 @@ const SchedulesTab = () => {
     sections, sectionsError, sectionsLoading, fetchSections,
     teachingLoad, teachingLoadError, teachingLoadLoading, fetchTeachingLoad,
     schedules, schedulesLoading, schedulesError, fetchSchedules,
+    scheduleOpenSectionId, setScheduleOpenSectionId,
     scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
     schedTeacher, setSchedTeacher, schedSubject,
     schedSection, schedDay, setSchedDay,
@@ -69,8 +71,21 @@ const SchedulesTab = () => {
   const slowSchedules = useDelayedFlag(schedulesLoading);
   const slowSubjects = useDelayedFlag(subjectsLoading);
 
-  const [grade, setGrade] = useState(GRADE_LEVELS[0]);
-  const [openSectionId, setOpenSectionId] = useState(null);
+  // The open section lives in the academic state when it is there (so the
+  // Sections tab can open one); otherwise, as before, in this tab.
+  const sharedOpenSection = typeof setScheduleOpenSectionId === 'function';
+  const [localOpenSectionId, setLocalOpenSectionId] = useState(null);
+  const openSectionId = sharedOpenSection ? (scheduleOpenSectionId ?? null) : localOpenSectionId;
+  const setOpenSectionId = sharedOpenSection ? setScheduleOpenSectionId : setLocalOpenSectionId;
+  const gradeOfSection = (id) => normalizeGradeLevel(sections.find(s => s.id === id)?.grade_level);
+  const [grade, setGrade] = useState(() => (openSectionId && gradeOfSection(openSectionId)) || GRADE_LEVELS[0]);
+  // A section opened from elsewhere shows its own grade, once its row is
+  // loaded. A grade the admin picks afterwards is left alone.
+  const [gradeSyncedFor, setGradeSyncedFor] = useState(openSectionId && gradeOfSection(openSectionId) ? openSectionId : null);
+  if (openSectionId && gradeSyncedFor !== openSectionId && gradeOfSection(openSectionId)) {
+    setGradeSyncedFor(openSectionId);
+    setGrade(gradeOfSection(openSectionId));
+  }
   // Set by pressing Create. Nothing is marked red until then — a form that is
   // red before it has been touched reads as broken, not incomplete.
   const [tried, setTried] = useState(false);
@@ -142,6 +157,7 @@ const SchedulesTab = () => {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(row);
     }
+    for (const [key, rows] of map) map.set(key, sortPeriods(rows));
     return map;
   }, [schedules, openSection]);
 
@@ -254,7 +270,24 @@ const SchedulesTab = () => {
               <div className="table-card" style={{ padding: 'var(--space-24)', textAlign: 'center', color: 'var(--text-muted)' }}>
                 Pick a section above to set its schedule.
               </div>
-            ) : (
+            ) : (<>
+              {/* Class setup: the adviser and how many subjects have a teacher.
+                  Read-only, from the data already loaded for the year. */}
+              <section className="table-card" aria-label={`Class setup for ${openSection.name}`}
+                style={{ padding: 'var(--space-16)', marginBottom: 'var(--space-12)' }}>
+                <div className="page-sub" style={{ margin: 0 }}>Class setup</div>
+                <p style={{ margin: 'var(--space-4) 0 0', color: 'var(--text)' }}>
+                  {teachersLoading ? 'Adviser: loading…'
+                    : teachersError ? 'Adviser could not be loaded'
+                      : !openSection.adviser_id ? 'No adviser yet'
+                        : `Adviser: ${teachers.find(t => t.id === openSection.adviser_id)?.name || 'a teacher not in the list'}`}
+                </p>
+                <p style={{ margin: 'var(--space-4) 0 0', color: 'var(--text-muted)' }}>
+                  {subjectsLoading || schedulesLoading ? 'Loading class setup…'
+                    : subjectsError ? 'Subject coverage unavailable'
+                      : coverageText(subjectCoverage(openSection.id, schedules, activeSubjects))}
+                </p>
+              </section>
               <div className="table-card schedule-table-card"><table>
                 <thead>
                   <tr>
@@ -300,8 +333,12 @@ const SchedulesTab = () => {
                         </td>
                         <td data-cell="detail">
                           {rows.length === 0 ? (
-                            <span style={{ color: 'var(--text-muted)' }}>— nobody scheduled —</span>
-                          ) : rows.map(r => (
+                            <span style={{ color: 'var(--text-muted)' }}>No teacher yet — nobody scheduled</span>
+                          ) : (<>
+                          <div className="row-sub" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
+                            {`${teacherNamesFor(rows, teachers).length === 1 ? 'Teacher' : 'Teachers'}: ${teacherNamesFor(rows, teachers).join(', ')}`}
+                          </div>
+                          {rows.map(r => (
                             <div key={r.id} className="sched-line">
                               <span className="sched-teacher">{nameOf(teachers, r.teacher_id)}</span>
                               <span className="sched-when">
@@ -314,6 +351,7 @@ const SchedulesTab = () => {
                                 onClick={() => deleteSchedule(r.id, () => focusSubject(key))}><Trash2 size={14} aria-hidden="true" /></button>
                             </div>
                           ))}
+                          </>)}
                         </td>
                         <td data-cell="actions">
                           {!legacy && (
@@ -333,7 +371,7 @@ const SchedulesTab = () => {
                   })}
                 </tbody>
               </table></div>
-            )}
+            </>)}
           </>
         )}
       </div>

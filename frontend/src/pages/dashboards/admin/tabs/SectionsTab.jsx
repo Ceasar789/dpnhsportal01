@@ -12,6 +12,7 @@ import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
 import SchoolYearNotice from '../shared/SchoolYearNotice';
+import { coverageText, subjectCoverage } from '../shared/classSetup';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import Button from '../../../../components/ui/Button';
 import { isActiveSectionAdviser, otherAdvisedSections, validateSectionCapacity } from '../shared/sectionsValidation';
@@ -27,6 +28,8 @@ const SectionsTab = () => {
     activeSection, classList, classListLoading, classListError, unassignedStudents,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
     showToast,
+    schedules, schedulesLoading, schedulesError, subjects, subjectsLoading, subjectsError,
+    setPage, setScheduleOpenSectionId,
   } = useAdminContext();
 
   const [pick, setPick] = useState('');
@@ -62,6 +65,23 @@ const SectionsTab = () => {
     ? teachers.find((teacher) => teacher.id === editingSection.adviser_id)
     : null;
   const existingAdviserIsIneligible = existingAdviser && !isActiveSectionAdviser(existingAdviser);
+  // Class setup line: the adviser and subject coverage, from the schedules and
+  // subjects already loaded for the year. A failed read never reads as "0 of".
+  const classSetupReady = Array.isArray(schedules) && Array.isArray(subjects);
+  const activeSubjects = classSetupReady ? subjects.filter(subject => subject.is_active !== false) : [];
+  const classSetupLine = (section) => {
+    if (!classSetupReady) return '';
+    const adviser = section.adviser_id ? `Adviser: ${adviserName(section.adviser_id)}` : 'No adviser yet';
+    const coverage = schedulesError || subjectsError ? 'class setup unavailable'
+      : schedulesLoading || subjectsLoading ? 'loading class setup…'
+        : coverageText(subjectCoverage(section.id, schedules, activeSubjects));
+    return `${adviser} · ${coverage}`;
+  };
+  const canOpenClassSetup = typeof setPage === 'function' && typeof setScheduleOpenSectionId === 'function';
+  const openClassSetup = (section) => {
+    setScheduleOpenSectionId(section.id);
+    setPage('schedules');
+  };
   // Uses the sections already loaded for this year; never blocks saving.
   const alsoAdvises = otherAdvisedSections({
     adviserId: secAdviser, sections, editingSectionId: editingSection?.id, schoolYear,
@@ -115,7 +135,16 @@ const SectionsTab = () => {
                   },
                 } : {})}
               >
-                <td data-cell="identity"><strong>{s.name}</strong></td>
+                <td data-cell="identity">
+                  <strong>{s.name}</strong>
+                  {classSetupReady && <div className="row-sub">{classSetupLine(s)}</div>}
+                  {canOpenClassSetup && !narrow && (
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ minHeight: 44, marginTop: 'var(--space-4)' }}
+                      aria-label={`Open class setup for ${s.name}`} onClick={() => openClassSetup(s)}>
+                      Open class setup
+                    </button>
+                  )}
+                </td>
                 <td data-cell="value">{s.grade_level}</td>
                 <td data-cell="detail">{adviserName(s.adviser_id)}</td>
                 <td data-cell="detail">{s.capacity}</td>
@@ -141,6 +170,9 @@ const SectionsTab = () => {
         actions={sheetSection && (
           <>
             <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); openClassList(s); }}>Class list</Button>
+            {canOpenClassSetup && (
+              <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); openClassSetup(s); }}>Open class setup</Button>
+            )}
             <Button variant="ghost" onClick={() => { const s = sheetSection; setSheetSection(null); beginEdit(s); }}>Edit</Button>
             <Button variant="danger" onClick={() => { const s = sheetSection; setSheetSection(null); deleteSection(s.id, focusAfterDelete); }}>Delete</Button>
           </>

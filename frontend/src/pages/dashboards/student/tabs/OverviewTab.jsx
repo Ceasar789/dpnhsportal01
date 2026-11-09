@@ -19,12 +19,13 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import {
-  BookOpen, CalendarCheck, ClipboardList, Loader2, RefreshCw
+  BookOpen, CalendarCheck, ClipboardList, Loader2
 } from 'lucide-react';
 import { useTheme, useToast, Card, StatCard } from '../hooks';
 import { useStudentData } from '../StudentDataContext';
 import SubjectCards from '../SubjectCards';
 import { isHandout } from './studentAnswers';
+import PageHeader from '../PageHeader';
 
 const OverviewTab = () => {
   const { dark } = useTheme();
@@ -48,7 +49,7 @@ const OverviewTab = () => {
     info, performance, attendance, subjects, tasksBySubject, pendingCount,
   } = useMemo(() => {
     const blank = {
-      info: { name: userData?.name || 'Student', studentId: null, gradeLevel: null, section: null },
+      info: { name: userData?.name || 'Student', studentId: null, gradeLevel: null, section: null, schoolYear: null },
       performance: null, attendance: null, subjects: [], tasksBySubject: {}, pendingCount: 0,
     };
     if (!graph || graph.fatalError || graph.scheduleError) return blank;
@@ -59,6 +60,11 @@ const OverviewTab = () => {
       studentId: graph.studentRecord?.student_number || graph.studentRecord?.lrn || null,
       gradeLevel: enrolled?.sections?.grade_level || null,
       section: enrolled?.sections?.name || null,
+      // The newest school year among the student's own active sections
+      // ("2026-2027" sorts after "2025-2026"). Unknown stays null and the pill is hidden.
+      schoolYear: graph.enrolments.map(e => e.sections?.school_year)
+        .filter(year => typeof year === 'string' && year.trim())
+        .sort().pop() || null,
     };
 
     // Already released-only by the query; the remaining filter just skips a
@@ -129,6 +135,8 @@ const OverviewTab = () => {
   return (
     <div className="p-6">
       <Toast />
+      <PageHeader title="Overview" subtitle="Your subjects, tasks and attendance at a glance."
+        onRefresh={fetchOverview} refreshLabel="Refresh overview" />
 
       <div
         className="rounded-2xl px-6 py-5 mb-6 flex items-center gap-4 relative overflow-hidden"
@@ -165,12 +173,14 @@ const OverviewTab = () => {
                 )}
           </p>
         </div>
-        <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
-          <div>
-            <p className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
-            <p className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>2025–2026</p>
+        {!loading && !loadError && info.schoolYear && (
+          <div className="hidden sm:flex items-center rounded-xl px-6 py-3 flex-shrink-0" style={{ backgroundColor: 'var(--banner-pill-bg)', border: '1px solid var(--banner-pill-border)' }}>
+            <div>
+              <p className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--banner-subtext)' }}>School Year</p>
+              <p className="text-lg font-extrabold" style={{ color: 'var(--banner-text)' }}>{info.schoolYear}</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -214,9 +224,6 @@ const OverviewTab = () => {
           <h2 className="text-sm font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
             Your Subjects
           </h2>
-          <button aria-label="Refresh overview" onClick={fetchOverview} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-            <RefreshCw size={14} aria-hidden="true" />
-          </button>
         </div>
         <SubjectCards
           subjects={subjects}

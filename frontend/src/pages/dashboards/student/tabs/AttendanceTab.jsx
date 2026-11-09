@@ -7,9 +7,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
-import { AlertTriangle, CalendarCheck, CheckCircle, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { Btn } from '../../teacher/shared/ui';
+import PageHeader from '../PageHeader';
 
 // Attendance status is stored capitalised ('Present', 'Absent', 'Late',
 // 'Excused'). Normalising on read means either casing renders correctly.
@@ -74,13 +76,8 @@ const AttendanceTab = () => {
     <div className="p-6">
       <Toast />
 
-      <div className="flex items-center justify-between mb-6 rounded-lg px-4 py-3"
-        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
-        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>My Attendance</h1>
-        <button aria-label="Refresh attendance" onClick={fetchAttendance} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
-          <RefreshCw size={16} aria-hidden="true" />
-        </button>
-      </div>
+      <PageHeader title="My Attendance" subtitle="Your attendance as recorded by your adviser."
+        onRefresh={fetchAttendance} refreshLabel="Refresh attendance" />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card className="p-6 text-center">
@@ -147,8 +144,9 @@ const AttendanceTab = () => {
             <p className="mb-3" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
               This is a loading problem, not an empty record. Check your connection and try again.
             </p>
-            <button onClick={fetchAttendance} className="h-9 px-4 rounded-lg text-sm font-semibold"
-              style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
+            <div className="flex justify-center">
+              <Btn className="min-h-11" onClick={fetchAttendance}>Retry</Btn>
+            </div>
           </div>
         ) : records.length === 0 ? (
           <div className="p-8 text-center">

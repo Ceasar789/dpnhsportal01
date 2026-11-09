@@ -8,11 +8,13 @@
 // ============================================
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatDateTime } from '../lib/formatDate';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
 import { withRetry } from '../lib/supabaseRetry';
+import { inAppPath } from '../lib/inAppPath';
 
 // While the tab is visible, poll this often to keep the unread badge live
 // without any user action. Paused entirely while the tab is hidden so 60
@@ -29,7 +31,22 @@ const dotColor = (type) => {
   return 'bg-blue-500';
 };
 
-const NotificationBell = ({ className = '' }) => {
+// A notification row with an in-app action_url: one button that marks it read
+// and goes there. Only mounted when the bell is asked to follow links, so
+// dashboards that do not opt in never need a router here.
+const NotificationLink = ({ path, onFollow, children, style }) => {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => { onFollow(); navigate(path); }}
+      className="block w-full text-left p-4 border-b transition-colors min-h-11" style={style}>
+      {children}
+    </button>
+  );
+};
+
+// followLinks: rows with a relative or same-origin action_url open that page.
+// Off by default, so every existing dashboard keeps its current behavior.
+const NotificationBell = ({ className = '', followLinks = false }) => {
   const { userData } = useAuth();
   const uid = userData?.uid;
 
@@ -212,13 +229,10 @@ const NotificationBell = ({ className = '' }) => {
                   <p className="text-sm" style={{ color: v('--text-muted', '#64748b') }}>No notifications yet</p>
                 </div>
               ) : (
-                notifications.map(n => (
-                  <div
-                    key={n.id}
-                    className="p-4 border-b transition-colors cursor-pointer"
-                    style={{ borderColor: v('--border', '#e2e8f0'), backgroundColor: n.is_read ? 'transparent' : 'rgba(59,130,246,0.06)' }}
-                    onClick={() => !n.is_read && markRead(n.id)}
-                  >
+                notifications.map(n => {
+                  const rowStyle = { borderColor: v('--border', '#e2e8f0'), backgroundColor: n.is_read ? 'transparent' : 'rgba(59,130,246,0.06)' };
+                  const path = followLinks ? inAppPath(n.action_url) : null;
+                  const body = (
                     <div className="flex gap-3">
                       <div className={`w-2.5 h-2.5 rounded-full mt-2 flex-shrink-0 ${dotColor(n.notification_type)}`} />
                       <div className="flex-1 min-w-0">
@@ -229,8 +243,23 @@ const NotificationBell = ({ className = '' }) => {
                         </p>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                  return path ? (
+                    <NotificationLink key={n.id} path={path} style={rowStyle}
+                      onFollow={() => { if (!n.is_read) markRead(n.id); setOpen(false); }}>
+                      {body}
+                    </NotificationLink>
+                  ) : (
+                    <div
+                      key={n.id}
+                      className="p-4 border-b transition-colors cursor-pointer"
+                      style={rowStyle}
+                      onClick={() => !n.is_read && markRead(n.id)}
+                    >
+                      {body}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

@@ -12,7 +12,8 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Loader2 } from 'lucide-react';
 import { useTheme, Card, Badge } from './hooks';
-import { formatCountdown } from '../../../lib/taskFormatting';
+import { formatCountdown, manilaInstant } from '../../../lib/taskFormatting';
+import { Btn } from '../teacher/shared/ui';
 
 // Kept identical to TasksTab.jsx's COUNTDOWN_COLORS so a tone means the same
 // thing — visually — on both screens.
@@ -56,8 +57,9 @@ const SubjectCards = ({ subjects, tasksBySubject, loading, loadError, onRetry, o
           Could not load your subjects.
         </p>
         <p className="mb-3" style={muted}>Check your connection and try again.</p>
-        <button onClick={onRetry} className="h-9 px-4 rounded-lg text-sm font-semibold"
-          style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
+        <div className="flex justify-center">
+          <Btn className="min-h-11" onClick={onRetry}>Retry</Btn>
+        </div>
       </div>
     );
   }
@@ -78,7 +80,7 @@ const SubjectCards = ({ subjects, tasksBySubject, loading, loadError, onRetry, o
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {subjects.map(subject => {
           const bucket = tasksBySubject[subject.id] || { total: 0, pendingCount: 0, nearestDue: null };
-          const countdown = formatCountdown(bucket.pendingCount > 0 ? bucket.nearestDue : null, now);
+          const countdown = formatCountdown(bucket.pendingCount > 0 ? manilaInstant(bucket.nearestDue) : null, now);
           const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
           return (
             <button

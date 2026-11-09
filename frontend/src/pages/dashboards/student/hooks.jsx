@@ -6,7 +6,7 @@
 // Split from the original monolithic StudentDashboard.jsx (1,123 lines)
 // ============================================
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useSyncExternalStore } from 'react';
 
 // ============================================
 // THEME CONTEXT
@@ -68,17 +68,41 @@ export const StatCard = ({ label, value, sub, subColor, icon: Icon, color = '#19
 // ============================================
 // TOAST HELPER
 // ============================================
-export const useToast = () => {
-  const [toast, setToast] = useState(null);
-  const showToast = useCallback((msg, type = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-  const Toast = () => toast ? (
+// The live regions are always in the page, so a screen reader announces a
+// message when it appears: errors as an alert, everything else as a status.
+const ToastRegions = ({ toast }) => {
+  const message = toast && (
     <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${
       toast.type === 'error' ? 'bg-red-500' : toast.type === 'warning' ? 'bg-amber-500' : 'bg-green-500'
     }`}>{toast.msg}</div>
-  ) : null;
+  );
+  return <>
+    <div role="status" aria-live="polite">{toast?.type !== 'error' && message}</div>
+    <div role="alert" aria-live="assertive">{toast?.type === 'error' && message}</div>
+  </>;
+};
+
+const createToastStore = () => {
+  let value = null;
+  const listeners = new Set();
+  return {
+    get: () => value,
+    set: (next) => { value = next; listeners.forEach(listener => listener()); },
+    subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener); },
+  };
+};
+
+export const useToast = () => {
+  const [store] = useState(createToastStore);
+  const showToast = useCallback((msg, type = 'success') => {
+    store.set({ msg, type });
+    setTimeout(() => store.set(null), 3000);
+  }, [store]);
+  // One component for the life of the tab: its live regions are never
+  // remounted, which would make a screen reader skip the message.
+  const [Toast] = useState(() => function Toast() {
+    return <ToastRegions toast={useSyncExternalStore(store.subscribe, store.get, store.get)} />;
+  });
   return { showToast, Toast };
 };
 

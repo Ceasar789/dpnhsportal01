@@ -10,6 +10,8 @@ import { supabase } from '../../../../config/supabase';
 import { Loader2, Megaphone, Search } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { Btn } from '../../teacher/shared/ui';
+import PageHeader from '../PageHeader';
 import { localNowTimestamp } from '../../../../lib/taskFormatting';
 
 const AnnouncementsTab = () => {
@@ -19,6 +21,8 @@ const AnnouncementsTab = () => {
 
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
+  // A failed read is its own state: it must never look like "no announcements".
+  const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchAnnouncements = useCallback(async () => {
@@ -36,7 +40,10 @@ const AnnouncementsTab = () => {
 
       if (error) throw error;
       setAnnouncements(data || []);
+      setLoadError(false);
     } catch (err) {
+      console.warn('Announcements fetch failed —', err?.message);
+      setLoadError(true);
       showToast('Error fetching announcements', 'error');
     }
     setLoading(false);
@@ -55,24 +62,32 @@ const AnnouncementsTab = () => {
     <div className="p-6">
       <Toast />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 rounded-lg px-4 py-3"
-        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
-        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>Announcements</h1>
-        <div className="relative">
+      <PageHeader title="Announcements" subtitle="News and reminders from your school."
+        onRefresh={fetchAnnouncements} refreshLabel="Refresh announcements">
+        <div className="relative w-full sm:w-auto">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: dark ? '#64748b' : '#94a3b8' }} />
           <input 
-            type="text" 
+            type="search"
+            aria-label="Search announcements"
             placeholder="Search announcements..." 
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)}
-            className="h-9 pl-9 pr-3 rounded-lg text-sm outline-none w-full sm:w-64"
-            style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}
+            className="h-11 pl-9 pr-3 rounded-lg text-sm w-full sm:w-64"
+            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
           />
         </div>
-      </div>
+      </PageHeader>
 
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={32} style={{ color: dark ? '#64748b' : '#94a3b8' }} /></div>
+      ) : loadError ? (
+        <Card className="p-8 text-center">
+          <p role="alert" className="text-base font-semibold mb-1" style={{ color: 'var(--text)' }}>Could not load announcements.</p>
+          <p className="mb-3" style={{ color: 'var(--text-muted)' }}>This is a loading problem, not an empty list. Check your connection and try again.</p>
+          <div className="flex justify-center">
+            <Btn className="min-h-11" onClick={fetchAnnouncements}>Retry</Btn>
+          </div>
+        </Card>
       ) : filtered.length === 0 ? (
         <Card className="p-8 text-center">
           <Megaphone size={40} className="mx-auto mb-3" style={{ color: dark ? '#334155' : '#cbd5e1' }} />

@@ -10,11 +10,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
-import { FileText, Loader2, RefreshCw, Clock, CalendarClock } from 'lucide-react';
+import { FileText, Loader2, Clock, CalendarClock } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
-import { formatCountdown, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
+import { formatCountdown, formatManila, manilaInstant, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { useStudentData } from '../StudentDataContext';
 import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 import StudentWorksheetHeader from './StudentWorksheetHeader';
@@ -22,6 +22,7 @@ import { essayRuleText } from '../../../../lib/essayRule';
 import { hasStudentAnswer, isHandout, submittedMessage } from './studentAnswers';
 import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
+import PageHeader from '../PageHeader';
 
 // A deterrent, not a guarantee: the paper cannot be selected, copied, cut,
 // dragged or right-clicked, while answer fields keep working as before.
@@ -96,6 +97,9 @@ const StudentTasksTab = () => {
   const [submission, setSubmission] = useState(null);
   const [busy, setBusy] = useState(false);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  // { row, title }: a task that could not be opened, shown inline with Retry
+  // (the toast says why; this stays until the student retries or opens another).
+  const [openError, setOpenError] = useState(null);
   const submittingRef = useRef(false);
   const [worksheetView, setWorksheetView] = useState(null);
   const unansweredCount = items.filter(item => !hasStudentAnswer(answers[item.id])).length;
@@ -214,7 +218,9 @@ const StudentTasksTab = () => {
     setWorksheetView(null);
     setConfirmingSubmit(false);
     resetSaveState();
+    setOpenError(null);
     setBusy(true);
+    const failOpen = () => { setOpenError({ row, title: row.sheet.title }); setBusy(false); };
     const { data: itemRows, error } = await withRetry(
       () => supabase.from('worksheet_items')
         .select('id, position, question, item_type, options, points, essay_min_sentences, essay_min_words')
@@ -223,7 +229,7 @@ const StudentTasksTab = () => {
     );
     if (error) {
       showToast('Could not load the questions. Check your connection.', 'error');
-      setBusy(false); return;
+      failOpen(); return;
     }
 
     // The real items win: a stale count on the row must not hide real questions.
@@ -270,7 +276,7 @@ const StudentTasksTab = () => {
           );
           if (fetchError || !existing) {
             showToast('Could not reopen this worksheet. Check your connection and try again.', 'error');
-            setBusy(false); return;
+            failOpen(); return;
           }
           sub = existing;
           showToast(existing.status === 'in_progress'
@@ -278,7 +284,7 @@ const StudentTasksTab = () => {
             : 'This worksheet was already submitted.');
         } else {
           showToast(toStudentMessage(createError, 'Could not start this worksheet. Check your connection and try again.'), 'error');
-          setBusy(false); return;
+          failOpen(); return;
         }
       } else {
         sub = data;
@@ -319,7 +325,7 @@ const StudentTasksTab = () => {
     );
     if (savedError) {
       showToast('Could not load your saved answers. Check your connection and try again.', 'error');
-      setBusy(false); return;
+      failOpen(); return;
     }
 
     setItems(itemRows || []);
@@ -573,7 +579,7 @@ const StudentTasksTab = () => {
         <Toast />
         <div className="mx-auto" style={{ maxWidth: 1100 }}>
           <button onClick={() => { viewRequestRef.current += 1; setWorksheetView(null); resetSaveState(); setActive(null); }}
-            className="text-sm mb-4" style={muted}>← Back</button>
+            className="text-sm mb-4 min-h-11 px-1" style={muted}>← Back</button>
           <article aria-label="Worksheet test paper" className="rounded border p-5 sm:p-8 shadow-sm" {...PAPER_GUARD}
             style={{ backgroundColor: '#fffefb', borderColor: '#c9c3b8', color: '#1f1f1f',
               fontFamily: "Georgia, 'Times New Roman', serif", userSelect: 'none', WebkitUserSelect: 'none' }}>
@@ -666,11 +672,9 @@ const StudentTasksTab = () => {
           </article>
           {items.length > 0 && <div className="mt-5 space-y-3">
             {!done && (
-              <button onClick={() => setConfirmingSubmit(true)} disabled={busy || unansweredCount > 0}
-                className="h-10 px-5 rounded-lg text-sm font-semibold disabled:opacity-50"
-                style={{ backgroundColor: '#1908DF', color: '#fff' }}>
+              <Btn className="min-h-11 px-5" onClick={() => setConfirmingSubmit(true)} disabled={busy || unansweredCount > 0}>
                 Submit
-              </button>
+              </Btn>
             )}
             {!done && unansweredCount > 0 &&
               <p role="status" className="text-sm" style={{ color: 'var(--text)' }}>{unansweredCount} question(s) unanswered.</p>}
@@ -696,11 +700,17 @@ const StudentTasksTab = () => {
   return (
     <div className="p-6">
       <Toast />
-      <div className="flex items-center justify-between mb-6 rounded-lg px-4 py-3"
-        style={{ background: 'var(--banner-bg)', border: '1px solid var(--banner-border)' }}>
-        <h1 className="text-xl font-bold" style={{ color: 'var(--banner-text)' }}>Tasks</h1>
-        <button onClick={fetchTasks} aria-label="Refresh tasks" className="p-1.5 rounded-lg" style={muted}><RefreshCw size={16} aria-hidden="true" /></button>
-      </div>
+      <PageHeader title="Tasks" subtitle="Work your teachers have assigned to you."
+        onRefresh={fetchTasks} refreshLabel="Refresh tasks" />
+      {openError && !loading && !loadError && (
+        <Card className="p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p role="alert" className="text-sm" style={{ color: 'var(--text)' }}>
+            Could not open “{openError.title}”. Check your connection and try again.
+          </p>
+          <Btn className="min-h-11" onClick={() => open(rows.find(r => r.assignee.task_id === openError.row.assignee.task_id) || openError.row)}
+            disabled={busy}>Retry</Btn>
+        </Card>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={32} style={muted} /></div>
@@ -708,8 +718,9 @@ const StudentTasksTab = () => {
         <Card className="p-8 text-center">
           <p className="text-sm font-semibold mb-2" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>Could not load your tasks.</p>
           <p className="text-sm mb-3" style={muted}>Check your connection and try again.</p>
-          <button onClick={fetchTasks} className="h-9 px-4 rounded-lg text-sm font-semibold"
-            style={{ backgroundColor: '#1908DF', color: '#fff' }}>Retry</button>
+          <div className="flex justify-center">
+            <Btn className="min-h-11" onClick={fetchTasks}>Retry</Btn>
+          </div>
         </Card>
       ) : rows.length === 0 ? (
         <Card className="p-8 text-center">
@@ -724,10 +735,14 @@ const StudentTasksTab = () => {
       ) : (
         <div className="space-y-3">
           {visibleRows.map(row => {
-            const countdown = formatCountdown(row.assignee.due_at, now);
+            // due_at is Manila wall-clock time; anchored to +08:00 so the
+            // countdown and the due text are right in any browser timezone.
+            const countdown = formatCountdown(manilaInstant(row.assignee.due_at), now);
             const countdownColors = COUNTDOWN_COLORS[countdown.tone] || COUNTDOWN_COLORS.none;
-            const typeLabel = TASK_TYPE_LABELS[row.sheet.task_type] || 'Task';
             const handoutRow = isHandout(row.sheet);
+            // A teacher Activity is stored as task_type 'worksheet' with no
+            // questions; isHandout is that rule, so its badge reads Activity.
+            const typeLabel = handoutRow ? 'Activity' : (TASK_TYPE_LABELS[row.sheet.task_type] || 'Task');
             // Once handed in, the deadline no longer counts down or reads as late.
             const handedIn = Boolean(row.submission) && row.submission.status !== 'in_progress';
             return (
@@ -740,25 +755,27 @@ const StudentTasksTab = () => {
                   <p className="text-xs" style={muted}>{row.subjectName || row.sheet.subject}</p>
                   {row.assignee.assigned_at && (
                     <p className="text-xs flex items-center gap-1 mt-1" style={muted}>
-                      <CalendarClock size={12} /> Assigned {new Date(row.assignee.assigned_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <CalendarClock size={12} aria-hidden="true" /> Assigned {formatManila(row.assignee.assigned_at, { time: false })}
                     </p>
                   )}
                   {row.assignee.due_at && (
                     <p className="text-xs flex items-center gap-1 mt-1" style={muted}>
-                      <Clock size={12} /> Due {new Date(row.assignee.due_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      <Clock size={12} aria-hidden="true" /> Due {formatManila(row.assignee.due_at)}
                     </p>
                   )}
                 </div>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
                     {!handedIn && !(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
-                    <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>
+                    {/* An Activity's status would only repeat its Activity badge. */}
+                    {!handoutRow && <Badge color="#2563eb" bg="rgba(37,99,235,0.12)">{statusLabel(row)}</Badge>}
                     {handedIn && row.submission.is_late === true && <Badge color="#b91c1c" bg="rgba(220,38,38,0.12)">Submitted late</Badge>}
                   </div>
-                  <button onClick={() => open(row)} disabled={busy}
-                    className="block mt-2 text-xs font-semibold" style={{ color: '#1908DF' }}>
-                    {handoutRow || row.submission ? 'Open' : 'Start'}
-                  </button>
+                  <div className="flex justify-end mt-2">
+                    <Btn variant="pastel" className="min-h-11" onClick={() => open(row)} disabled={busy}>
+                      {handoutRow || row.submission ? 'Open' : 'Start'}
+                    </Btn>
+                  </div>
                 </div>
               </Card>
             );

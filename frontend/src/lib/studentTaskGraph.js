@@ -78,7 +78,7 @@ export async function fetchStudentTaskGraph(studentId) {
   // load rather than an arbitrary one.
   const [enrolResult, assigneeResult] = await Promise.all([
     withRetry(() => supabase.from('section_students')
-      .select('section_id, sections(name, grade_level)')
+      .select('section_id, sections(name, grade_level, school_year)')
       .eq('student_id', studentId).eq('status', 'active')
       .order('section_id'),
       { label: 'Student enrolment fetch' }),

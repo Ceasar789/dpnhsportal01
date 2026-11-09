@@ -64,6 +64,29 @@ export function isFutureManila(wallClock, now = new Date()) {
   return Date.parse(`${wallClock}+08:00`) > new Date(now).getTime();
 }
 
+// due_at is a TIMESTAMP WITHOUT TIME ZONE holding Manila wall-clock time, so a
+// value with no offset gets the school's fixed +08:00 (as in isFutureManila).
+// A value that already carries an offset or Z (for example a timestamptz such as
+// assigned_at) is used as it is. Returns null for anything unparseable.
+const NAIVE_TIMESTAMP = /^d{4}-d{2}-d{2}[T ]d{2}:d{2}(:d{2}(.d+)?)?$/;
+export function manilaInstant(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const text = String(value).trim();
+  const date = new Date(NAIVE_TIMESTAMP.test(text) ? `${text.replace(' ', 'T')}+08:00` : text);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// "Jan 15, 2099, 11:59 PM" in Manila time whatever the browser's timezone;
+// { time: false } gives the date only. Empty string when there is no value.
+export function formatManila(value, { time = true } = {}) {
+  const date = manilaInstant(value);
+  if (!date) return '';
+  return new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric',
+    ...(time ? { hour: 'numeric', minute: '2-digit' } : {}),
+  }).format(date);
+}
+
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;

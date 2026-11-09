@@ -1,0 +1,45 @@
+/* Student shell. Mirrors the teacher shell rules in TeacherDashboard.css so
+   the active link, hover and touch targets look the same in light and dark. */
+
+.student-dashboard-shell .student-header-action {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.student-dashboard-shell .student-header-action:focus-visible {
+  outline-color: var(--brand-gold-bright);
+}
+
+.student-dashboard-shell .student-sidebar-link {
+  color: var(--text-muted);
+  min-height: 44px;
+}
+
+.student-dashboard-shell .student-sidebar-link-active {
+  background: var(--card2);
+  color: var(--accent);
+}
+
+.student-dashboard-shell .student-sidebar-icon {
+  border: 1px solid var(--border);
+}
+
+.student-dashboard-shell .student-sidebar-link-active .student-sidebar-icon {
+  background: var(--card-bg);
+  border-color: var(--accent);
+}
+
+.student-dashboard-shell .student-sidebar-link:hover,
+.student-dashboard-shell .student-drawer-close:hover {
+  background: var(--card2);
+  color: var(--text);
+}
+
+.student-dashboard-shell .student-sidebar-link-active:hover {
+  color: var(--accent);
+}
+
+.student-dashboard-shell .student-drawer-close {
+  min-height: 44px;
+}

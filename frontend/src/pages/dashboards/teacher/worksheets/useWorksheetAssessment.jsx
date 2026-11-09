@@ -18,9 +18,13 @@ const validSchoolYear = value => typeof value === 'string' && /^(\d{4})-\d{4}$/.
 // but block the client-side multi-table write until a server transaction exists.
 const trustedDistributionAvailable = false;
 const trustedScoreWritesAvailable = false;
-const CHECK_FAILED = 'Could not check for existing answers — not saving.';
 const SAVE_FAILED = 'Your questions could not be saved. Keep this window open and press Save again.';
-const COUNT_FAILED = 'Your questions were saved, but the question count could not be updated. Press Save again.';
+// Codes from eduscribe_worksheet_items_replace_v1 that have their own message;
+// every other failure gets SAVE_FAILED. Database text is never shown.
+const SAVE_ITEMS_MESSAGES = {
+  distributed: 'This worksheet was already distributed. Its questions can no longer be changed.',
+  student_work_exists: 'Students have already answered this worksheet. Its questions can no longer be changed.',
+};
 // task_assignees.assigned_at is a naive TIMESTAMP holding UTC wall-clock time.
 const utcMs = value => typeof value === 'string'
   ? Date.parse(/(Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value.replace(' ', 'T')}Z`) : NaN;
@@ -226,131 +230,43 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     return { items: items || [], keys };
   }, [showToast]);
 
-  // Replaces the worksheet's items wholesale — which means DELETING the old
-  // ones, and worksheet_answers.item_id cascades on delete. Once anyone has
-  // answered, saving would silently destroy their answers, so this refuses.
-  // The check lives here, in the hook, rather than only in the UI, because a
-  // second caller (or a disabled-button bug) would otherwise reintroduce the
-  // data loss — a guard that only disables a button is not a guard.
-  //
-  // This is a multi-statement write with no client-side transaction: delete,
-  // then insert items, then insert keys. If the key insert fails after items
-  // were written, the items already exist (readable, but with no/partial
-  // keys) while the old items and their keys are already gone. There is no
-  // way to fully roll back from the client, so instead the function reports
-  // the partial state truthfully ("saved but the answer key failed") rather
-  // than pretending success, and the teacher can immediately reopen the
-  // builder and re-save — the guard above still protects them because no
-  // submissions exist yet at this point (that's the case that got them here).
-  // The count is retried once: a wrong count hides real questions from the card's
-  // distribute rule and from the student Activity check.
-  const updateItemCount = async (worksheetId, count) => {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const { error } = await supabase.from('worksheets').update({ items: count }).eq('id', worksheetId);
-        if (!error) return true;
-      } catch { /* try again once */ }
-    }
-    return false;
-  };
-
+  // Replaces the worksheet's items and answer key in ONE database transaction
+  // (worksheet-items-replace.sql): it deletes the old items, inserts the new
+  // ones and their keys, and sets worksheets.items, or changes nothing. It
+  // refuses a distributed worksheet and one with student work, so a failed save
+  // can never leave the worksheet half written.
   // Returns { ok, message }. Database text is never shown; the editor shows the message.
   const saveItems = useCallback(async (worksheetId, items) => {
-    // Keyed on WORK, not on a row existing. The student surface inserts a
-    // submission the moment someone taps Start — before answering anything,
-    // and even for a worksheet with no questions — so checking for any row at
-    // all meant one curious student permanently froze the question builder.
-    // What must not be destroyed is an answer already written, or a submission
-    // the student has finished. Mirrors guard_worksheet_item_delete, which
-    // enforces the same condition in the database.
-    const { data: finished, error: checkError } = await withRetry(
-      () => supabase.from('worksheet_submissions')
-        .select('id, status').eq('worksheet_id', worksheetId).neq('status', 'in_progress').limit(1),
-      { label: 'Worksheet submissions guard fetch' }
-    );
-    if (checkError) {
-      return { ok: false, message: CHECK_FAILED };
-    }
-
-    const { data: openSubs, error: openError } = await withRetry(
-      () => supabase.from('worksheet_submissions').select('id').eq('worksheet_id', worksheetId),
-      { label: 'Worksheet open submissions fetch' }
-    );
-    if (openError) return { ok: false, message: CHECK_FAILED };
-
-    let answered = [];
-    if ((openSubs || []).length > 0) {
-      const { data, error: answerError } = await withRetry(
-        () => supabase.from('worksheet_answers').select('id')
-          .in('submission_id', (openSubs || []).map(s => s.id)).limit(1),
-        { label: 'Worksheet answers guard fetch' }
-      );
-      if (answerError) return { ok: false, message: CHECK_FAILED };
-      answered = data || [];
-    }
-
-    if ((finished || []).length > 0 || answered.length > 0) {
-      return { ok: false, message: 'Students have already answered this worksheet. Its questions can no longer be changed.' };
-    }
-
-    // Old items go first: UNIQUE(worksheet_id, position) blocks inserting the new ones beside them.
-    // A transactional save function (Option B) is the planned hardening.
-    const { error: clearError } = await supabase
-      .from('worksheet_items').delete().eq('worksheet_id', worksheetId);
-    if (clearError) return { ok: false, message: SAVE_FAILED };
-
-    if (items.length === 0) {
-      if (!await updateItemCount(worksheetId, 0)) return { ok: false, message: COUNT_FAILED };
+    const payload = items.map(it => {
+      const essay = it.item_type === 'essay';
+      const choices = it.item_type === 'multiple_choice' && Array.isArray(it.options)
+        ? it.options.filter(o => typeof o === 'string' && o.trim()) : [];
+      return {
+        question: it.question,
+        item_type: it.item_type,
+        options: choices.length > 0 ? choices : null,
+        points: normalizePoints(it.points),
+        correct_answer: essay ? null : (it.correct_answer ?? null),
+        // The essay rule (auto-score-submission.sql); only essays carry one.
+        essay_min_sentences: essay ? (it.essay_min_sentences ?? null) : null,
+        essay_min_words: essay ? (it.essay_min_words ?? null) : null,
+      };
+    });
+    if (typeof supabase.rpc !== 'function') return { ok: false, message: SAVE_FAILED };
+    try {
+      const { data, error } = await supabase.rpc('eduscribe_worksheet_items_replace_v1', {
+        p_worksheet_id: worksheetId, p_items: payload,
+      });
+      if (error) {
+        return { ok: false, message: Object.prototype.hasOwnProperty.call(SAVE_ITEMS_MESSAGES, error.message)
+          ? SAVE_ITEMS_MESSAGES[error.message] : SAVE_FAILED };
+      }
+      if (data?.ok !== true) return { ok: false, message: SAVE_FAILED };
       showToast('Questions saved');
       return { ok: true };
+    } catch {
+      return { ok: false, message: SAVE_FAILED };
     }
-
-    const rows = items.map((it, index) => ({
-      worksheet_id: worksheetId,
-      position: index + 1,
-      question: it.question,
-      item_type: it.item_type,
-      options: it.options && it.options.length > 0 ? it.options : null,
-      points: normalizePoints(it.points),
-      // The essay rule (auto-score-submission.sql); only essays carry one.
-      essay_min_sentences: it.item_type === 'essay' ? (it.essay_min_sentences ?? null) : null,
-      essay_min_words: it.item_type === 'essay' ? (it.essay_min_words ?? null) : null,
-    }));
-
-    const { data: inserted, error: insertError } = await supabase
-      .from('worksheet_items').insert(rows).select('id, position');
-    if (insertError) return { ok: false, message: SAVE_FAILED };
-
-    const keyRows = (inserted || [])
-      .map(row => {
-        const source = items[row.position - 1];
-        if (source.item_type === 'essay') return null;
-        return { item_id: row.id, correct_answer: source.correct_answer ?? null };
-      })
-      .filter(Boolean);
-
-    if (keyRows.length > 0) {
-      const { error: keyError } = await supabase.from('worksheet_item_keys').insert(keyRows);
-      if (keyError) {
-        // Items are already committed with no (or a partial) key. Leaving
-        // them in place would make the worksheet look answerable while every
-        // auto-check silently fails, and once a student submits, the guard
-        // above makes the questions permanently un-fixable. So clean up the
-        // half-written items immediately rather than leaving that trap.
-        const insertedIds = (inserted || []).map(row => row.id);
-        // If this cleanup fails too, the next Save deletes every item for the worksheet anyway.
-        await supabase.from('worksheet_items').delete().in('id', insertedIds);
-        return { ok: false, message: SAVE_FAILED };
-      }
-    }
-
-    // Keep the worksheet card's displayed item count truthful — it is a
-    // hand-typed column from the old upload flow and saveItems is now the
-    // source of truth for worksheets built here.
-    if (!await updateItemCount(worksheetId, items.length)) return { ok: false, message: COUNT_FAILED };
-
-    showToast('Questions saved');
-    return { ok: true };
   }, [showToast]);
 
   const setCheckingMode = useCallback(async (worksheetId, mode) => {

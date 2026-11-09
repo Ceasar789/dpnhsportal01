@@ -3,12 +3,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import { useWorksheetAssessment } from './useWorksheetAssessment';
 
-// A tiny in-memory worksheet_items table: inserted rows are read back by loadItems.
+// A tiny in-memory worksheet_items table: the replace function's rpc writes it, loadItems reads it back.
 const db = vi.hoisted(() => ({ items: [] }));
 vi.mock('../../../../context/AuthContext', () => ({ useAuth: () => ({ userData: { uid: 'teacher-1' } }) }));
 vi.mock('../../../../lib/supabaseRetry', () => ({ withRetry: query => query() }));
 vi.mock('../../../../config/supabase', () => ({
   supabase: {
+    rpc: (name, params) => {
+      db.rpc = { name, params };
+      db.items = params.p_items.map((item, index) => ({ id: `new-${index + 1}`, position: index + 1, ...item }));
+      return Promise.resolve({ data: { ok: true, worksheetId: params.p_worksheet_id, count: db.items.length }, error: null });
+    },
     from: table => {
       const call = { op: 'select' };
       const query = {
@@ -37,7 +42,7 @@ vi.mock('../../../../config/supabase', () => ({
 afterEach(cleanup);
 
 describe('essay rule columns', () => {
-  it('saveItems writes them for an essay, null for others, and loadItems reads them back', async () => {
+  it('saveItems sends them for an essay, null for others, and loadItems reads them back', async () => {
     const view = renderHook(() => useWorksheetAssessment(vi.fn()));
     await waitFor(() => expect(view.result.current.subjectLoading).toBe(false));
     const { saveItems, loadItems } = view.result.current;
@@ -48,7 +53,8 @@ describe('essay rule columns', () => {
       { question: 'Reflect', item_type: 'essay', options: null, correct_answer: '', points: 2 },
     ]);
     expect(result).toEqual({ ok: true });
-    expect(db.items.map(row => [row.essay_min_sentences, row.essay_min_words])).toEqual([[null, null], [3, 50], [null, null]]);
+    expect(db.rpc.name).toBe('eduscribe_worksheet_items_replace_v1');
+    expect(db.rpc.params.p_items.map(row => [row.essay_min_sentences, row.essay_min_words])).toEqual([[null, null], [3, 50], [null, null]]);
     const loaded = await loadItems('w1');
     expect(loaded.items.map(item => [item.item_type, item.essay_min_sentences, item.essay_min_words])).toEqual([
       ['multiple_choice', null, null], ['essay', 3, 50], ['essay', null, null]]);

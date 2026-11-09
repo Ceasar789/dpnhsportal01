@@ -1497,6 +1497,8 @@ export const useAdminLogic = (userData) => {
     stats, statsErrors, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     themePref, setThemePref, settingsDirty, settingsChangeCount, discardSettings,
     settingsStatus, settingsLoading: settingsStatus === 'idle' || settingsStatus === 'loading', settingsError,
+    // The SAVED year (not the field being edited), for the academic tabs.
+    settingsSavedYear: settingsBaseline?.academic_year ?? null,
     settingsValidation, settingsAuthorized, settingsCanEdit, settingsCanSave, fetchBackupHistory,
     typeClass, typeColor, uDept, uEmail, uName,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,

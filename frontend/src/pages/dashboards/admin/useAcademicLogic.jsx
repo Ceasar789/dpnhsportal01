@@ -16,7 +16,14 @@ import {
   validateSectionCapacity,
 } from './shared/sectionsValidation';
 
-export const useAcademicLogic = (showToast, setDeleteConfirm) => {
+// The admin's working school year starts from the year in System Settings
+// (school_settings.school_year), the year teachers and the trusted SQL use.
+// settingsYear: { status, year } from useAdminLogic's existing settings read.
+// Left out (as in older tests), the calendar year is used as before.
+const SCHOOL_YEAR_PATTERN = /^\d{4}-\d{4}$/;
+const YEAR_NOT_READY = 'The school year is still loading. Try again in a moment.';
+
+export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   // ── Subjects ──────────────────────────────────────────────────────────────
   const [subjects, setSubjects] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
@@ -130,7 +137,28 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   // ── School year ───────────────────────────────────────────────────────────
   // Every academic record is scoped by year, so one selector drives the
   // Teaching Load, Sections and Schedules screens.
-  const [schoolYear, setSchoolYear] = useState(currentSchoolYear());
+  //   source 'settings'  the System Settings year (what teachers see)
+  //   source 'loading'   settings not read yet: no year, so nothing is read or written
+  //   source 'fallback'  settings failed or hold no year: calendar year, with a notice
+  //   source 'calendar'  no settings passed in (the hook's original behavior)
+  const settingsGiven = settingsYear !== undefined;
+  const settingsSchoolYear = settingsGiven && settingsYear?.status === 'ready'
+    && SCHOOL_YEAR_PATTERN.test(String(settingsYear?.year || '')) ? settingsYear.year : null;
+  const schoolYearSource = !settingsGiven ? 'calendar'
+    : settingsSchoolYear ? 'settings'
+      : (!settingsYear?.status || settingsYear.status === 'idle' || settingsYear.status === 'loading') ? 'loading'
+        : 'fallback';
+  const [schoolYear, setSchoolYear] = useState(() => (schoolYearSource === 'settings' ? settingsSchoolYear
+    : schoolYearSource === 'loading' ? null : currentSchoolYear()));
+  // Follows the settings: the first load, and every saved change in System
+  // Settings, move the academic tabs to that year without a reload.
+  const followKey = `${schoolYearSource}|${settingsSchoolYear || ''}`;
+  const [followedKey, setFollowedKey] = useState(followKey);
+  if (followedKey !== followKey) {
+    setFollowedKey(followKey);
+    if (schoolYearSource === 'settings') setSchoolYear(settingsSchoolYear);
+    else if (schoolYearSource === 'fallback') setSchoolYear(previous => previous || currentSchoolYear());
+  }
 
   // ── Teaching load ─────────────────────────────────────────────────────────
   const [teachingLoad, setTeachingLoad] = useState([]);
@@ -165,6 +193,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
 
   const fetchTeachingLoad = useCallback(async () => {
     setTeachingLoadLoading(true);
+    if (schoolYear === null) return;
     const { data, error } = await withRetry(
       () => supabase.from('teacher_subjects').select('*').eq('school_year', schoolYear),
       { label: 'Teaching load fetch' }
@@ -204,6 +233,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
    * @returns {Promise<number|null>} rows written, or null if not knowable
    */
   const addLoadEntries = async (entries) => {
+    if (schoolYear === null) { showToast(YEAR_NOT_READY, 'error'); return null; }
     const clean = (entries || []).filter(
       e => e && e.teacher_id && e.subject_id && e.grade_level
     );
@@ -290,6 +320,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   };
 
   const copyLoadFromYear = async (fromYear) => {
+    if (schoolYear === null) { showToast(YEAR_NOT_READY, 'error'); return 0; }
     const { data, error } = await withRetry(
       () => supabase.from('teacher_subjects').select('teacher_id, subject_id, grade_level').eq('school_year', fromYear),
       { label: 'Teaching load copy read' }
@@ -336,6 +367,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const savingSectionRef = useRef(false);
 
   const fetchSections = useCallback(async () => {
+    if (schoolYear === null) return;
     const { data, error } = await withRetry(
       () => supabase.from('sections').select('*').eq('school_year', schoolYear).order('grade_level').order('name'),
       { label: 'Sections fetch' }
@@ -371,6 +403,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const closeSectionModal = () => setSectionModal(null);
 
   const saveSection = async () => {
+    if (schoolYear === null) { showToast(YEAR_NOT_READY, 'error'); return false; }
     const name = secName.trim();
     if (!name) return showToast('Section name is required', 'error');
     if (!secGrade) return showToast('Grade level is required', 'error');
@@ -708,6 +741,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
 
   const fetchSchedules = useCallback(async () => {
     setSchedulesLoading(true);
+    if (schoolYear === null) return;
     const { data, error } = await withRetry(
       () => supabase.from('schedules').select('*').eq('school_year', schoolYear).order('day_of_week').order('start_time'),
       { label: 'Schedules fetch' }
@@ -742,6 +776,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
   const closeScheduleModal = () => setScheduleModal(null);
 
   const saveSchedule = async () => {
+    if (schoolYear === null) { showToast(YEAR_NOT_READY, 'error'); return false; }
     if (teachersLoading || teachingLoadLoading || teachersError || teachingLoadError) {
       showToast('Teacher eligibility is still unavailable. Retry the failed data before creating a schedule.', 'error');
       return false;
@@ -853,7 +888,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm) => {
     subjectModal, editingSubject,
     sName, setSName, sCode, setSCode, sActive, setSActive, sSaving,
     openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
-    schoolYear, setSchoolYear,
+    schoolYear, setSchoolYear, settingsSchoolYear, schoolYearSource,
     teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad,
     teachers, teachersError, teachersLoading, fetchTeachers, addLoadEntries, removeLoad, copyLoadFromYear,
     sections, sectionsLoading, sectionsError, fetchSections,

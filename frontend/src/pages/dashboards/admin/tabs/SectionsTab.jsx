@@ -11,13 +11,14 @@ import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
+import SchoolYearNotice from '../shared/SchoolYearNotice';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import Button from '../../../../components/ui/Button';
 import { isActiveSectionAdviser, otherAdvisedSections, validateSectionCapacity } from '../shared/sectionsValidation';
 
 const SectionsTab = () => {
   const {
-    schoolYear, teachers, sections, sectionsLoading, sectionsError, fetchSections,
+    schoolYear, settingsSchoolYear, schoolYearSource, teachers, sections, sectionsLoading, sectionsError, fetchSections,
     sectionModal, editingSection,
     secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,
     secCapacity, setSecCapacity, secCapacityError, setSecCapacityError,
@@ -74,8 +75,9 @@ const SectionsTab = () => {
       <div ref={pageRootRef}>
         <div className="page-header-bar">
           <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>Sections</div>
-          <div className="page-sub">Class sections for {schoolYear}, their advisers, and their student rosters.</div>
+          <div className="page-sub">Class sections for {schoolYear || 'the school year'}, their advisers, and their student rosters.</div>
         </div>
+        <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
 
         <div className="toolbar">
           <button className="btn btn-primary" onClick={beginCreate}>
@@ -165,6 +167,7 @@ const SectionsTab = () => {
           )}
         >
 
+            <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
             <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
 
             <div className="form-row">

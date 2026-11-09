@@ -8,6 +8,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
 import { CheckCircle2, Copy, Plus, Search, X } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
+import SchoolYearNotice from '../shared/SchoolYearNotice';
 import { useTeachingLoadUnsavedChanges } from '../../../../context/TeachingLoadUnsavedChangesContext';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
@@ -57,7 +58,7 @@ const TeachingLoadTab = () => {
   const { registerTeachingLoadGuard } = useTeachingLoadUnsavedChanges();
   const dataRouter = useContext(UNSAFE_DataRouterContext);
   const {
-    schoolYear, setSchoolYear, teachers, teachersError, teachersLoading, subjects,
+    schoolYear, setSchoolYear, settingsSchoolYear, schoolYearSource, teachers, teachersError, teachersLoading, subjects,
     subjectsError, fetchSubjects,
     teachingLoad, teachingLoadLoading, teachingLoadError, fetchTeachingLoad, fetchTeachers,
     addLoadEntries, removeLoad, copyLoadFromYear, showToast,
@@ -324,12 +325,17 @@ const TeachingLoadTab = () => {
         <div className="page-title">Teaching Load</div>
         <div className="page-sub">Assign subjects with the teacher and grade always in view.</div>
       </div>
+      <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
 
       <div className="toolbar">
         <label className="form-label" htmlFor="teaching-school-year" style={{ marginRight: 'var(--space-8)' }}>School Year</label>
         <input id="teaching-school-year" className="form-input" style={{ width: 140, flex: 'none' }}
-          value={schoolYear} onChange={event => setSchoolYear(event.target.value)} placeholder="2025-2026"
-          disabled={isDirty || saving} aria-describedby={isDirty ? 'teaching-year-lock' : undefined} />
+          value={schoolYear ?? ''} onChange={event => setSchoolYear(event.target.value)} placeholder="2025-2026"
+          disabled={isDirty || saving || schoolYearSource === 'loading'}
+          aria-describedby={[isDirty && 'teaching-year-lock', settingsSchoolYear && 'teaching-year-teachers'].filter(Boolean).join(' ') || undefined} />
+        {settingsSchoolYear && (
+          <span id="teaching-year-teachers" className="teaching-toolbar-note">Teachers currently see {settingsSchoolYear}.</span>
+        )}
         {prevYear && (
           <Button
             variant="ghost"

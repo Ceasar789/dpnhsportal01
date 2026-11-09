@@ -41,6 +41,7 @@ import { Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
 import { useAdminContext } from '../AdminContext';
+import SchoolYearNotice from '../shared/SchoolYearNotice';
 import { GRADE_LEVELS, normalizeGradeLevel, canTeachSection } from '../../../../lib/academicRules';
 import GradeTabs from '../GradeTabs';
 import Button from '../../../../components/ui/Button';
@@ -49,7 +50,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const SchedulesTab = () => {
   const {
-    schoolYear,
+    schoolYear, settingsSchoolYear, schoolYearSource,
     teachers, teachersError, teachersLoading, fetchTeachers,
     subjects, subjectsError, subjectsLoading, fetchSubjects,
     sections, sectionsError, sectionsLoading, fetchSections,
@@ -201,8 +202,9 @@ const SchedulesTab = () => {
       <div>
         <div className="page-header-bar">
           <div className="page-title" ref={pageHeadingRef} tabIndex={-1}>Schedules</div>
-          <div className="page-sub">Who teaches what, to which section, and when — for {schoolYear}.</div>
+          <div className="page-sub">Who teaches what, to which section, and when — for {schoolYear || 'the school year'}.</div>
         </div>
+        <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
 
         <div className="grade-tabs-caption">Numbers show scheduled periods per grade.</div>
         <GradeTabs value={grade} onChange={(g) => { setGrade(g); setOpenSectionId(null); }}
@@ -347,6 +349,7 @@ const SchedulesTab = () => {
             </>
           )}
         >
+            <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
 
             <div className="form-row">
               <label className="form-label" htmlFor="schedules-teacher">Teacher</label>

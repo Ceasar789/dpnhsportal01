@@ -125,11 +125,10 @@ const SettingsTab = () => {
                 aria-describedby={`settings-academic-year-hint${settingsReady && settingsValidation.academicYear ? ' settings-academic-year-error' : ''}`}
                 style={{ width: '100%' }}
               />
-              {/* Narrower than the label suggests. The academic tabs take
-                  their year from currentSchoolYear() in academicRules.js,
-                  not from this row. Backlogged as a one-source-of-truth
-                  question in docs/ux-workarounds.md. */}
-              <div className="form-hint" id="settings-academic-year-hint">The institution's official default year, shown on the Overview banner. Subjects are global and are not scoped by year. Other academic workflows keep their existing current/historical year selectors until a later reconciliation.</div>
+              {/* The academic tabs (Teaching Load, Sections, Schedules) start
+                  from this saved year, the same year teachers see
+                  (useAcademicLogic). */}
+              <div className="form-hint" id="settings-academic-year-hint">The institution's official year. Teachers see this year, and Teaching Load, Sections and Schedules open in it. Subjects are global and are not scoped by year.</div>
               {settingsReady && settingsValidation.academicYear && <div className="field-error" id="settings-academic-year-error">{settingsValidation.academicYear}</div>}
             </div>
           </div>

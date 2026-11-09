@@ -16,7 +16,7 @@
 // ============================================
 
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import {
   BookOpen, CalendarCheck, ClipboardList, Loader2
@@ -219,6 +219,11 @@ const OverviewTab = () => {
           icon={ClipboardList}
         />
       </section>
+      {/* Outside the stat grid on purpose: the cards and their texts stay as they were. */}
+      <p className="-mt-3 mb-6 text-sm text-right">
+        <Link to="/student-dashboard/scores" className="inline-flex items-center min-h-11 px-1 font-semibold hover:underline"
+          style={{ color: 'var(--accent)' }}>See scores by subject →</Link>
+      </p>
 
       <DueSoonCard rows={taskRows} now={now} loading={loading} loadError={loadError} />
 

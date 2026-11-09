@@ -10,7 +10,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
 import {
   LayoutDashboard, CalendarCheck, Megaphone,
-  Moon, Sun, LogOut, Menu, ChevronRight, Settings, ClipboardCheck, X
+  Moon, Sun, LogOut, Menu, ChevronRight, Settings, ClipboardCheck, X, BarChart3
 } from 'lucide-react';
 import { ThemeContext, useTheme } from './hooks';
 import { ThemeContext as TeacherThemeContext } from '../teacher/hooks';
@@ -24,6 +24,7 @@ import NotificationBell from '../../../components/NotificationBell';
 import OverviewTab from './tabs/OverviewTab';
 import StudentTasksTab from './tabs/TasksTab';
 import AttendanceTab from './tabs/AttendanceTab';
+import ScoresTab from './tabs/ScoresTab';
 import AnnouncementsTab from './tabs/AnnouncementsTab';
 import ProfileTab from '../../profile/ProfileTab';
 import FlippingLogo from '../../../components/FlippingLogo';
@@ -60,6 +61,7 @@ const StudentDashboard = () => {
               <Routes>
                 <Route path="/" element={<OverviewTab />} />
                 <Route path="/tasks" element={<StudentTasksTab />} />
+                <Route path="/scores" element={<ScoresTab />} />
                 <Route path="/attendance" element={<AttendanceTab />} />
                 <Route path="/announcements" element={<AnnouncementsTab />} />
                 <Route path="/profile" element={<ProfileTab />} />
@@ -172,6 +174,7 @@ const StudentLayout = ({ children }) => {
   const navItems = [
     { path: '/student-dashboard', icon: LayoutDashboard, label: 'Overview' },
     { path: '/student-dashboard/tasks', icon: ClipboardCheck, label: 'Tasks' },
+    { path: '/student-dashboard/scores', icon: BarChart3, label: 'Scores' },
     { path: '/student-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
     { path: '/student-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
   ];

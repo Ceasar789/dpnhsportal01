@@ -476,7 +476,7 @@ const ProfileTab = ({ teacherView = false }) => {
               disabled={photoLimitReached || isSaving} aria-describedby={messageTarget === 'photo' ? 'profile-status-message' : undefined} />
           </div>
 
-          <div style={{ fontSize: 18, fontWeight: 700, color: v('--text', '#1a2b4a'), marginTop: 18 }}>{name || 'User'}</div>
+          <div className="max-w-full [overflow-wrap:anywhere]" style={{ fontSize: 18, fontWeight: 700, color: v('--text', '#1a2b4a'), marginTop: 18 }}>{name || 'User'}</div>
           <div style={{ fontSize: 12, color: v('--text-muted', '#64748b'), marginTop: 2 }}>{roleLabel(userData?.role)}</div>
 
           {photoLimitReached ? (
@@ -495,7 +495,7 @@ const ProfileTab = ({ teacherView = false }) => {
           <div className="w-full flex flex-col gap-3 text-left">
             <div className="flex items-center justify-between text-sm">
               <span style={labelStyle}>Email</span>
-              <span style={{ color: v('--text', '#1a2b4a'), fontWeight: 600, fontSize: 13 }}>{userData?.email}</span>
+              <span className="min-w-0 [overflow-wrap:anywhere]" style={{ color: v('--text', '#1a2b4a'), fontWeight: 600, fontSize: 13 }}>{userData?.email}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span style={labelStyle}>Status</span>

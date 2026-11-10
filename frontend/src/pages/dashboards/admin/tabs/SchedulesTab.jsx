@@ -36,7 +36,7 @@
 // screen's job, and it is why an unfilled subject row matters.
 // ============================================
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Trash2, Plus } from 'lucide-react';
 import Modal from '../../../../components/ui/Modal';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
@@ -92,6 +92,15 @@ const SchedulesTab = () => {
   const pageHeadingRef = useRef(null);
   const subjectHeadingRefs = useRef(new Map());
   const addButtonRefs = useRef(new Map());
+  // The clash message renders at the end of the form body. On a phone that
+  // is below the fold, so tapping Create looked like it did nothing. Scroll
+  // it into view when it appears; when and what it says are unchanged.
+  const conflictRef = useRef(null);
+  useEffect(() => {
+    if (scheduleCheckError || scheduleConflicts?.length > 0) {
+      conflictRef.current?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [scheduleCheckError, scheduleConflicts]);
 
   const nameOf = (list, id, field = 'name') => list.find(x => x.id === id)?.[field] || '—';
   const dismiss = () => { setTried(false); closeScheduleModal(); };
@@ -464,10 +473,10 @@ const SchedulesTab = () => {
             </div>
             {/* Clash check from the last Create press. Nothing was saved. */}
             {scheduleCheckError && (
-              <div id="schedules-conflict-error" className="field-error" role="alert">{scheduleCheckError}</div>
+              <div id="schedules-conflict-error" ref={conflictRef} className="field-error" role="alert">{scheduleCheckError}</div>
             )}
             {scheduleConflicts?.length > 0 && (
-              <div id="schedules-conflict-error" className="field-error" role="alert">
+              <div id="schedules-conflict-error" ref={conflictRef} className="field-error" role="alert">
                 <p>Not saved. This period clashes with:</p>
                 <ul style={{ paddingLeft: 'var(--space-16)', listStyle: 'disc', margin: 'var(--space-4) 0 0' }}>
                   {scheduleConflicts.map(message => <li key={message}>{message}</li>)}

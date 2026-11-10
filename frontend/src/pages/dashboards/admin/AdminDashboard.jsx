@@ -1179,6 +1179,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
              card. */
           .modal:not(.ux-modal) { width: min(440px, calc(100vw - 32px)); }
         }
+        /* Below 360px the header row (menu, logo, bell, theme) came out 0.813px
+           wider than the screen, so every page scrolled sideways by 1px. An 8px
+           logo gap instead of 12px gives it room; 360px and up are unchanged. */
+        @media(max-width:359.98px) { .nav-logo { gap: var(--space-8); } }
         @media(max-width:600px) {
           nav { padding: 0 var(--space-16); }
           .nav-logo { margin-right: 0; }

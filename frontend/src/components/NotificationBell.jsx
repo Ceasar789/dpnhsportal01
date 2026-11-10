@@ -236,8 +236,8 @@ const NotificationBell = ({ className = '', followLinks = false }) => {
                     <div className="flex gap-3">
                       <div className={`w-2.5 h-2.5 rounded-full mt-2 flex-shrink-0 ${dotColor(n.notification_type)}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-base font-semibold" style={{ color: v('--text', '#1a2b4a') }}>{n.title}</p>
-                        <p className="text-sm mt-1" style={{ color: v('--text-muted', '#64748b') }}>{n.message}</p>
+                        <p className="text-base font-semibold [overflow-wrap:anywhere]" style={{ color: v('--text', '#1a2b4a') }}>{n.title}</p>
+                        <p className="text-sm mt-1 [overflow-wrap:anywhere]" style={{ color: v('--text-muted', '#64748b') }}>{n.message}</p>
                         <p className="text-xs mt-1.5" style={{ color: v('--text-dim', '#94a3b8') }}>
                           {formatDateTime(n.created_at)}
                         </p>

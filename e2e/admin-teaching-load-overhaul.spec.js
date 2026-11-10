@@ -4,7 +4,7 @@ import { appReady, loginAsStudent, openAdminTab } from './helpers.js';
 const WIDTHS = [360, 390, 768, 1024, 1440];
 
 const teachers = [
-  { id: 'teacher-ana', name: 'Ana Cruz', email: 'ana@example.com', department: 'English', status: 'active' },
+  { id: 'teacher-ana', name: 'Ana Cruz', email: 'ana@example.com', department: '', status: 'active' },
   { id: 'teacher-ramon', name: 'Ramon Delgado', email: 'ramon@example.com', department: 'Mathematics', status: 'active' },
   { id: 'teacher-maria', name: 'Maria Santos With A Long Display Name', email: 'maria@example.com', department: 'Science and Technology', status: 'active' },
 ];

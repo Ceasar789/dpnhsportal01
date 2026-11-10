@@ -124,7 +124,7 @@ export async function installSectionsMocks(page, options = {}) {
       state.membershipDeletes.push(url.search); return json(route, []);
     }
     if (url.pathname === '/rest/v1/sections' && method === 'DELETE') return json(route, []);
-    if (url.pathname === '/rest/v1/school_settings' && method === 'GET') return json(route, { id: 1, session_timeout: '30 minutes' });
+    if (url.pathname === '/rest/v1/school_settings' && method === 'GET') return json(route, { id: 1, school_year: '2026-2027', session_timeout: '30 minutes' });
     if (url.pathname.startsWith('/rest/v1/') && ['GET', 'HEAD'].includes(method)) {
       return json(route, method === 'HEAD' ? null : [], 200, { 'content-range': '*/0' });
     }

@@ -67,12 +67,12 @@ test('rejected suggestion returns to manual review and unsaved navigation asks b
   await page.getByRole('button', { name: 'Reject suggestion' }).click();
   await expect(page.getByText('Suggestion rejected. Enter your own marks and feedback to continue.')).toBeVisible();
   await expect(page.getByRole('spinbutton', { name: 'Scientific content score (max 3)' })).toHaveValue('');
-  await page.getByRole('button', { name: 'Back to Worksheet Scores' }).click();
+  await page.getByRole('button', { name: 'Back to Grading' }).click();
   const confirmation = page.getByRole('dialog', { name: 'Unsaved changes' });
   await expect(confirmation).toBeVisible();
   await confirmation.getByRole('button', { name: 'Cancel' }).click();
   await expect(page).toHaveURL(/essay-review-lab$/);
-  await page.getByRole('button', { name: 'Back to Worksheet Scores' }).click();
+  await page.getByRole('button', { name: 'Back to Grading' }).click();
   await confirmation.getByRole('button', { name: 'Leave page' }).click();
   await expect(page).toHaveURL(/\/teacher-dashboard\/grades$/);
   expect(qa.state.worksheetWrites).toEqual([]);
@@ -203,15 +203,15 @@ for (const width of [360, 390, 768, 1024, 1440]) {
         role: 'teacher', theme, worksheetScenario: true, worksheetHasSubmission: true,
       });
       await page.goto('/teacher-dashboard/grades');
-      await expect(page.getByRole('heading', { name: 'Worksheet Scores' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Grading' })).toBeVisible();
       await expect(page.getByText('Synthetic Student')).toBeVisible();
       await expect(page.getByText('Not scored')).toBeVisible();
-      await expect(page.getByText('Submitted · Not released')).toBeVisible();
+      await expect(page.getByText('Needs checking').first()).toBeVisible();
       await expect(page.getByRole('button', { name: 'Check submissions' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Encode paper scores' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Encode paper scores' })).toHaveCount(0);
       if (width < 1024) {
         await page.getByRole('button', { name: 'Open navigation menu' }).click();
-        await expect(page.getByRole('link', { name: 'Worksheet Scores' })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Grading' })).toBeVisible();
         await page.keyboard.press('Escape');
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -232,7 +232,7 @@ test('legacy gradebook is absent and score controls reuse the existing dialog', 
     role: 'teacher', worksheetScenario: true, worksheetHasSubmission: true,
   });
   await page.goto('/teacher-dashboard/grades');
-  await expect(page.getByRole('heading', { name: 'Worksheet Scores' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Grading' })).toBeVisible();
   await expect(page.getByText('Grades — Q3 Report')).toHaveCount(0);
   await expect(page.getByText('GWA', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Check submissions' }).click();

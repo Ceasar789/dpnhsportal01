@@ -134,7 +134,7 @@ export async function installAdminFinalMocks(page, options = {}) {
         : table === 'memos' ? state.memos
         : table === 'activity_logs' ? []
         : table === 'profiles' && url.searchParams.get('select') === 'role' ? [{ role: 'main_admin' }, { role: 'teacher' }]
-        : table === 'profiles' && url.searchParams.get('role') === 'eq.teacher' ? [{ id: TEACHER_ID, name: 'Synthetic Teacher', email: 'teacher@example.test', department: 'Mathematics', role: 'teacher', status: 'active' }]
+        : table === 'profiles' && url.searchParams.get('role') === 'eq.teacher' ? [{ id: TEACHER_ID, name: 'Synthetic Teacher', email: 'teacher@example.test', department: '', role: 'teacher', status: 'active' }]
         : table === 'subjects' ? [{ id: 'subject-1', code: 'MATH', name: 'Mathematics', is_active: true }]
         : table === 'sections' ? [{ id: 'section-1', name: '7-Rizal', grade_level: 'Grade 7', capacity: 40, school_year: '2026-2027' }]
         : table === 'teacher_subjects' ? state.teachingLoad

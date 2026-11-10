@@ -144,6 +144,8 @@ test('count failure blocks enrollment and removal remains available for a full s
   await expect(page.getByText(/Could not verify current enrollment/)).toBeVisible();
   expect(harness.state.studentUpserts).toHaveLength(0);
   await dialog.getByRole('button', { name: /Remove Synthetic Student/ }).click();
+  await dialog.getByRole('radio', { name: 'Added by mistake / wrong section' }).check();
+  await dialog.getByRole('button', { name: 'Remove from section' }).click();
   await expect.poll(() => harness.state.membershipDeletes.length).toBe(1);
   harness.assertHealthy();
 });

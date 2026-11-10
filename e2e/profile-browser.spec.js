@@ -4280,7 +4280,7 @@ test.describe('isolated Profile fixture states and cross-role integration', () =
       await page.getByRole('button', { name: 'Logout' }).click();
       if (role === 'main_admin') {
         await page.getByRole('button', { name: 'Sign Out' }).click();
-      } else if (role === 'teacher') {
+      } else if (role === 'teacher' || role === 'student') {
         await page.getByRole('dialog', { name: 'Log out of EduScribe?' })
           .getByRole('button', { name: 'Log out', exact: true }).click();
       }

@@ -59,6 +59,8 @@ test('shows safe create errors and keeps the form available', async ({ page }) =
   await openSchedules(page);
   const dialog = await openMathForm(page);
   await dialog.getByLabel('Teacher').selectOption({ label: 'Synthetic Math Teacher' });
+  await dialog.getByLabel('Start').fill('10:00');
+  await dialog.getByLabel('End').fill('11:00');
   await dialog.getByRole('button', { name: 'Create' }).click();
   await expect(page.getByText(/Could not create the schedule/)).toBeVisible();
   await expect(dialog).toBeVisible();

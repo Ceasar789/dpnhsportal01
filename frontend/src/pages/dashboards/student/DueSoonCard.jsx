@@ -44,7 +44,7 @@ const DueSoonCard = ({ rows, now, loading, loadError }) => {
               <li key={row.assignee.task_id} style={{ borderColor: 'var(--border)' }}>
                 <Link to={linkFor(row, now)} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 min-h-11 py-2 rounded-lg">
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold" style={{ color: 'var(--text)' }}>{row.sheet.title}</span>
+                    <span className="block text-sm font-semibold [overflow-wrap:anywhere]" style={{ color: 'var(--text)' }}>{row.sheet.title}</span>
                     <span className="block text-xs" style={{ color: 'var(--text-muted)' }}>{row.subjectName || row.sheet.subject}</span>
                   </span>
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Due {formatManila(row.assignee.due_at)}</span>

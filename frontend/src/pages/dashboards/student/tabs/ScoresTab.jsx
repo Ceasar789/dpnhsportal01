@@ -20,7 +20,7 @@ const SubjectScores = ({ subject }) => {
   const listId = `scores-${subject.key}`;
   return (
     <Card className="p-5">
-      <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>{subject.name}</h2>
+      <h2 className="text-base font-semibold [overflow-wrap:anywhere]" style={{ color: 'var(--text)' }}>{subject.name}</h2>
       <dl className="mt-3 grid grid-cols-2 gap-4">
         <div>
           <dt className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Average</dt>
@@ -51,7 +51,7 @@ const SubjectScores = ({ subject }) => {
                 <li key={item.id} className="py-3 flex flex-wrap items-center justify-between gap-2" style={{ borderColor: 'var(--border)' }}>
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{item.title}</span>
+                      <span className="text-sm font-semibold min-w-0 [overflow-wrap:anywhere]" style={{ color: 'var(--text)' }}>{item.title}</span>
                       <Badge color={INFO.color} bg={INFO.bg}>{item.type}</Badge>
                     </span>
                     {item.submittedAt && (

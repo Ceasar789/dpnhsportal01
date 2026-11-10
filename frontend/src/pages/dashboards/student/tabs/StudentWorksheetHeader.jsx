@@ -40,11 +40,11 @@ export default function StudentWorksheetHeader({ title, subject, grade, section,
       </div>
     </header>
     <h1 className="mt-5 text-center text-lg font-bold tracking-wide">{handout ? 'ACTIVITY' : 'WORKSHEET'}</h1>
-    {label(title) && <p className="mt-1 text-center font-semibold">{label(title)}</p>}
+    {label(title) && <p className="mt-1 text-center font-semibold [overflow-wrap:anywhere]">{label(title)}</p>}
     <div className="mt-5 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-      {label(studentName) && <p><strong>Name:</strong> <span className="inline-block min-w-32 border-b px-1"
+      {label(studentName) && <p><strong>Name:</strong> <span className="inline-block min-w-32 max-w-full border-b px-1 [overflow-wrap:anywhere]"
         style={{ borderColor: '#6b6258' }}>{label(studentName)}</span></p>}
-      {gradeAndSection && <p><strong>Grade and section:</strong> <span className="inline-block min-w-32 border-b px-1"
+      {gradeAndSection && <p><strong>Grade and section:</strong> <span className="inline-block min-w-32 max-w-full border-b px-1 [overflow-wrap:anywhere]"
         style={{ borderColor: '#6b6258' }}>{gradeAndSection}</span></p>}
       {!handout && <p><strong>Score:</strong> {releasedScore
         ? <span>{releasedScore.score}</span>
@@ -52,12 +52,12 @@ export default function StudentWorksheetHeader({ title, subject, grade, section,
             style={{ borderColor: '#6b6258' }} aria-label="blank score">&nbsp;</span>} / {releasedScore ? releasedScore.total : totalPoints}</p>}
       <p><strong>Date:</strong> <span className="inline-block min-w-28 border-b px-1"
         style={{ borderColor: '#6b6258' }}>{date}</span></p>
-      {label(subject) && <p><strong>Subject:</strong> <span className="inline-block min-w-28 border-b px-1"
+      {label(subject) && <p><strong>Subject:</strong> <span className="inline-block min-w-28 max-w-full border-b px-1 [overflow-wrap:anywhere]"
         style={{ borderColor: '#6b6258' }}>{label(subject)}</span></p>}
       {label(schoolYear) && <p><strong>School year:</strong> <span className="inline-block min-w-28 border-b px-1"
         style={{ borderColor: '#6b6258' }}>{label(schoolYear)}</span></p>}
     </div>
-    {label(instructions) && <div className="mt-6 rounded border px-4 py-3 text-sm whitespace-pre-wrap"
+    {label(instructions) && <div className="mt-6 rounded border px-4 py-3 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
       style={{ borderColor: '#b7a999', backgroundColor: '#fffaf0' }}>
       <strong>Directions:</strong> {label(instructions)}
     </div>}

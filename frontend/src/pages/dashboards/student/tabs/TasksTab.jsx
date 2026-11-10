@@ -621,7 +621,7 @@ const StudentTasksTab = () => {
               </h2>
             {paperGroup.items.map((it, index) => (
               <div key={it.id} className="border-b py-4 last:border-b-0" style={{ borderColor: '#e2d9cc' }}>
-                <p className="text-sm font-medium mb-2" style={{ color: '#1f1f1f' }}>
+                <p className="text-sm font-medium mb-2 [overflow-wrap:anywhere]" style={{ color: '#1f1f1f' }}>
                   {paperGroup.start + index}. {it.question} <span className="text-xs" style={{ color: '#5b5147' }}>({it.points} pts)</span>
                 </p>
                 {it.item_type === 'essay' && essayRuleText({ minSentences: it.essay_min_sentences ?? null, minWords: it.essay_min_words ?? null })
@@ -634,7 +634,7 @@ const StudentTasksTab = () => {
                     fire a write that races the status UPDATE exactly like
                     the bug this flush was built to fix. */}
                 {it.item_type === 'multiple_choice' && (it.options || []).map(opt => (
-                  <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: '#1f1f1f' }}>
+                  <label key={opt} className="flex items-center gap-2 text-sm py-1 min-w-0 [overflow-wrap:anywhere]" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
                       onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF', ...FIELD_SELECT }} />
                     {opt}
@@ -645,7 +645,7 @@ const StudentTasksTab = () => {
                     not retyped — because that is what the teacher's key
                     stores those two options as. */}
                 {it.item_type === 'true_false' && TRUE_FALSE_VALUES.map(opt => (
-                  <label key={opt} className="flex items-center gap-2 text-sm py-1" style={{ color: '#1f1f1f' }}>
+                  <label key={opt} className="flex items-center gap-2 text-sm py-1 min-w-0 [overflow-wrap:anywhere]" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
                       onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF', ...FIELD_SELECT }} />
                     {opt}
@@ -782,9 +782,9 @@ const StudentTasksTab = () => {
             const handedIn = Boolean(row.submission) && row.submission.status !== 'in_progress';
             return (
               <Card key={row.assignee.task_id} className="p-4 flex items-center justify-between">
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{row.sheet.title}</p>
+                    <p className="text-sm font-semibold min-w-0 [overflow-wrap:anywhere]" style={{ color: 'var(--text)' }}>{row.sheet.title}</p>
                     <Badge color={INFO.color} bg={INFO.bg}>{typeLabel}</Badge>
                   </div>
                   <p className="text-xs" style={muted}>{row.subjectName || row.sheet.subject}</p>

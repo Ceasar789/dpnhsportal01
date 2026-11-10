@@ -154,7 +154,7 @@ const OverviewTab = () => {
           onError={(e) => { e.target.style.display = 'none'; }}
         />
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
+          <h2 className="text-lg font-bold [overflow-wrap:anywhere]" style={{ color: 'var(--text)' }}>
             Welcome back, <span>{info.name}</span>!
           </h2>
           {/* Three distinct states, never collapsed into one: the read

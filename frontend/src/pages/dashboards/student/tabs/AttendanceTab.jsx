@@ -208,7 +208,7 @@ const AttendanceTab = () => {
                       </td>
                       <td className="px-5 py-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>{sectionName(r.section_id)}</td>
                       <td className="px-5 py-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>{r.subject || '—'}</td>
-                      <td className="px-5 py-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>{r.remarks || '—'}</td>
+                      <td className="px-5 py-3.5 text-sm [overflow-wrap:anywhere]" style={{ color: 'var(--text-muted)' }}>{r.remarks || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

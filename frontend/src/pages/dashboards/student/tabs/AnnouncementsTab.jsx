@@ -110,8 +110,8 @@ const AnnouncementsTab = () => {
                   <Badge color={RED.color} bg={RED.bg}>Important</Badge>
                 )}
               </div>
-              <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--text)' }}>{announcement.title}</h3>
-              <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>{announcement.content}</p>
+              <h3 className="font-semibold text-sm mb-1 [overflow-wrap:anywhere]" style={{ color: 'var(--text)' }}>{announcement.title}</h3>
+              <p className="text-sm mb-3 [overflow-wrap:anywhere]" style={{ color: 'var(--text-muted)' }}>{announcement.content}</p>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                   style={{ backgroundColor: 'var(--card2)', color: 'var(--text-muted)' }}>

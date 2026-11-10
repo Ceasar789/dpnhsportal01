@@ -10,6 +10,7 @@ import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeade
 import PublicFooter from '../../components/PublicFooter';
 import { Facebook, School, Camera, MessageCircle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
+import { viewportHeight } from '../../lib/viewportHeight';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const Login = () => {
   const navHeight = isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop;
 
   return (
-    <div className="public-shell min-h-screen flex flex-col">
+    <div className="public-shell min-h-viewport flex flex-col">
       <PublicHeader isMobile={isMobile} active={null} />
 
       <main className="flex-1" style={{ paddingTop: navHeight }}>
@@ -63,7 +64,7 @@ const Login = () => {
             backgroundImage: 'url(/capstonebackground.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            minHeight: `calc(100vh - ${navHeight}px)`,
+            minHeight: `calc(${viewportHeight(100)} - ${navHeight}px)`,
           }}
         >
           <div

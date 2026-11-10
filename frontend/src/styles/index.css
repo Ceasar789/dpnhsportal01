@@ -10,6 +10,15 @@ PURPOSE: Global styles + Tailwind directives
 @tailwind components;
 @tailwind utilities;
 
+/* Full-height boxes on phones. 100vh is the height with the browser toolbars
+   hidden, so a box that tall runs behind the toolbar; dvh follows the visible
+   area. Each rule lists vh first as the fallback for browsers without dvh.
+   Plain rules after the utilities rather than h-screen plus h-dvh: Tailwind
+   emits .h-dvh BEFORE .h-screen, so with both classes h-screen would win. */
+.h-viewport { height: 100vh; height: 100dvh; }
+.min-h-viewport { min-height: 100vh; min-height: 100dvh; }
+.max-h-viewport-85 { max-height: 85vh; max-height: 85dvh; }
+
 /* ============================================
    Design tokens — the single declaration.
    Light is the :root default so that every page has usable tokens, including
@@ -280,6 +289,7 @@ PURPOSE: Global styles + Tailwind directives
     width: 100vw;
     max-width: 100vw;
     max-height: 92vh;
+    max-height: 92dvh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     border-bottom: none;
   }
@@ -478,4 +488,23 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b;
+}
+
+/* Phones: text fields at 16px. iPhone Safari zooms the whole page into any
+   field whose text is smaller than 16px when it takes focus, and may leave
+   it zoomed. Only text-entry controls are listed: checkbox, radio, range,
+   color, file and button-type inputs are untouched. :root plus the typed
+   selectors give 0,2,1, enough to beat the single-class size utilities
+   (text-sm, text-xs, .form-input) and the admin field rule without
+   !important. 768px and up keep their current sizes. */
+@media (max-width: 767px) {
+  :root :is(
+    input:not([type]),
+    input[type="text"], input[type="email"], input[type="password"], input[type="search"],
+    input[type="number"], input[type="tel"], input[type="url"], input[type="date"],
+    input[type="time"], input[type="datetime-local"], input[type="month"],
+    select, textarea
+  ) {
+    font-size: 16px;
+  }
 }

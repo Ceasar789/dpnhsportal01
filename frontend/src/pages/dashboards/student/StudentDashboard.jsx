@@ -183,7 +183,7 @@ const StudentLayout = ({ children }) => {
   const textMuted = 'var(--text-muted)';
 
   return (
-    <div className="dashboard-shell student-dashboard-shell flex flex-col h-screen overflow-hidden" style={{ backgroundColor: mainBg }}>
+    <div className="dashboard-shell student-dashboard-shell flex flex-col h-viewport overflow-hidden" style={{ backgroundColor: mainBg }}>
       {/* TOP HEADER */}
       <header
         ref={headerRef}

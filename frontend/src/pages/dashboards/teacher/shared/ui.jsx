@@ -131,7 +131,7 @@ export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible
       }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined} tabIndex={-1}
-        className={`rounded-xl w-full ${size} shadow-2xl flex flex-col max-h-[85vh]`}
+        className={`rounded-xl w-full ${size} shadow-2xl flex flex-col max-h-viewport-85`}
         style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
         <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
           <h2 id={titleId} className="text-lg font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>

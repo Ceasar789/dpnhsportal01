@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
 import PublicFooter from '../../components/PublicFooter';
 import { Pause, Play } from 'lucide-react';
+import { viewportHeight } from '../../lib/viewportHeight';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ const Home = () => {
   const HeroSection = () => (
     <div
       className="relative w-full overflow-hidden"
-      style={{ height: `min(870px, calc(100vh - ${navHeight}px))`, minHeight: '560px' }}
+      style={{ height: `min(870px, calc(${viewportHeight(100)} - ${navHeight}px))`, minHeight: '560px' }}
     >
       {/* Carousel Images - FIXED: minWidth instead of w-full, removed overflow-hidden from track */}
       <div 
@@ -224,7 +225,7 @@ const Home = () => {
   // MAIN RENDER
   // ============================================
   return (
-    <div className="public-shell min-h-screen" style={{ backgroundColor: '#FAF8FF' }}>
+    <div className="public-shell min-h-viewport" style={{ backgroundColor: '#FAF8FF' }}>
       <PublicHeader isMobile={isMobile} active="Home" />
 
       <main style={{ paddingTop: navHeight }}>

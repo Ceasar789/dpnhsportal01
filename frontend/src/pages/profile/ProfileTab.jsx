@@ -17,6 +17,7 @@ import { useSignedPhotoUrl } from '../../hooks/useSignedPhotoUrl';
 import Avatar from '../../components/Avatar';
 import Modal from '../../components/ui/Modal';
 import { Camera, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { viewportHeight } from '../../lib/viewportHeight';
 
 const PHOTO_CHANGE_LIMIT = 3;
 const PHOTO_CHANGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -405,7 +406,7 @@ const ProfileTab = ({ teacherView = false }) => {
           padding: 16, background: 'rgba(15,23,42,0.62)',
         }}
         cardStyle={{
-          width: 'min(440px, calc(100vw - 32px))', maxHeight: 'calc(100vh - 32px)',
+          width: 'min(440px, calc(100vw - 32px))', maxHeight: `calc(${viewportHeight(100)} - 32px)`,
           padding: 24, borderRadius: 12, background: v('--card-bg', '#ffffff'),
           border: `1px solid ${v('--border', '#e2e8f0')}`, color: v('--text', '#1a2b4a'),
           boxShadow: '0 20px 50px rgba(15,23,42,0.24)',

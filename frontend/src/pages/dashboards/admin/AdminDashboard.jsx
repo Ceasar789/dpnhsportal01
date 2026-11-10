@@ -28,6 +28,7 @@ import CalendarTab from './tabs/CalendarTab';
 import MemosTab from './tabs/MemosTab';
 import SettingsTab from './tabs/SettingsTab';
 import ProfileTab from '../../profile/ProfileTab';
+import { viewportHeight } from '../../../lib/viewportHeight';
 
 // ============================================
 // MAIN ADMIN DASHBOARD — auth guard, then mounts AdminProvider
@@ -39,7 +40,7 @@ const AdminDashboard = () => {
   if (loading) {
     return (
       <div style={{
-        minHeight: '100vh', display: 'flex', alignItems: 'center',
+        minHeight: viewportHeight(100), display: 'flex', alignItems: 'center',
         justifyContent: 'center', background: 'var(--gate-bg)', flexDirection: 'column', gap: 'var(--space-16)'
       }}>
         <div style={{
@@ -60,7 +61,7 @@ const AdminDashboard = () => {
   if (!userData || userData.role !== 'main_admin') {
     return (
       <div style={{
-        minHeight: '100vh', display: 'flex', alignItems: 'center',
+        minHeight: viewportHeight(100), display: 'flex', alignItems: 'center',
         justifyContent: 'center', background: 'var(--gate-bg)', flexDirection: 'column',
         gap: 'var(--space-12)', padding: 'var(--space-24)', textAlign: 'center'
       }}>
@@ -217,7 +218,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
     <div className="dashboard-shell">
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Public Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; font-size: var(--font-size-14); }
+        body { font-family: 'Public Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; font-size: var(--font-size-14); }
 
         nav {
           background: #003b7a;
@@ -339,7 +340,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .nav-logout-btn--sidebar { color: var(--text); border-color: var(--border); background: var(--card-bg); }
         .nav-logout-btn--sidebar:hover { color: var(--text); border-color: var(--text-muted); background: var(--card2); }
 
-        .layout { display: flex; flex: 1; min-height: calc(100vh - 76px); }
+        .layout { display: flex; flex: 1; min-height: calc(100vh - 76px); min-height: calc(100dvh - 76px); }
         .sidebar { width: 256px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 0 var(--space-12) var(--space-16); flex-shrink: 0; display: flex; flex-direction: column; transition: width var(--motion-base) ease, transform var(--motion-base) ease; position: relative; }
         .sidebar.collapsed { width: 80px; }
         .sidebar-user { min-height: 76px; padding: var(--space-24) var(--space-8); border-bottom: 1px solid var(--border); display: flex !important; align-items: center; gap: var(--space-12); margin-bottom: 0; visibility: visible; }
@@ -1119,7 +1120,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
 
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-overlay.open { display: flex; }
-        .modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-24); width: 440px; max-height: 90vh; overflow-y: auto; }
+        .modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-24); width: 440px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; }
         .modal-title { font-size: var(--font-size-16); font-weight: 700; margin-bottom: var(--space-16); }
         .form-row   { margin-bottom: var(--space-16); }
         .form-label { font-size: var(--font-size-12); color: var(--text-muted); margin-bottom: var(--space-4); display: block; }
@@ -1140,7 +1141,7 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
              wrapped text reads as clutter rather than identity. */
           .page-seal { display: none; }
           .nav-menu-btn { display: flex; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; align-items: center; justify-content: center; cursor: pointer; }
-          .layout { min-height: calc(100vh - 76px); }
+          .layout { min-height: calc(100vh - 76px); min-height: calc(100dvh - 76px); }
           /* Above the header, not under it. At z-index 50 against the
              header's 100 the drawer's top 76px - the entire profile row -
              was painted behind the navbar. Raising it covers the menu

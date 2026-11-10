@@ -171,7 +171,7 @@ const TeacherLayout = ({ children }) => {
   const brandBackground = '#003b7a';
 
   return (
-    <div className="dashboard-shell teacher-dashboard-shell flex flex-col h-screen overflow-hidden" style={{ backgroundColor: mainBg }}>
+    <div className="dashboard-shell teacher-dashboard-shell flex flex-col h-viewport overflow-hidden" style={{ backgroundColor: mainBg }}>
       {/* ===== HEADER ===== */}
       <header ref={headerRef} className="teacher-header flex items-center gap-4 px-4 sm:px-5 flex-shrink-0 z-30" style={{ backgroundColor: brandBackground }}>
         <button ref={menuButtonRef} onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu" aria-expanded={sidebarOpen} aria-controls="teacher-sidebar" className="teacher-header-action lg:hidden rounded-full text-white/90 hover:bg-white/10 flex-shrink-0 flex items-center justify-center">

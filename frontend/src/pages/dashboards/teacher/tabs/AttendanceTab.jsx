@@ -401,7 +401,7 @@ const AttendanceTab = () => {
           <label htmlFor="teacher-attendance-section" className="text-sm font-medium" style={{ color: 'var(--text)' }}>
             Advisory section (daily attendance)
             <select id="teacher-attendance-section" value={selectedSectionId} onChange={event => changeSection(event.target.value)}
-              disabled={saving} className={`block mt-1 h-11 px-3 rounded-lg text-sm ${FOCUS}`} style={FIELD_STYLE}>
+              disabled={saving} className={`block w-full max-w-full mt-1 h-11 px-3 rounded-lg text-sm ${FOCUS}`} style={FIELD_STYLE}>
               {sections.length === 0 && <option value="">No advisory section</option>}
               {sections.map(section => <option key={section.id} value={String(section.id)}>
                 {[section.grade_level, section.name, section.school_year || 'Year unavailable'].filter(Boolean).join(' · ')}

@@ -1,6 +1,6 @@
 # TWF-03A trusted Teacher workflows — review-only contract
 
-> **Status update (2026-11-09).** The sections from "Source findings" to "TWF-03B isolated prerequisite" are the original design-phase review and are kept as history. Statements in them that are no longer true are followed by an **Update** note. The system as it stands now is described in [Current system](#current-system-2026-11-09) at the end of this document, written only from the repository files. Live database state was not inspected for this update.
+> **Status update (2026-11-09).** The sections from "Source findings" to "TWF-03B isolated prerequisite" are the original design-phase review and are kept as history. Statements in them that are no longer true are followed by an **Update** note. The system as it stands now is described in [Current system](#current-system-2026-11-09) at the end of this document, written only from the repository files. Live database state was not inspected for this update. The admin, responsive, test-status and limitation updates of 2026-11-11 are in [Current system update (2026-11-11)](#current-system-update-2026-11-11).
 
 **DESIGN ONLY (original design-phase note). No SQL was executed, no database was contacted, and no production writer was enabled.** `shared/trustedPersistence/teacherWorkflowContract.js` is a pure synthetic check. It accepts a snapshot labelled trusted for tests; nothing in the active application imports it or proves that a browser supplied snapshot is trustworthy.
 
@@ -292,3 +292,218 @@ Apply in this order (each after its listed dependencies), then run its selftest:
 4. The **Scores** tab shows the subject average; **Attendance** shows the day's mark after the adviser saves.
 
 These steps describe what the code does. They were not run in a browser for this update.
+
+## Current system update (2026-11-11)
+
+Written from the repository at commit `ec3d724` (branch `master`). All dates and times are Manila time (UTC+8), taken from the commit dates. This section adds the admin dashboard work, the responsive work (R1-R5), the test and e2e status, and the known limitations. The sections above stay as they were.
+
+**Unverified** means the fact needs the live database, a real browser session against the live project, or a real phone. The repository cannot show it.
+
+### Admin dashboard (frontend only, no SQL)
+
+**No new migration was needed for the admin work.** The seven admin commits change only files under `frontend/src/`. None of them adds or changes a file in `backend/database/`.
+
+| Item | What it does | Main files | Commit (date) | Guard tests |
+|---|---|---|---|---|
+| A1: school year | The academic tabs (Sections, Schedules, Teaching Load) work in the year from System Settings (`school_settings.school_year`, row 1). If that row cannot be loaded, they fall back to the calendar year and say so. If the admin works in another year, a warning says teachers will not see it. The warning never blocks. | `admin/useAcademicLogic.jsx`, `admin/shared/SchoolYearNotice.jsx`, `admin/AdminContext.jsx`, `tabs/SettingsTab.jsx` | `7350b80` (2026-11-09 21:48) | `useAcademicLogic.schoolYear.test.jsx`, `tabs/schoolYearNotice.tabs.test.jsx` |
+| A2: section delete counts | Deleting a section opens a dialog that counts what goes with it: class list records (including former members), schedules, attendance records, student submissions and task assignments. Each count reads "Counting…" or "Could not be counted" until known. Typing the section name is required unless the section is known to have no students and no schedules. | `admin/useAcademicLogic.jsx` (`countRows`), `admin/shared/ConfirmationDialog.jsx` | `672d049` (2026-11-09 21:12) | `useAcademicLogic.sectionDelete.test.jsx`, `ConfirmationDialog.typeToConfirm.test.jsx`, `ConfirmationDialog.defaults.test.jsx` |
+| A3: schedule clash check | Before a period is saved, the app reads this year's periods again and refuses the save if the same teacher, the same room (trimmed, case-insensitive, only when a room is entered) or the same section has an overlapping period on that day. Periods that only touch do not clash. A failed read saves nothing. | `lib/academicRules.js` (`findScheduleClashes`, `describeScheduleClashes`), `admin/useAcademicLogic.jsx`, `tabs/SchedulesTab.jsx` | `c633da1` (2026-11-09 22:10) | `lib/academicRules.clash.test.js`, `useAcademicLogic.scheduleClash.test.jsx`, `tabs/SchedulesTab.clash.test.jsx` |
+| A4: adviser warning | When the chosen adviser already advises another section this year, a yellow warning names those sections. It never blocks saving. | `admin/shared/sectionsValidation.js` (`otherAdvisedSections`), `tabs/SectionsTab.jsx` | `672d049` (2026-11-09 21:12) | `tabs/SectionsTab.adviserWarning.test.jsx` |
+| A5: class setup summary | A read-only overview in Schedules and Sections: "N of M subjects have a teacher", and each subject's teachers and periods, Monday first. It uses data the tabs already load. | `admin/shared/classSetup.js`, `tabs/SchedulesTab.jsx`, `tabs/SectionsTab.jsx` | `781a0d9` (2026-11-09 22:39) | `shared/classSetup.test.js`, `tabs/classSetup.tabs.test.jsx` |
+| B1: department lock | In Teaching Load, the teacher's department subject is pre-selected and cannot be removed. It is the one active subject whose name or code equals `profiles.department`. If none or more than one matches, nothing is locked and a note says why. | `admin/shared/departmentSubject.js`, `tabs/TeachingLoadTab.jsx`, `admin/useAcademicLogic.jsx` | `89ac297` (2026-11-10 19:12) | `shared/departmentSubject.test.js`, `tabs/TeachingLoadTab.departmentLock.test.jsx`, `useAcademicLogic.departmentLock.test.jsx` |
+| B2a: section removal | Removing a student asks for a reason. **Dropped** and **Transferred** keep the `section_students` row with that status, and it is listed under "Previously in this section". **Added by mistake / wrong section** deletes the row, as removal did before. Re-adding a former member sets the row back to `active`. | `admin/shared/sectionMembership.js`, `tabs/SectionsTab.jsx`, `admin/useAcademicLogic.jsx` | `e872d1c` (2026-11-10 07:08) | `tabs/SectionsTab.removal.test.jsx`, `useAcademicLogic.membership.test.jsx` |
+| B2b: profile sheets | **View profile** opens a student sheet from the Sections class list and a teacher sheet from Teaching Load. The student sheet is read-only except LRN (exactly 12 digits, or empty) and student status (Regular, Irregular, Transferee, Returnee, or not set). The teacher sheet is read-only and makes no new queries. | `admin/shared/StudentProfileSheet.jsx`, `admin/shared/TeacherProfileSheet.jsx`, `tabs/SectionsTab.jsx`, `tabs/TeachingLoadTab.jsx` | `41fd21c` (2026-11-10 18:46) | `shared/StudentProfileSheet.test.jsx`, `shared/TeacherProfileSheet.test.jsx`, `tabs/profileEntryPoints.test.jsx` |
+
+All paths are under `frontend/src/pages/dashboards/`, except `lib/academicRules.js`, which is under `frontend/src/`.
+
+**How to verify:**
+- **Automated:** run the unit suite (see [How to verify (2026-11-11)](#how-to-verify-2026-11-11)). The guard tests above are part of it.
+- **Mocked browser:** the sections, schedules, settings and admin-final mocked e2e specs cover some of these flows. See [Test and e2e status](#test-and-e2e-status-2026-11-11).
+- **By hand:** log in as admin, then:
+  - try a clashing period in Schedules
+  - delete an empty section and a non-empty one
+  - pick an adviser who already advises a section
+  - remove a student with each reason
+  - open View profile
+  - check that a teacher's department subject cannot be removed
+- **Unverified:** these admin flows were not run by hand against the live project.
+
+### Student dashboard
+
+The student dashboard was redesigned in six commits on 2026-11-09:
+- `019bbd3` (15:31): shell accessibility and Manila dates
+- `7cdd235` (15:58): neutral teacher-style cards
+- `617c007` (16:33): To do, Upcoming, Done, the due-soon card and the Manila due-time fix
+- `f6525a1` (17:02): the attendance view and the scores summary
+- `247de78` (18:00) and `8974266` (19:06): cleanup, the release notification and docs
+
+The behavior is described in [Student flows](#student-flows) above. In short:
+- **Task views:** To do, Upcoming, Done, Activities and All. Overdue is a red badge on unfinished work past its deadline (`student/taskGroups.js`).
+- **Manila week rule:** "This week" is today through the next 7 days, both ends included, in Manila time.
+- **Scores:** students see scores from released rows only (`lib/studentTaskGraph.js`, `.eq('released', true)`).
+- **Release notification:**
+  - Migration: `backend/database/migrations/student-release-notification.sql`, with its `.selftest.sql` and `.rollback.sql`.
+  - Message: "Result ready", with no score in it.
+- **Attendance rate, as currently implemented:** days Present ÷ all recorded rows. Late and Excused are **not** counted as present (`student/attendanceView.js:23-26`). **To confirm with the adviser.**
+- **Guard tests** (under `frontend/src/pages/dashboards/student/`): `taskGroups.test.js`, `tabs/TasksTab.views.test.jsx`, `tabs/OverviewTab.dueSoon.test.jsx`, `attendanceView.test.js`, `tabs/AttendanceTab.phase3.test.jsx`, `tabs/ScoresTab.test.jsx`, `tabs/studentNoProvisional.test.js`.
+- **Unverified:**
+  - the release notification in the real app
+  - whether the migration and its selftest were run on the live database
+
+### Responsive work R1-R5 (frontend only)
+
+Phones (below 768px) were the main target. Each change was checked to leave 768px and wider unchanged.
+
+| Step | Commit (date) | What it fixed | Guard tests |
+|---|---|---|---|
+| R1 | `c9725ad` (2026-11-10 21:45) | **Full-height shells:** full-height shells follow the visible screen (`dvh`, with `vh` as the fallback): `.h-viewport`, `.min-h-viewport` and `.max-h-viewport-85` in `styles/index.css`, and `lib/viewportHeight.js` for inline styles. **16px fields:** text fields are 16px on phones so iPhone Safari does not zoom in. **Attendance picker:** the teacher Attendance picker fits the screen. | `styles/phoneViewport.test.js` |
+| R2 | `89a50ce` (2026-11-10 22:12) | **Dialog footers:** teacher dialog footers stay pinned at the bottom (`teacher/shared/ui.jsx`, Create Task, Distribute, Check Submissions). **Badges:** the teacher Announcements badges wrap. | `teacher/shared/ui.footer.test.jsx`, `teacher/worksheets/dialogFooters.test.jsx`, `teacher/tabs/AnnouncementsTab.badgeWrap.test.jsx` |
+| R3 | `6e3a509` (2026-11-10 22:56) | Long text wraps instead of overflowing in the student pages: Overview, Tasks, Scores, Attendance, Announcements, the due-soon card and the worksheet header. | `student/tabs/longText.wrap.test.jsx` |
+| R4 and R3b | `d56966d` (2026-11-10 23:35) | **Clash message:** the schedule clash message scrolls into view (`scrollIntoView`). **320px header:** below 360px the admin header logo gap is 8px instead of 12px, which removes a 1px sideways scroll. **Wrapping:** long text wraps in the shared Profile page and the notification bell. | `admin/tabs/SchedulesTab.clashInView.test.jsx`, `components/NotificationBell.wrap.test.jsx`, `pages/profile/ProfileTab.wrap.test.jsx` |
+| R5 | `ec3d724` (2026-11-11 07:19) | **Toasts:** on phones, the toasts of all three roles sit at the top, full width with 16px margins, and let taps through (`pointer-events: none`) to the header under them. **40px tap targets:** the Home slideshow dots and Pause, the password eye on both login pages, the teacher Announcements filter chips, and the student and admin profile toggles. | `student/phonePolish.test.jsx`, `student/phoneToastClickThrough.test.jsx` |
+
+Paths in the table are under `frontend/src/`, and `admin/`, `teacher/` and `student/` are under `frontend/src/pages/dashboards/`.
+
+**Verification:**
+- **Scratch-script sweeps:** each step was measured in desktop Chrome at phone sizes against the mocked e2e fixtures. The scripts and measurements are outside the repository, and these sweeps are not part of the test suite.
+- **R5 tap timing:** with a toast showing, taps on the menu, bell and theme buttons responded in about 30-190 ms for each role. Before R5 they waited about 3 s for the toast to close.
+- **Unverified on a real phone:** none of R1-R5 was checked on a real iPhone or Android phone.
+
+### Test and e2e status (2026-11-11)
+
+**Unit suite** (frontend, Vitest):
+- **Command:** `npx vitest run --maxWorkers=2 --minWorkers=1`.
+- **Last run:** 2026-11-11, on the tree committed as `ec3d724`.
+- **Result:** **Test Files 203 passed (203); Tests 2105 passed, 1 skipped, 6 todo (2112).**
+- `vite build` succeeded on the same tree.
+
+**Mocked e2e specs:**
+- **When:** last run 2026-11-10, about 20:00, on the tree committed as `c9269dc` ("e2e: update mocked specs…").
+- **How:** each spec ran under its own config, with one worker, against a fake backend whose URL ends in `.invalid`.
+- **Not re-run since:** none of these specs was run again after R1-R5. Those changes were checked only by the scratch sweeps above.
+- **Where the results are:** in that session's reports, not in the repository. The spec edits themselves are in `c9269dc`.
+
+| Config | Specs | Result |
+|---|---|---|
+| `playwright.sections.config.js` | `sections-browser`, `sections-isolation` | 14 passed |
+| `playwright.schedules.config.js` | `schedules-browser`, `schedules-isolation` | `schedules-browser` 8 of 8 passed after the approved edit; `schedules-isolation` passed |
+| `playwright.settings.config.js` | `settings-browser`, `settings-isolation` | 24 passed |
+| `playwright.admin-final.config.js` | `admin-final-browser`, `admin-final-isolation` | 18 passed |
+| `playwright.profile.config.js` | `profile-browser`, cross-role logout tests only | 5 passed |
+| `playwright.profile.config.js` | `teacher-worksheet-scores`, TWF-02 tests left out | 28 passed (18, plus the 10 "stays readable" cases after the approved edits) |
+
+These mocked configs were not run in this period: `playwright.ilaw-preview.config.js`, `playwright.quick-create-preview.config.js` and `playwright.worksheet-draft.config.js`.
+
+**Live-login specs not run:**
+- **Which:** 43 of the 58 spec files import `e2e/helpers.js`, which logs in to the real project. None of them was run. This includes:
+  - `admin-teaching-load-overhaul.spec.js`: `loginAsStudent` at `:20`. Its fixture edit in `c9269dc` is untested.
+  - `admin-mobile-rows.spec.js`: `loginAsAdmin`.
+  - `admin-double-click.spec.js`: `loginAsAdmin`.
+- **`E2E_ALLOW_WRITES`:** it was never set. It gates the live-write specs (`e2e/helpers.js:62`).
+
+**Known stale e2e specs** (still in the repository and out of date with the app; not run):
+
+| Spec | Test | Why it is stale |
+|---|---|---|
+| `e2e/profile-browser.spec.js:49-252` | TD-VID-004A weekly collection tests | Listed as stale under Testing gaps (2026-11-09) above |
+| `e2e/profile-browser.spec.js:435` | `TDC4-C2 manual Worksheet authoring` | Listed as stale under Testing gaps (2026-11-09) above. The manual-draft path is dead (see Known limitations). |
+| `e2e/profile-browser.spec.js:2165` and later | Encode scores | Paper score encoding is hidden (`trustedScoreWritesAvailable = false`, commit `741be26`). Some cases already `test.skip` (`:2457`, `:2498`). |
+| `e2e/profile-browser.spec.js:3995` | `isolated Teacher Attendance` | Attendance now saves through `eduscribe_attendance_save_v1` |
+| `e2e/teacher-worksheet-scores.spec.js:137`, `:159`, `:171` | TWF-02 review/release and attendance tests | Written when release was blocked and attendance was read-only. Release and attendance now write through trusted functions. |
+| `e2e/admin-double-click.spec.js:134` | `Teaching Load · Save Assignment` | **Possibly stale.** Since B1 (`89ac297`), the department subject is pre-selected and locked, which can change which subject the test adds. It was not run, so whether it fails is unverified. |
+
+Compared with the 2026-11-09 list above, this table adds the two other TWF-02 tests (`:137` and `:171`) and the admin-double-click case.
+
+### Known limitations (2026-11-11)
+
+**Admin rules enforced only in the browser:**
+- **Not in the database:** the schedule clash check (`lib/academicRules.js:80-81`) and the department lock (`admin/shared/departmentSubject.js:3-4`). A direct API write, or two admins saving at the same moment, can get past them.
+- **Advisers:** the adviser warning is a warning only. No rule limits a teacher to one advisory section.
+
+**Section removal history:**
+- **Nothing extra stored:** no reason note and no date are stored when a student is removed. Only the status (`dropped` or `transferred`) is kept (`admin/shared/sectionMembership.js:1-4`).
+
+**Former members stay visible to staff:**
+- **Which checks:** `staff_can_see_student` and `section_students_read` (`phase1-03-rls-academic.sql:56-71`, `:114-115`), and `ai_weekly_distribute_members_read` (`dev-ai-weekly-worksheet-distribute.sql:53-60`, for the role `eduscribe_ai_save_executor`).
+- **The gap:** none of them filters `section_students.status = 'active'`. B2a keeps rows for Dropped and Transferred students, so the adviser and the scheduled teachers of that section can still read the student's record through the API.
+- **Unverified live.**
+
+**Scores before release:**
+- **Unreleased marks:** "Accept provisional marks" (`saveMarks`, `useWorksheetAssessment.jsx:419`) writes `points_earned` and `is_correct` to `worksheet_answers` before release. `ws_answers_read` lets a student read their own answer rows.
+  - **Still open:** no fix is in the repository.
+- **Teacher direct score writes:** `ws_subs_teacher_write` (`phase2-02-worksheet-rls.sql`) lets the owning teacher write a score without releasing it, through the API.
+- **Unverified live** for both.
+
+**Phone layout:**
+- **Admin row sheet:** in phone landscape, the Close button sits below the fold. It can be reached by scrolling the sheet, tapping the backdrop or pressing Escape. Measured in a mocked sweep, not covered by a test.
+- **Admin toast in wide landscape:** at 844×390 landscape, the admin toast can still cover Cancel and Publish. The phone toast rule applies only up to 767px wide.
+- **ILAW fields:** the lesson-plan fields stay 36px tall on phones (measured in a mocked sweep).
+- **Safe-area insets:** they have no effect. `frontend/index.html:11` has no `viewport-fit=cover`, which was deliberately not added.
+
+**Scope:**
+- **Senior High is not supported:**
+  - There are no SHS strands or semesters.
+  - Grade 11 and Grade 12 still appear in the admin grade list (`lib/academicRules.js:7-9`, `admin/GradeTabs.jsx`).
+- **No promotion:**
+  - There is no Grade 7→8 promotion wizard.
+  - There are no Promoted, Retained or Completed statuses.
+  - The repository schema allows `active`, `dropped`, `transferred` and `graduated` for `section_students.status` (`backend/database/schema/COMPLETE_DATABASE_SCHEMA_v2.sql:138`).
+
+**Backups** (`.github/workflows/supabase-backup.yml`):
+- **Schedule:** daily at 16:30 UTC (00:30 Manila).
+- **Database:** `pg_dump --format=custom --no-owner --no-privileges`, so grants are not in the dump and are not restored with it.
+- **Storage files:** also downloaded (`backend/scripts/backup-storage.mjs`).
+- **Retention:** the artifact is kept for 7 days.
+- **Restore:** never tested.
+
+**Storage** (`backend/database/schema/STORAGE_BUCKETS_CONFIGURATION.sql`):
+- **Public buckets:** `lesson-pdfs` (`:26`) and `news-images` (`:93`).
+- **`profile-photos`:** the repository script also creates it public (`:80`), with a public-read policy (`:401-403`). That it is private on the live project is **unverified**; the repository does not show it.
+- **No quota:** there is no storage quota. The script sets per-bucket file size limits only.
+
+### Future work (NOT built)
+
+None of the following exists in the repository:
+- a Grade 7→8 promotion wizard, and Promoted, Retained and Completed statuses
+- Senior High strands and semesters
+- database enforcement for one advisory section per teacher, the department lock and schedule clashes
+- a department picker built from the subjects list
+- profile photo upload
+- per-subject attendance
+- an official teacher-entered final grade
+- a tested backup restore
+- `viewport-fit=cover`, plus safe-area padding where needed
+- a storage quota and a reviewed storage backup plan
+
+### Live-unverified facts (2026-11-11)
+
+These need the live database or a real phone:
+- **Release notification:** an end-to-end test in the real app (teacher releases, then the student sees "Result ready").
+- **Migrations:** which of them, including `student-release-notification.sql`, are applied live, and the live selftest results.
+- **Admin flows by hand against the live project:** A1-A5, B1, B2a and B2b.
+- **Student pages:** dark mode and 360px in a real browser against live data.
+- **Device QA checklist:** the results from a real iPhone (Safari) and a real Android phone (Chrome). None are recorded in the repository.
+- **Live RLS and storage:** that the deployed RLS and storage settings match the repository files, including the `profile-photos` bucket privacy.
+- **Live-login specs:** the e2e specs that log in to the live project.
+
+### How to verify (2026-11-11)
+
+Run from the repository root unless noted:
+1. **Unit suite** (from `frontend/`): `npx vitest run --maxWorkers=2 --minWorkers=1`. `--maxWorkers=2` alone fails at start-up with a worker-count conflict.
+2. **Build** (from `frontend/`): `npx vite build`.
+3. **Mocked e2e specs:** these use a fake backend and no real login. Run each with one worker, and leave `E2E_ALLOW_WRITES`, `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` unset:
+   - `npx playwright test -c playwright.sections.config.js --workers=1`
+   - `npx playwright test -c playwright.schedules.config.js --workers=1`
+   - `npx playwright test -c playwright.settings.config.js --workers=1`
+   - `npx playwright test -c playwright.admin-final.config.js --workers=1`
+   - `npx playwright test -c playwright.profile.config.js --workers=1`. This config also matches the stale tests listed above, so expect those to fail.
+
+**Manual device checklist (headings).** No checklist file exists in the repository. These headings come from the responsive audit of 2026-11-10:
+- Safari's toolbar over full-height screens: the Attendance save bar, the worksheet Submit, the last list items
+- iPhone zoom on fields, and whether the page stays zoomed
+- The on-screen keyboard over pinned dialog footers and the Attendance save bar (Android resize compared with iPhone overlay)
+- Long-press, text selection and typing inside the worksheet
+- Toasts and bottom sheets against the iPhone home indicator
+- Rotating the phone while a dialog or drawer is open
+- Native date and time pickers in Distribute and Attendance
+- Tap reach of the 40px targets, and the top toast with the keyboard open

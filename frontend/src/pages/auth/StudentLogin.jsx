@@ -124,7 +124,7 @@ const StudentLogin = () => {
               <div className="relative">
                 <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} aria-hidden="true" />
                 <input id="student-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full h-12 pl-12 pr-12 rounded-md text-sm outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded">
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded max-md:right-1 max-md:inline-flex max-md:items-center max-md:justify-center max-md:min-w-10 max-md:min-h-10">
                   {showPassword ? <EyeOff size={20} style={{ color: '#64748b' }} aria-hidden="true" /> : <Eye size={20} style={{ color: '#64748b' }} aria-hidden="true" />}
                 </button>
               </div>

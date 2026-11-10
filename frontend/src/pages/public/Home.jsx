@@ -159,7 +159,7 @@ const Home = () => {
             }}
             aria-label={`Show slide ${index + 1} of ${carouselImages.length}`}
             aria-current={currentPage === index ? 'true' : undefined}
-            className="grid h-6 w-6 place-items-center rounded-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            className="grid h-6 w-6 max-md:h-10 max-md:w-10 place-items-center rounded-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
           >
             <span
               className="block h-2 rounded-full transition-all duration-300"
@@ -176,7 +176,7 @@ const Home = () => {
             type="button"
             onClick={() => setPaused(p => !p)}
             aria-label={paused ? 'Resume the slideshow' : 'Pause the slideshow'}
-            className="ml-2 grid h-6 w-6 place-items-center rounded-full text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            className="ml-2 grid h-6 w-6 max-md:relative max-md:before:absolute max-md:before:-inset-2 max-md:before:content-[''] place-items-center rounded-full text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}
           >
             {paused ? <Play size={12} fill="currentColor" /> : <Pause size={12} fill="currentColor" />}

@@ -61,7 +61,7 @@ export const StatCard = ({ label, value, sub, icon: Icon }) => (
 // message when it appears: errors as an alert, everything else as a status.
 const ToastRegions = ({ toast }) => {
   const message = toast && (
-    <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${
+    <div className={`fixed bottom-4 right-4 max-md:left-4 max-md:bottom-auto max-md:top-[calc(env(safe-area-inset-top,0px)+12px)] max-md:pointer-events-none px-4 py-3 rounded-lg text-white font-semibold z-50 shadow-lg ${
       toast.type === 'error' ? 'bg-red-500' : toast.type === 'warning' ? 'bg-amber-500' : 'bg-green-500'
     }`}>{toast.msg}</div>
   );

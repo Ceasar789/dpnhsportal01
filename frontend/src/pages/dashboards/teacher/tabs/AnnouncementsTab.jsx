@@ -75,7 +75,7 @@ const AnnouncementsTab = () => {
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium"
+              className="px-4 py-1.5 rounded-lg text-sm font-medium max-md:min-h-10"
               style={{
                 backgroundColor: activeFilter === f ? '#1e3a5f' : (dark ? '#1e293b' : '#ffffff'),
                 border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,

@@ -270,7 +270,7 @@ const StudentLayout = ({ children }) => {
         <div className="p-5 border-b" style={{ borderColor: 'var(--border)' }}>
           <button
             onClick={() => setProfileOpen(open => !open)}
-            className={`w-full flex items-center gap-3 text-left ${sidebarCollapsed ? 'lg:justify-center' : ''}`}
+            className={`w-full flex items-center gap-3 text-left max-md:min-h-10 ${sidebarCollapsed ? 'lg:justify-center' : ''}`}
             aria-expanded={profileOpen}
             aria-label="Toggle profile menu"
           >

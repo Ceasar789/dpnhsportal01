@@ -190,7 +190,7 @@ export const ConfirmDialog = ({ title, message, confirmLabel = 'Discard changes'
 
 export const Toast = ({ toast, shadow = false }) => {
   const message = toast && (
-    <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white font-semibold z-50 ${shadow ? 'shadow-lg ' : ''}${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`} style={{ zIndex: 60 }}>
+    <div className={`fixed bottom-4 right-4 max-md:left-4 max-md:bottom-auto max-md:top-[calc(env(safe-area-inset-top,0px)+12px)] max-md:pointer-events-none px-4 py-3 rounded-lg text-white font-semibold z-50 ${shadow ? 'shadow-lg ' : ''}${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`} style={{ zIndex: 60 }}>
       {toast.msg}
     </div>
   );

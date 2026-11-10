@@ -1130,6 +1130,15 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .toast { position: fixed; bottom: 24px; right: 24px; padding: var(--space-12) var(--space-24); border-radius: var(--radius-md); font-size: var(--font-size-13); font-weight: 600; z-index: 2000; animation: slideUp var(--motion-base) ease; }
         .toast.success { background: var(--green); color: var(--on-accent); }
         .toast.error   { background: var(--red); color: var(--on-accent); }
+        /* Phones: the toast sits at the top, full width with 16px margins, so it
+           never covers a dialog footer button pinned at the bottom (Publish,
+           Save). Same z-index, colours and timing. The profile toggle in the
+           header gets a 40px tap height. 768px and up are unchanged. */
+        @media(max-width:767px) {
+          .toast { top: calc(env(safe-area-inset-top, 0px) + 12px); bottom: auto; left: 16px; right: 16px; }
+          .admin-profile-row > button { min-height: 40px; }
+          .toast { pointer-events: none; } /* taps pass through to the header under it */
+        }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         .spin { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin var(--motion-spin) linear infinite; display: inline-block; }

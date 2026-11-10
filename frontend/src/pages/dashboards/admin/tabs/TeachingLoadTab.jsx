@@ -6,8 +6,9 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
-import { CheckCircle2, Copy, Plus, Search, UserRound, X } from 'lucide-react';
+import { CheckCircle2, Copy, Lock, Plus, Search, UserRound, X } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
+import { departmentSubject, LOCKED_REMOVAL_MESSAGE } from '../shared/departmentSubject';
 import SchoolYearNotice from '../shared/SchoolYearNotice';
 import TeacherProfileSheet from '../shared/TeacherProfileSheet';
 import { useTeachingLoadUnsavedChanges } from '../../../../context/TeachingLoadUnsavedChangesContext';
@@ -90,6 +91,12 @@ const TeachingLoadTab = () => {
   const teacherById = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
   const subjectById = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
   const selectedTeacher = teacherById.get(selectedTeacherId) || null;
+  // The department subject is shown, selected and locked, in every grade.
+  // Browser-only: the database does not enforce it (future work).
+  const selectedLock = useMemo(
+    () => departmentSubject(selectedTeacher?.department, subjects), [selectedTeacher, subjects]
+  );
+  const lockedId = selectedLock.subject?.id ?? null;
   const activeSubjects = useMemo(
     () => subjects.filter(subject => subject.is_active !== false), [subjects]
   );
@@ -105,13 +112,40 @@ const TeachingLoadTab = () => {
     ...pendingAdditions.map((row, index) => ({ ...row, source: 'pending', pendingIndex: index })),
   ], [teachingLoad, pendingAdditions, removalSet]);
 
-  const selectedRows = useMemo(() => workingRows
-    .filter(row => row.grade_level === grade && row.teacher_id === selectedTeacherId)
-    .sort((a, b) => {
+  const selectedRows = useMemo(() => {
+    const rows = workingRows
+      .filter(row => row.grade_level === grade && row.teacher_id === selectedTeacherId)
+      .map(row => (lockedId && row.subject_id === lockedId ? { ...row, locked: true } : row));
+    // Not saved for this grade yet: shown anyway, written on the next save.
+    if (lockedId && selectedTeacherId && !rows.some(row => row.subject_id === lockedId)) {
+      rows.push({
+        id: `locked-${grade}`, teacher_id: selectedTeacherId, subject_id: lockedId,
+        grade_level: grade, source: 'locked', locked: true,
+      });
+    }
+    return rows.sort((a, b) => {
       const aName = subjectById.get(a.subject_id)?.name || '';
       const bName = subjectById.get(b.subject_id)?.name || '';
       return aName.localeCompare(bName);
-    }), [workingRows, grade, selectedTeacherId, subjectById]);
+    });
+  }, [workingRows, grade, selectedTeacherId, subjectById, lockedId]);
+  // Only once the load has been read: a failed or pending read is not "missing".
+  const lockedUnsavedHere = !teachingLoadLoading && !teachingLoadError
+    && selectedRows.some(row => row.source === 'locked');
+
+  // The department subject rows a save writes: only for the selected teacher,
+  // in the current grade and in any grade with staged changes for them.
+  const lockedEntries = () => {
+    if (!lockedId || !selectedTeacher) return [];
+    const teacherId = selectedTeacher.id;
+    const grades = new Set([grade]);
+    for (const row of pendingAdditions) if (row.teacher_id === teacherId) grades.add(row.grade_level);
+    for (const row of teachingLoad) if (removalSet.has(row.id) && row.teacher_id === teacherId) grades.add(row.grade_level);
+    const held = level => [...teachingLoad.filter(row => !removalSet.has(row.id)), ...pendingAdditions]
+      .some(row => row.teacher_id === teacherId && row.subject_id === lockedId && row.grade_level === level);
+    return GRADE_LEVELS.filter(level => grades.has(level) && !held(level))
+      .map(level => ({ teacher_id: teacherId, subject_id: lockedId, grade_level: level }));
+  };
 
   const assignmentCountByTeacher = useMemo(() => {
     const counts = new Map();
@@ -171,6 +205,10 @@ const TeachingLoadTab = () => {
   };
 
   const removeSubject = (row, button) => {
+    if (row.locked) {
+      showToast(LOCKED_REMOVAL_MESSAGE, 'error');
+      return;
+    }
     const settle = focusAfterRemoval(
       button,
       '.assigned-subjects, .teaching-detail',
@@ -250,9 +288,11 @@ const TeachingLoadTab = () => {
   }, [discardChanges, pendingLeave]);
 
   const saveChanges = async () => {
-    if (savingRef.current || !isDirty) return;
+    if (savingRef.current || (!isDirty && !lockedUnsavedHere)) return;
     savingRef.current = true;
     setSaving(true);
+    // Read before the removals refresh the load, so the grades match this save.
+    const locked = lockedEntries();
 
     try {
       if (pendingRemovalIds.length > 0) {
@@ -268,8 +308,9 @@ const TeachingLoadTab = () => {
         setPendingRemovalIds([]);
       }
 
-      if (pendingAdditions.length > 0) {
-        const written = await addLoadEntries(pendingAdditions);
+      const additions = [...pendingAdditions, ...locked];
+      if (additions.length > 0) {
+        const written = await addLoadEntries(additions);
         if (written === null) return;
         setPendingAdditions([]);
       }
@@ -449,6 +490,11 @@ const TeachingLoadTab = () => {
                   {statusLabel(selectedTeacher.status)}
                 </span>
               </div>
+              {selectedLock.note && (
+                <p className="teaching-lock-note" style={{ margin: 'var(--space-8) 0 0', color: 'var(--text-muted)', fontSize: 'var(--font-size-12)' }}>
+                  {selectedLock.note}
+                </p>
+              )}
               <div style={{ paddingTop: 'var(--space-12)' }}>
                 <button type="button" className="btn btn-ghost btn-sm" style={{ minHeight: 44 }}
                   aria-describedby="teacher-detail-heading"
@@ -487,6 +533,22 @@ const TeachingLoadTab = () => {
                     {selectedRows.map(row => {
                       const subject = subjectById.get(row.subject_id);
                       const label = subject?.name || subject?.code || 'Unknown subject';
+                      if (row.locked) {
+                        // Not a toggle and no remove action: nothing here to press.
+                        return (
+                          <span className="subject-chip locked" key={`locked-${row.subject_id}`}
+                            role="group" aria-label={`${label}, department subject, locked`}
+                            style={{ paddingRight: 'var(--space-12)' }}>
+                            <Lock size={14} aria-hidden="true" />
+                            <span>{label} <span style={{ fontWeight: 400 }}>(department)</span></span>
+                            {row.source === 'locked' && (
+                              <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-11)', fontWeight: 400 }}>
+                                not saved for this grade yet
+                              </span>
+                            )}
+                          </span>
+                        );
+                      }
                       return (
                         <span className={`subject-chip${row.source === 'pending' ? ' pending' : ''}`}
                           key={row.source === 'pending' ? `pending-${row.pendingIndex}` : row.id}>
@@ -538,7 +600,9 @@ const TeachingLoadTab = () => {
               <div className={`teaching-savebar${isDirty ? ' dirty' : ' saved'}`} aria-live="polite">
                 <div>
                   <div className="teaching-save-title">
-                    {isDirty ? 'Unsaved changes' : <><CheckCircle2 size={16} aria-hidden="true" /> All changes saved</>}
+                    {isDirty ? 'Unsaved changes'
+                      : lockedUnsavedHere ? `${selectedLock.subject.name} (department) is not saved for ${grade} yet`
+                        : <><CheckCircle2 size={16} aria-hidden="true" /> All changes saved</>}
                   </div>
                   {isDirty && (
                     <div className="teaching-save-hint">
@@ -546,9 +610,9 @@ const TeachingLoadTab = () => {
                     </div>
                   )}
                 </div>
-                {isDirty && (
+                {(isDirty || lockedUnsavedHere) && (
                   <div className="teaching-save-actions">
-                    <button type="button" className="btn btn-ghost" onClick={discardChanges} disabled={saving}>Discard</button>
+                    {isDirty && <button type="button" className="btn btn-ghost" onClick={discardChanges} disabled={saving}>Discard</button>}
                     <Button onClick={saveChanges} busy={saving} busyLabel="Saving assignment…">Save Assignment</Button>
                   </div>
                 )}

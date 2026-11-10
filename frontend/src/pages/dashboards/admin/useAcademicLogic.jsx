@@ -11,6 +11,7 @@ import { withRetry } from '../../../lib/supabaseRetry';
 import { canTeachSection, currentSchoolYear, describeScheduleClashes, findScheduleClashes } from '../../../lib/academicRules';
 import { hasExactDeletedIds } from '../../../lib/deleteVerification';
 import { statusForReason } from './shared/sectionMembership';
+import { isLockedLoadRow, lockedSubjectId, LOCKED_REMOVAL_MESSAGE } from './shared/departmentSubject';
 import {
   validateCapacityAgainstEnrollment,
   validateSectionAdviser,
@@ -293,6 +294,12 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   const removeLoad = async (idOrIds, { refresh = true } = {}) => {
     const ids = [...new Set((Array.isArray(idOrIds) ? idOrIds : [idOrIds]).filter(Boolean))];
     if (ids.length === 0) return false;
+    // The department subject is refused here as well as hidden in the tab.
+    // Browser-only: the database does not enforce this (future work).
+    if (teachingLoad.some(row => ids.includes(row.id) && isLockedLoadRow(row, teachers, subjects))) {
+      showToast(LOCKED_REMOVAL_MESSAGE, 'error');
+      return false;
+    }
 
     const deletion = supabase.from('teacher_subjects').delete();
     let result;
@@ -330,6 +337,16 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     if (!data || data.length === 0) { showToast(`No teaching load found for ${fromYear}`, 'error'); return 0; }
 
     const rows = data.map(r => ({ ...r, school_year: schoolYear }));
+    // Keep each teacher's department subject in every grade they are copied
+    // into, even if last year's load did not have it.
+    const have = new Set(rows.map(r => `${r.teacher_id}|${r.subject_id}|${r.grade_level}`));
+    for (const r of [...rows]) {
+      const lockedId = lockedSubjectId(teachers.find(t => t.id === r.teacher_id), subjects);
+      const k = `${r.teacher_id}|${lockedId}|${r.grade_level}`;
+      if (!lockedId || have.has(k)) continue;
+      have.add(k);
+      rows.push({ teacher_id: r.teacher_id, subject_id: lockedId, grade_level: r.grade_level, school_year: schoolYear });
+    }
     // Rows already present in the target year are skipped rather than failing
     // the whole copy, so the button is safe to press twice.
     const { error: insertError } = await supabase

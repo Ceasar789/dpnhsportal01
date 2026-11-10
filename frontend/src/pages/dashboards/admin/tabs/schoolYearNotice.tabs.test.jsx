@@ -15,7 +15,7 @@ const FALLBACK = 'School year setting could not be loaded. Showing 2030-2031 fro
 
 const teachingCtx = (over = {}) => ({
   schoolYear: '2026-2027', setSchoolYear: vi.fn(), settingsSchoolYear: '2026-2027', schoolYearSource: 'settings',
-  teachers: [{ id: 't1', name: 'Ana Cruz', email: 'ana@example.com', department: 'English', status: 'active' }],
+  teachers: [{ id: 't1', name: 'Ana Cruz', email: 'ana@example.com', department: '', status: 'active' }],
   teachersError: false, teachersLoading: false,
   subjects: [{ id: 'sub-eng', name: 'English', code: 'ENG' }], subjectsError: false, fetchSubjects: vi.fn(),
   teachingLoad: [], teachingLoadLoading: false, teachingLoadError: false, fetchTeachingLoad: vi.fn(), fetchTeachers: vi.fn(),

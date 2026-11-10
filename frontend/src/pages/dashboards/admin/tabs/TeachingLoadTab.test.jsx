@@ -17,7 +17,7 @@ const ENG = { id: 'sub-eng', name: 'English', code: 'ENG' };
 const SCI = { id: 'sub-sci', name: 'Science', code: 'SCI' };
 
 const ANA = {
-  id: 't-ana', name: 'Ana Cruz', email: 'ana@example.com', department: 'English', status: 'active',
+  id: 't-ana', name: 'Ana Cruz', email: 'ana@example.com', department: '', status: 'active',
 };
 const RAMON = {
   id: 't-ramon', name: 'Ramon Delgado', email: 'ramon@example.com', department: 'Mathematics', status: 'active',

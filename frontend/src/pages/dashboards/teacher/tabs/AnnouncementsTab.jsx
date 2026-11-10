@@ -128,7 +128,7 @@ const AnnouncementsTab = () => {
                   )}
                 </div>
                 <p className="text-sm mb-3 line-clamp-3" style={{ color: dark ? '#cbd5e1' : '#475569' }}>{item.content}</p>
-                <div className="flex items-center gap-4 text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
                   <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString()}</span>
                   <span className="flex items-center gap-1"><Clock size={12} /> {new Date(item.created_at).toLocaleTimeString()}</span>
                   <span>By {item.author_name || 'Admin'}</span>

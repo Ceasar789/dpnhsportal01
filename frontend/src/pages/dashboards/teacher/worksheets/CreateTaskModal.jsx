@@ -42,7 +42,12 @@ const CreateTaskModal = ({ subjectPicker, subjectReady, saving, onSave, onClose 
     if (result && !result.ok) setError(result.message);
   };
 
-  return <>{routeBlocker}<Modal title="Create Worksheet" onClose={requestClose} closeDisabled={saving}>
+  return <>{routeBlocker}<Modal title="Create Worksheet" onClose={requestClose} closeDisabled={saving} footer={
+    <div className="flex justify-end gap-2">
+      <Btn variant="outline" onClick={requestClose} disabled={saving}>Cancel</Btn>
+      <Btn variant="primary" onClick={submit} disabled={!canSave} busy={saving}>{saving ? 'Creating…' : 'Create'}</Btn>
+    </div>
+  }>
     <div className="flex flex-col gap-4">
       {busyNotice && <p role="status" className="text-sm">{busyNotice}</p>}
       <div>
@@ -83,10 +88,6 @@ const CreateTaskModal = ({ subjectPicker, subjectReady, saving, onSave, onClose 
       </fieldset>}
       {taskType !== 'activity' && <p className="text-xs" style={muted}>After creating, add the questions and their points.</p>}
       {error && <p role="alert" className="text-sm" style={{ color: 'var(--red)' }}>{error}</p>}
-      <div className="flex justify-end gap-2">
-        <Btn variant="outline" onClick={requestClose} disabled={saving}>Cancel</Btn>
-        <Btn variant="primary" onClick={submit} disabled={!canSave} busy={saving}>{saving ? 'Creating…' : 'Create'}</Btn>
-      </div>
     </div>
   </Modal></>;
 };

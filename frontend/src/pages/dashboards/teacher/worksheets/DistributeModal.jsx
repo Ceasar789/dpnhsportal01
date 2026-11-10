@@ -259,7 +259,21 @@ const DistributeModal = ({
   const handledSections = sections.filter(s => !s.isAdviser);
 
   return (
-    <>{routeBlocker}<Modal title={`Distribute "${task.title}"`} onClose={requestClose} size="max-w-2xl">
+    <>{routeBlocker}<Modal title={`Distribute "${task.title}"`} onClose={requestClose} size="max-w-2xl"
+      // Same condition as the branch it used to sit in: hidden while sections
+      // fail to load or when there are none, exactly as before.
+      footer={!sectionsError && sections.length > 0 ? (
+      <div className="flex items-center justify-end gap-2 pt-1">
+        {!rosterLoading && !metaLoading && !readFailed && roster.length > 0 && (
+          <span className="text-xs mr-auto" style={muted}>
+            {selectedIds.length} selected
+            {alreadyTicked > 0 && ` · ${alreadyTicked} already have it`}
+          </span>
+        )}
+        <Btn variant="outline" onClick={requestClose}>Cancel</Btn>
+        <Btn variant="primary" onClick={startReview} disabled={disableReview}>Review</Btn>
+      </div>
+      ) : null}>
       <div className="flex flex-col gap-4">
         {busyNotice && <p role="status" className="text-sm">{busyNotice}</p>}
         {sectionsError ? (
@@ -396,17 +410,6 @@ const DistributeModal = ({
             {tooMany && <p role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>
               You can send to at most {MAX_STUDENTS} students at a time. Untick some students.
             </p>}
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              {!rosterLoading && !metaLoading && !readFailed && roster.length > 0 && (
-                <span className="text-xs mr-auto" style={muted}>
-                  {selectedIds.length} selected
-                  {alreadyTicked > 0 && ` · ${alreadyTicked} already have it`}
-                </span>
-              )}
-              <Btn variant="outline" onClick={requestClose}>Cancel</Btn>
-              <Btn variant="primary" onClick={startReview} disabled={disableReview}>Review</Btn>
-            </div>
           </>
         )}
       </div>

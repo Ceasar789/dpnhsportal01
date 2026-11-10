@@ -478,7 +478,8 @@ const CheckSubmissionsModal = ({
                   {pendingIds.length} provisional mark{pendingIds.length === 1 ? '' : 's'} must be accepted or changed before this can be released.
                 </p>
               )}
-              <div className="flex justify-end gap-2 flex-wrap">
+              <div className="sticky bottom-0 z-10 flex justify-end gap-2 flex-wrap border-t pt-3"
+                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)', paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
                 <Btn variant="outline" onClick={() => requestClose(() => setActive(null))}>Back</Btn>
                 {pendingIds.length > 0 && typeof saveMarks === 'function' && (
                   <Btn variant="outline" onClick={acceptProvisional} disabled={accepting || saving} busy={accepting}>

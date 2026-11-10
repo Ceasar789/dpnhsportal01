@@ -79,15 +79,39 @@ export const TD = ({ children, className = '' }) => {
 // `fixed inset-0 ... items-center` cannot otherwise scroll the page under
 // it, so content taller than the viewport used to clip on both ends with no
 // way to reach a footer button.
-export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible = false, escapeCloses = false, description, closeDisabled = false }) => {
+//
+// `footer` is optional. When given it is pinned below the scrolling body, so
+// the actions stay on screen on a phone while only the body scrolls. The
+// body also gets scroll-padding-bottom equal to the footer's height, so a
+// field brought into view (for example when the on-screen keyboard opens)
+// sits clear of that region. Callers that do not pass `footer` render
+// exactly as before.
+export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible = false, escapeCloses = false, description, closeDisabled = false, footer }) => {
   const { dark } = useTheme();
   const overlayRef = useRef(null);
   const panelRef = useRef(null);
   const returnToRef = useRef(typeof document === 'undefined' ? null : document.activeElement);
   const titleId = useId();
   const descriptionId = useId();
+  const bodyRef = useRef(null);
+  const footerRef = useRef(null);
+  const hasFooter = footer !== undefined && footer !== null && footer !== false;
 
   useEffect(() => inertOutside(overlayRef.current, { preserveLiveRegions: true }), []);
+
+  // Written straight to the body node: no state, no re-render, and nothing
+  // at all for a dialog without a footer.
+  useEffect(() => {
+    const body = bodyRef.current;
+    const foot = footerRef.current;
+    if (!hasFooter || !body || !foot) return undefined;
+    const measure = () => { body.style.scrollPaddingBottom = `${foot.offsetHeight}px`; };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(foot);
+    return () => observer.disconnect();
+  }, [hasFooter]);
 
   useEffect(() => {
     const opener = returnToRef.current;
@@ -141,7 +165,14 @@ export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible
           </button>
         </div>
         {description && <p id={descriptionId} className="sr-only">{description}</p>}
-        <div className="p-5 overflow-y-auto">{children}</div>
+        <div ref={bodyRef} className="p-5 overflow-y-auto">{children}</div>
+        {hasFooter && (
+          <div ref={footerRef} data-modal-footer="" className="flex-shrink-0 border-t px-5 pt-3"
+            style={{ borderColor: dark ? '#334155' : '#e2e8f0', backgroundColor: dark ? '#1e293b' : '#ffffff',
+              paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -104,7 +104,8 @@ describe('previously in this section', () => {
     const table = within(details).getByRole('table', { name: 'Previously in this section', hidden: true });
     const rows = within(table).getAllByRole('row', { hidden: true }).slice(1).map(tr => tr.textContent);
     expect(rows).toEqual(['Ben CruzDroppedJun 11, 2026', 'Cy LimTransferredJun 12, 2026']);
-    expect(within(details).queryAllByRole('button', { hidden: true })).toHaveLength(0);
+    expect(within(details).queryAllByRole('button', { hidden: true }).map(b => b.getAttribute('aria-label')))
+      .toEqual(['View profile of Ben Cruz', 'View profile of Cy Lim']);
   });
 
   it('is not shown when nobody has left the section', () => {

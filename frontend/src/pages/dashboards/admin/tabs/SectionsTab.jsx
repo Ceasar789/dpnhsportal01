@@ -7,7 +7,8 @@
 import { useEffect, useRef, useState } from 'react';
 import RowSheet from '../../../../components/ui/RowSheet';
 import { useIsNarrow } from '../../../../lib/useMediaQuery';
-import { Pencil, Trash2, Plus, Users, X } from 'lucide-react';
+import { Pencil, Trash2, Plus, Users, UserRound, X } from 'lucide-react';
+import StudentProfileSheet from '../shared/StudentProfileSheet';
 import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
@@ -38,6 +39,7 @@ const SectionsTab = () => {
   // produces no visible change at all until the roster reloads.
   const narrow = useIsNarrow();
   const [sheetSection, setSheetSection] = useState(null);
+  const [profileStudent, setProfileStudent] = useState(null);
   const pageRootRef = useRef(null);
   const pageHeadingRef = useRef(null);
   const focusAfterDelete = () => {
@@ -381,16 +383,23 @@ const SectionsTab = () => {
                 ) : classList.length === 0 ? (
                   <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-16)' }}>No students in this section yet.</td></tr>
                 ) : classList.map((c, i) => (
-                  /* No sheet here, deliberately. This table is already
-                     inside a dialog, and opening a second overlay on top
-                     of the first to reveal one action is worse than
-                     keeping that action on the row. Two lines, actions
-                     inline. */
+                  /* No row sheet here, deliberately: this table is already
+                     inside a dialog, so the actions stay on the row. Two
+                     lines, actions inline. View profile is the one
+                     exception: the profile dialog may open over this class
+                     list dialog, and only the top dialog handles Escape
+                     and Tab (Modal's stack). */
                   <tr key={c.id}>
                     <td data-cell="detail">{i + 1}</td>
                     <td data-cell="identity">{c.name}</td>
                     <td data-cell="value">{c.email}</td>
                     <td data-cell="actions-inline"><button
+                      type="button"
+                      className="icon-action"
+                      aria-label={`View profile of ${c.name}`}
+                      title="View profile"
+                      onClick={() => setProfileStudent({ id: c.student_id, name: c.name, email: c.email })}
+                    ><UserRound size={15} aria-hidden="true" /></button><button
                       className="icon-action"
                       aria-label={`Remove ${c.name} from this section`}
                       title="Remove"
@@ -414,13 +423,20 @@ const SectionsTab = () => {
                   Previously in this section ({previousMembers.length})
                 </summary>
                 <table aria-label="Previously in this section">
-                  <thead><tr><th>Student</th><th>Status</th><th>Enrolled</th></tr></thead>
+                  <thead><tr><th>Student</th><th>Status</th><th>Enrolled</th><th><span className="sr-only">Profile</span></th></tr></thead>
                   <tbody>
                     {previousMembers.map(member => (
                       <tr key={member.id}>
                         <td data-cell="identity">{member.name}</td>
                         <td data-cell="value">{membershipStatusLabel(member.status)}</td>
                         <td data-cell="detail">{formatEnrollmentDate(member.enrollment_date)}</td>
+                        <td data-cell="actions-inline"><button
+                          type="button"
+                          className="icon-action"
+                          aria-label={`View profile of ${member.name}`}
+                          title="View profile"
+                          onClick={() => setProfileStudent({ id: member.student_id, name: member.name })}
+                        ><UserRound size={15} aria-hidden="true" /></button></td>
                       </tr>
                     ))}
                   </tbody>
@@ -429,6 +445,10 @@ const SectionsTab = () => {
             )}
 
         </Modal>
+      )}
+
+      {activeSection && profileStudent && (
+        <StudentProfileSheet student={profileStudent} onClose={() => setProfileStudent(null)} />
       )}
     </>
   );

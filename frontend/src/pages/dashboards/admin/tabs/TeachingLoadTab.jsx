@@ -6,9 +6,10 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
-import { CheckCircle2, Copy, Plus, Search, X } from 'lucide-react';
+import { CheckCircle2, Copy, Plus, Search, UserRound, X } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import SchoolYearNotice from '../shared/SchoolYearNotice';
+import TeacherProfileSheet from '../shared/TeacherProfileSheet';
 import { useTeachingLoadUnsavedChanges } from '../../../../context/TeachingLoadUnsavedChangesContext';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useDelayedFlag } from '../../../../lib/useDelayedFlag';
@@ -75,6 +76,7 @@ const TeachingLoadTab = () => {
   const [copying, setCopying] = useState(false);
   const [triedAdd, setTriedAdd] = useState(false);
   const [pendingLeave, setPendingLeave] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const savingRef = useRef(false);
   const searchRef = useRef(null);
   const subjectSelectRef = useRef(null);
@@ -321,6 +323,10 @@ const TeachingLoadTab = () => {
         </p>
       </Modal>
 
+      {profileOpen && selectedTeacher && (
+        <TeacherProfileSheet teacher={selectedTeacher} onClose={() => setProfileOpen(false)} />
+      )}
+
       <div className="page-header-bar">
         <div className="page-title">Teaching Load</div>
         <div className="page-sub">Assign subjects with the teacher and grade always in view.</div>
@@ -442,6 +448,14 @@ const TeachingLoadTab = () => {
                 <span className={`badge ${statusClass(selectedTeacher.status)}`}>
                   {statusLabel(selectedTeacher.status)}
                 </span>
+              </div>
+              <div style={{ paddingTop: 'var(--space-12)' }}>
+                <button type="button" className="btn btn-ghost btn-sm" style={{ minHeight: 44 }}
+                  aria-describedby="teacher-detail-heading"
+                  onClick={() => setProfileOpen(true)}>
+                  <UserRound size={15} aria-hidden="true" />
+                  View profile
+                </button>
               </div>
 
               <dl className="teacher-summary-grid">

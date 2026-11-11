@@ -24,7 +24,7 @@ vi.mock('../../../hooks/useSignedPhotoUrl', () => ({ useSignedPhotoUrl: () => ''
 vi.mock('../../NotificationBell', () => ({ default: () => <button type="button">Notifications</button> }));
 vi.mock('../../../components/NotificationBell', () => ({ default: () => <button type="button">Notifications</button> }));
 vi.mock('../../../components/FlippingLogo', () => ({ default: () => <span>Logo</span> }));
-vi.mock('../../../pages/dashboards/student/StudentDataContext', () => ({ StudentDataProvider: ({ children }) => children }));
+vi.mock('../../../pages/dashboards/student/StudentDataContext', () => ({ StudentDataProvider: ({ children }) => children, useStudentData: () => ({ graph: null, loading: false, refresh: null }) }));
 vi.mock('../../../pages/dashboards/student/tabs/OverviewTab', () => ({ default: () => <h1>Overview content</h1> }));
 vi.mock('../../../pages/dashboards/student/tabs/TasksTab', () => ({ default: () => <h1>Tasks content</h1> }));
 vi.mock('../../../pages/dashboards/student/tabs/ScoresTab', () => ({ default: () => <h1>Scores content</h1> }));

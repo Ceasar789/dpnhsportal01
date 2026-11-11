@@ -30,6 +30,7 @@ import ProfileTab from '../../profile/ProfileTab';
 import FlippingLogo from '../../../components/FlippingLogo';
 import { StudentDataProvider } from './StudentDataContext';
 import StudentShellSwitch from '../../../components/clarity/student/StudentShellSwitch';
+import ScoresTabSwitch from '../../../components/clarity/student/ScoresTabSwitch';
 import './StudentDashboard.css';
 
 // ============================================
@@ -63,7 +64,7 @@ const StudentDashboard = () => {
               <Routes>
                 <Route path="/" element={<OverviewTab />} />
                 <Route path="/tasks" element={<StudentTasksTab />} />
-                <Route path="/scores" element={<ScoresTab />} />
+                <Route path="/scores" element={<ScoresTabSwitch classic={ScoresTab} />} />
                 <Route path="/attendance" element={<AttendanceTab />} />
                 <Route path="/announcements" element={<AnnouncementsTab />} />
                 <Route path="/profile" element={<ProfileTab />} />

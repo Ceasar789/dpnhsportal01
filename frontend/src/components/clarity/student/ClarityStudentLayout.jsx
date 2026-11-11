@@ -22,6 +22,8 @@ import { useTheme } from '../../../pages/dashboards/student/hooks';
 import { cycleTab, focusableWithin, lockScroll } from '../../../lib/focusTrap';
 import { useMediaQuery } from '../../../lib/useMediaQuery';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
+import { useStudentData } from '../../../pages/dashboards/student/StudentDataContext';
+import { normalizeGradeLevel } from '../../../lib/academicRules';
 import Avatar from '../../Avatar';
 import NotificationBell from '../../NotificationBell';
 import ClarityModal from '../ui/ClarityModal';
@@ -58,6 +60,11 @@ const ClarityStudentLayout = ({ children, onClassicView }) => {
   const headerRef = useRef(null);
   const mainRef = useRef(null);
   const name = userData?.name || 'Student User';
+  // The brand subtitle shows the real grade from the enrolment already loaded
+  // by StudentDataProvider (sections.grade_level, read the same way as the
+  // Overview). No usable grade, or a failed load: the old text stays.
+  const { graph } = useStudentData();
+  const grade = graph && !graph.fatalError ? normalizeGradeLevel(graph.enrolments?.[0]?.sections?.grade_level) : null;
 
   // Reaching the desktop width closes the drawer, as in the classic shell.
   useEffect(() => {
@@ -156,7 +163,7 @@ const ClarityStudentLayout = ({ children, onClassicView }) => {
           <img src="/capstonelogo.png" alt="" />
           <div>
             <b>EduScribe</b>
-            <span>Student Dashboard</span>
+            <span>{grade ? `Student · ${grade}` : 'Student Dashboard'}</span>
             <div><span className="x-badge in">Clarity preview</span></div>
           </div>
         </div>

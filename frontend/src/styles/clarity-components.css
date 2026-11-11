@@ -32,7 +32,7 @@ html.theme-clarity .x-brand img { width: 36px; height: 36px; border-radius: 9999
 html.theme-clarity .x-brand b { display: block; font-family: var(--cl-font); font-size: 16px; font-weight: 700; letter-spacing: -.01em; color: var(--cl-side-head); line-height: 1.1; }
 html.theme-clarity .x-brand span { font-size: 12px; color: var(--cl-side-tx); }
 html.theme-clarity .x-grp { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--cl-dim); padding: 14px 10px 6px; }
-html.theme-clarity .x-nav { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: none; font: inherit; font-weight: 500; color: var(--cl-side-tx); text-align: left; cursor: pointer; transition: background-color .2s, color .2s, transform .2s var(--cl-ease); }
+html.theme-clarity .x-nav { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: none; font: inherit; font-weight: 500; color: var(--cl-side-head); text-align: left; cursor: pointer; transition: background-color .2s, color .2s, transform .2s var(--cl-ease); }
 html.theme-clarity .x-nav:hover { background: var(--cl-side-hov); color: var(--cl-side-head); }
 html.theme-clarity .x-nav:active { transform: scale(.98); }
 html.theme-clarity .x-nav.on { background: var(--cl-side-on); color: var(--cl-side-on-tx); font-weight: 600; }
@@ -73,7 +73,7 @@ html.theme-clarity .x-btn:hover { border-color: var(--cl-mu); background: var(--
 html.theme-clarity .x-btn:active { transform: scale(.97); }
 html.theme-clarity .x-btn.pri { background: var(--cl-ac); border-color: var(--cl-ac); color: var(--cl-ac-t); }
 html.theme-clarity .x-btn.pri:hover { background: var(--cl-pri-hover); box-shadow: 0 6px 16px var(--cl-pri-shadow); }
-html.theme-clarity .x-btn.dng { background: var(--cl-er); border-color: var(--cl-er); color: #fff; }
+html.theme-clarity .x-btn.dng { background: var(--cl-er); border-color: var(--cl-er); color: var(--cl-ac-t); }
 html.theme-clarity .x-btn.dng:hover { background: var(--cl-dng-hover); }
 html.theme-clarity .x-btn.gh { border-color: transparent; background: transparent; color: var(--cl-mu); }
 html.theme-clarity .x-btn.gh:hover { background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -97,7 +97,7 @@ html.theme-clarity .x-badge { display: inline-flex; align-items: center; gap: 6p
 html.theme-clarity .x-badge.ok { background: var(--cl-ok-s); color: var(--cl-ok); }
 html.theme-clarity .x-badge.wa { background: var(--cl-wa-s); color: var(--cl-wa); }
 html.theme-clarity .x-badge.er { background: var(--cl-er-s); color: var(--cl-er); }
-html.theme-clarity .x-badge.in { background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-badge.in { background: var(--cl-ac-s); color: var(--cl-in); }
 html.theme-clarity .x-badge i { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; flex: none; }
 html.theme-clarity .x-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 html.theme-clarity .x-chip { display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px; border-radius: 9999px; border: 1px solid var(--cl-bd2); background: var(--cl-card); font: inherit; font-size: 13px; font-weight: 600; color: var(--cl-mu); cursor: pointer; transition: background-color .2s var(--cl-ease), border-color .2s var(--cl-ease), color .2s var(--cl-ease); }

@@ -19,15 +19,15 @@ html.theme-clarity {
   --cl-ac: #3d34e0;
   --cl-ac-s: #eeedfd;
   --cl-side-on: #eeedfd;
-  --cl-side-on-tx: #3d34e0;
+  --cl-side-on-tx: #3d35b5;
 
   --cl-bg: #f6f7fb;
   --cl-card: #fff;
   --cl-side: #fff;
   --cl-bd: #e7e9f1;
   --cl-bd2: #d6dae8;
-  --cl-tx: #141b34;
-  --cl-mu: #566079;
+  --cl-tx: #0f162b;
+  --cl-mu: #545b6d;
   --cl-dim: #68718c;
   --cl-ac-t: #fff;
   --cl-c1: #3d34e0;
@@ -35,16 +35,17 @@ html.theme-clarity {
   --cl-c3: #b87d00;
   --cl-ok: #117a58;
   --cl-ok-s: #e3f5ee;
-  --cl-wa: #8f5f00;
+  --cl-wa: #885d03;
   --cl-wa-s: #fdf1d3;
   --cl-er: #c4311f;
   --cl-er-s: #fde9e6;
+  --cl-in: #3e35b6;
   --cl-r: 12px;
   --cl-sh: 0 1px 2px rgba(20,27,52,.04);
   --cl-shh: 0 10px 28px rgba(20,27,52,.09);
   --cl-side-tx: #566079;
   --cl-side-bd: #e7e9f1;
-  --cl-side-head: #141b34;
+  --cl-side-head: #0f162b;
   --cl-side-hov: #f3f4f9;
   --cl-ease: cubic-bezier(.2,.8,.2,1);
   --cl-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -53,7 +54,7 @@ html.theme-clarity {
   --cl-top-bg: rgba(246, 247, 251, 0.86);   /* .x-top: bg 86%, transparent */
   --cl-tabbar-bg: rgba(255, 255, 255, 0.9); /* .x-tabbar: card 90%, transparent */
   --cl-focus-ring: rgba(61, 52, 224, 0.18); /* focus ring: ac 18%, transparent */
-  --cl-btn-hover: #ecedef;                  /* .x-btn:hover: card 92%, tx */
+  --cl-btn-hover: #ececee;                  /* .x-btn:hover: card 92%, tx */
   --cl-pri-hover: #362ec5;                  /* .x-btn.pri:hover: ac 88%, #000 */
   --cl-pri-shadow: rgba(61, 52, 224, 0.32); /* .x-btn.pri:hover shadow: ac 32%, transparent */
   --cl-dng-hover: #ac2b1b;                  /* .x-btn.dng:hover: er 88%, #000 */
@@ -91,11 +92,12 @@ html.theme-clarity.dark {
   --cl-wa-s: #3a2f10;
   --cl-er: #ff8a7a;
   --cl-er-s: #3b1a17;
+  --cl-in: #9a94ff;
   --cl-r: 12px;
   --cl-sh: none;
   --cl-shh: 0 12px 32px rgba(0,0,0,.45);
   --cl-side-tx: #a1a8c6;
-  --cl-side-bd: #232845;
+  --cl-side-bd: #1b1c38;
   --cl-side-head: #eceefb;
   --cl-side-hov: #191d3a;
   --cl-ease: cubic-bezier(.2,.8,.2,1);

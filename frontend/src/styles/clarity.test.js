@@ -18,12 +18,12 @@ const dark = rules.find(r => r.selector === 'html.theme-clarity.dark')?.vars;
 // Handoff README section 3 (and alt.css .alt.va / .alt.va.dark), verbatim.
 const HANDOFF_LIGHT = {
   // dim and ok were darkened from #7d86a0 and #12805c for WCAG AA contrast (owner-approved on 2026-11-11).
-  bg: '#f6f7fb', card: '#fff', side: '#fff', bd: '#e7e9f1', bd2: '#d6dae8', tx: '#141b34', mu: '#566079', dim: '#68718c',
+  bg: '#f6f7fb', card: '#fff', side: '#fff', bd: '#e7e9f1', bd2: '#d6dae8', tx: '#0f162b', mu: '#545b6d', dim: '#68718c',
   // c2 and c3 darkened from #00a9c9 and #e8a600 for 3:1 non-text contrast (owner-approved 2026-11-11).
   ac: '#3d34e0', 'ac-s': '#eeedfd', 'ac-t': '#fff', c1: '#3d34e0', c2: '#0096b3', c3: '#b87d00',
-  ok: '#117a58', 'ok-s': '#e3f5ee', wa: '#8f5f00', 'wa-s': '#fdf1d3', er: '#c4311f', 'er-s': '#fde9e6',
+  ok: '#117a58', 'ok-s': '#e3f5ee', wa: '#885d03', 'wa-s': '#fdf1d3', er: '#c4311f', 'er-s': '#fde9e6',
   r: '12px', sh: '0 1px 2px rgba(20,27,52,.04)', shh: '0 10px 28px rgba(20,27,52,.09)',
-  'side-tx': '#566079', 'side-on': '#eeedfd', 'side-on-tx': '#3d34e0', 'side-bd': '#e7e9f1', 'side-head': '#141b34', 'side-hov': '#f3f4f9',
+  'side-tx': '#566079', 'side-on': '#eeedfd', 'side-on-tx': '#3d35b5', 'side-bd': '#e7e9f1', 'side-head': '#0f162b', 'side-hov': '#f3f4f9',
   ease: 'cubic-bezier(.2,.8,.2,1)',
 };
 const HANDOFF_DARK = {
@@ -31,7 +31,7 @@ const HANDOFF_DARK = {
   ac: '#9a94ff', 'ac-s': '#23265a', 'ac-t': '#0c0f1c', c1: '#9a94ff', c2: '#38d0ee', c3: '#ffc542',
   ok: '#4fd1a1', 'ok-s': '#12332a', wa: '#f5c451', 'wa-s': '#3a2f10', er: '#ff8a7a', 'er-s': '#3b1a17',
   sh: 'none', shh: '0 12px 32px rgba(0,0,0,.45)',
-  'side-tx': '#a1a8c6', 'side-on': '#23265a', 'side-on-tx': '#c9c6ff', 'side-bd': '#232845', 'side-head': '#eceefb', 'side-hov': '#191d3a',
+  'side-tx': '#a1a8c6', 'side-on': '#23265a', 'side-on-tx': '#c9c6ff', 'side-bd': '#1b1c38', 'side-head': '#eceefb', 'side-hov': '#191d3a',
 };
 
 const full = h => (h.length === 4 ? `#${[...h.slice(1)].map(c => c + c).join('')}` : h).toLowerCase();

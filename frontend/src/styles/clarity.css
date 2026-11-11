@@ -1,0 +1,118 @@
+/* ============================================
+   FILE: src/styles/clarity.css
+   "Clarity" design tokens (design handoff README section 3, alt.css .va).
+
+   INERT: nothing in the app adds the theme-clarity class yet, so no rule
+   here matches anything. Every variable is prefixed --cl- so it can never
+   clash with the app's own --bg / --text / --accent. Dark mode follows the
+   app's existing switch: useDashboardTheme toggles .dark on <html>.
+
+   Old phones lack color-mix(), so its results from alt.css are pre-computed
+   below as plain colours (formula in each comment). This file uses no
+   color-mix(), no backdrop-filter, no @import and no font files: --cl-font
+   lists Inter first but nothing loads it, so the system fonts are used.
+   ============================================ */
+
+/* ---------- Light ---------- */
+html.theme-clarity {
+  /* Accent: change these four lines (and their dark twins) to swap the accent. */
+  --cl-ac: #3d34e0;
+  --cl-ac-s: #eeedfd;
+  --cl-side-on: #eeedfd;
+  --cl-side-on-tx: #3d34e0;
+
+  --cl-bg: #f6f7fb;
+  --cl-card: #fff;
+  --cl-side: #fff;
+  --cl-bd: #e7e9f1;
+  --cl-bd2: #d6dae8;
+  --cl-tx: #141b34;
+  --cl-mu: #566079;
+  --cl-dim: #7d86a0;
+  --cl-ac-t: #fff;
+  --cl-c1: #3d34e0;
+  --cl-c2: #00a9c9;
+  --cl-c3: #e8a600;
+  --cl-ok: #12805c;
+  --cl-ok-s: #e3f5ee;
+  --cl-wa: #8f5f00;
+  --cl-wa-s: #fdf1d3;
+  --cl-er: #c4311f;
+  --cl-er-s: #fde9e6;
+  --cl-r: 12px;
+  --cl-sh: 0 1px 2px rgba(20,27,52,.04);
+  --cl-shh: 0 10px 28px rgba(20,27,52,.09);
+  --cl-side-tx: #566079;
+  --cl-side-bd: #e7e9f1;
+  --cl-side-head: #141b34;
+  --cl-side-hov: #f3f4f9;
+  --cl-ease: cubic-bezier(.2,.8,.2,1);
+  --cl-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Pre-computed color-mix() results (in srgb; "X p%, transparent" = X at alpha p). */
+  --cl-top-bg: rgba(246, 247, 251, 0.86);   /* .x-top: bg 86%, transparent */
+  --cl-tabbar-bg: rgba(255, 255, 255, 0.9); /* .x-tabbar: card 90%, transparent */
+  --cl-focus-ring: rgba(61, 52, 224, 0.18); /* focus ring: ac 18%, transparent */
+  --cl-btn-hover: #ecedef;                  /* .x-btn:hover: card 92%, tx */
+  --cl-pri-hover: #362ec5;                  /* .x-btn.pri:hover: ac 88%, #000 */
+  --cl-pri-shadow: rgba(61, 52, 224, 0.32); /* .x-btn.pri:hover shadow: ac 32%, transparent */
+  --cl-dng-hover: #ac2b1b;                  /* .x-btn.dng:hover: er 88%, #000 */
+  --cl-row-hover: rgba(238, 237, 253, 0.55);/* .x-rows li:hover: ac-s 55%, transparent */
+  --cl-table-hover: rgba(238, 237, 253, 0.5); /* table row / memo item hover: ac-s 50%, transparent */
+  --cl-cal-hover: rgba(238, 237, 253, 0.45);  /* calendar day / post hover: ac-s 45%, transparent */
+  --cl-modal-foot-bg: #fafafd;              /* .x-mf: bg 60%, card */
+  --cl-cal-out-bg: #fafbfd;                 /* .x-cal .e: bg 55%, card */
+  --cl-feat-art-end: #b18b81;               /* .r-feat .art gradient end: ac 40%, #ffc542 */
+}
+
+/* ---------- Dark ---------- */
+html.theme-clarity.dark {
+  /* Accent: change these four lines (and their light twins) to swap the accent. */
+  --cl-ac: #9a94ff;
+  --cl-ac-s: #23265a;
+  --cl-side-on: #23265a;
+  --cl-side-on-tx: #c9c6ff;
+
+  --cl-bg: #0c0f1c;
+  --cl-card: #141830;
+  --cl-side: #10132a;
+  --cl-bd: #232845;
+  --cl-bd2: #32385c;
+  --cl-tx: #eceefb;
+  --cl-mu: #a1a8c6;
+  --cl-dim: #7e86a8;
+  --cl-ac-t: #0c0f1c;
+  --cl-c1: #9a94ff;
+  --cl-c2: #38d0ee;
+  --cl-c3: #ffc542;
+  --cl-ok: #4fd1a1;
+  --cl-ok-s: #12332a;
+  --cl-wa: #f5c451;
+  --cl-wa-s: #3a2f10;
+  --cl-er: #ff8a7a;
+  --cl-er-s: #3b1a17;
+  --cl-r: 12px;
+  --cl-sh: none;
+  --cl-shh: 0 12px 32px rgba(0,0,0,.45);
+  --cl-side-tx: #a1a8c6;
+  --cl-side-bd: #232845;
+  --cl-side-head: #eceefb;
+  --cl-side-hov: #191d3a;
+  --cl-ease: cubic-bezier(.2,.8,.2,1);
+  --cl-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Pre-computed color-mix() results, dark values. */
+  --cl-top-bg: rgba(12, 15, 28, 0.86);
+  --cl-tabbar-bg: rgba(20, 24, 48, 0.9);
+  --cl-focus-ring: rgba(154, 148, 255, 0.18);
+  --cl-btn-hover: #252940;
+  --cl-pri-hover: #8882e0;
+  --cl-pri-shadow: rgba(154, 148, 255, 0.32);
+  --cl-dng-hover: #e0796b;
+  --cl-row-hover: rgba(35, 38, 90, 0.55);
+  --cl-table-hover: rgba(35, 38, 90, 0.5);
+  --cl-cal-hover: rgba(35, 38, 90, 0.45);
+  --cl-modal-foot-bg: #0f1324;
+  --cl-cal-out-bg: #101325;
+  --cl-feat-art-end: #d7b18e;
+}

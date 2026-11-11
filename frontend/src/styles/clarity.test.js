@@ -17,9 +17,10 @@ const dark = rules.find(r => r.selector === 'html.theme-clarity.dark')?.vars;
 
 // Handoff README section 3 (and alt.css .alt.va / .alt.va.dark), verbatim.
 const HANDOFF_LIGHT = {
-  bg: '#f6f7fb', card: '#fff', side: '#fff', bd: '#e7e9f1', bd2: '#d6dae8', tx: '#141b34', mu: '#566079', dim: '#7d86a0',
+  // dim and ok were darkened from #7d86a0 and #12805c for WCAG AA contrast (owner-approved on 2026-11-11).
+  bg: '#f6f7fb', card: '#fff', side: '#fff', bd: '#e7e9f1', bd2: '#d6dae8', tx: '#141b34', mu: '#566079', dim: '#68718c',
   ac: '#3d34e0', 'ac-s': '#eeedfd', 'ac-t': '#fff', c1: '#3d34e0', c2: '#00a9c9', c3: '#e8a600',
-  ok: '#12805c', 'ok-s': '#e3f5ee', wa: '#8f5f00', 'wa-s': '#fdf1d3', er: '#c4311f', 'er-s': '#fde9e6',
+  ok: '#117a58', 'ok-s': '#e3f5ee', wa: '#8f5f00', 'wa-s': '#fdf1d3', er: '#c4311f', 'er-s': '#fde9e6',
   r: '12px', sh: '0 1px 2px rgba(20,27,52,.04)', shh: '0 10px 28px rgba(20,27,52,.09)',
   'side-tx': '#566079', 'side-on': '#eeedfd', 'side-on-tx': '#3d34e0', 'side-bd': '#e7e9f1', 'side-head': '#141b34', 'side-hov': '#f3f4f9',
   ease: 'cubic-bezier(.2,.8,.2,1)',
@@ -100,21 +101,17 @@ describe('clarity.css: pre-computed color-mix() results', () => {
 describe('clarity.css: WCAG contrast (normal text needs 4.5:1)', () => {
   const PAIRS = [['tx', 'bg'], ['tx', 'card'], ['mu', 'card'], ['ac-t', 'ac'], ['ac', 'ac-s'],
     ['ok', 'ok-s'], ['wa', 'wa-s'], ['er', 'er-s'], ['side-on-tx', 'side-on']];
-  // Handoff values kept as given (not silently changed); reported to the owner.
-  const KNOWN_BELOW_AA = { 'light ok on ok-s': 4.35 };
-
   for (const [mode, t] of [['light', light], ['dark', dark]]) {
     it.each(PAIRS)(`${mode}: --cl-%s on --cl-%s`, (fg, bg) => {
-      const measured = ratio(v(t, fg), v(t, bg));
-      const known = KNOWN_BELOW_AA[`${mode} ${fg} on ${bg}`];
-      if (known) {
-        expect(measured).toBeLessThan(4.5);
-        expect(Number(measured.toFixed(2))).toBe(known);
-      } else {
-        expect(measured).toBeGreaterThanOrEqual(4.5);
-      }
+      expect(ratio(v(t, fg), v(t, bg))).toBeGreaterThanOrEqual(4.5);
     });
   }
+
+  it('light: --cl-dim reads at 4.5:1 on card and on bg, and stays lighter than --cl-mu', () => {
+    expect(ratio(v(light, 'dim'), v(light, 'card'))).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(v(light, 'dim'), v(light, 'bg'))).toBeGreaterThanOrEqual(4.5);
+    expect(lum(v(light, 'dim'))).toBeGreaterThan(lum(v(light, 'mu')));
+  });
 });
 
 describe('clarity theme is inert', () => {

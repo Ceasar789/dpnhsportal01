@@ -54,15 +54,17 @@ describe('public footer links', () => {
   it('Resources are unchanged: Faculty Portal links to /faculty-login; Alumni, Privacy Policy, Terms of Service stay text', () => {
     renderFooter();
     expect(screen.getByRole('link', { name: 'Faculty Portal' }).getAttribute('href')).toBe('/faculty-login');
-    for (const label of ['Alumni', 'Privacy Policy', 'Terms of Service']) {
+    for (const label of ['Alumni']) {
       expect(screen.getByText(label).closest('a')).toBeNull();
     }
+    expect(screen.getByRole('link', { name: 'Privacy Policy' }).getAttribute('href')).toBe('/privacy');
+    expect(screen.getByRole('link', { name: 'Terms of Service' }).getAttribute('href')).toBe('/terms');
   });
 
   it('every footer link is named and has the shared focus ring', () => {
     const { container } = renderFooter();
     const links = within(container.querySelector('footer')).getAllByRole('link');
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(6);
     for (const link of links) {
       expect(link.className).toContain('focus-visible:ring-2');
     }

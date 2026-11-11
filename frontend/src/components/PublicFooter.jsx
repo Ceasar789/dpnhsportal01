@@ -48,13 +48,17 @@ const PublicFooter = () => {
           <Link to="/faculty-login" className={LINK} style={{ color: '#cbd5e1' }}>
             Faculty Portal
           </Link>
-          {/* No route exists for these yet, so they stay text rather than
-              pretending to be links that go nowhere. */}
-          {['Alumni', 'Privacy Policy', 'Terms of Service'].map(label => (
-            <p key={label} className="font-public text-sm mb-3" style={{ color: '#cbd5e1' }}>
-              {label}
-            </p>
-          ))}
+          {/* Alumni has no page yet, so it stays text rather than pretending
+              to be a link that goes nowhere. */}
+          <p className="font-public text-sm mb-3" style={{ color: '#cbd5e1' }}>
+            Alumni
+          </p>
+          <Link to="/privacy" className={LINK} style={{ color: '#cbd5e1' }}>
+            Privacy Policy
+          </Link>
+          <Link to="/terms" className={LINK} style={{ color: '#cbd5e1' }}>
+            Terms of Service
+          </Link>
         </div>
 
         <div>

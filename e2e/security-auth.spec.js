@@ -17,6 +17,7 @@ test.describe('sign-in attempt protection', () => {
     await appReady(page);
     await page.getByLabel('EMAIL ADDRESS').fill('lockout-probe@example.invalid');
     await page.getByLabel('PASSWORD', { exact: true }).fill('incorrect-password');
+    await page.getByRole('checkbox', { name: /agree to the terms of use/i }).check();
     const submit = page.getByRole('button', { name: 'Sign In as Student' });
 
     for (let attempt = 1; attempt <= 4; attempt += 1) {

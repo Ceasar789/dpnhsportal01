@@ -126,6 +126,7 @@ export async function login(page, { email, password }, loginPath, dashboardPath,
 
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
+  await page.getByRole('checkbox', { name: /agree to the terms of use/i }).check();
   await page.locator('button[type="submit"]').click();
   await page.waitForURL(`**${dashboardPath}**`, { timeout: 30_000 });
 }

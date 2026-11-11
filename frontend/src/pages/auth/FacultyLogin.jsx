@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../config/supabase';
 import { Eye, EyeOff, Mail, Lock, ChevronDown, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
+import ConsentCheckbox from '../../components/auth/ConsentCheckbox';
 import { loginErrorMessage } from '../../lib/loginAttemptLimit';
 
 const ROLE_OPTIONS = [
@@ -34,6 +35,10 @@ const FacultyLogin = () => {
   const [loginAttempted, setLoginAttempted] = useState(false);
 
   const timeoutRef = useRef(null);
+  // Consent is asked at every sign-in and never stored.
+  const [agreed, setAgreed] = useState(false);
+  const [consentError, setConsentError] = useState(false);
+  const consentRef = useRef(null);
   const selectedRoleRef = useRef(selectedRole);
   const roleFieldRef = useRef(null);
 
@@ -118,6 +123,8 @@ const FacultyLogin = () => {
     e.preventDefault();
     if (!selectedRole) { setErrorMessage('Please select your role'); return; }
     if (!email.trim() || !password) { setErrorMessage('Please fill in all fields'); return; }
+    // After the existing checks: no consent, no sign-in attempt.
+    if (!agreed) { setErrorMessage(''); setConsentError(true); consentRef.current?.focus(); return; }
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setIsLoading(true);
@@ -218,6 +225,9 @@ const FacultyLogin = () => {
             <div className="flex justify-end">
               <Link to="/forgot-password" className="text-sm font-semibold py-1.5 px-1 -mr-1 rounded" style={{ color: '#7E5700' }}>Forgot password?</Link>
             </div>
+
+            <ConsentCheckbox id="faculty-consent" inputRef={consentRef} checked={agreed} error={consentError}
+              onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setConsentError(false); }} />
 
             <button type="submit" disabled={isLoading} aria-busy={isLoading} className="w-full h-12 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity disabled:opacity-50" style={{ backgroundColor: currentRole?.color || '#0d2b5c' }}>
               {isLoading ? <div className="flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" /><span className="sr-only">Signing in</span></div> : `Sign In${currentRole ? ` as ${currentRole.label}` : ''}`}

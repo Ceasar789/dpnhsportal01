@@ -115,8 +115,8 @@ const Login = () => {
 
             <p className="mt-6 max-w-sm text-xs leading-relaxed text-white/85">
               By signing in you agree to the Dela Paz Online Services{' '}
-              <span className="font-semibold text-white">Terms of Use</span> and{' '}
-              <span className="font-semibold text-white">Privacy Statement</span>.
+              <a href="/terms" className="font-semibold text-white underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">Terms of Use</a> and{' '}
+              <a href="/privacy" className="font-semibold text-white underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">Privacy Statement</a>.
             </p>
           </div>
 

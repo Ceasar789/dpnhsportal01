@@ -32,6 +32,7 @@ test.describe('authentication', () => {
     await page.goto(STUDENT_LOGIN);
     await page.locator('input[type="email"]').fill(STUDENT.email);
     await page.locator('input[type="password"]').fill('definitely-not-the-password');
+    await page.getByRole('checkbox', { name: /agree to the terms of use/i }).check();
     await page.locator('button[type="submit"]').click();
 
     // Still on the login page after a moment, rather than halfway in.
@@ -54,6 +55,7 @@ test.describe('authentication', () => {
 
     await page.locator('input[type="email"]').fill(STUDENT.email);
     await page.locator('input[type="password"]').fill(PASSWORD);
+    await page.getByRole('checkbox', { name: /agree to the terms of use/i }).check();
     await page.locator('button[type="submit"]').click();
 
     await page.waitForTimeout(4000);

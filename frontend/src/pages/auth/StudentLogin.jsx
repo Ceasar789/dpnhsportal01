@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../config/supabase';
 import { Eye, EyeOff, Mail, Lock, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
+import ConsentCheckbox from '../../components/auth/ConsentCheckbox';
 import { loginErrorMessage } from '../../lib/loginAttemptLimit';
 
 const normalizeRole = (role) => {
@@ -27,6 +28,10 @@ const StudentLogin = () => {
   const [loginAttempted, setLoginAttempted] = useState(false);
 
   const timeoutRef = useRef(null);
+  // Consent is asked at every sign-in and never stored.
+  const [agreed, setAgreed] = useState(false);
+  const [consentError, setConsentError] = useState(false);
+  const consentRef = useRef(null);
 
   useEffect(() => {
     if (!loginAttempted) return;
@@ -66,6 +71,8 @@ const StudentLogin = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) { setErrorMessage('Please fill in all fields'); return; }
+    // After the existing checks: no consent, no sign-in attempt.
+    if (!agreed) { setErrorMessage(''); setConsentError(true); consentRef.current?.focus(); return; }
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setIsLoading(true);
@@ -133,6 +140,9 @@ const StudentLogin = () => {
             <div className="flex justify-end">
               <button type="button" onClick={() => navigate('/forgot-password')} className="text-sm font-semibold py-1.5 px-1 -mr-1 rounded" style={{ color: '#7E5700' }}>Forgot password?</button>
             </div>
+
+            <ConsentCheckbox id="student-consent" inputRef={consentRef} checked={agreed} error={consentError}
+              onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setConsentError(false); }} />
 
             <button type="submit" disabled={isLoading} aria-busy={isLoading} className="w-full h-12 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity disabled:opacity-50" style={{ backgroundColor: '#0062cc' }}>
               {isLoading ? <div className="flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" /><span className="sr-only">Signing in</span></div> : 'Sign In as Student'}

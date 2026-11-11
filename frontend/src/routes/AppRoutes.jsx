@@ -11,6 +11,8 @@ import Home     from '../pages/public/Home';
 import News     from '../pages/public/News';
 import Calendar from '../pages/public/Calendar';
 import Login    from '../pages/public/Login';
+import Terms    from '../pages/public/Terms';
+import Privacy  from '../pages/public/Privacy';
 
 // Auth Pages
 import StudentLogin   from '../pages/auth/StudentLogin';
@@ -35,6 +37,8 @@ const AppRoutes = () => {
         <Route path="/news"     element={<PageTransition><News /></PageTransition>} />
         <Route path="/calendar" element={<PageTransition><Calendar /></PageTransition>} />
         <Route path="/login"    element={<PageTransition><Login /></PageTransition>} />
+        <Route path="/terms"    element={<PageTransition><Terms /></PageTransition>} />
+        <Route path="/privacy"  element={<PageTransition><Privacy /></PageTransition>} />
 
         {/* AUTH ROUTES */}
         <Route path="/student-login"   element={<PageTransition><StudentLogin /></PageTransition>} />

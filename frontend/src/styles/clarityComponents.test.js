@@ -165,7 +165,7 @@ describe('still inert', () => {
   it('no source file under frontend/src applies the theme-clarity class', () => {
     const appliers = walk(SRC)
       .filter(p => /\.(jsx?|tsx?|html)$/.test(p))
-      .filter(p => !/clarity(Components)?\.test\.js$/.test(p))
+      .filter(p => !/clarity(Components)?\.test\.js$|[\\/]components[\\/]clarity[\\/]student[\\/]ClarityStudentLayout\.jsx$/.test(p))
       .filter(p => readFileSync(p, 'utf8').includes('theme-clarity'));
     expect(appliers).toEqual([]);
   });

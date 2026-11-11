@@ -29,6 +29,7 @@ import AnnouncementsTab from './tabs/AnnouncementsTab';
 import ProfileTab from '../../profile/ProfileTab';
 import FlippingLogo from '../../../components/FlippingLogo';
 import { StudentDataProvider } from './StudentDataContext';
+import StudentShellSwitch from '../../../components/clarity/student/StudentShellSwitch';
 import './StudentDashboard.css';
 
 // ============================================
@@ -56,7 +57,8 @@ const StudentDashboard = () => {
             moving between Overview and Tasks, which is exactly the navigation
             that used to re-issue nine queries. */}
         <StudentDataProvider>
-          <StudentLayout>
+          {/* Clarity preview flag: off by default, which renders StudentLayout as before. */}
+          <StudentShellSwitch classic={StudentLayout}>
             <PageTransition>
               <Routes>
                 <Route path="/" element={<OverviewTab />} />
@@ -67,7 +69,7 @@ const StudentDashboard = () => {
                 <Route path="/profile" element={<ProfileTab />} />
               </Routes>
             </PageTransition>
-          </StudentLayout>
+          </StudentShellSwitch>
         </StudentDataProvider>
       </TeacherThemeContext.Provider>
     </ThemeContext.Provider>

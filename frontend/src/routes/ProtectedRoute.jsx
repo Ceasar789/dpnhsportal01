@@ -8,13 +8,17 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isActiveAccount } from '../lib/accountStatus';
 
+// The roles this app has screens for. Anything else (guest, empty, a typo)
+// is "no role" and gets no protected route at all — never the student one.
+const KNOWN_ROLES = new Set(['student', 'teacher', 'faculty', 'registrar', 'main_admin']);
+
 const normalizeRole = (role) => {
-  if (!role) return 'student';
+  if (!role) return null;
   const normalized = role.toString().trim().toLowerCase().replace(/ /g, '_');
   if (normalized === 'admin' || normalized === 'main_admin' || normalized === 'main admin') {
     return 'main_admin';
   }
-  return normalized;
+  return KNOWN_ROLES.has(normalized) ? normalized : null;
 };
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -39,6 +43,11 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   // outside ProtectedRoute, so this does not interrupt onboarding callbacks.
   if (!isActiveAccount(userData?.status)) {
     console.warn('ProtectedRoute: account is not active - redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!normalizedRole) {
+    console.warn('ProtectedRoute: account has no recognised role - redirecting to login');
     return <Navigate to="/login" replace />;
   }
 

@@ -12,8 +12,11 @@ import { isActiveAccount, normalizeAccountStatus } from '../lib/accountStatus';
 
 const AuthContext = createContext(null);
 
+// Unknown, empty or 'guest' (an invitation not yet completed) is null: "no
+// role". It must never fall back to 'student', which would open the student
+// dashboard to an account the school never made a student.
 const normalizeRole = (role) => {
-  if (!role) return 'student';
+  if (!role) return null;
   const normalized = role.toString().trim().toLowerCase();
   const roleMap = {
     main_admin: 'main_admin',
@@ -23,7 +26,7 @@ const normalizeRole = (role) => {
     registrar: 'registrar',
     student: 'student',
   };
-  return roleMap[normalized] || 'student';
+  return roleMap[normalized] || null;
 };
 
 const isArchivedProfile = (profile) => normalizeAccountStatus(profile?.status) === 'archived';
@@ -150,8 +153,8 @@ export const AuthProvider = ({ children }) => {
 
   // Returns { profile, fetchFailed }. The distinction matters: a failed READ is
   // not the same answer as "this account has no profile row". Collapsing both
-  // to null lets a connection hiccup silently demote a real admin to student,
-  // because normalizeRole(null) === 'student'.
+  // to null lets a connection hiccup silently strip a real admin's role
+  // (normalizeRole(null) is null: no role, no access).
   const fetchProfile = async (userId) => {
     try {
       let { data, error: profileError } = await fetchProfileOnce(userId);
@@ -273,7 +276,9 @@ export const AuthProvider = ({ children }) => {
               setUser(session.user);
               setUserData(built);
               userDataRef.current = built;
-              setIsAuthenticated(isActiveAccount(profile?.status));
+              // No recognised role: keep the session (an invitee on
+              // /setup-password still needs it) but grant no access.
+              setIsAuthenticated(isActiveAccount(profile?.status) && role !== null);
             }
           } else if (!loginInProgressRef.current) {
             setUser(null);
@@ -374,6 +379,15 @@ export const AuthProvider = ({ children }) => {
         // Profiles row only — never user_metadata (self-writable, see above).
         const role = normalizeRole(profile?.role);
 
+        // No recognised role (guest, empty, a typo): no portal is right for
+        // this account. Sign out, the same way an inactive account is refused.
+        if (role === null) {
+          await supabase.auth.signOut();
+          const roleErr = new Error('ROLE_UNKNOWN');
+          roleErr.userMessage = 'This account has no valid role. Please contact the administrator.';
+          throw roleErr;
+        }
+
         // ─── Role gate: runs BEFORE setIsAuthenticated(true) ───────────────
         // If the caller specified which role they expect (e.g. the dropdown
         // selection on the Faculty/Admin login page) and it doesn't match the
@@ -410,7 +424,8 @@ export const AuthProvider = ({ children }) => {
             || /too many requests/i.test(err.message || '')
             || err.message?.startsWith('ROLE_MISMATCH:')
             || err.message === 'ARCHIVED_ACCOUNT'
-            || err.message === 'ACCOUNT_NOT_ACTIVE') break;
+            || err.message === 'ACCOUNT_NOT_ACTIVE'
+            || err.message === 'ROLE_UNKNOWN') break;
 
         if (attempt < MAX_RETRIES) {
           await new Promise((r) => setTimeout(r, 500 * attempt));
@@ -504,7 +519,7 @@ export const AuthProvider = ({ children }) => {
     if (profileOpSeqRef.current === opSeq) {
       setUserData(built);
       userDataRef.current = built;
-      setIsAuthenticated(isActiveAccount(profile?.status));
+      setIsAuthenticated(isActiveAccount(profile?.status) && role !== null);
     }
   };
 

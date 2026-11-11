@@ -10,8 +10,8 @@ vi.mock('../context/AuthContext', () => ({ useAuth: () => h.auth }));
 import ProtectedRoute from './ProtectedRoute';
 
 const DASHBOARDS = {
-  student: '/student-dashboard', teacher: '/teacher-dashboard', faculty: '/faculty-dashboard',
-  registrar: '/registrar-dashboard', main_admin: '/admin-dashboard',
+  student: '/student-dashboard', teacher: '/teacher-dashboard',
+  main_admin: '/admin-dashboard',
 };
 
 const renderAt = (path, { role, loading = false, authenticated = true } = {}) => {
@@ -35,8 +35,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('ProtectedRoute role normalization', () => {
   it.each([
-    ['student', 'student'], ['  Student ', 'student'], ['TEACHER', 'teacher'], ['faculty', 'faculty'],
-    ['Registrar', 'registrar'], ['main_admin', 'main_admin'], ['admin', 'main_admin'], ['Main Admin', 'main_admin'],
+    ['student', 'student'], ['  Student ', 'student'], ['TEACHER', 'teacher'],
+    ['main_admin', 'main_admin'], ['admin', 'main_admin'], ['Main Admin', 'main_admin'],
   ])('known role %j reaches the %s dashboard', (role, key) => {
     renderAt(DASHBOARDS[key], { role });
     expect(screen.getByText(`${key} dashboard`)).toBeTruthy();

@@ -9,8 +9,6 @@ import { loginErrorMessage } from '../../lib/loginAttemptLimit';
 const ROLE_OPTIONS = [
   { value: 'main_admin', label: 'Admin',      color: '#b91c1c', route: '/admin-dashboard' },
   { value: 'teacher',    label: 'Teacher',    color: '#0d2b5c', route: '/teacher-dashboard' },
-  { value: 'faculty',    label: 'Faculty',    color: '#6f42c1', route: '/faculty-dashboard' },
-  { value: 'registrar',  label: 'Registrar',  color: '#157347', route: '/registrar-dashboard' },
 ];
 
 const normalizeRole = (role) => {
@@ -82,7 +80,7 @@ const FacultyLogin = () => {
 
       console.log('✅ Faculty/Admin verified - redirecting to dashboard');
       setErrorMessage('');
-      const route = ROLE_OPTIONS.find(r => r.value === normalizedUserRole)?.route || '/faculty-dashboard';
+      const route = ROLE_OPTIONS.find(r => r.value === normalizedUserRole)?.route || '/login';
       navigate(route, { replace: true });
     };
 

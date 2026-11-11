@@ -10,7 +10,8 @@ import { isActiveAccount } from '../lib/accountStatus';
 
 // The roles this app has screens for. Anything else (guest, empty, a typo)
 // is "no role" and gets no protected route at all — never the student one.
-const KNOWN_ROLES = new Set(['student', 'teacher', 'faculty', 'registrar', 'main_admin']);
+// faculty and registrar were removed from the app: they are unknown now.
+const KNOWN_ROLES = new Set(['student', 'teacher', 'main_admin']);
 
 const normalizeRole = (role) => {
   if (!role) return null;
@@ -56,8 +57,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     const roleRoutes = {
       student: '/student-dashboard',
       teacher: '/teacher-dashboard',
-      faculty: '/faculty-dashboard',
-      registrar: '/registrar-dashboard',
       main_admin: '/admin-dashboard'
     };
     const correctRoute = roleRoutes[normalizedRole];

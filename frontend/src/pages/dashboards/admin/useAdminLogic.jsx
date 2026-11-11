@@ -609,7 +609,7 @@ export const useAdminLogic = (userData) => {
     if (!targetRoles || targetRoles.startsWith('custom:')) return;
 
     const roles = targetRoles === 'all'
-      ? ['student', 'teacher', 'faculty', 'registrar']
+      ? ['student', 'teacher']
       : targetRoles.split(',').map(r => r.trim()).filter(Boolean);
     if (!roles.length) return;
 

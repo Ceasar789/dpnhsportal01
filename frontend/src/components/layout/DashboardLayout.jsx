@@ -10,7 +10,7 @@ import FlippingLogo from '../FlippingLogo';
 import {
   LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings,
   BookOpen, GraduationCap, ClipboardList, CalendarCheck, Megaphone,
-  CheckSquare, LogOut, Menu, ChevronRight, ChevronLeft
+  LogOut, Menu, ChevronRight, ChevronLeft
 } from 'lucide-react';
 
 const DashboardLayout = ({ role, children }) => {
@@ -54,14 +54,6 @@ const DashboardLayout = ({ role, children }) => {
         { path: '/student-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
         { path: '/student-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
       ],
-      faculty: [
-        { path: '/faculty-dashboard', icon: LayoutDashboard, label: 'Overview' },
-        { path: '/faculty-dashboard/pre-enrollment', icon: CheckSquare, label: 'Pre-Enrollment' },
-      ],
-      registrar: [
-        { path: '/registrar-dashboard', icon: LayoutDashboard, label: 'Overview' },
-        { path: '/registrar-dashboard/pre-enrollment', icon: CheckSquare, label: 'Pre-Enrollment' },
-      ],
     };
     return items[role] || [];
   };
@@ -71,15 +63,11 @@ const DashboardLayout = ({ role, children }) => {
     main_admin: 'Administrator',
     teacher: 'Teacher',
     student: 'Student',
-    faculty: 'Faculty',
-    registrar: 'Registrar'
   };
   const portalLabels = {
     main_admin: 'Admin Portal',
     teacher: 'Teacher Portal',
     student: 'Student Portal',
-    faculty: 'Faculty Portal',
-    registrar: 'Registrar Portal'
   };
 
   const borderColor = '#e2e8f0';

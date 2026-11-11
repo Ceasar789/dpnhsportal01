@@ -23,7 +23,7 @@ const CONTRAST = `(fg, bg) => {
   return (hi + 0.05) / (lo + 0.05);
 }`;
 
-const ROLES = ['Admin', 'Teacher', 'Faculty', 'Registrar'];
+const ROLES = ['Admin', 'Teacher'];
 
 test.describe('faculty login', () => {
   test.beforeEach(async ({ page }) => {

@@ -14,7 +14,8 @@ const AuthContext = createContext(null);
 
 // Unknown, empty or 'guest' (an invitation not yet completed) is null: "no
 // role". It must never fall back to 'student', which would open the student
-// dashboard to an account the school never made a student.
+// dashboard to an account the school never made a student. The app has three
+// roles; faculty and registrar were removed and are unknown like any other.
 const normalizeRole = (role) => {
   if (!role) return null;
   const normalized = role.toString().trim().toLowerCase();
@@ -22,8 +23,6 @@ const normalizeRole = (role) => {
     main_admin: 'main_admin',
     admin: 'main_admin',
     teacher: 'teacher',
-    faculty: 'faculty',
-    registrar: 'registrar',
     student: 'student',
   };
   return roleMap[normalized] || null;
@@ -47,8 +46,6 @@ const buildUserData = (user, profile, role) => ({
   // Convenience role flags
   isMainAdmin: role === 'main_admin',
   isTeacher: role === 'teacher',
-  isFaculty: role === 'faculty',
-  isRegistrar: role === 'registrar',
   isStudent: role === 'student',
 });
 
@@ -525,9 +522,7 @@ export const AuthProvider = ({ children }) => {
 
   // ─── Role helpers ─────────────────────────────────────────────────────────
   const isTeacher = () => userData?.role === 'teacher';
-  const isFaculty = () => userData?.role === 'faculty';
   const isMainAdmin = () => userData?.role === 'main_admin';
-  const isRegistrar = () => userData?.role === 'registrar';
   const isStudent = () => userData?.role === 'student';
 
   const value = {
@@ -543,9 +538,7 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     onlineUserIds,
     isTeacher,
-    isFaculty,
     isMainAdmin,
-    isRegistrar,
     isStudent,
     // Convenience: current user's Supabase UUID
     userId: user?.id || null,

@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react';
 import { Archive, ArchiveRestore, Mail, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { avatarColor, roleBadge, roleLabel } from '../shared/helpers';
+
+// The roles an admin can give an account.
+const ASSIGNABLE_ROLES = ['student', 'teacher', 'main_admin'];
 import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import Button from '../../../../components/ui/Button';
@@ -65,8 +68,6 @@ const UsersTab = () => {
                   <option value="">Role: All</option>
                   <option value="student">Student</option>
                   <option value="teacher">Teacher</option>
-                  <option value="faculty">Faculty</option>
-                  <option value="registrar">Registrar</option>
                   <option value="main_admin">Admin</option>
                 </select>
                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width:'auto' }} aria-label="Filter users by status">
@@ -251,9 +252,13 @@ const UsersTab = () => {
             <select id="users-role" className="form-input" value={uRole} onChange={e => setURole(e.target.value)} disabled={editUser?.onboarding_status === 'invitation_pending'}>
               <option value="student">Student</option>
               <option value="teacher">Teacher</option>
-              <option value="faculty">Faculty</option>
-              <option value="registrar">Registrar</option>
               <option value="main_admin">Admin</option>
+              {/* An account still holding a role the app no longer uses
+                  (faculty, registrar) shows that role instead of silently
+                  reading as Student. It cannot be chosen again. */}
+              {!ASSIGNABLE_ROLES.includes(uRole) && (
+                <option value={uRole} disabled>{`${roleLabel(uRole)} (no longer used)`}</option>
+              )}
             </select>
             {editUser?.onboarding_status === 'invitation_pending' && <div className="form-hint">The assigned role is locked until password setup completes.</div>}
           </div>

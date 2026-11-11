@@ -89,9 +89,11 @@ const NewsTab = () => {
                   {filteredNews.map(n => {
                     const topCls = n.status === 'Published' ? 'pub' : n.status === 'Draft' ? 'draft' : 'arch';
                     const sb     = n.status === 'Published' ? 'badge-green' : n.status === 'Draft' ? 'badge-yellow' : 'badge-red';
+                    // An audience the app no longer offers (e.g. an old
+                    // 'faculty' post) shows its stored value, not "All Users".
                     const targetLabel = n.target_roles?.startsWith('custom:')
                       ? n.target_roles.slice(7)
-                      : TARGET_ROLES.find(t => t.value === n.target_roles)?.label || 'All Users';
+                      : TARGET_ROLES.find(t => t.value === n.target_roles)?.label || n.target_roles || 'All Users';
                     return (
                       <div key={n.id} className="news-card">
                         <div className={`news-card-top ${topCls}`}></div>
@@ -170,6 +172,12 @@ const NewsTab = () => {
             <label className="form-label" htmlFor="news-target-audience">Target Audience</label>
             <select id="news-target-audience" className="form-input" value={nTarget} onChange={e => setNTarget(e.target.value)} disabled={newsReadOnly}>
               {TARGET_ROLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {/* An old post's audience the app no longer offers stays selected
+                  (and is saved unchanged) instead of reading as the first
+                  option. It cannot be chosen for a new post. */}
+              {nTarget && !TARGET_ROLES.some(t => t.value === nTarget) && (
+                <option value={nTarget} disabled>{`${nTarget} (no longer offered)`}</option>
+              )}
             </select>
           </div>
           {nTarget === 'custom' && (

@@ -23,8 +23,6 @@ import VerifyEmail    from '../pages/auth/VerifyEmail';
 // Dashboard Pages
 import StudentDashboard   from '../pages/dashboards/student/StudentDashboard';
 import TeacherDashboard   from '../pages/dashboards/teacher/TeacherDashboard';
-import FacultyDashboard   from '../pages/dashboards/faculty/FacultyDashboard';
-import RegistrarDashboard from '../pages/dashboards/registrar/RegistrarDashboard';
 import AdminDashboard     from '../pages/dashboards/admin/AdminDashboard';
 
 const AppRoutes = () => {
@@ -57,12 +55,6 @@ const AppRoutes = () => {
         } />
         <Route path="/teacher-dashboard/*" element={
           <ProtectedRoute allowedRoles={['teacher']}><TeacherDashboard /></ProtectedRoute>
-        } />
-        <Route path="/faculty-dashboard/*" element={
-          <ProtectedRoute allowedRoles={['faculty']}><FacultyDashboard /></ProtectedRoute>
-        } />
-        <Route path="/registrar-dashboard/*" element={
-          <ProtectedRoute allowedRoles={['registrar']}><RegistrarDashboard /></ProtectedRoute>
         } />
         <Route path="/admin-dashboard/*" element={
           <ProtectedRoute allowedRoles={['main_admin']}><AdminDashboard /></ProtectedRoute>

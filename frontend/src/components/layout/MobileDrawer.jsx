@@ -16,7 +16,6 @@ import {
   CalendarCheck,
   Megaphone,
   BookOpen,
-  CheckSquare,
   Settings,
   LogOut,
   X
@@ -43,14 +42,6 @@ const MobileDrawer = ({ role, isOpen, onClose }) => {
         { icon: GraduationCap, label: 'Grading', path: '/teacher-dashboard/grades' },
         { icon: CalendarCheck, label: 'Attendance', path: '/teacher-dashboard/attendance' },
         { icon: Megaphone, label: 'Announcements', path: '/teacher-dashboard/announcements' },
-      ],
-      faculty: [
-        { icon: LayoutDashboard, label: 'Overview', path: '/faculty-dashboard' },
-        { icon: CheckSquare, label: 'Pre-Enrollment', path: '/faculty-dashboard/pre-enrollment' },
-      ],
-      registrar: [
-        { icon: LayoutDashboard, label: 'Overview', path: '/registrar-dashboard' },
-        { icon: CheckSquare, label: 'Pre-Enrollment', path: '/registrar-dashboard/pre-enrollment' },
       ],
       main_admin: [
         { icon: LayoutDashboard, label: 'Overview', path: '/admin-dashboard' },
@@ -98,8 +89,7 @@ const MobileDrawer = ({ role, isOpen, onClose }) => {
             <span className="text-white font-work font-semibold">
               {role === 'main_admin' ? 'Admin Portal' : 
                role === 'student' ? 'Student Portal' :
-               role === 'teacher' ? 'Teacher Portal' :
-               role === 'faculty' ? 'Faculty Portal' : 'Registrar Portal'}
+               role === 'teacher' ? 'Teacher Portal' : 'Portal'}
             </span>
           </div>
           <button onClick={onClose} aria-label="Close navigation menu" className="text-white p-1">

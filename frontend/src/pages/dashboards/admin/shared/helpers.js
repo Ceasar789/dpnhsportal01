@@ -13,33 +13,31 @@ export const avatarColor = (str = '') => {
   return colors[Math.abs(h) % colors.length];
 };
 
+// The app has three roles. A role it no longer uses (faculty, registrar) or
+// never had still displays: a neutral grey badge and the raw role text.
 export const roleBadge = (role) => ({
   student:    'badge-blue',
   teacher:    'badge-green',
-  faculty:    'badge-teal',
-  registrar:  'badge-yellow',
   main_admin: 'badge-red',
-}[role] || 'badge-blue');
+}[role] || 'badge-grey');
 
 export const roleLabel = (role) => ({
   student:    'Student',
   teacher:    'Teacher',
-  faculty:    'Faculty',
-  registrar:  'Registrar',
   main_admin: 'Admin',
 }[role] || role);
 
 export const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 export const EVENT_TYPES = ['Event', 'Deadline', 'Holiday', 'Other', 'Custom Type'];
 
-// Target roles for news distribution
+// Target roles for news distribution. Faculty Only, Registrar Only and the
+// "Staff Only" set (teacher,faculty,registrar) are no longer offered: with
+// those roles gone, staff means teachers, which "Teachers Only" already is.
+// Old posts may still carry those values; readers treat them as plain text.
 export const TARGET_ROLES = [
   { value: 'all', label: 'All Users' },
   { value: 'student', label: 'Students Only' },
   { value: 'teacher', label: 'Teachers Only' },
-  { value: 'faculty', label: 'Faculty Only' },
-  { value: 'registrar', label: 'Registrar Only' },
-  { value: 'teacher,faculty,registrar', label: 'Staff Only (No Students)' },
   { value: 'custom', label: 'Custom Audience' },
 ];
 

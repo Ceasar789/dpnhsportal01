@@ -16,7 +16,6 @@ import {
   CalendarCheck,
   Megaphone,
   BookOpen,
-  CheckSquare,
   Settings,
   LogOut
 } from 'lucide-react';
@@ -44,14 +43,6 @@ const Sidebar = ({ role }) => {
         { icon: GraduationCap, label: 'Grading', path: '/teacher-dashboard/grades' },
         { icon: CalendarCheck, label: 'Attendance', path: '/teacher-dashboard/attendance' },
         { icon: Megaphone, label: 'Announcements', path: '/teacher-dashboard/announcements' },
-      ],
-      faculty: [
-        { icon: LayoutDashboard, label: 'Overview', path: '/faculty-dashboard' },
-        { icon: CheckSquare, label: 'Pre-Enrollment', path: '/faculty-dashboard/pre-enrollment' },
-      ],
-      registrar: [
-        { icon: LayoutDashboard, label: 'Overview', path: '/registrar-dashboard' },
-        { icon: CheckSquare, label: 'Pre-Enrollment', path: '/registrar-dashboard/pre-enrollment' },
       ],
       main_admin: [
         { icon: LayoutDashboard, label: 'Overview', path: '/admin-dashboard' },
@@ -89,8 +80,7 @@ const Sidebar = ({ role }) => {
           <h3 className="font-work font-bold text-base" style={{ color: '#1a2b4a' }}>
             {role === 'main_admin' ? 'Admin Portal' : 
              role === 'student' ? 'Student Portal' :
-             role === 'teacher' ? 'Teacher Portal' :
-             role === 'faculty' ? 'Faculty Portal' : 'Registrar Portal'}
+             role === 'teacher' ? 'Teacher Portal' : 'Portal'}
           </h3>
         </div>
       </div>

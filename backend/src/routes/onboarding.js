@@ -4,7 +4,9 @@ import { adminClient, requireAuth, requireSession } from '../middleware/requireA
 import { validatePassword } from '../../../shared/passwordPolicy.js';
 
 const ADMIN_ROLES = ['main_admin'];
-const ASSIGNABLE_ROLES = new Set(['student', 'teacher', 'faculty', 'registrar', 'main_admin']);
+// The app has three roles. faculty and registrar were removed: an invite or a
+// pending password setup naming either is refused.
+export const ASSIGNABLE_ROLES = new Set(['student', 'teacher', 'main_admin']);
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const inviteLimiter = rateLimit({

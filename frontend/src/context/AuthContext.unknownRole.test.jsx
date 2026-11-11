@@ -41,8 +41,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const DASHBOARDS = {
-  student: '/student-dashboard', teacher: '/teacher-dashboard', faculty: '/faculty-dashboard',
-  registrar: '/registrar-dashboard', main_admin: '/admin-dashboard',
+  student: '/student-dashboard', teacher: '/teacher-dashboard',
+  main_admin: '/admin-dashboard',
 };
 
 describe('ProtectedRoute driven by the real AuthProvider', () => {
@@ -98,8 +98,8 @@ describe('ProtectedRoute driven by the real AuthProvider', () => {
   });
 
   it.each([
-    ['student', 'student'], ['teacher', 'teacher'], ['faculty', 'faculty'],
-    ['registrar', 'registrar'], ['main_admin', 'main_admin'], ['admin', 'main_admin'],
+    ['student', 'student'], ['teacher', 'teacher'],
+    ['main_admin', 'main_admin'], ['admin', 'main_admin'],
   ])('role %s reaches its own dashboard', async (role, normalized) => {
     renderAt(`${DASHBOARDS[normalized]}/x`, { profile: { id: 'u-1', role, status: 'active' } });
     await emitSession();
@@ -108,8 +108,7 @@ describe('ProtectedRoute driven by the real AuthProvider', () => {
 
   it.each([
     ['teacher', '/student-dashboard/x', 'teacher'], ['student', '/admin-dashboard/x', 'student'],
-    ['faculty', '/registrar-dashboard/x', 'faculty'], ['registrar', '/teacher-dashboard/x', 'registrar'],
-    ['admin', '/faculty-dashboard/x', 'main_admin'],
+    ['admin', '/teacher-dashboard/x', 'main_admin'],
   ])('role %s on another dashboard is redirected to its own, as before', async (role, path, normalized) => {
     renderAt(path, { profile: { id: 'u-1', role, status: 'active' } });
     await emitSession();
@@ -138,7 +137,6 @@ describe('login with an unknown role', () => {
 
   it.each([
     ['student', 'student'], ['  Student ', 'student'], ['teacher', 'teacher'], ['TEACHER', 'teacher'],
-    ['faculty', 'faculty'], [' Faculty', 'faculty'], ['registrar', 'registrar'], ['Registrar ', 'registrar'],
     ['main_admin', 'main_admin'], ['admin', 'main_admin'], ['ADMIN', 'main_admin'],
   ])('a known role %j still signs in as %s', async (role, expected) => {
     h.profile = { id: 'u-1', role, status: 'active' };

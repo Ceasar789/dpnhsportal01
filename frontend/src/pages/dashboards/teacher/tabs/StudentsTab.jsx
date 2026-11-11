@@ -262,7 +262,7 @@ const StudentsTab = () => {
               {advisorySection.length === 0 ? (
                 <div className="text-center py-10 px-6">
                   <p className="text-sm font-medium" style={{ color: textColor }}>You are not assigned as an adviser yet</p>
-                  <p className="text-xs mt-1" style={{ color: mutedColor }}>This section appears once the registrar assigns you as a section adviser.</p>
+                  <p className="text-xs mt-1" style={{ color: mutedColor }}>This section appears once the admin assigns you as a section adviser.</p>
                 </div>
               ) : (
                 <RosterTable students={filteredAdvisory} emptyMessage={queryActive ? 'No advisory students match your search.' : 'No students are enrolled in your advisory section yet.'} />
@@ -280,7 +280,7 @@ const StudentsTab = () => {
               <Card>
                 <div className="text-center py-10 px-6">
                   <p className="text-sm font-medium" style={{ color: textColor }}>No other sections assigned yet</p>
-                  <p className="text-xs mt-1" style={{ color: mutedColor }}>This appears once your teaching schedule is set up by the registrar.</p>
+                  <p className="text-xs mt-1" style={{ color: mutedColor }}>This appears once your teaching schedule is set up by the admin.</p>
                 </div>
               </Card>
             ) : (

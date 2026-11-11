@@ -16,7 +16,7 @@ const OverviewTab = () => {
     roleDist, roleDistError = '', setPage, settings, stats, statsErrors = {},
   } = useAdminContext();
   const slowOverview = useDelayedFlag(overviewLoading);
-  const roleColors = { student:'#3b82f6', teacher:'#22c55e', faculty:'#2dd4bf', registrar:'#f59e0b', main_admin:'#ef4444' };
+  const roleColors = { student:'#3b82f6', teacher:'#22c55e', main_admin:'#ef4444' };
   // P7: the legend read 58 25 9 5 5, which is 102. Each share was rounded
   // on its own. One pass of largest-remainder gives the same five numbers
   // a total of exactly 100, and the pie and the bars read off the same

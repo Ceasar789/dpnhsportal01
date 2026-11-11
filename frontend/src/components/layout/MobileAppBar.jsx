@@ -22,8 +22,6 @@ const MobileAppBar = ({ role, onMenuClick }) => {
   const portalTitle = {
     student: 'Student Portal',
     teacher: 'Teacher Portal',
-    faculty: 'Faculty Portal',
-    registrar: 'Registrar Portal',
     main_admin: 'Admin Portal'
   }[role] || 'Portal';
 

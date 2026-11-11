@@ -4265,7 +4265,7 @@ test.describe('isolated Profile fixture states and cross-role integration', () =
     harness.assertHealthy();
   });
 
-  for (const role of ['main_admin', 'teacher', 'student', 'registrar', 'faculty']) {
+  for (const role of ['main_admin', 'teacher', 'student']) {
     test(`${role} renders the shared Profile and logs out through its existing shell`, async ({ page }) => {
       const harness = await installProfileMocks(page, { role, profile: { photo_url: '' } });
       await openSyntheticProfile(page, role);

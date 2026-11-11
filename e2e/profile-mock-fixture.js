@@ -61,8 +61,6 @@ const ROLE_PATHS = {
   main_admin: '/admin-dashboard',
   teacher: '/teacher-dashboard/profile',
   student: '/student-dashboard/profile',
-  registrar: '/registrar-dashboard/profile',
-  faculty: '/faculty-dashboard/profile',
 };
 
 const svgPhotoMarkup = `

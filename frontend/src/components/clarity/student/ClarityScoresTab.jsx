@@ -16,6 +16,14 @@ import ProgressRing from '../charts/ProgressRing';
 
 const WRAP = { minWidth: 0, overflowWrap: 'anywhere' };
 const NO_RELEASED = 'No released scores';
+const EMPTY_STYLE = { padding: '12px 0', textAlign: 'left' };
+// A ring can only draw 0-100 (its centre would read 100% for 120), so a
+// recorded value outside that is shown as the plain number the classic
+// prints. Same guard as ClarityOverviewTab. A value that is not a number at
+// all (NaN) is treated as no data, never printed.
+const drawable = p => (p !== null && p >= 0 && p <= 100 ? p : null);
+const usable = p => typeof p === 'number' && Number.isFinite(p);
+const percentText = p => (usable(p) ? `${p}%` : '—');
 // The rings get no `label`: ProgressRing draws its label as a <b> that
 // .o-ring b positions over the ring. The visible headings carry it instead.
 const releasedCount = n => `${n} released ${n === 1 ? 'score' : 'scores'}`;
@@ -30,9 +38,11 @@ const SubjectCard = ({ subject }) => {
         <div>
           <dt className="x-kl">Average</dt>
           <dd style={{ margin: 0 }}>
-            {subject.percent === null
-              ? <p className="x-empty" style={{ padding: '12px 0', textAlign: 'left' }}>{NO_RELEASED}</p>
-              : <ProgressRing value={subject.percent} detail={`${subject.name} average`} unit="average" />}
+            {!usable(subject.percent)
+              ? <p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p>
+              : drawable(subject.percent) === null
+                ? <p className="x-kv">{percentText(subject.percent)}</p>
+                : <ProgressRing value={subject.percent} detail={`${subject.name} average`} unit="average" />}
           </dd>
         </div>
         <div>
@@ -58,7 +68,7 @@ const SubjectCard = ({ subject }) => {
                     </div>
                     {item.submittedAt && <span className="m">Submitted {formatManila(item.submittedAt, { time: false })}</span>}
                   </div>
-                  <span className="t" style={{ fontVariantNumeric: 'tabular-nums' }}>{item.score}/{item.total} · {item.percent}%</span>
+                  <span className="t" style={{ fontVariantNumeric: 'tabular-nums' }}>{item.score}/{item.total} · {percentText(item.percent)}</span>
                 </li>
               ))}
             </ul>
@@ -104,9 +114,11 @@ const ClarityScoresTab = () => {
       ) : ready ? (
         <>
           <section aria-label="Overall" className="x-card x-pad" style={{ marginBottom: 16 }}>
-            {overall.percent === null
-              ? <><p className="x-kl">Overall average</p><p className="x-empty" style={{ padding: '12px 0', textAlign: 'left' }}>{NO_RELEASED}</p></>
-              : <ProgressRing value={overall.percent} detail="Overall average" unit="average" />}
+            {!usable(overall.percent)
+              ? <><p className="x-kl">Overall average</p><p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p></>
+              : drawable(overall.percent) === null
+                ? <><p className="x-kl">Overall average</p><p className="x-kv">{percentText(overall.percent)}</p></>
+                : <ProgressRing value={overall.percent} detail="Overall average" unit="average" />}
             <p className="x-kd">{releasedCount(overall.count)}</p>
           </section>
           {overall.count === 0 && (

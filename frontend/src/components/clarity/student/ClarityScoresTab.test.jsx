@@ -157,7 +157,7 @@ describe('the Clarity Scores tab', () => {
     const labels = screen.getAllByRole('img').map(i => i.getAttribute('aria-label'));
     expect(labels).toContain('0 percent, Alpha average');
     expect(labels).toContain('100 percent, Beta average');
-    expect(labels).toContain('100 percent, Gamma average (recorded value 120 percent is outside 0 to 100)');
+    expect(labels.some(l => l.includes('Gamma'))).toBe(false);
     openAll();
     expect(rowsOf(screen.getByRole('article', { name: 'Gamma' }))[0]).toContain('12/10 · 120%');
     expect(rowsOf(screen.getByRole('article', { name: 'Alpha' }))[0]).toContain('0/10 · 0%');

@@ -142,6 +142,7 @@ const ClarityOverviewTab = () => {
   const { info, performance, attendance, subjects, tasksBySubject, pendingCount } = useMemo(
     () => overviewSummary(graph, userData?.name), [graph, userData?.name]);
   const [now] = useState(() => new Date());
+  const [logoFailed, setLogoFailed] = useState(false);
   const taskRows = useMemo(() => (graph && !loadError ? rowsFromGraph(graph) : []), [graph, loadError]);
 
   const settled = !loading && !loadError;
@@ -166,6 +167,11 @@ const ClarityOverviewTab = () => {
       </div>
 
       <div className="x-card x-pad x-rail" style={{ marginBottom: 16, justifyContent: 'flex-start' }}>
+        {/* The classic's logo, same source and alt. A fixed 56px box that is
+            kept when the image fails (hidden, not removed), so nothing moves. */}
+        <img src="/capstonelogo.png" alt="School Logo" width="56" height="56"
+          onError={() => setLogoFailed(true)}
+          style={{ width: 56, height: 56, flex: 'none', borderRadius: 9999, objectFit: 'contain', visibility: logoFailed ? 'hidden' : 'visible' }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 className="x-ct" style={WRAP}>Welcome back, <span>{info.name}</span>!</h2>
           <p className="x-cs">

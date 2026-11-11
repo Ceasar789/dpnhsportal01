@@ -164,7 +164,7 @@ describe('parity with the classic Overview (same graph, both versions)', () => {
     }));
     expect(screen.getByText('Grade 7 · Madrid · ID: S-1')).toBeTruthy();
     expect(screen.getByText('2026-2027')).toBeTruthy();
-    const labels = screen.getAllByRole('img').map(i => i.getAttribute('aria-label'));
+    const labels = screen.getAllByRole('img').filter(i => i.tagName.toLowerCase() === 'svg').map(i => i.getAttribute('aria-label'));
     expect(labels).toEqual(['80 percent, Worksheet Performance', '50 percent, Attendance']);
   });
 
@@ -182,20 +182,20 @@ describe('parity with the classic Overview (same graph, both versions)', () => {
     compare(makeGraph([]));
     expect(within(progress()).getByText('No released scores')).toBeTruthy();
     expect(within(progress()).getByText('No data yet')).toBeTruthy();
-    expect(screen.queryAllByRole('img')).toHaveLength(0);
+    expect(screen.queryAllByRole('img').filter(i => i.tagName.toLowerCase() === 'svg')).toHaveLength(0);
     expect(progress().textContent).not.toContain('0%');
   });
 
   it('0%, 100% and over 100%', () => {
     compare(makeGraph([], { releasedScores: [{ worksheet_id: 'a', score: 12, total_points: 10 }], attendance: [{ status: 'Absent' }] }));
-    let labels = screen.getAllByRole('img').map(i => i.getAttribute('aria-label'));
+    let labels = screen.getAllByRole('img').filter(i => i.tagName.toLowerCase() === 'svg').map(i => i.getAttribute('aria-label'));
     // 120%: no ring (it could only draw 100%); the plain 120% the classic prints.
     expect(labels).toEqual(['0 percent, Attendance']);
     expect(tile('Worksheet Performance')).toContain('120%');
     expect(tile('Worksheet Performance')).toContain('1 worksheet');
     cleanup();
     compare(makeGraph([], { releasedScores: [{ worksheet_id: 'a', score: 0, total_points: 10 }], attendance: [{ status: 'present' }] }));
-    labels = screen.getAllByRole('img').map(i => i.getAttribute('aria-label'));
+    labels = screen.getAllByRole('img').filter(i => i.tagName.toLowerCase() === 'svg').map(i => i.getAttribute('aria-label'));
     expect(labels).toEqual(['0 percent, Worksheet Performance', '100 percent, Attendance']);
   });
 

@@ -11,9 +11,14 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { School, Facebook, BookOpen, Globe, Users, MapPin, Mail, Phone } from 'lucide-react';
+import { School, Facebook, MapPin, Mail, Phone } from 'lucide-react';
 
 const LINK = 'block mb-3 py-1 font-public text-sm text-left hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]';
+// A contact line that is a link: the same focus ring, and a 40px tap height on phones.
+const CONTACT_LINK = 'flex items-start gap-2 mb-3 max-md:min-h-10 max-md:items-center hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]';
+const FACEBOOK_URL = 'https://www.facebook.com/DelaPazNationalHS';
+const MAP_URL = 'https://share.google/sRx85lq4zhIe5o27t';
+const SCHOOL_EMAIL = '307915@deped.gov.ph';
 
 const PublicFooter = () => {
   return (
@@ -56,13 +61,20 @@ const PublicFooter = () => {
           <h5 className="font-work font-bold text-xs tracking-widest mb-5" style={{ color: '#FEB300' }}>
             CONTACT US
           </h5>
-          {[[MapPin, 'Brgy. Dela Paz, Binan City'], [Mail, 'admissions@delapaznhs.edu.ph'], [Phone, '(02) 8642-1234']]
-            .map(([Icon, text]) => (
-              <div key={text} className="flex items-start gap-2 mb-3">
-                <Icon size={16} color="#b6c2d1" aria-hidden="true" className="shrink-0 mt-0.5" />
-                <span className="font-public text-sm break-words" style={{ color: '#cbd5e1' }}>{text}</span>
-              </div>
-            ))}
+          <a href={MAP_URL} target="_blank" rel="noopener noreferrer" className={CONTACT_LINK}>
+            <MapPin size={16} color="#b6c2d1" aria-hidden="true" className="shrink-0 mt-0.5 max-md:mt-0" />
+            <span className="font-public text-sm break-words" style={{ color: '#cbd5e1' }}>
+              Dela Paz National High School{' '}<span className="sr-only">(opens in a new tab)</span>
+            </span>
+          </a>
+          <a href={`mailto:${SCHOOL_EMAIL}`} className={CONTACT_LINK}>
+            <Mail size={16} color="#b6c2d1" aria-hidden="true" className="shrink-0 mt-0.5 max-md:mt-0" />
+            <span className="font-public text-sm break-words" style={{ color: '#cbd5e1' }}>{SCHOOL_EMAIL}</span>
+          </a>
+          <div className="flex items-start gap-2 mb-3">
+            <Phone size={16} color="#b6c2d1" aria-hidden="true" className="shrink-0 mt-0.5" />
+            <span className="font-public text-sm break-words" style={{ color: '#cbd5e1' }}>(02) 8642-1234</span>
+          </div>
         </div>
       </div>
 
@@ -72,11 +84,12 @@ const PublicFooter = () => {
         <p className="font-public text-xs" style={{ color: '#b6c2d1' }}>
           © {new Date().getFullYear()} Dela Paz National High School. All rights reserved.
         </p>
-        <div className="flex gap-4" aria-hidden="true">
-          <Facebook size={18} color="#b6c2d1" />
-          <BookOpen size={18} color="#b6c2d1" />
-          <Globe size={18} color="#b6c2d1" />
-          <Users size={18} color="#b6c2d1" />
+        <div className="flex gap-4">
+          <a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer"
+            aria-label="Dela Paz NHS on Facebook (opens in a new tab)"
+            className="inline-flex h-10 w-10 md:h-6 md:w-6 items-center justify-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">
+            <Facebook size={18} color="#b6c2d1" aria-hidden="true" />
+          </a>
         </div>
       </div>
     </footer>

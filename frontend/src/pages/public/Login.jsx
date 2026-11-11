@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
 import PublicFooter from '../../components/PublicFooter';
-import { Facebook, School, Camera, MessageCircle } from 'lucide-react';
+import { Facebook, School, MessageCircle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
 import { viewportHeight } from '../../lib/viewportHeight';
 
@@ -121,11 +121,16 @@ const Login = () => {
           </div>
 
           {/* Bottom: the marks, and the notice nobody reads but everybody needs */}
-          <div className="relative z-10 flex items-center gap-2" aria-hidden="true">
-            {[Facebook, Camera, MessageCircle].map((Icon, i) => (
-              <div key={i} className="flex h-8 w-8 items-center justify-center rounded-md bg-white/20">
-                <Icon size={16} color="white" />
-              </div>
+          <div className="relative z-10 flex items-center gap-2">
+            {[
+              { Icon: Facebook, href: 'https://www.facebook.com/DelaPazNationalHS', label: 'Dela Paz NHS on Facebook (opens in a new tab)', external: true },
+              { Icon: MessageCircle, href: 'mailto:307915@deped.gov.ph?subject=Feedback', label: 'Send feedback by email' },
+            ].map(({ Icon, href, label, external }) => (
+              <a key={href} href={href} aria-label={label}
+                {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                className="flex h-10 w-10 items-center justify-center rounded-md bg-white/20 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">
+                <Icon size={16} color="white" aria-hidden="true" />
+              </a>
             ))}
           </div>
         </section>

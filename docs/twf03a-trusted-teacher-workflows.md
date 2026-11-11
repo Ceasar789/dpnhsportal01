@@ -511,3 +511,136 @@ Run from the repository root unless noted:
 ### Clarity redesign (frontend only, behind a preview flag)
 
 A new dashboard look ("Clarity") is being added beside the current screens. It is **off by default**: `?clarity=1` turns it on (remembered in `localStorage` as `smartedu-clarity`), and `?clarity=0` or the **Classic view** button turns it off. Only the Student dashboard has Clarity screens so far: the shell, Scores and Overview (commits `4c716e1`, `3071456`, `9ca6287` and `5934476`). Attendance, Announcements, Tasks, the Teacher dashboard and the Admin dashboard are not done; the Admin work is planned for after the defense. **Before the demo, open every demo device with `?clarity=0`.** The full status, file list, commits and limitations are in [docs/clarity-redesign.md](clarity-redesign.md).
+
+### Later changes on 2026-11-11 (after `ec3d724`)
+
+Written from the repository at commit `7e778f6`. This part adds the work done later on 2026-11-11, apart from the Clarity redesign (already linked above). **Owner-reported** means the owner told us the result; we did not check it ourselves.
+
+**Roles: three roles only.**
+
+| Step | Commit (time) | What changed |
+|---|---|---|
+| F1 | `d35a8fe` (09:16) | An account with an unknown role gets **no access**. Before, it was treated as a student. |
+| F2 and F2b | `0520c2f` (10:14) | The `faculty` and `registrar` roles and their dashboards were removed from the app. The F2b follow-ups (approved test edits, Teacher Students tab, admin News tab) are in the same commit. |
+
+- **Roles the app knows:** `main_admin` (with `admin` as another name for it), `teacher` and `student` (`frontend/src/context/AuthContext.jsx:18-28`, `frontend/src/routes/ProtectedRoute.jsx:11-14`).
+- **What was removed:** the faculty and registrar routes and dashboards, their login options and role flags, and the two roles in the backend's `ASSIGNABLE_ROLES` (`backend/src/routes/onboarding.js:9`).
+- **Unknown roles:**
+  - At login, the message is "This account has no valid role. Please contact the administrator." (`AuthContext.jsx:384`).
+  - A restored session with an unknown role gets no protected page (`ProtectedRoute.jsx:11-23`).
+- **`/faculty-login` stays.** It offers Admin and Teacher only (`frontend/src/pages/auth/FacultyLogin.jsx:11-12`).
+- **Memo labels:** "All Faculty" and "Registrar Office" are kept as recipient labels (`frontend/src/lib/memoRecipients.js:22`). They are stored in `memos.recipient`.
+- **The `guest` role** stays.
+  - The repository uses it for an invited account whose set-up is not finished (`onboarding.js:125`).
+  - Archiving an account changes its **status** to `archived`, not its role (`onboarding.js:173-181`).
+  - That archived teacher accounts have the role `guest` on the live project is **unverified**; the repository does not show it.
+
+**Database not changed** (deferred until after the defense):
+- **Role check:** `profiles.role` still allows 7 values: `main_admin`, `admin`, `faculty`, `teacher`, `registrar`, `student` and `guest` (`backend/database/schema/COMPLETE_DATABASE_SCHEMA_v2.sql:33`).
+- **Staff functions** still name the removed roles:
+  - `is_school_staff()` (`migrations/phase1-03-rls-academic.sql:40-46`) includes `registrar`.
+  - `is_any_staff()` (`migrations/phase5-03-close-the-rls-gaps.sql:52-58`) and `is_active_profile_staff()` (`migrations/phase8-01-profile-authorization-hardening.sql:56-70`) include `registrar` and `faculty`.
+- **Old objects:** the `teacher_workload` view (`COMPLETE_DATABASE_SCHEMA_v2.sql:663`) and the `documents` and `pre_enrollment` tables (`:484`, `:507`).
+  - No file under `frontend/src` reads them.
+  - That both tables have 0 rows on the live project is **owner-reported**.
+
+**Data privacy: consent at login and legal pages.**
+
+| Step | Commit (time) | What changed |
+|---|---|---|
+| B1 | `7c68595` (10:55) | Clickable links in the public footer and the login panel. |
+| B2 | `da8fa96` (12:05) | Terms and Privacy pages, and a required consent tick on the Student and Faculty login. |
+
+- **The consent tick:**
+  - Both login pages require it before signing in (`components/auth/ConsentCheckbox.jsx`).
+  - Without it, the page shows "Please agree to the Terms of Use and Privacy Statement to sign in.", moves focus to the checkbox, and stops before any login request is sent (`pages/auth/StudentLogin.jsx:75`, `pages/auth/FacultyLogin.jsx:127`).
+- **The tick is not stored.** No consent record is written to the database, so the school cannot later show who agreed or when.
+- **New public pages:** `/terms` and `/privacy` (`routes/AppRoutes.jsx:40-41`).
+  - **Status:** the text is a draft for the school to review (`pages/public/Terms.jsx:3`, `Privacy.jsx:3`). The pages do not say "draft" on screen.
+  - **Shown on both:** "Last updated: November 11, 2026" (`Privacy.jsx:35`, through the shared `LegalPage`) and the contact address `307915@deped.gov.ph` (`Privacy.jsx:11`).
+  - **School review:** pending.
+- **Footer and login links:**
+  - **Footer** (`components/PublicFooter.jsx`): the Facebook page, the Google Maps location, the school email (`mailto:`), and links to Privacy Policy (`/privacy`) and Terms of Service (`/terms`).
+  - **Login panel** (`pages/public/Login.jsx:126-127`): Facebook and a feedback email (`mailto:` with the subject "Feedback").
+  - **Removed:** the Camera icon.
+  - **Still plain text:** the phone number `(02) 8642-1234`, which is unconfirmed, and Alumni, which has no page.
+
+**Student announcements fix** (`48044b1`, 13:28): the "Important" badge shows when the priority is "High" in any capitals and with any surrounding spaces (`pages/dashboards/student/tabs/AnnouncementsTab.jsx:109-110`).
+
+**Phone work R1-R5:** described in [Responsive work R1-R5](#responsive-work-r1-r5-frontend-only) above. In short:
+- Full-height screens follow the visible screen (`dvh`).
+- Fields are 16px on phones, so iPhone does not zoom in.
+- Dialog footers stay pinned.
+- Long text wraps.
+- The header fits a 320px screen.
+- On phones up to 767px wide, the toast sits at the top and lets taps pass through.
+- Tap targets are at least 40px.
+- Each step has guard tests.
+
+**Storage buckets on the live project** (owner-reported, 2026-11-11):
+
+| Bucket | Live setting | Objects | Repository script (`STORAGE_BUCKETS_CONFIGURATION.sql`) |
+|---|---|---|---|
+| `assignment-submissions` | private | not reported | private (`:53`) |
+| `ilaw-exports` | public | not reported | public (`:106`) |
+| `lesson-pdfs` | public | 87 | public (`:26`) |
+| `news-images` | public | 6 | public (`:93`) |
+| `profile-photos` | **private** | 3 | **public** (`:80`), with a public-read policy (`:401-403`) |
+| `student-documents` | private | not reported | private (`:66`) |
+| `temporary-uploads` | private | not reported | private (`:119`) |
+| `worksheets` | public | 2 | public (`:40`) |
+
+- **`profile-photos`:** the repository script does not match the live project. Running the script again would make the bucket public.
+- **`worksheets`:** this public bucket holds 2 PDFs whose contents we did not check (**unverified**). Recommended: check that they are handouts, not answer keys or personal information.
+
+**More known limitations** (in addition to the list above):
+- **Scores before release:** the unreleased-marks gap above ("Accept provisional marks" writes marks before release, and `ws_answers_read` lets a student read their own answer rows) is still open.
+  - **Two options:** A, a database fix, or D, document it only.
+  - **Recommendation:** D. The owner's decision is pending.
+  - `ws_subs_teacher_write` (listed above) is also unchanged.
+- **Every active staff member can read every profile row:**
+  - `profiles_read` lets any active staff member, including teachers, read every row in `profiles`, including phone, address and date of birth (`phase8-01-profile-authorization-hardening.sql:90-97`).
+  - The Privacy text tells users this: "teachers and administrators can also see the school directory, including contact details" (`Privacy.jsx:62-64`).
+- **Unused layout files:** `components/layout/DashboardLayout.jsx`, `SideBar.jsx`, `MobileDrawer.jsx` and `MobileAppBar.jsx`. No app file imports them; only `routes/roleRemoval.test.jsx` mentions them.
+- **No priority on admin news:** the admin News form has no field for it (no `priority` in `admin/tabs/NewsTab.jsx` or `admin/useAdminLogic.jsx`).
+- **Senior High:** Grade 11 and 12 are left out of QA and the demo, but still appear in the admin grade list (see Scope above).
+- **Unchanged and still listed above:**
+  - `staff_can_see_student` and `section_students_read` do not filter `status = 'active'`.
+  - The schedule clash check and the department lock run in the browser only.
+  - No removal reason is stored.
+  - The admin row sheet's Close button can sit below the fold in phone landscape.
+  - The admin toast can cover Cancel and Publish at 844×390.
+  - ILAW fields are 36px.
+  - There is no `viewport-fit=cover`.
+
+**Manual QA on the Vercel testing site** (owner-reported, 2026-11-11, not independently verified by us):
+- **Reported passed:**
+  - Student and Faculty login, with and without the consent tick
+  - Admin and Teacher login
+  - `/terms` and `/privacy`
+  - the footer and login links
+  - `/faculty-dashboard` and `/registrar-dashboard` show "not found"
+  - a full demo run-through
+- **Test accounts archived:** the owner archived the two test accounts `faculty@dpnhs.edu.ph` and `registrar@dpnhs.edu.ph` in the Admin Users tab, and saw them in the archived list.
+- **Pending:**
+  - device QA by a tester on iPhone Safari, Android Chrome and a tablet, and in dark mode
+  - the school's review of the Terms and Privacy text
+  - the owner's Vercel check of the Clarity preview (`?clarity=1`)
+
+**Automated tests** (run 2026-11-11 on `7e778f6`; the code is the same as `5934476`):
+- **Frontend** (from `frontend/`: `npx vitest run --maxWorkers=2 --minWorkers=1`): Test Files 225 passed (225); Tests 2508 passed, 1 skipped, 6 todo (2515). `vite build` last succeeded on `5934476`, the same code.
+- **Backend** (from `backend/`: `npm test`, with the real Supabase and Gemini environment variables unset): 485 tests, 485 passed, 0 failed.
+- **End-to-end:**
+  - The mocked specs were not re-run for these changes.
+  - The live-login specs are not run.
+  - `E2E_ALLOW_WRITES`, `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` stay unset.
+
+**Future work (not built):**
+- Database clean-up of the `registrar` and `faculty` objects: the role check, the three staff functions, `teacher_workload`, `pre_enrollment` and `documents`
+- A consent record (a migration that stores who agreed, and when)
+- A feedback form backed by the database (feedback is an email link today)
+- The Grade 7→8 promotion wizard
+- Senior High (Grade 11-12)
+- A priority field for admin news
+- Hardening the gaps above: unreleased marks, `ws_subs_teacher_write`, the active-status filters, server-side clash and department checks, the removal reason, phone landscape, `viewport-fit=cover`, and narrower profile reads
+- Finishing the Clarity redesign (see [docs/clarity-redesign.md](clarity-redesign.md))

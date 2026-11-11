@@ -19,7 +19,8 @@ const dark = rules.find(r => r.selector === 'html.theme-clarity.dark')?.vars;
 const HANDOFF_LIGHT = {
   // dim and ok were darkened from #7d86a0 and #12805c for WCAG AA contrast (owner-approved on 2026-11-11).
   bg: '#f6f7fb', card: '#fff', side: '#fff', bd: '#e7e9f1', bd2: '#d6dae8', tx: '#141b34', mu: '#566079', dim: '#68718c',
-  ac: '#3d34e0', 'ac-s': '#eeedfd', 'ac-t': '#fff', c1: '#3d34e0', c2: '#00a9c9', c3: '#e8a600',
+  // c2 and c3 darkened from #00a9c9 and #e8a600 for 3:1 non-text contrast (owner-approved 2026-11-11).
+  ac: '#3d34e0', 'ac-s': '#eeedfd', 'ac-t': '#fff', c1: '#3d34e0', c2: '#0096b3', c3: '#b87d00',
   ok: '#117a58', 'ok-s': '#e3f5ee', wa: '#8f5f00', 'wa-s': '#fdf1d3', er: '#c4311f', 'er-s': '#fde9e6',
   r: '12px', sh: '0 1px 2px rgba(20,27,52,.04)', shh: '0 10px 28px rgba(20,27,52,.09)',
   'side-tx': '#566079', 'side-on': '#eeedfd', 'side-on-tx': '#3d34e0', 'side-bd': '#e7e9f1', 'side-head': '#141b34', 'side-hov': '#f3f4f9',

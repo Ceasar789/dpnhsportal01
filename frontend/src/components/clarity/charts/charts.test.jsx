@@ -220,21 +220,12 @@ describe('chart colours: non-text contrast 3:1 against card and background', () 
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
-  // Handoff tokens kept as given (not changed here); reported to the owner.
-  const KNOWN_BELOW_3 = { 'light c2 card': 2.79, 'light c2 bg': 2.61, 'light c3 card': 2.12, 'light c3 bg': 1.98 };
   const COLOURS = ['c1', 'c2', 'c3', 'mu', 'dim', 'ok', 'wa', 'er', 'ac'];
 
   for (const [mode, t] of Object.entries(THEMES)) {
     for (const surface of ['card', 'bg']) {
       it.each(COLOURS)(`${mode}: --cl-%s on --cl-${surface}`, (c) => {
-        const measured = ratio(t[c], t[surface]);
-        const known = KNOWN_BELOW_3[`${mode} ${c} ${surface}`];
-        if (known) {
-          expect(measured).toBeLessThan(3);
-          expect(Number(measured.toFixed(2))).toBe(known);
-        } else {
-          expect(measured).toBeGreaterThanOrEqual(3);
-        }
+        expect(ratio(t[c], t[surface])).toBeGreaterThanOrEqual(3);
       });
     }
   }

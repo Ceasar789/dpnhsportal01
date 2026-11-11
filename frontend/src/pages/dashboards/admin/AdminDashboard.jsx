@@ -29,6 +29,7 @@ import MemosTab from './tabs/MemosTab';
 import SettingsTab from './tabs/SettingsTab';
 import ProfileTab from '../../profile/ProfileTab';
 import { viewportHeight } from '../../../lib/viewportHeight';
+import AdminShellSwitch from '../../../components/clarity/admin/AdminShellSwitch';
 
 // ============================================
 // MAIN ADMIN DASHBOARD — auth guard, then mounts AdminProvider
@@ -98,7 +99,7 @@ const AdminDashboard = () => {
 
   return (
     <AdminProvider userData={userData}>
-      <AdminDashboardShell navigate={navigate} logout={logout} userData={userData} />
+      <AdminShellSwitch classic={AdminDashboardShell} navigate={navigate} logout={logout} userData={userData} />
     </AdminProvider>
   );
 };

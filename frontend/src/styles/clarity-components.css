@@ -257,7 +257,7 @@ html.theme-clarity .x-track { fill: none; stroke: var(--cl-bd); stroke-width: 4.
 html.theme-clarity .x-ringval { font-family: var(--cl-font); font-size: 7px; font-weight: 700; fill: var(--cl-tx); text-anchor: middle; }
 html.theme-clarity .x-ringlbl { font-size: 3px; fill: var(--cl-dim); text-anchor: middle; }
 html.theme-clarity .o-ring { position: relative; display: inline-flex; align-items: center; justify-content: center; }
-html.theme-clarity .o-ring b { position: absolute; font-size: 13px; font-weight: 700; }
+html.theme-clarity .o-ring > b { position: absolute; font-size: 13px; font-weight: 700; }
 html.theme-clarity .x-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 140px; }
 html.theme-clarity .x-legend li { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--cl-mu); transition: opacity .2s; }
 html.theme-clarity .x-legend li b { margin-left: auto; color: var(--cl-tx); font-variant-numeric: tabular-nums; }

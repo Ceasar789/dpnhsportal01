@@ -270,6 +270,6 @@ describe('inert for the rest of the app', () => {
       .filter(p => inSrc(p).startsWith('components/clarity/') === false)
       .filter(p => /components\/clarity\//.test(readFileSync(p, 'utf8')))
       .map(inSrc);
-    expect(importers).toEqual(['pages/dashboards/student/StudentDashboard.jsx']);
+    expect(importers).toEqual(['pages/dashboards/admin/AdminDashboard.jsx', 'pages/dashboards/student/StudentDashboard.jsx']);
   });
 });

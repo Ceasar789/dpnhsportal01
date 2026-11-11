@@ -507,3 +507,7 @@ Run from the repository root unless noted:
 - Rotating the phone while a dialog or drawer is open
 - Native date and time pickers in Distribute and Attendance
 - Tap reach of the 40px targets, and the top toast with the keyboard open
+
+### Clarity redesign (frontend only, behind a preview flag)
+
+A new dashboard look ("Clarity") is being added beside the current screens. It is **off by default**: `?clarity=1` turns it on (remembered in `localStorage` as `smartedu-clarity`), and `?clarity=0` or the **Classic view** button turns it off. Only the Student dashboard has Clarity screens so far: the shell, Scores and Overview (commits `4c716e1`, `3071456`, `9ca6287` and `5934476`). Attendance, Announcements, Tasks, the Teacher dashboard and the Admin dashboard are not done; the Admin work is planned for after the defense. **Before the demo, open every demo device with `?clarity=0`.** The full status, file list, commits and limitations are in [docs/clarity-redesign.md](clarity-redesign.md).

@@ -106,7 +106,8 @@ const AnnouncementsTab = () => {
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {new Date(announcement.created_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}
                 </span>
-                {announcement.priority === 'high' && (
+                {/* The database stores 'High'; compare case-insensitively so any spelling marks it Important. */}
+                {String(announcement.priority ?? '').trim().toLowerCase() === 'high' && (
                   <Badge color={RED.color} bg={RED.bg}>Important</Badge>
                 )}
               </div>

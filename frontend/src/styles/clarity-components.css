@@ -72,6 +72,23 @@ html.theme-clarity .x-ov-head.x-head { align-items: center; }
 html.theme-clarity .x-ov-seg { margin-top: 12px; }
 /* "View users" in the normal text colour, as in the design (focus ring kept). */
 html.theme-clarity .x-ov .x-link { color: var(--cl-tx); }
+/* A2: Admin Sections (one column per grade that has sections) and Subjects
+   (a grade-level table). */
+html.theme-clarity .x-sec-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+html.theme-clarity .x-sec-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+html.theme-clarity .x-sec-colhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 700; color: var(--cl-mu); }
+html.theme-clarity .x-sec-colhead h2 { margin: 0; font-size: 13px; font-weight: 700; color: var(--cl-mu); overflow-wrap: anywhere; }
+html.theme-clarity .x-sec-card { padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+html.theme-clarity .x-sec-name { margin: 0; font-size: 14px; font-weight: 700; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-sec-meta { margin: 0; font-size: 13px; color: var(--cl-mu); overflow-wrap: anywhere; }
+html.theme-clarity .x-sec-cap { margin: 4px 0 0; font-size: 12px; color: var(--cl-dim); }
+html.theme-clarity .x-sec-act { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+html.theme-clarity .x-sec-setup { min-height: 40px; }
+html.theme-clarity .x-sub-g { text-align: center; }
+html.theme-clarity .x-sub-cell { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 22px; border-radius: 6px; background: var(--cl-bg); color: var(--cl-dim); }
+html.theme-clarity .x-sub-cell.on { background: var(--cl-ok-s); color: var(--cl-ok); }
+html.theme-clarity .x-sub-dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; }
+html.theme-clarity .x-sub-msg { text-align: center; padding: 24px; }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }

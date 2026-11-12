@@ -20,9 +20,9 @@ import NotificationBell from '../../NotificationBell';
 import Avatar from '../../Avatar';
 import ClarityAdminOverviewTab from './ClarityAdminOverviewTab';
 import UsersTab from '../../../pages/dashboards/admin/tabs/UsersTab';
-import SubjectsTab from '../../../pages/dashboards/admin/tabs/SubjectsTab';
+import ClarityAdminSubjectsTab from './ClarityAdminSubjectsTab';
 import TeachingLoadTab from '../../../pages/dashboards/admin/tabs/TeachingLoadTab';
-import SectionsTab from '../../../pages/dashboards/admin/tabs/SectionsTab';
+import ClarityAdminSectionsTab from './ClarityAdminSectionsTab';
 import SchedulesTab from '../../../pages/dashboards/admin/tabs/SchedulesTab';
 import NewsTab from '../../../pages/dashboards/admin/tabs/NewsTab';
 import CalendarTab from '../../../pages/dashboards/admin/tabs/CalendarTab';
@@ -304,9 +304,9 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
           <div key={page} className="x-pagein">
             {page === 'overview' && <ClarityAdminOverviewTab />}
             {page === 'users' && <UsersTab />}
-            {page === 'subjects' && <SubjectsTab />}
+            {page === 'subjects' && <ClarityAdminSubjectsTab />}
             {page === 'teaching-load' && <TeachingLoadTab />}
-            {page === 'sections' && <SectionsTab />}
+            {page === 'sections' && <ClarityAdminSectionsTab />}
             {page === 'schedules' && <SchedulesTab />}
             {page === 'news' && <NewsTab />}
             {page === 'calendar' && <CalendarTab />}

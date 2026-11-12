@@ -185,6 +185,45 @@ html.theme-clarity .x-usr-info dd { margin: 2px 0 0; color: var(--cl-tx); overfl
 html.theme-clarity .x-usr-dact { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 html.theme-clarity .x-usr-dact .x-btn { flex: 1 1 auto; }
 html.theme-clarity .x-usr-edit { border-color: transparent; background: none; }
+/* A6: Admin Teaching Load (grade tabs with real counts, teachers, the selected teacher's subjects) */
+html.theme-clarity .x-tld-year { display: flex; align-items: center; gap: 12px; }
+html.theme-clarity .x-tld-year label { font-weight: 600; color: var(--cl-tx); }
+html.theme-clarity .x-tld-year .x-input { width: 150px; }
+html.theme-clarity .x-tld-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+html.theme-clarity .x-tld-grades { margin-bottom: 8px; }
+html.theme-clarity .x-tld-n { display: inline-block; margin-left: 10px; min-width: 22px; padding: 0 7px; border-radius: 9999px; font-size: 12px; line-height: 20px; color: var(--cl-mu); }
+html.theme-clarity .x-tld-grades button.on .x-tld-n { background: rgba(255,255,255,.25); color: inherit; }
+html.theme-clarity .x-tld-caption { margin: 0 0 12px; }
+html.theme-clarity .x-tld-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+html.theme-clarity .x-tld-count { margin: 4px 0 16px; }
+html.theme-clarity .x-tld-search { margin-bottom: 12px; }
+html.theme-clarity .x-tld-list { display: grid; gap: 4px; }
+html.theme-clarity .x-tld-teacher { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 12px; border: 0; border-radius: 10px; background: none; font: inherit; color: var(--cl-tx); text-align: left; cursor: pointer; }
+html.theme-clarity .x-tld-teacher:hover { background: var(--cl-table-hover); }
+html.theme-clarity .x-tld-teacher.on { background: var(--cl-ac-s); }
+html.theme-clarity .x-tld-teacher:focus-visible, html.theme-clarity .x-tld-grades button:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-tld-tcopy { display: grid; min-width: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-tld-tcopy span { font-size: 13px; color: var(--cl-mu); }
+html.theme-clarity .x-tld-empty { padding: 32px 8px; text-align: center; }
+html.theme-clarity .x-tld-dhead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+html.theme-clarity .x-tld-dhead .x-ct { margin: 2px 0 6px; overflow-wrap: anywhere; }
+html.theme-clarity .x-tld-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--cl-dim); }
+html.theme-clarity .x-tld-note { margin: 8px 0 0; }
+html.theme-clarity .x-tld-add { margin-top: 16px; }
+html.theme-clarity .x-tld-addrow { display: flex; flex-wrap: wrap; gap: 8px; }
+html.theme-clarity .x-tld-addrow .x-select { flex: 1 1 200px; min-width: 0; }
+html.theme-clarity .x-tld-err { margin: 6px 0 0; font-size: 13px; color: var(--cl-er); }
+html.theme-clarity .x-tld-rows { margin-top: 16px; }
+html.theme-clarity .x-tld-rows-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--cl-tx); }
+html.theme-clarity .x-tld-scroll { overflow-x: auto; }
+html.theme-clarity .x-table.x-tld-table { min-width: 360px; }
+html.theme-clarity .x-tld-subj { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--cl-tx); }
+html.theme-clarity .x-tld-act { text-align: right; }
+html.theme-clarity .x-tld-remove { border-color: transparent; background: none; color: var(--cl-mu); }
+html.theme-clarity .x-tld-savecopy { display: grid; gap: 2px; min-width: 0; }
+html.theme-clarity .x-tld-savecopy b { display: inline-flex; align-items: center; gap: 6px; }
+html.theme-clarity .x-tld-savecopy span { font-size: 13px; opacity: .8; }
+html.theme-clarity .x-tld-saveact { display: flex; gap: 8px; }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -561,6 +600,10 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
   html.theme-clarity .x-news-hero { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-memo-layout { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-usr-layout { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-tld-layout { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-tld-year { width: 100%; }
+  html.theme-clarity .x-tld-year .x-input { flex: 1; width: auto; }
+  html.theme-clarity .x-tld-teacher, html.theme-clarity .x-tld-remove { min-height: 48px; }
   html.theme-clarity .x-app { font-size: 15px; line-height: 1.55; }
   html.theme-clarity .x-top { padding: 0 16px; }
   html.theme-clarity .x-search { display: none; }

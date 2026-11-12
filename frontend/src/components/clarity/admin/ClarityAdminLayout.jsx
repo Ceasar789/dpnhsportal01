@@ -21,7 +21,7 @@ import Avatar from '../../Avatar';
 import ClarityAdminOverviewTab from './ClarityAdminOverviewTab';
 import ClarityAdminUsersTab from './ClarityAdminUsersTab';
 import ClarityAdminSubjectsTab from './ClarityAdminSubjectsTab';
-import TeachingLoadTab from '../../../pages/dashboards/admin/tabs/TeachingLoadTab';
+import ClarityAdminTeachingLoadTab from './ClarityAdminTeachingLoadTab';
 import ClarityAdminSectionsTab from './ClarityAdminSectionsTab';
 import ClarityAdminSchedulesTab from './ClarityAdminSchedulesTab';
 import ClarityAdminNewsTab from './ClarityAdminNewsTab';
@@ -305,7 +305,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
             {page === 'overview' && <ClarityAdminOverviewTab />}
             {page === 'users' && <ClarityAdminUsersTab />}
             {page === 'subjects' && <ClarityAdminSubjectsTab />}
-            {page === 'teaching-load' && <TeachingLoadTab />}
+            {page === 'teaching-load' && <ClarityAdminTeachingLoadTab />}
             {page === 'sections' && <ClarityAdminSectionsTab />}
             {page === 'schedules' && <ClarityAdminSchedulesTab />}
             {page === 'news' && <ClarityAdminNewsTab />}

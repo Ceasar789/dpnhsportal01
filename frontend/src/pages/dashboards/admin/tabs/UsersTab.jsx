@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Archive, ArchiveRestore, Mail, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { avatarColor, roleBadge, roleLabel } from '../shared/helpers';
+import { LRN_PATTERN, LRN_REQUIRED, lrnInput } from '../shared/lrn';
 
 // The roles an admin can give an account.
 const ASSIGNABLE_ROLES = ['student', 'teacher', 'main_admin'];
@@ -30,7 +31,7 @@ const UsersTab = () => {
   const {
     closeModal, deleteUser, restoreUser, editUser, fetchUsers, filteredUsers, modal, openCreateUser, openEditUser, resendInvitation, roleFilter, saveUser, setRoleFilter,
     setStatusFilter, setShowArchived, setUEmail, setUName, setURole, setUStatus, setUserSearch,
-    showArchived, statusFilter, uDept, setUDept, uEmail, uName, uRole, uSaving, uStatus, userSearch, users, usersLoading, usersError, onlineUsers
+    showArchived, statusFilter, uDept, setUDept, uEmail, uLrn = '', setULrn, uName, uRole, uSaving, uStatus, userSearch, users, usersLoading, usersError, onlineUsers
   } = useAdminContext();
 
   // UX-062: the form mixed required and optional fields and distinguished
@@ -54,6 +55,8 @@ const UsersTab = () => {
   }, [modal]);
   const missingName = tried && !uName.trim();
   const missingEmail = tried && !uEmail.trim();
+  // A student's LRN: required to create one; on edit only checked when filled in.
+  const badLrn = tried && uRole === 'student' && (!editUser || uLrn.trim() !== '') && !LRN_PATTERN.test(uLrn.trim());
 
   return (
     <>
@@ -266,6 +269,15 @@ const UsersTab = () => {
             <div className="form-row">
               <label className="form-label" htmlFor="users-department-subject">Department / Subject</label>
               <input id="users-department-subject" className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
+            </div>
+          )}
+          {uRole === 'student' && (
+            <div className="form-row">
+              <label className="form-label" htmlFor="users-lrn">LRN{!editUser && <span className="form-req" aria-hidden="true">*</span>}</label>
+              <input id="users-lrn" className={`form-input${badLrn ? ' is-invalid' : ''}`} value={uLrn} onChange={e => setULrn(lrnInput(e.target.value))} placeholder="12 digits"
+                inputMode="numeric" maxLength={12} autoComplete="off"
+                aria-required={editUser ? undefined : 'true'} aria-invalid={badLrn || undefined} aria-describedby={badLrn ? 'users-lrn-error' : undefined} />
+              {badLrn && <div className="field-error" id="users-lrn-error">{LRN_REQUIRED}</div>}
             </div>
           )}
           {editUser && <div className="form-row">

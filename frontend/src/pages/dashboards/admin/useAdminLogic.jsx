@@ -27,6 +27,7 @@ import {
   verifyUpdatedSettingsRows,
 } from './shared/settingsRules';
 import { filterAndRankUsers } from './shared/userSearch';
+import { LRN_PATTERN, LRN_REQUIRED, LRN_TAKEN } from './shared/lrn';
 import {
   isInvalidCalendarRange,
   philippineDateKey,
@@ -310,6 +311,8 @@ export const useAdminLogic = (userData) => {
   const [uName,   setUName]   = useState('');
   const [uEmail,  setUEmail]  = useState('');
   const [uDept,   setUDept]   = useState('');
+  // A student's LRN (students.lrn): required on create, optional on edit.
+  const [uLrn,    setULrn]    = useState('');
   const [uRole,   setURole]   = useState('student');
   const [uStatus, setUStatus] = useState('active');
   const [uSaving, setUSaving] = useState(false);
@@ -354,12 +357,12 @@ export const useAdminLogic = (userData) => {
     }
   };
   const openCreateUser = () => {
-    setEditUser(null); setUName(''); setUEmail(''); setUDept(''); setURole('student'); setUStatus('active');
+    setEditUser(null); setUName(''); setUEmail(''); setUDept(''); setURole('student'); setUStatus('active'); setULrn('');
     openModal('user');
   };
   const openEditUser = (u) => {
     setEditUser(u); setUName(u.name || ''); setUEmail(u.email || '');
-    setUDept(u.department || ''); setURole(u.role || 'student'); setUStatus(u.status?.toLowerCase() || 'active');
+    setUDept(u.department || ''); setURole(u.role || 'student'); setUStatus(u.status?.toLowerCase() || 'active'); setULrn(u.lrn || '');
     openModal('user');
   };
 
@@ -368,6 +371,13 @@ export const useAdminLogic = (userData) => {
   if (editUser?.id === userData?.uid
       && (uRole !== editUser.role || uStatus !== (editUser.status || 'active').toLowerCase())) {
     showToast('You cannot change your own administrator role or account status.', 'error');
+    return;
+  }
+  // LRN, students only: required to create one; on edit only checked (and
+  // saved) when filled in, so a legacy student without one can still be saved.
+  const lrnValue = uRole === 'student' ? uLrn.trim() : '';
+  if (uRole === 'student' && (!editUser || lrnValue) && !LRN_PATTERN.test(lrnValue)) {
+    showToast(LRN_REQUIRED, 'error');
     return;
   }
   if (savingUserRef.current) return;   // the second of a double click
@@ -379,6 +389,12 @@ export const useAdminLogic = (userData) => {
       // UPDATE EXISTING USER
       // ════════════════════════════════════════════════
       const pendingInvitation = editUser.onboarding_status === 'invitation_pending';
+      // The LRN first: a duplicate stops the save before anything is written.
+      if (lrnValue) {
+        const { error: lrnError } = await supabase.from('students')
+          .upsert({ id: editUser.id, lrn: lrnValue }, { onConflict: 'id' });
+        if (lrnError) throw lrnError.code === '23505' ? new Error(LRN_TAKEN) : lrnError;
+      }
       const { data, error } = await supabase.from('profiles').update({
         name: uName.trim(),
         department: uDept.trim() || null,
@@ -389,7 +405,7 @@ export const useAdminLogic = (userData) => {
       if (error) throw error;
       
       setUsers(prev => prev.map(u => u.id === editUser.id
-        ? { ...data, onboarding_status: u.onboarding_status, can_resend_invitation: u.can_resend_invitation }
+        ? { ...data, onboarding_status: u.onboarding_status, can_resend_invitation: u.can_resend_invitation, ...(lrnValue && { lrn: lrnValue }) }
         : u));
       showToast('User updated!');
       console.log('✅ User updated:', data.id);
@@ -405,6 +421,7 @@ export const useAdminLogic = (userData) => {
           email: uEmail.trim(),
           role: uRole,
           department: uDept.trim() || null,
+          ...(lrnValue && { lrn: lrnValue }),
         }),
       });
       setUsers(prev => [invitedUser, ...prev]);
@@ -1492,7 +1509,7 @@ export const useAdminLogic = (userData) => {
     setNTitle, setNewsCatF, setNewsItems, setNewsSearch, setNewsStatF, setNotifications,
     setPage, setRoleDist, setRoleFilter, setSS, setSelMemo, setSessionTimeout,
     setSettings, setStats, setTheme, setToast, setTwoFactorAuth,
-    setUDept, setUEmail, setUL, setUName, setURole,
+    setUDept, setUEmail, setUL, setULrn, setUName, setURole,
     setUSaving, setUserSearch, setUsers, setUStatus, setStatusFilter, setShowArchived, settings, settingsSaving, showToast,
     stats, statsErrors, overviewLoading, theme, toast, today, twoFactorAuth, onlineUsers: onlineUserIds,
     themePref, setThemePref, settingsDirty, settingsChangeCount, discardSettings,
@@ -1500,7 +1517,7 @@ export const useAdminLogic = (userData) => {
     // The SAVED year (not the field being edited), for the academic tabs.
     settingsSavedYear: settingsBaseline?.academic_year ?? null,
     settingsValidation, settingsAuthorized, settingsCanEdit, settingsCanSave, fetchBackupHistory,
-    typeClass, typeColor, uDept, uEmail, uName,
+    typeClass, typeColor, uDept, uEmail, uLrn, uName,
     uRole, uSaving, uStatus, statusFilter, showArchived, upcomingEvents, updateNewsStatus, userSearch, users,
     usersLoading, usersError,
   };

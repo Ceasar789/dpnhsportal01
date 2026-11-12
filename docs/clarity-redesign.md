@@ -56,6 +56,21 @@ The only classic file that refers to Clarity is `frontend/src/pages/dashboards/s
 
 **A temporary copy (to remove after the defense):** `student/overviewSummary.js` is a word-for-word copy of the calculations inside `pages/dashboards/student/tabs/OverviewTab.jsx` (worksheet performance, attendance, the welcome details, the pending count and the per-subject counts). It was copied so the classic file did not have to change before the defense. A parity test (`student/ClarityOverviewTab.test.jsx`) checks that both give the same numbers. After the defense, `OverviewTab.jsx` will import this helper instead of keeping its own copy (owner-approved "Option A").
 
+## Admin User Management (G2)
+
+- **Master-detail:** the users table is on the left and the profile card on the right. Below 1100px wide, the card stacks under the table.
+- **Selecting a user:** clicking anywhere on a row selects that user. The name button in the first cell does the same from the keyboard (Enter or Space) and carries `aria-pressed`. Nothing is selected when the page opens; the card then reads "Select a user to see their profile."
+- **What the card shows:** only fields that `GET /api/admin/users` returns. That route reads `profiles.*`, so the card shows the photo, name, email, role, status, Created, Department and the Profile Settings fields (phone, date of birth, address, about me). Any field that is empty is left out.
+- **LRN:** the LRN is stored in `students.lrn`. The directory route now adds it to each row as `lrn` (`null` when there is none), and the card shows it for students only.
+- **LRN when creating or editing a user:**
+  - The user dialog, both classic and Clarity, has an **LRN** field that appears only when the role is Student. It accepts digits only, up to 12.
+  - **Create:** a 12-digit LRN is required for a student. The invite route (`backend/src/routes/onboarding.js`) checks the format and that no other student has it, then creates the `students` row after the profile. If any step fails, the students row, the profile and the auth account are all removed.
+  - **Edit:** the LRN is checked and saved (`students` upsert, before the profile update) only when it is filled in. A student with no LRN on record can still be saved with the field blank.
+  - **Messages:** "A 12-digit LRN is required for a student." and "This LRN is already used by another student."
+  - **Other roles:** the request is unchanged; any LRN is ignored.
+  - Students still cannot change their own LRN in Profile Settings.
+- **Actions:** Edit, Resend invitation and Archive/Restore are in the card and use the same handlers as before.
+
 ## Not done yet
 
 **Student:** Attendance, Announcements and Tasks still show the classic tab even with the flag on, and so does Profile. According to the owner's plan, Attendance, Announcements and Tasks need their data and handlers moved out of the tab files first; this was **not** re-checked tab by tab for this document.

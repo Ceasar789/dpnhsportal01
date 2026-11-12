@@ -8,6 +8,10 @@ const ADMIN_ROLES = ['main_admin'];
 // pending password setup naming either is refused.
 export const ASSIGNABLE_ROLES = new Set(['student', 'teacher', 'main_admin']);
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// A DepEd LRN: exactly twelve digits. Required when the invited role is student.
+export const LRN_PATTERN = /^\d{12}$/;
+const LRN_REQUIRED = 'A 12-digit LRN is required for a student.';
+const LRN_TAKEN = 'This LRN is already used by another student.';
 
 const inviteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -46,7 +50,11 @@ export function onboardingStatus(profile, authUser) {
   return (profile.status || 'inactive').toLowerCase();
 }
 
-async function rollbackProvisioning(client, userId, profileCreated) {
+async function rollbackProvisioning(client, userId, profileCreated, studentCreated = false) {
+  if (studentCreated) {
+    const { error } = await client.from('students').delete().eq('id', userId);
+    if (error) console.error('[onboarding] student record rollback failed —', error.message);
+  }
   if (profileCreated) {
     const { error } = await client.from('profiles').delete().eq('id', userId);
     if (error) console.error('[onboarding] profile rollback failed —', error.message);
@@ -58,15 +66,20 @@ async function rollbackProvisioning(client, userId, profileCreated) {
 export const adminUsersRouter = Router();
 adminUsersRouter.use(requireAuth(ADMIN_ROLES));
 
-adminUsersRouter.get('/', async (_req, res) => {
+// The handlers take a client factory so a test can pass a fake one; the
+// router passes adminClient, called where it always was.
+export async function listDirectory(res, getClient = adminClient) {
   try {
-    const client = adminClient();
-    const [{ data: profiles, error }, authUsers] = await Promise.all([
+    const client = getClient();
+    const [{ data: profiles, error }, authUsers, { data: students, error: studentsError }] = await Promise.all([
       client.from('profiles').select('*').order('created_at', { ascending: false }),
       allAuthUsers(client),
+      client.from('students').select('id, lrn'),
     ]);
     if (error) throw error;
+    if (studentsError) throw studentsError;
     const authById = new Map(authUsers.map((user) => [user.id, user]));
+    const lrnById = new Map((students || []).map((student) => [student.id, student.lrn]));
     res.json({
       users: (profiles || []).map((profile) => {
         const authUser = authById.get(profile.id);
@@ -76,6 +89,7 @@ adminUsersRouter.get('/', async (_req, res) => {
           role: setupIncomplete ? (authUser?.app_metadata?.intended_role || profile.role) : profile.role,
           onboarding_status: onboardingStatus(profile, authUser),
           can_resend_invitation: Boolean(authUser?.invited_at && !authUser?.email_confirmed_at),
+          lrn: lrnById.get(profile.id) ?? null,
         };
       }),
     });
@@ -83,9 +97,10 @@ adminUsersRouter.get('/', async (_req, res) => {
     console.error('[onboarding] user directory failed —', err.message);
     res.status(503).json({ error: 'Unable to load the user directory. Try again.' });
   }
-});
+}
+adminUsersRouter.get('/', (_req, res) => listDirectory(res));
 
-adminUsersRouter.post('/invite', inviteLimiter, async (req, res) => {
+export async function inviteUser(req, res, getClient = adminClient) {
   const name = String(req.body?.name || '').trim();
   const email = String(req.body?.email || '').trim().toLowerCase();
   const role = String(req.body?.role || 'student').trim().toLowerCase();
@@ -93,10 +108,14 @@ adminUsersRouter.post('/invite', inviteLimiter, async (req, res) => {
   if (!name || !EMAIL.test(email) || !ASSIGNABLE_ROLES.has(role)) {
     return res.status(400).json({ error: 'A valid name, email, and role are required.' });
   }
+  // Students only: any other role ignores lrn, exactly as before.
+  const lrn = role === 'student' ? String(req.body?.lrn ?? '').trim() : null;
+  if (role === 'student' && !LRN_PATTERN.test(lrn)) return res.status(400).json({ error: LRN_REQUIRED });
 
-  const client = adminClient();
+  const client = getClient();
   let userId = null;
   let profileCreated = false;
+  let studentCreated = false;
   try {
     const { data: existingProfile, error: lookupError } = await client
       .from('profiles').select('id').eq('email', email).maybeSingle();
@@ -106,6 +125,12 @@ adminUsersRouter.post('/invite', inviteLimiter, async (req, res) => {
     const authUsers = await allAuthUsers(client);
     if (authUsers.some((user) => user.email?.toLowerCase() === email)) {
       return res.status(409).json({ error: 'An authentication account already uses this email address.' });
+    }
+    if (lrn) {
+      const { data: lrnOwner, error: lrnError } = await client
+        .from('students').select('id').eq('lrn', lrn).maybeSingle();
+      if (lrnError) throw lrnError;
+      if (lrnOwner) return res.status(409).json({ error: LRN_TAKEN });
     }
 
     const redirectTo = setupRedirect();
@@ -127,18 +152,30 @@ adminUsersRouter.post('/invite', inviteLimiter, async (req, res) => {
     if (profileError) throw profileError;
     profileCreated = true;
 
+    if (lrn) {
+      const { error: studentError } = await client.from('students').insert({ id: userId, lrn });
+      if (studentError?.code === '23505') {
+        // Taken between the check above and this insert: undo and say so.
+        await rollbackProvisioning(client, userId, profileCreated);
+        return res.status(409).json({ error: LRN_TAKEN });
+      }
+      if (studentError) throw studentError;
+      studentCreated = true;
+    }
+
     const { error: inviteError } = await client.auth.admin.inviteUserByEmail(email, {
       data: metadata, redirectTo,
     });
     if (inviteError) throw inviteError;
 
-    res.status(201).json({ user: { ...profile, role, onboarding_status: 'invitation_pending', can_resend_invitation: true } });
+    res.status(201).json({ user: { ...profile, role, onboarding_status: 'invitation_pending', can_resend_invitation: true, ...(lrn && { lrn }) } });
   } catch (err) {
-    if (userId) await rollbackProvisioning(client, userId, profileCreated);
+    if (userId) await rollbackProvisioning(client, userId, profileCreated, studentCreated);
     console.error('[onboarding] invitation failed —', err.message);
     res.status(502).json({ error: 'The invitation could not be completed. No account was added.' });
   }
-});
+}
+adminUsersRouter.post('/invite', inviteLimiter, (req, res) => inviteUser(req, res));
 
 adminUsersRouter.post('/:id/resend-invitation', inviteLimiter, async (req, res) => {
   try {

@@ -108,12 +108,12 @@ describe('layout from real data', () => {
 });
 
 describe('selection', () => {
-  it('the first row is shown without calling anything; picking a row only selects it', () => {
+  it('nothing is selected at first; picking a row only selects it', () => {
     show();
     const handlers = Object.entries(h.ctx).filter(([, v]) => typeof v === 'function' && v.mock);
     const picks = within(table()).getAllByRole('button');
-    expect(picks[0].getAttribute('aria-pressed')).toBe('true');
-    expect(within(detail()).getByRole('heading', { level: 2 }).textContent).toBe('Ana Santos');
+    expect(picks[0].getAttribute('aria-pressed')).toBe('false');
+    expect(detail().textContent).toBe('Select a user to see their profile.');
     fireEvent.click(picks[1]);
     expect(picks[1].getAttribute('aria-pressed')).toBe('true');
     expect(picks[0].getAttribute('aria-pressed')).toBe('false');
@@ -124,6 +124,7 @@ describe('selection', () => {
 
   it('detail card: email, role and status pills, Department and Created only when stored', () => {
     show();
+    fireEvent.click(within(table()).getAllByRole('button')[0]);
     expect(detail().textContent).toContain('ana@school.test');
     expect(within(detail()).getByText('Department').nextSibling.textContent).toBe('Science');
     expect(within(detail()).getByText('Created').nextSibling.textContent).toBe('Aug 4, 2026');
@@ -232,6 +233,7 @@ describe('every classic action, same handlers and arguments', () => {
     const run = (Tab) => {
       h.ctx = baseCtx({ showArchived: true, filteredUsers: [USERS[4]] });
       show(Tab);
+      if (Tab === ClarityAdminUsersTab) fireEvent.click(within(table()).getAllByRole('button')[0]);
       expect(screen.queryByRole('button', { name: /^Archive old/ })).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: 'Restore old@school.test' }));
       fireEvent.click(screen.getByRole('button', { name: 'Edit old@school.test' }));
@@ -258,6 +260,7 @@ describe('every classic action, same handlers and arguments', () => {
     cleanup();
     h.ctx = baseCtx({ filteredUsers: [USERS[0]] });
     show();
+    fireEvent.click(within(table()).getAllByRole('button')[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Archive Ana Santos' }));
     const last = h.ctx.deleteUser.mock.calls[0][1];
     rows()[0].remove();
@@ -281,7 +284,7 @@ describe('states', () => {
     h.ctx = baseCtx({ filteredUsers: [] });
     show();
     expect(screen.getByText('No users found')).toBeTruthy();
-    expect(screen.getByText('Select a user to view')).toBeTruthy();
+    expect(screen.getByText('Select a user to see their profile.')).toBeTruthy();
     expect(screen.getByText('Showing 0 of 5 users')).toBeTruthy();
   });
 });

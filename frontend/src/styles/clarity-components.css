@@ -187,6 +187,11 @@ html.theme-clarity .x-usr-info dd { margin: 2px 0 0; color: var(--cl-tx); overfl
 html.theme-clarity .x-usr-dact { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 html.theme-clarity .x-usr-dact .x-btn { flex: 1 1 auto; }
 html.theme-clarity .x-usr-edit { border-color: transparent; background: none; }
+html.theme-clarity .x-usr-table tbody tr { cursor: pointer; }
+html.theme-clarity .x-usr-bio { white-space: pre-wrap; }
+@media (max-width: 1099.98px) {
+  html.theme-clarity .x-usr-layout { grid-template-columns: minmax(0, 1fr); }
+}
 /* A6: Admin Teaching Load (grade tabs with real counts, teachers, the selected teacher's subjects) */
 html.theme-clarity .x-tld-year { display: flex; align-items: center; gap: 12px; }
 html.theme-clarity .x-tld-year label { font-weight: 600; color: var(--cl-tx); }

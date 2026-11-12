@@ -2,30 +2,35 @@
 // FILE: src/components/clarity/admin/ClarityAdminUsersTab.jsx
 // The Admin User Management tab in Clarity (final design, real data only).
 // A table of the same filtered users the classic tab lists, and a detail
-// card for the selected one. Selecting a row only selects it; every action
+// card for the selected one. Clicking anywhere on a row (or its first-cell
+// button, the keyboard control) only selects it; nothing is preselected. Every action
 // (create, edit, resend invitation, archive, restore, the archive view)
 // goes through the same context handlers with the same arguments.
 //
 // Status pills show only stored states: Archived, Invitation pending,
 // Inactive, Active. The classic tab's Online/Offline badge is not drawn
 // (owner rule); its status filter is kept as a select, with the classic
-// values and labels (UsersTab.jsx:73-77). The context applies it to
+// values and labels (UsersTab.jsx:76-80). The context applies it to
 // filteredUsers, so nothing is filtered here.
 // The directory has no last sign-in field, so there is no "Last active".
+// The card shows only fields the GET /api/admin/users row holds (profiles.*,
+// plus lrn from the students table); an empty one is left out, and LRN shows
+// for students only.
 //
 // TEMPORARY word-for-word copies from pages/dashboards/admin/tabs/UsersTab.jsx
 // (parity-tested in ClarityAdminUsersTab.test.jsx); after the defense the
 // classic tab and this one should share them:
-//   - ASSIGNABLE_ROLES, :13
-//   - the tried / resendingId state and the reset-on-close effect, :44-56
-//   - the resend-invitation click body, :134-135 (no row click to stop here)
-//   - the user dialog, :213-284 (the shared Modal, unchanged)
+//   - ASSIGNABLE_ROLES, :14
+//   - the tried / resendingId state and the reset-on-close effect, :45-59
+//   - the resend-invitation click body, :137-138 (no row click to stop here)
+//   - the user dialog, :216-296 (the shared Modal, unchanged)
 // ============================================
 
 import { useEffect, useState } from 'react';
 import { Archive, ArchiveRestore, Plus, Search } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
+import { LRN_PATTERN, LRN_REQUIRED, lrnInput } from '../../../pages/dashboards/admin/shared/lrn';
 import Modal from '../../ui/Modal';
 import Button from '../../ui/Button';
 import Avatar from '../../Avatar';
@@ -33,7 +38,7 @@ import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { focusAfterRemoval } from '../../../lib/focusAfterRemoval';
 import { formatDate } from '../../../lib/formatDate';
 
-// ---- TEMPORARY copy (UsersTab.jsx:13) ----
+// ---- TEMPORARY copy (UsersTab.jsx:14) ----
 // The roles an admin can give an account.
 const ASSIGNABLE_ROLES = ['student', 'teacher', 'main_admin'];
 // ---- end of the copy ----
@@ -43,6 +48,9 @@ const ROLE_TABS = [['', 'All'], ['student', 'Students'], ['teacher', 'Teachers']
 const ROLE_TONE = { student: 'in', teacher: 'ok', main_admin: 'wa' };
 
 const nameOf = u => u.name || u.email;
+const filled = value => (typeof value === 'string' ? value.trim() : value) || null;
+// A DATE column ('2010-05-14') is read as that local day, not UTC midnight.
+const dayOf = value => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
 
 // Only what the record holds. The archive view lists archived accounts.
 const statusOf = (u, showArchived) => {
@@ -71,14 +79,14 @@ const ClarityAdminUsersTab = () => {
   const {
     closeModal, deleteUser, restoreUser, editUser, fetchUsers, filteredUsers = [], modal, openCreateUser, openEditUser, resendInvitation, roleFilter = '', saveUser, setRoleFilter,
     setStatusFilter, setShowArchived, setUEmail, setUName, setURole, setUStatus, setUserSearch,
-    showArchived, statusFilter = '', uDept, setUDept, uEmail = '', uName = '', uRole = 'student', uSaving, uStatus, userSearch = '', users = [], usersLoading, usersError
+    showArchived, statusFilter = '', uDept, setUDept, uEmail = '', uLrn = '', setULrn, uName = '', uRole = 'student', uSaving, uStatus, userSearch = '', users = [], usersLoading, usersError
   } = useAdminContext();
 
   const [selId, setSelId] = useState(null);
-  // Selection only: the first row shows until one is picked. Nothing is called.
-  const sel = filteredUsers.find(u => u.id === selId) || filteredUsers[0] || null;
+  // Selection only: nothing shows until a row is picked. Nothing is called.
+  const sel = filteredUsers.find(u => u.id === selId) || null;
 
-  // ---- TEMPORARY copy (UsersTab.jsx:44-56) ----
+  // ---- TEMPORARY copy (UsersTab.jsx:45-59) ----
   const [tried, setTried] = useState(false);
   const [resendingId, setResendingId] = useState(null);
   // Reset on CLOSE, not on open. Modal is a child, so its snapshot
@@ -93,6 +101,8 @@ const ClarityAdminUsersTab = () => {
   }, [modal]);
   const missingName = tried && !uName.trim();
   const missingEmail = tried && !uEmail.trim();
+  // A student's LRN: required to create one; on edit only checked when filled in.
+  const badLrn = tried && uRole === 'student' && (!editUser || uLrn.trim() !== '') && !LRN_PATTERN.test(uLrn.trim());
   // ---- end of the copy ----
 
   // Archive / Restore sit in the detail card, so focus is handed over from the
@@ -131,7 +141,7 @@ const ClarityAdminUsersTab = () => {
             <span className="x-sr">Search users</span>
             <input type="search" name="portal-user-search" autoComplete="new-password" autoCorrect="off" spellCheck="false" placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} />
           </label>
-          {/* The classic status filter (UsersTab.jsx:73-77), same values and labels. */}
+          {/* The classic status filter (UsersTab.jsx:76-80), same values and labels. */}
           <select className="x-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} aria-label="Filter users by status">
             <option value="">Status: All</option>
             <option value="online">Online</option>
@@ -159,10 +169,10 @@ const ClarityAdminUsersTab = () => {
                   <thead><tr><th scope="col">Name</th><th scope="col">Role</th><th scope="col">Email</th><th scope="col">Status</th></tr></thead>
                   <tbody>
                     {filteredUsers.map(u => (
-                      <tr key={u.id} className={sel?.id === u.id ? 'o-sel' : undefined}>
+                      <tr key={u.id} className={sel?.id === u.id ? 'o-sel' : undefined} onClick={() => setSelId(u.id)}>
                         <td>
                           <button type="button" className="x-usr-pick nm" data-user-id={u.id}
-                            aria-pressed={sel?.id === u.id} onClick={() => setSelId(u.id)}>
+                            aria-pressed={sel?.id === u.id}>
                             <UserPhoto user={u} size={32} />
                             <span className="x-usr-name">{u.name || '—'}</span>
                           </button>
@@ -192,6 +202,11 @@ const ClarityAdminUsersTab = () => {
                 <dl className="x-usr-info">
                   {sel.department && <div><dt>Department</dt><dd>{sel.department}</dd></div>}
                   {sel.created_at && <div><dt>Created</dt><dd>{formatDate(sel.created_at)}</dd></div>}
+                  {sel.role === 'student' && filled(sel.lrn) && <div><dt>LRN</dt><dd>{filled(sel.lrn)}</dd></div>}
+                  {filled(sel.phone) && <div><dt>Phone</dt><dd>{filled(sel.phone)}</dd></div>}
+                  {formatDate(dayOf(filled(sel.date_of_birth)), '') && <div><dt>Date of birth</dt><dd>{formatDate(dayOf(filled(sel.date_of_birth)))}</dd></div>}
+                  {filled(sel.address) && <div><dt>Address</dt><dd>{filled(sel.address)}</dd></div>}
+                  {filled(sel.bio) && <div><dt>About me</dt><dd className="x-usr-bio">{filled(sel.bio)}</dd></div>}
                 </dl>
                 <div className="x-usr-dact">
                   <button type="button" className="x-btn x-usr-edit" aria-label={`Edit ${nameOf(sel)}`} onClick={() => openEditUser(sel)}>Edit</button>
@@ -202,7 +217,7 @@ const ClarityAdminUsersTab = () => {
                       aria-label={`Resend invitation to ${nameOf(sel)}`}
                       disabled={resendingId === sel.id}
                       onClick={async () => {
-                        // ---- TEMPORARY copy (UsersTab.jsx:134-135) ----
+                        // ---- TEMPORARY copy (UsersTab.jsx:137-138) ----
                         const u = sel;
                         setResendingId(u.id);
                         try { await resendInvitation(u); } finally { setResendingId(null); }
@@ -216,13 +231,13 @@ const ClarityAdminUsersTab = () => {
                 </div>
               </>
             ) : (
-              <p className="x-empty">Select a user to view</p>
+              <p className="x-empty">Select a user to see their profile.</p>
             )}
           </section>
         </div>
       </div>
 
-      {/* ---- TEMPORARY copy (UsersTab.jsx:213-284): USER MODAL ---- */}
+      {/* ---- TEMPORARY copy (UsersTab.jsx:216-296): USER MODAL ---- */}
       <Modal
         open={modal === 'user'}
         title={editUser ? 'Edit User' : 'Create User'}
@@ -279,6 +294,15 @@ const ClarityAdminUsersTab = () => {
             <div className="form-row">
               <label className="form-label" htmlFor="users-department-subject">Department / Subject</label>
               <input id="users-department-subject" className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
+            </div>
+          )}
+          {uRole === 'student' && (
+            <div className="form-row">
+              <label className="form-label" htmlFor="users-lrn">LRN{!editUser && <span className="form-req" aria-hidden="true">*</span>}</label>
+              <input id="users-lrn" className={`form-input${badLrn ? ' is-invalid' : ''}`} value={uLrn} onChange={e => setULrn(lrnInput(e.target.value))} placeholder="12 digits"
+                inputMode="numeric" maxLength={12} autoComplete="off"
+                aria-required={editUser ? undefined : 'true'} aria-invalid={badLrn || undefined} aria-describedby={badLrn ? 'users-lrn-error' : undefined} />
+              {badLrn && <div className="field-error" id="users-lrn-error">{LRN_REQUIRED}</div>}
             </div>
           )}
           {editUser && <div className="form-row">

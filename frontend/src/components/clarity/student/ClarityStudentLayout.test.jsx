@@ -92,7 +92,7 @@ describe('flag on: the Clarity shell', () => {
     const { container } = renderAt('/student-dashboard/tasks?clarity=1');
     expect(container.querySelector('.x-app')).toBeTruthy();
     expect(container.querySelector('.student-dashboard-shell')).toBeNull();
-    expect(screen.getByText('Clarity preview')).toBeTruthy();
+    expect(container.querySelector('.x-app')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Tasks content' })).toBeTruthy();
     expect(htmlHasClass()).toBe(true);
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('1');
@@ -159,7 +159,7 @@ describe('flag on: the Clarity shell', () => {
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy();
     const toggle = screen.getByRole('button', { name: 'Toggle profile menu' });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(toggle.className).toBe('x-nav');
+    expect(toggle.className).toBe('x-user');
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));

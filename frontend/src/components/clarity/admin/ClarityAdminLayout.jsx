@@ -14,7 +14,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   Sun, Moon, LogOut, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings,
-  ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, CalendarClock,
+  ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, Clock,
 } from 'lucide-react';
 import NotificationBell from '../../NotificationBell';
 import Avatar from '../../Avatar';
@@ -30,6 +30,7 @@ import MemosTab from '../../../pages/dashboards/admin/tabs/MemosTab';
 import SettingsTab from '../../../pages/dashboards/admin/tabs/SettingsTab';
 import ProfileTab from '../../../pages/profile/ProfileTab';
 import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
+import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import { useMediaQuery } from '../../../lib/useMediaQuery';
 import ClarityModal from '../ui/ClarityModal';
 import { useHtmlClass } from '../useHtmlClass';
@@ -38,6 +39,8 @@ import { useAdminShellBehavior } from './useAdminShellBehavior';
 
 // The classic items, keys, labels and order (AdminDashboard.jsx:1338-1349),
 // grouped under headings. The grouping is an ASSUMPTION the owner may change.
+// Two labels are shorter here than in the classic shell, as in the final
+// design (News, Settings); the page keys are the classic ones.
 const NAV_GROUPS = [
   { heading: null, items: [['overview', 'Overview', LayoutDashboard]] },
   { heading: 'People', items: [['users', 'User Management', Users]] },
@@ -45,14 +48,14 @@ const NAV_GROUPS = [
     ['subjects', 'Subjects', BookMarked],
     ['teaching-load', 'Teaching Load', GraduationCap],
     ['sections', 'Sections', Columns],
-    ['schedules', 'Schedules', CalendarClock],
+    ['schedules', 'Schedules', Clock],
   ] },
   { heading: 'Communication', items: [
-    ['news', 'News Management', Newspaper],
+    ['news', 'News', Newspaper],
     ['calendar', 'Calendar', Calendar],
     ['memos', 'Memos', FileText],
   ] },
-  { heading: 'System', items: [['settings', 'System Settings', Settings]] },
+  { heading: 'System', items: [['settings', 'Settings', Settings]] },
 ];
 
 const SETTINGS_SECTIONS = [
@@ -140,6 +143,13 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
   const headerRef = useRef(null);
   const mainRef = useRef(null);
   const name = userData?.name || 'Admin User';
+  // The footer card's second line: the classic shell's "Administrator" for
+  // the admin role, else the role's own label (real data, nothing invented).
+  const roleText = userData?.role === 'main_admin' ? 'Administrator' : roleLabel(userData?.role) || '';
+  // The News badge: the same published-news count as the Overview's
+  // "Published News" tile; hidden when unknown, failed or 0.
+  const { stats, statsErrors } = useAdminContext();
+  const publishedNews = !statsErrors?.news && Number(stats?.news) > 0 ? Number(stats.news) : 0;
 
   // While the drawer is open, the page behind it is inert (as in the
   // Clarity Student shell); the hook already traps focus and locks scroll.
@@ -192,7 +202,6 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
             <div style={{ minWidth: 0 }}>
               <b>EduScribe</b>
               <span>Admin Portal</span>
-              <div><span className="x-badge in">Clarity preview</span></div>
             </div>
           )}
         </div>
@@ -220,6 +229,9 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
                 >
                   <Icon size={18} aria-hidden="true" />
                   {!collapsed && <span>{v}</span>}
+                  {!collapsed && k === 'news' && publishedNews > 0 && (
+                    <span className="cnt">{publishedNews}<span className="x-sr"> published</span></span>
+                  )}
                 </button>
               ))}
             </div>
@@ -242,28 +254,30 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
           )}
         </div>
 
-        <div className="x-side-foot" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-          <button type="button" className="x-nav" onClick={() => setProfileOpen(open => !open)}
-            aria-expanded={profileOpen} aria-label="Toggle profile menu">
-            <Avatar src={photoUrl} name={name} size={32} bg="var(--cl-ac-s)" color="var(--cl-ac)" />
-            {!collapsed && (
-              <span style={{ minWidth: 0, textAlign: 'left' }}>
-                <b>{name}</b>
-                <span style={{ display: 'block' }}>Administrator</span>
-              </span>
-            )}
-            {!collapsed && <ChevronRight size={15} aria-hidden="true" style={{ marginLeft: 'auto', transform: profileOpen ? 'rotate(90deg)' : undefined }} />}
-          </button>
+        {/* Pinned to the bottom: the profile link (when open) above the user card. */}
+        <div style={{ marginTop: 'auto' }}>
           {profileOpen && !collapsed && (
             <button type="button" className="x-nav"
               onClick={() => requestSidebarNavigation(() => { setPage('profile'); setProfileOpen(false); }, 'Profile Settings')}>
               <Settings size={16} aria-hidden="true" /> <span>Profile Settings</span>
             </button>
           )}
-          <button type="button" className="x-btn" aria-label="Logout" style={{ width: '100%' }}
-            onClick={() => requestSidebarNavigation(() => setLogoutConfirmOpen(true), 'Logout')}>
-            <LogOut size={15} aria-hidden="true" /> {!collapsed && 'Logout'}
-          </button>
+          <div className="x-side-foot" style={collapsed ? { flexDirection: 'column' } : undefined}>
+            <button type="button" className="x-user" onClick={() => setProfileOpen(open => !open)}
+              aria-expanded={profileOpen} aria-label="Toggle profile menu">
+              <span className="x-ava"><Avatar src={photoUrl} name={name} size={36} bg="transparent" color="currentColor" /></span>
+              {!collapsed && (
+                <span className="x-user-txt">
+                  <b>{name}</b>
+                  <span>{roleText}</span>
+                </span>
+              )}
+            </button>
+            <button type="button" className="x-iconbtn" aria-label="Logout" title="Logout"
+              onClick={() => requestSidebarNavigation(() => setLogoutConfirmOpen(true), 'Logout')}>
+              <LogOut size={18} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -274,9 +288,9 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
             <Menu size={20} aria-hidden="true" />
           </button>
           <span className="x-sp" />
-          {/* The shared bell is drawn for the classic navy header (white
-              icon); in light mode it sits on a dark disc. */}
-          <span style={{ display: 'inline-flex', borderRadius: 9999, background: darkMode ? undefined : 'var(--cl-tx)' }}>
+          {/* The shared bell keeps its real unread count; .x-bell restyles its
+              button as a plain icon (scoped CSS, NotificationBell unchanged). */}
+          <span className="x-bell">
             <NotificationBell className="admin-notification-bell" />
           </span>
           <button type="button" className="x-iconbtn" onClick={() => setDarkMode(d => !d)}

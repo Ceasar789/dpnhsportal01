@@ -59,6 +59,7 @@ const SCOPE = ['theme', 'clarity'].join('-');
 const htmlHasClass = () => document.documentElement.classList.contains(SCOPE);
 const NAV = ['Overview', 'User Management', 'Subjects', 'Teaching Load', 'Sections', 'Schedules',
   'News Management', 'Calendar', 'Memos', 'System Settings'];
+const SAME = { News: 'News Management', Settings: 'System Settings' };
 
 const Where = () => { const l = useLocation(); return <output data-testid="where">{l.pathname + l.search}</output>; };
 const renderAt = path => render(
@@ -72,12 +73,12 @@ const renderAt = path => render(
 const CLARITY = '/admin-dashboard?clarity=1';
 const CLASSIC = '/admin-dashboard';
 // The Clarity shell is loaded on demand: wait for it.
-const ready = async () => { await screen.findByText('Clarity preview'); };
+const ready = async () => { await screen.findByRole('button', { name: 'Classic view' }); };
 const show = async (path) => { const view = renderAt(path); if (path.includes('clarity=1')) await ready(); return view; };
 const sidebar = () => document.getElementById('admin-sidebar');
 const navFacts = () => within(sidebar()).getAllByRole('button')
-  .filter(b => NAV.includes(b.textContent.trim()))
-  .map(b => [b.textContent.trim(), b.getAttribute('aria-current')]);
+  .filter(b => NAV.includes(SAME[b.textContent.trim()] || b.textContent.trim()))
+  .map(b => [SAME[b.textContent.trim()] || b.textContent.trim(), b.getAttribute('aria-current')]);
 const subNav = () => within(sidebar()).queryAllByRole('button')
   .filter(b => ['General', 'Security', 'Notifications', 'Backup & Logs', 'Appearance'].includes(b.textContent.trim()))
   .map(b => [b.textContent.trim(), b.getAttribute('aria-current')]);
@@ -175,7 +176,7 @@ describe('flag on: the Clarity shell', () => {
     await show(CLARITY);
     const order = [...sidebar().querySelectorAll('[role="navigation"] .x-grp, [role="navigation"] .x-nav')].map(el => el.textContent.trim());
     expect(order).toEqual(['Overview', 'People', 'User Management', 'Academics', 'Subjects', 'Teaching Load', 'Sections', 'Schedules',
-      'Communication', 'News Management', 'Calendar', 'Memos', 'System', 'System Settings']);
+      'Communication', 'News', 'Calendar', 'Memos', 'System', 'Settings']);
     expect(sidebar().querySelector('.x-side-foot').textContent).toContain('Ana AdminAdministrator');
     expect(sidebar().querySelector('.cnt')).toBeNull();
     expect(document.querySelector('input[type="search"], [role="searchbox"]')).toBeNull();
@@ -202,7 +203,7 @@ describe('parity with the classic shell (same mocks)', () => {
   it('the Settings sub-nav appears only on settings, with the same items and current item', async () => {
     const results = await both(async () => {
       const off = subNav();
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'System Settings' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: /^(System )?Settings$/ }));
       const on = subNav();
       fireEvent.click(within(sidebar()).getByRole('button', { name: 'Security' }));
       return { off, on, scrolled: h.scroll.mock.calls.at(-1)?.[0] };
@@ -422,7 +423,7 @@ describe('source rules', () => {
     const conditional = [...source.matchAll(/className=\{[^`"}]*\?\s*'([^']*)'\s*:\s*(?:undefined|'([^']*)')\}/g)].flatMap(m => [m[1], m[2] || '']);
     const tokens = [...plain, ...templated, ...conditional].flatMap(v => v.split(/\s+/)).filter(Boolean);
     expect(tokens.length).toBeGreaterThan(20);
-    const allowed = /^(x-[a-z0-9-]+|open|on|gh|in|dng|pri|admin-notification-bell)$/;
+    const allowed = /^(x-[a-z0-9-]+|open|on|gh|in|dng|pri|admin-notification-bell|cnt)$/;
     for (const t of tokens) expect(t, t).toMatch(allowed);
     expect(source).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
     expect(source).not.toMatch(/var\(--(?!cl-)/);

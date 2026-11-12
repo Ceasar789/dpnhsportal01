@@ -40,6 +40,22 @@ html.theme-clarity .x-nav .cnt { margin-left: auto; font-size: 11px; font-weight
 html.theme-clarity .x-side-foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--cl-side-bd); display: flex; align-items: center; gap: 10px; min-width: 0; }
 html.theme-clarity .x-side-foot b { display: block; font-size: 13px; color: var(--cl-side-head); line-height: 1.2; overflow-wrap: anywhere; }
 html.theme-clarity .x-side-foot span { font-size: 12px; color: var(--cl-side-tx); overflow-wrap: anywhere; }
+/* F2: the footer user card (final design): avatar, name, role line; the
+   logout is an icon button beside it. Initials sit on the design's yellow. */
+html.theme-clarity .x-user { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; padding: 4px; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+html.theme-clarity .x-user:hover { background: var(--cl-side-hov); }
+html.theme-clarity .x-user:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-side-foot .x-user-txt { min-width: 0; display: flex; flex-direction: column; }
+html.theme-clarity .x-side-foot .x-user-txt span { display: block; }
+html.theme-clarity .x-side-foot .x-ava { display: inline-flex; flex: none; border-radius: 9999px; background: #fac543; color: #0f162b; }
+/* Text for screen readers only (e.g. "pending" after a count badge). */
+html.theme-clarity .x-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+/* F2: the shared NotificationBell as a plain top-bar icon. Its button is
+   styled by utility classes only, which these scoped rules outrank; the
+   component itself is unchanged and keeps its real unread count. */
+html.theme-clarity .x-bell { display: inline-flex; }
+html.theme-clarity .x-bell .notification-bell-button { background: transparent; color: var(--cl-mu); border-radius: 10px; }
+html.theme-clarity .x-bell .notification-bell-button:hover { background: var(--cl-card); color: var(--cl-tx); }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }

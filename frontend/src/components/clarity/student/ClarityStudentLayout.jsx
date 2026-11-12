@@ -11,10 +11,10 @@
 // content is the classic tabs, unchanged, rendered as children.
 // ============================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BarChart3, CalendarCheck, ChevronRight, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Menu, Moon, Settings, Sun, X,
+  BarChart3, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Menu, Moon, Settings, Sun, X,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -28,6 +28,7 @@ import Avatar from '../../Avatar';
 import NotificationBell from '../../NotificationBell';
 import ClarityModal from '../ui/ClarityModal';
 import { useHtmlClass } from '../useHtmlClass';
+import { overviewSummary } from './overviewSummary';
 
 // The same items, paths and order as the classic StudentLayout.
 const STUDENT_NAV = [
@@ -63,8 +64,20 @@ const ClarityStudentLayout = ({ children, onClassicView }) => {
   // The brand subtitle shows the real grade from the enrolment already loaded
   // by StudentDataProvider (sections.grade_level, read the same way as the
   // Overview). No usable grade, or a failed load: the old text stays.
-  const { graph } = useStudentData();
+  const { graph, loading } = useStudentData();
   const grade = graph && !graph.fatalError ? normalizeGradeLevel(graph.enrolments?.[0]?.sections?.grade_level) : null;
+  // The footer card's second line: grade and section from the same loaded
+  // enrolment, only the parts that exist; "Student" when neither does.
+  const sectionName = graph && !graph.fatalError ? graph.enrolments?.[0]?.sections?.name?.trim() || null : null;
+  const studentLine = [grade, sectionName].filter(Boolean).join(' – ') || 'Student';
+  // The Tasks badge: the same pending count the Overview shows (overviewSummary),
+  // hidden while loading, after a failed load (the summary is then blank), or at 0.
+  const pendingCount = useMemo(() => {
+    if (loading || !graph) return 0;
+    // The badge is extra information: if the graph is ever incomplete, show
+    // no badge rather than let the whole shell fail.
+    try { return overviewSummary(graph, name).pendingCount; } catch { return 0; }
+  }, [graph, loading, name]);
 
   // Reaching the desktop width closes the drawer, as in the classic shell.
   useEffect(() => {
@@ -160,27 +173,13 @@ const ClarityStudentLayout = ({ children, onClassicView }) => {
         </button>
 
         <div className="x-brand">
-          <img src="/capstonelogo.png" alt="" />
+          <img src="/EduScribeLogoIcon.png" alt="EduScribe" />
           <div>
             <b>EduScribe</b>
             <span>{grade ? `Student · ${grade}` : 'Student Dashboard'}</span>
-            <div><span className="x-badge in">Clarity preview</span></div>
           </div>
         </div>
 
-        <button type="button" className="x-nav" onClick={() => setProfileOpen(open => !open)}
-          aria-expanded={profileOpen} aria-label="Toggle profile menu">
-          <span data-shared="avatar"><Avatar src={photoUrl} name={name} size={32} bg="var(--cl-ac-s)" color="var(--cl-ac)" /></span>
-          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{name}</span>
-          <ChevronRight size={15} aria-hidden="true" style={{ marginLeft: 'auto', transform: profileOpen ? 'rotate(90deg)' : undefined }} />
-        </button>
-        {profileOpen && (
-          <button type="button" className="x-nav" onClick={() => { navigate('profile'); setProfileOpen(false); setSidebarOpen(false); }}>
-            <Settings size={16} aria-hidden="true" /> Profile Settings
-          </button>
-        )}
-
-        <p className="x-grp">Menu</p>
         <nav aria-label="Student">
           {STUDENT_NAV.map((item) => {
             const isActive = location.pathname === item.path || location.pathname === `${item.path}/`;
@@ -190,15 +189,34 @@ const ClarityStudentLayout = ({ children, onClassicView }) => {
                 aria-current={isActive ? 'page' : undefined} className={`x-nav${isActive ? ' on' : ''}`}>
                 <Icon size={18} aria-hidden="true" />
                 <span>{item.label}</span>
+                {item.label === 'Tasks' && pendingCount > 0 && (
+                  <span className="cnt">{pendingCount}<span className="x-sr"> pending</span></span>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="x-side-foot">
-          <button ref={logoutButtonRef} type="button" className="x-btn dng" onClick={handleLogout} aria-label="Logout" style={{ width: '100%' }}>
-            <LogOut size={15} aria-hidden="true" /> Logout
+        {/* Pinned to the bottom: the profile link (when open) above the user card. */}
+        <div style={{ marginTop: 'auto' }}>
+        {profileOpen && (
+          <button type="button" className="x-nav" onClick={() => { navigate('profile'); setProfileOpen(false); setSidebarOpen(false); }}>
+            <Settings size={16} aria-hidden="true" /> Profile Settings
           </button>
+        )}
+        <div className="x-side-foot">
+          <button type="button" className="x-user" onClick={() => setProfileOpen(open => !open)}
+            aria-expanded={profileOpen} aria-label="Toggle profile menu">
+            <span className="x-ava" data-shared="avatar"><Avatar src={photoUrl} name={name} size={36} bg="transparent" color="currentColor" /></span>
+            <span className="x-user-txt">
+              <b>{name}</b>
+              <span>{studentLine}</span>
+            </span>
+          </button>
+          <button ref={logoutButtonRef} type="button" className="x-iconbtn" onClick={handleLogout} aria-label="Logout" title="Logout">
+            <LogOut size={18} aria-hidden="true" />
+          </button>
+        </div>
         </div>
       </aside>
 
@@ -209,9 +227,9 @@ const ClarityStudentLayout = ({ children, onClassicView }) => {
             <Menu size={20} aria-hidden="true" />
           </button>
           <span className="x-sp" />
-          {/* The bell is the shared component built for the classic navy
-              header (white icon); in light mode it sits on a dark disc. */}
-          <span data-shared="bell" style={{ display: 'inline-flex', borderRadius: 9999, background: dark ? undefined : 'var(--cl-tx)' }}>
+          {/* The shared bell keeps its real unread count; .x-bell restyles its
+              button as a plain icon (scoped CSS, NotificationBell unchanged). */}
+          <span className="x-bell" data-shared="bell">
             <NotificationBell followLinks />
           </span>
           <button type="button" className="x-iconbtn" onClick={toggleDark}

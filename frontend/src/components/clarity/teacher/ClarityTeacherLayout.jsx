@@ -63,7 +63,7 @@ const GROUPS = [
   ['School', ['/teacher-dashboard/announcements']],
 ];
 
-const ClarityTeacherLayout = ({ children, onClassicView }) => {
+const ClarityTeacherLayout = ({ children }) => {
   useHtmlClass('theme-clarity');
   const desktop = useMediaQuery('(min-width: 1024px)');
   // ---- TEMPORARY copy (TeacherDashboard.jsx:44-165) ----
@@ -318,7 +318,6 @@ const ClarityTeacherLayout = ({ children, onClassicView }) => {
             aria-label={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
             {dark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
           </button>
-          <button type="button" className="x-btn gh" onClick={onClassicView}>Classic view</button>
         </header>
 
         <main ref={mainRef} className="x-content">

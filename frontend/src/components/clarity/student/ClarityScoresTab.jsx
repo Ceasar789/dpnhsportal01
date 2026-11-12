@@ -42,7 +42,7 @@ const SubjectCard = ({ subject }) => {
               ? <p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p>
               : drawable(subject.percent) === null
                 ? <p className="x-kv">{percentText(subject.percent)}</p>
-                : <ProgressRing value={subject.percent} detail={`${subject.name} average`} unit="average" />}
+                : <span className="x-sc-ring"><ProgressRing value={subject.percent} detail={`${subject.name} average`} unit="average" /></span>}
           </dd>
         </div>
         <div>
@@ -118,7 +118,7 @@ const ClarityScoresTab = () => {
               ? <><p className="x-kl">Overall average</p><p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p></>
               : drawable(overall.percent) === null
                 ? <><p className="x-kl">Overall average</p><p className="x-kv">{percentText(overall.percent)}</p></>
-                : <ProgressRing value={overall.percent} detail="Overall average" unit="average" />}
+                : <span className="x-sc-ring"><ProgressRing value={overall.percent} detail="Overall average" unit="average" /></span>}
             <p className="x-kd">{releasedCount(overall.count)}</p>
           </section>
           {overall.count === 0 && (
@@ -127,7 +127,7 @@ const ClarityScoresTab = () => {
             </div>
           )}
           {subjects.length > 0 && (
-            <div className="x-grid2">
+            <div className="x-sc-grid">
               {subjects.map(subject => <SubjectCard key={subject.key} subject={subject} />)}
             </div>
           )}

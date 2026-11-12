@@ -105,7 +105,7 @@ describe('wording and brand', () => {
     for (const el of container.querySelectorAll('[aria-label], [title], [alt]')) {
       for (const attr of ['aria-label', 'title', 'alt']) expect(el.getAttribute(attr) || '').not.toMatch(/preview/i);
     }
-    expect(within(document.querySelector('.x-top')).getByRole('button', { name: 'Classic view' })).toBeTruthy();
+    expect(within(document.querySelector('.x-top')).queryByRole('button', { name: 'Classic view' })).toBeNull();
   });
 
   it('keeps the EduScribe seal logo and "Admin Portal"', async () => {

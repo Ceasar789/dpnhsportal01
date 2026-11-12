@@ -93,15 +93,16 @@ describe('the switch', () => {
     expect(document.documentElement.classList.contains(SCOPE)).toBe(true);
   });
 
-  it('?clarity=1: the Clarity shell, remembered; Classic view turns it off (?clarity=0) and shows the classic shell', () => {
+  it('?clarity=1: the Clarity shell, remembered; ?clarity=0 turns it off and shows the classic shell', () => {
     const { container } = renderAt(CLARITY);
     expect(container.querySelector('.x-app.x-tch')).toBeTruthy();
     expect(document.documentElement.classList.contains(SCOPE)).toBe(true);
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('1');
-    fireEvent.click(screen.getByRole('button', { name: 'Classic view' }));
+    cleanup();
+    const { container: off } = renderAt(`${CLASSIC}?clarity=0`);
     expect(screen.getByTestId('where').textContent).toBe('/teacher-dashboard?clarity=0');
-    expect(container.querySelector('.teacher-header')).toBeTruthy();
-    expect(container.querySelector('.x-app')).toBeNull();
+    expect(off.querySelector('.teacher-header')).toBeTruthy();
+    expect(off.querySelector('.x-app')).toBeNull();
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
@@ -137,13 +138,13 @@ describe('sidebar, brand and top bar', () => {
     expect(sidebar().querySelector('.x-brand').textContent).toBe('EduScribeTeacher · Science');
   });
 
-  it('footer: the name and "Teacher"; the top bar has the bell, the theme toggle and Classic view, and no search box', () => {
+  it('footer: the name and "Teacher"; the top bar has the bell, the theme toggle, no Classic view and no search box', () => {
     renderAt(CLARITY);
     expect(sidebar().querySelector('.x-side-foot').textContent).toContain('Sample TeacherTeacher');
     const top = document.querySelector('.x-top');
     expect(within(top).getByRole('button', { name: 'Notifications' }).className).toBe('teacher-notification-bell');
     expect(within(top).getByRole('button', { name: /Switch to (Dark|Light) Mode/ })).toBeTruthy();
-    expect(within(top).getByRole('button', { name: 'Classic view' })).toBeTruthy();
+    expect(within(top).queryByRole('button', { name: 'Classic view' })).toBeNull();
     expect(document.querySelector('input[type="search"], [role="searchbox"]')).toBeNull();
   });
 

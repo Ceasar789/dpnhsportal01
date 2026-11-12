@@ -39,7 +39,7 @@ const STUDENT_NAV = [
   { path: '/student-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
 ];
 
-const ClarityStudentLayout = ({ children, onClassicView }) => {
+const ClarityStudentLayout = ({ children }) => {
   useHtmlClass('theme-clarity');
   const { dark, toggleDark } = useTheme();
   const { logout, userData } = useAuth();
@@ -236,7 +236,6 @@ const ClarityStudentLayout = ({ children, onClassicView }) => {
             aria-label={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
             {dark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
           </button>
-          <button type="button" className="x-btn gh" onClick={onClassicView}>Classic view</button>
         </header>
 
         <main ref={mainRef} className="x-content">

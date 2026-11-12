@@ -3,7 +3,7 @@
 // Admin shell. Flag off is the classic shell; flag on keeps every shell
 // behaviour (nav, guards, confirmations, drawer, toast) with the classic tabs.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
@@ -73,7 +73,7 @@ const renderAt = path => render(
 const CLARITY = '/admin-dashboard?clarity=1';
 const CLASSIC = '/admin-dashboard';
 // The Clarity shell is loaded on demand: wait for it.
-const ready = async () => { await screen.findByRole('button', { name: 'Classic view' }, { timeout: 5000 }); };
+const ready = async () => { await waitFor(() => { if (!document.querySelector('.x-app .x-top')) throw new Error('not ready'); }, { timeout: 5000 }); };
 const show = async (path) => { const view = renderAt(path); if (path.includes('clarity=1')) await ready(); return view; };
 const sidebar = () => document.getElementById('admin-sidebar');
 const navFacts = () => within(sidebar()).getAllByRole('button')
@@ -155,9 +155,11 @@ describe('flag on: the Clarity shell', () => {
     expect(htmlHasClass()).toBe(false);
   });
 
-  it('"Classic view" returns to the classic shell, keeps other parameters and removes the class', async () => {
-    const view = await show('/admin-dashboard?tab=x&clarity=1');
-    fireEvent.click(screen.getByRole('button', { name: 'Classic view' }));
+  it('no "Classic view" button; ?tab=x&clarity=0 shows the classic shell, keeps other parameters, removes the class and stores \'0\'', async () => {
+    await show('/admin-dashboard?tab=x&clarity=1');
+    expect(screen.queryByRole('button', { name: 'Classic view' })).toBeNull();
+    cleanup();
+    const view = renderAt('/admin-dashboard?tab=x&clarity=0');
     expect(view.container.querySelector('.dashboard-shell')).toBeTruthy();
     expect(htmlHasClass()).toBe(false);
     const params = new URLSearchParams(screen.getByTestId('where').textContent.split('?')[1]);

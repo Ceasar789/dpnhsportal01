@@ -187,8 +187,8 @@ const CASES = [
 describe('each dashboard', () => {
   it.each(CASES)('%s: the Clarity shell by default (no parameter, nothing stored)', async (_, base, Dashboard, clarity) => {
     const { container } = dash(base, Dashboard)(base);
-    expect(await screen.findByRole('button', { name: 'Classic view' }, { timeout: 5000 })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: clarity })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: clarity }, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Classic view' })).toBeNull();
     expect(container.querySelector('.x-app')).toBeTruthy();
     expect(document.documentElement.classList.contains(SCOPE)).toBe(true);
     // Visible text only: inline <style> blocks carry class names like .memo-preview.
@@ -206,9 +206,11 @@ describe('each dashboard', () => {
     expect(document.documentElement.classList.contains(SCOPE)).toBe(false);
   });
 
-  it.each(CASES)('%s: Classic view switches the default Clarity shell to classic', async (_, base, Dashboard, clarity, classic) => {
+  it.each(CASES)('%s: after the default Clarity load, ?clarity=0 shows classic and stores \'0\'', async (_, base, Dashboard, clarity, classic) => {
     dash(base, Dashboard)(base);
-    fireEvent.click(await screen.findByRole('button', { name: 'Classic view' }, { timeout: 5000 }));
+    expect(await screen.findByRole('heading', { name: clarity }, { timeout: 5000 })).toBeTruthy();
+    cleanup();
+    dash(base, Dashboard)(`${base}?clarity=0`);
     expect(await screen.findByRole('heading', { name: classic })).toBeTruthy();
     expect(stored()).toBe('0');
   });

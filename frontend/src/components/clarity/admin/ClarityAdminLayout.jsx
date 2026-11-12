@@ -128,7 +128,7 @@ const DeleteConfirm = ({ confirm, busy, onCancel, onConfirm }) => {
   );
 };
 
-const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
+const ClarityAdminLayout = ({ navigate, logout, userData }) => {
   useHtmlClass('theme-clarity');
   const shell = useAdminShellBehavior({ navigate, logout, userData });
   const {
@@ -297,7 +297,6 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
             aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
             {darkMode ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
           </button>
-          <button type="button" className="x-btn gh" onClick={onClassicView}>Classic view</button>
         </header>
 
         <main ref={mainRef} className="x-content">

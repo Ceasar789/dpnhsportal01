@@ -67,11 +67,11 @@ describe('brand and wording', () => {
     }
   });
 
-  it('has no "MENU" group label; "Classic view" is still in the top bar', () => {
+  it('has no "MENU" group label; no "Classic view" in the top bar', () => {
     show();
     expect([...document.querySelectorAll('.x-grp')].map(el => el.textContent)).not.toContain('Menu');
     expect(screen.queryByText('Menu')).toBeNull();
-    expect(within(document.querySelector('.x-top')).getByRole('button', { name: 'Classic view' })).toBeTruthy();
+    expect(within(document.querySelector('.x-top')).queryByRole('button', { name: 'Classic view' })).toBeNull();
   });
 });
 

@@ -8,13 +8,13 @@ Written from the repository at commit `5934476` (branch `master`) on 2026-11-11.
 
 It is being added **beside** the current screens, not in place of them:
 - The current ("classic") screens are unchanged.
-- The new screens are separate components. Since F5 they are shown by default; the classic screens stay one switch away (`?clarity=0` or **Classic view**).
+- The new screens are separate components. Since F5 they are shown by default; the classic screens stay one hidden switch away (`?clarity=0` in the URL). Since G1 there is no visible **Classic view** button.
 - Each new screen reads the same data as the classic one. Nothing new is fetched and nothing is written to the database.
 
 ## The Clarity flag
 
 - **On by default** (since F5). A visitor who does nothing sees the Clarity dashboard. If the browser blocks `localStorage`, it also falls back to Clarity.
-- **Turn it off:** add `?clarity=0`, or press the **Classic view** button in the Clarity header (`components/clarity/student/ClarityStudentLayout.jsx:239`). The choice is remembered in the browser's `localStorage` under `smartedu-clarity` as `0` (`frontend/src/components/clarity/useClarityFlag.js:16`).
+- **Turn it off (hidden rollback):** add `?clarity=0` to the URL. The **Classic view** button was removed from all three Clarity headers in G1; the URL parameter is the only switch. The choice is remembered in the browser's `localStorage` under `smartedu-clarity` as `0` (`frontend/src/components/clarity/useClarityFlag.js:16`).
 - **Turn it back on:** add `?clarity=1`; this is remembered as `1`.
 - **While Clarity is on**, the class `theme-clarity` is placed on the page's `<html>` element. All Clarity styles only apply under that class, so they cannot change a classic screen.
 - **Dark mode** is the existing dashboard setting. Clarity follows it.

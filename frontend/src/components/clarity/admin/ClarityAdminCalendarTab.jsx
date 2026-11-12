@@ -105,7 +105,7 @@ const ClarityAdminCalendarTab = () => {
 
   return (
     <>
-      <div className="x-cal">
+      <div className="x-calpage">
         <div className="x-head x-ov-head">
           <div style={{ minWidth: 0 }}>
             <h1 className="x-h1">Calendar</h1>

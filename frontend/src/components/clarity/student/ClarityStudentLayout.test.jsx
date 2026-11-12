@@ -131,10 +131,12 @@ describe('flag on: the Clarity shell', () => {
     expect(htmlHasClass()).toBe(false);
   });
 
-  it('Classic view returns to the classic shell, remembers off and keeps other parameters', () => {
+  it('no Classic view button; ?view=done&clarity=0 returns to the classic shell, remembers off and keeps other parameters', () => {
     h.desktop = true;
-    const { container } = renderAt('/student-dashboard/tasks?view=done&clarity=1');
-    fireEvent.click(screen.getByRole('button', { name: 'Classic view' }));
+    renderAt('/student-dashboard/tasks?view=done&clarity=1');
+    expect(screen.queryByRole('button', { name: 'Classic view' })).toBeNull();
+    cleanup();
+    const { container } = renderAt('/student-dashboard/tasks?view=done&clarity=0');
     expect(container.querySelector('.student-dashboard-shell')).toBeTruthy();
     expect(container.querySelector('.x-app')).toBeNull();
     expect(htmlHasClass()).toBe(false);

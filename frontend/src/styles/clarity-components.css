@@ -109,6 +109,7 @@ html.theme-clarity .x-sch-block.c4 { background: var(--cl-wa-s); color: var(--cl
 html.theme-clarity .x-sch-block.c5 { background: var(--cl-bg); color: var(--cl-mu); }
 html.theme-clarity .x-sch-del { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: none; color: inherit; cursor: pointer; }
 html.theme-clarity .x-sch-del:focus-visible, html.theme-clarity .x-cal-ev:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-calpage { display: block; min-width: 0; }
 html.theme-clarity .x-cal-tools { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 html.theme-clarity .x-cal-card { padding: 16px; }
 html.theme-clarity .x-cal-week { display: grid; gap: 8px; }
@@ -291,7 +292,10 @@ html.theme-clarity .x-tan-text { margin: 6px 0 8px; color: var(--cl-mu); overflo
 html.theme-clarity .x-tan-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
 /* S1: Student Overview (final design) */
 html.theme-clarity .x-sov-who { margin: 6px 0 0; overflow-wrap: anywhere; }
-html.theme-clarity .x-sov-ring { width: 64px; flex: none; align-self: center; }
+html.theme-clarity .x-sov-ring { width: 56px; flex: none; align-self: center; }
+html.theme-clarity .x-sov .x-grid3 { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+html.theme-clarity .x-sc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 16px; }
+html.theme-clarity .x-sc-ring { display: block; width: 64px; }
 html.theme-clarity .x-sov-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 html.theme-clarity .x-sov-due { margin-top: 12px; }
 html.theme-clarity .x-sov-task { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 44px; color: inherit; text-decoration: none; }
@@ -387,7 +391,7 @@ html.theme-clarity .x-iconbtn { width: 40px; height: 40px; border-radius: 10px; 
 html.theme-clarity .x-iconbtn:hover { background: var(--cl-card); border-color: var(--cl-bd); color: var(--cl-tx); }
 html.theme-clarity .x-iconbtn:active { transform: scale(.94); }
 html.theme-clarity .x-dot { position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 9999px; background: var(--cl-er); border: 2px solid var(--cl-bg); }
-html.theme-clarity .x-content { padding: 28px; width: 100%; max-width: 1240px; margin: 0 auto; flex: 1; min-width: 0; }
+html.theme-clarity .x-content { padding: 28px; width: 100%; max-width: 1680px; margin: 0; flex: 1; min-width: 0; }
 html.theme-clarity .x-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 16px; margin-bottom: 24px; }
 html.theme-clarity .x-h1 { margin: 0; font-family: var(--cl-font); font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; overflow-wrap: anywhere; }
 html.theme-clarity .x-sub { margin: 4px 0 0; color: var(--cl-mu); }
@@ -728,6 +732,11 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
 @keyframes cl-seg { from { stroke-dasharray: 0 100; } }
 @keyframes cl-sheet { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes cl-sheetout { to { transform: translateY(100%); } }
+
+/* ---------- Sidebar stays put on desktop: only the page scrolls ---------- */
+@media screen and (min-width: 1024px) {
+  html.theme-clarity .x-side { position: sticky; top: 0; align-self: flex-start; height: 100vh; height: 100dvh; overflow-y: auto; }
+}
 
 /* ---------- Drawer layout (the app's 1024 breakpoint) ---------- */
 @media (max-width: 1023.98px) {

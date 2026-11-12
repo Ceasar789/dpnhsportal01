@@ -85,7 +85,7 @@ const DueSoon = ({ rows, now, loading, loadError }) => {
   );
 };
 
-const Subjects = ({ subjects, tasksBySubject, loading, loadError, onRetry }) => {
+export const Subjects = ({ subjects, tasksBySubject, loading, loadError, onRetry }) => {
   // One interval for the whole list, as in the classic SubjectCards.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {

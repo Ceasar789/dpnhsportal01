@@ -8,12 +8,13 @@
 
 import { formatNumber, percentForDrawing } from './chartMath';
 
-const RankedBars = ({ rows = [], label = '', emptyText = 'No released scores' }) => {
+// sorted={false} keeps the rows in the order given (default: ranked high to low).
+const RankedBars = ({ rows = [], label = '', emptyText = 'No released scores', sorted = true }) => {
   const items = (rows || []).map(r => ({ label: String(r?.label ?? ''), ...percentForDrawing(r?.value) }));
   if (!items.length) {
     return <div className="x-empty">{label ? `${label}: ` : ''}No data yet</div>;
   }
-  const ranked = [...items].sort((a, b) => {
+  const ranked = !sorted ? items : [...items].sort((a, b) => {
     if (a.pct === null) return b.pct === null ? 0 : 1;
     if (b.pct === null) return -1;
     return b.pct - a.pct;

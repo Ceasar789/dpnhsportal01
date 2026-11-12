@@ -288,6 +288,17 @@ html.theme-clarity .x-tan-top { display: flex; flex-wrap: wrap; align-items: fle
 html.theme-clarity .x-tan-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--cl-tx); overflow-wrap: anywhere; }
 html.theme-clarity .x-tan-text { margin: 6px 0 8px; color: var(--cl-mu); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 html.theme-clarity .x-tan-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+/* S1: Student Overview (final design) */
+html.theme-clarity .x-sov-who { margin: 6px 0 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-sov-ring { width: 64px; flex: none; align-self: center; }
+html.theme-clarity .x-sov-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+html.theme-clarity .x-sov-due { margin-top: 12px; }
+html.theme-clarity .x-sov-task { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 44px; color: inherit; text-decoration: none; }
+html.theme-clarity .x-sov-task:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; border-radius: 10px; }
+html.theme-clarity .x-sov-task .x-badge { flex: none; }
+html.theme-clarity .x-sov-tcopy { display: grid; gap: 2px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-sov-bars { margin-top: 16px; }
+html.theme-clarity .x-sov-more { margin: 16px 0 0; text-align: right; }
 /* Printing the manual ILAW or quick-draft editor hides the shell, as the
    classic rules in FullManualIlawEditor.css do for the classic header and sidebar. */
 @media print {

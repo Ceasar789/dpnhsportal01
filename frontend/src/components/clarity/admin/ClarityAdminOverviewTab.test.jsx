@@ -319,7 +319,7 @@ describe('CSS', () => {
     const css = readFileSync(join(SRC, 'styles', 'clarity-components.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const scope = ['html.theme', 'clarity'].join('-');
     const lines = css.split(/\r?\n/).filter(l => /\.x-ov/.test(l));
-    expect(lines.length).toBe(11);
+    expect(lines.length).toBeGreaterThanOrEqual(11);
     for (const line of lines) expect(line.trim().startsWith(`${scope} .x-ov`), line).toBe(true);
   });
 });

@@ -14,7 +14,10 @@ const R = 15.9155;
 // gap (optional): a thin space between segments, in circumference units (the
 // circle is 100 long; 0.5 is about 2px at the 180px size). 0, the default,
 // draws exactly as before. A single visible segment never gets a gap.
-const Donut = ({ segments = [], label = '', totalLabel = 'total', gap = 0 }) => {
+// size (optional): the ring's width in px (default 180, as before).
+// showPercent (optional, default true): false shows only the count in the
+// legend; the screen-reader summary keeps the percentages either way.
+const Donut = ({ segments = [], label = '', totalLabel = 'total', gap = 0, size, showPercent = true }) => {
   const rows = (segments || [])
     .map(s => ({ label: String(s?.label ?? ''), value: countForDrawing(s?.value) }))
     .filter(s => s.value !== null);
@@ -36,7 +39,7 @@ const Donut = ({ segments = [], label = '', totalLabel = 'total', gap = 0 }) => 
 
   return (
     <figure style={{ margin: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20 }}>
-      <svg className="x-svg" viewBox="0 0 42 42" role="img" aria-label={aria} style={{ maxWidth: 180, flex: '0 1 180px' }}>
+      <svg className="x-svg" viewBox="0 0 42 42" role="img" aria-label={aria} style={size ? { maxWidth: size, flex: `0 1 ${size}px` } : { maxWidth: 180, flex: '0 1 180px' }}>
         <circle className="x-track" cx="21" cy="21" r={R} aria-hidden="true" />
         {visible.map(a => (g
           ? (
@@ -56,7 +59,7 @@ const Donut = ({ segments = [], label = '', totalLabel = 'total', gap = 0 }) => 
           <li key={a.i}>
             <span className="x-sw" style={{ background: seriesColour(a.i) }} aria-hidden="true" />
             <span title={a.label} style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{a.label}</span>
-            <b>{`${formatNumber(a.value)} · ${a.pct}%`}</b>
+            <b>{showPercent ? `${formatNumber(a.value)} · ${a.pct}%` : formatNumber(a.value)}</b>
           </li>
         ))}
       </ul>

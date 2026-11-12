@@ -63,9 +63,15 @@ html.theme-clarity .x-ov-kpi { display: flex; align-items: flex-start; justify-c
 html.theme-clarity .x-ov-up { color: var(--cl-ok); font-weight: 700; }
 html.theme-clarity .x-ov-ring { width: 64px; flex: none; align-self: center; }
 html.theme-clarity .x-ov-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
-html.theme-clarity .x-ov-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+html.theme-clarity .x-ov-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 3fr); gap: 16px; margin-bottom: 16px; }
 html.theme-clarity .x-ov-ch { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 html.theme-clarity .x-ov-time { flex: none; font-size: 12px; color: var(--cl-dim); }
+/* A1b: the Overview header centres "Create user" against the title block;
+   the shared .x-head keeps flex-end everywhere else. */
+html.theme-clarity .x-ov-head.x-head { align-items: center; }
+html.theme-clarity .x-ov-seg { margin-top: 12px; }
+/* "View users" in the normal text colour, as in the design (focus ring kept). */
+html.theme-clarity .x-ov .x-link { color: var(--cl-tx); }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -436,6 +442,8 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
   html.theme-clarity .x-ov .x-kpis { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-ov-row { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-ov .x-link { min-height: 40px; }
+  html.theme-clarity .x-ov-head .x-act { flex-basis: 100%; }
+  html.theme-clarity .x-ov-head .x-act .x-btn { flex: none; }
   html.theme-clarity .x-app { font-size: 15px; line-height: 1.55; }
   html.theme-clarity .x-top { padding: 0 16px; }
   html.theme-clarity .x-search { display: none; }

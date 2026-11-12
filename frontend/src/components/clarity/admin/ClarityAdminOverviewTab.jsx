@@ -132,7 +132,7 @@ const ClarityAdminOverviewTab = () => {
 
   return (
     <div className="x-ov">
-      <div className="x-head">
+      <div className="x-head x-ov-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1">Dashboard Overview</h1>
           {subtitle && <p className="x-sub">{subtitle}</p>}
@@ -187,10 +187,13 @@ const ClarityAdminOverviewTab = () => {
             <div>
               <h2 id="ov-roles" className="x-ct">Role distribution</h2>
               {roleCounts && <p className="x-cs">{NUMBER.format(roleTotal)} active {roleTotal === 1 ? 'account' : 'accounts'}</p>}
+              {/* As in the design: the view control sits under the subtitle. */}
+              {roleCounts && roleTotal > 0 && (
+                <div className="x-ov-seg">
+                  <Segmented label="Role distribution view" options={['Donut', 'Split', 'Ranked']} value={roleView} onChange={setRoleView} />
+                </div>
+              )}
             </div>
-            {roleCounts && roleTotal > 0 && (
-              <Segmented label="Role distribution view" options={['Donut', 'Split', 'Ranked']} value={roleView} onChange={setRoleView} />
-            )}
           </div>
           {usersError ? (
             <div role="alert" className="x-empty">
@@ -202,7 +205,7 @@ const ClarityAdminOverviewTab = () => {
           ) : roleTotal === 0 ? (
             <p className="x-empty">No accounts yet</p>
           ) : roleView === 'Donut' ? (
-            <Donut segments={roleCounts} label="Role distribution" totalLabel="users" gap={0.5} />
+            <Donut segments={roleCounts} label="Role distribution" totalLabel="users" gap={0.5} size={130} showPercent={false} />
           ) : roleView === 'Split' ? (
             <StackedBar segments={roleCounts} label="Role distribution" unit="users" />
           ) : (

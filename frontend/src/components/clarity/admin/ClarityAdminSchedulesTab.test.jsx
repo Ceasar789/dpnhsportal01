@@ -93,18 +93,18 @@ describe('timetable from real rows', () => {
     show();
     const heads = within(timetable()).getAllByRole('columnheader').map(th => th.textContent);
     expect(heads).toEqual(['Time', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
-    const slots = within(timetable()).getAllByRole('rowheader').map(th => th.textContent);
-    expect(slots).toEqual(['07:00 – 08:00', '08:00 – 09:00', '09:00 – 10:00']);
+    const slots = within(timetable()).getAllByRole('rowheader').map(th => [th.querySelector('[aria-hidden="true"]').textContent, th.querySelector('.x-sr').textContent]);
+    expect(slots).toEqual([['7:00 – 8:00', '7:00 AM to 8:00 AM'], ['8:00 – 9:00', '8:00 AM to 9:00 AM'], ['9:00 – 10:00', '9:00 AM to 10:00 AM']]);
   });
 
   it('each block names the subject, the teacher, the day, the time and the room (only when real)', () => {
     show();
     const blocks = within(timetable()).getAllByRole('group').map(g => g.getAttribute('aria-label'));
     expect(blocks).toEqual([
-      'Old Subject, Ben, Saturday 07:00–08:00',
-      'Mathematics, Ana Cruz, Monday 08:00–09:00, Room 201',
-      'Science, Ben, Tuesday 08:00–09:00',
-      'Mathematics, Ana Cruz, Wednesday 09:00–10:00',
+      'Old Subject, Ben, Saturday 7:00 AM–8:00 AM',
+      'Mathematics, Ana Cruz, Monday 8:00 AM–9:00 AM, Room 201',
+      'Science, Ben, Tuesday 8:00 AM–9:00 AM',
+      'Mathematics, Ana Cruz, Wednesday 9:00 AM–10:00 AM',
     ]);
     const math = within(timetable()).getAllByRole('group')[1];
     expect(within(math).getByText('A. Cruz')).toBeTruthy();

@@ -114,7 +114,7 @@ html.theme-clarity .x-cal-card { padding: 16px; }
 html.theme-clarity .x-cal-week { display: grid; gap: 8px; }
 html.theme-clarity .x-cal-day { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: var(--cl-bg); }
 html.theme-clarity .x-cal-day.today { background: var(--cl-ac-s); }
-html.theme-clarity .x-cal-dayhead { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--cl-dim); }
+html.theme-clarity .x-cal-dayhead { margin: 0; font-size: 13px; font-weight: 600; color: var(--cl-mu); }
 html.theme-clarity .x-cal-day.today .x-cal-dayhead { color: var(--cl-ac); }
 html.theme-clarity .x-cal-ev { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 44px; padding: 8px 10px; border: 0; border-left: 3px solid currentColor; border-radius: 8px; font: inherit; font-size: 12px; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 html.theme-clarity .x-cal-ev b { font-size: 13px; color: var(--cl-tx); }
@@ -127,7 +127,7 @@ html.theme-clarity .x-cal-none { padding: 12px 4px 0; }
    (one real "Sent" column and the selected memo). */
 html.theme-clarity .x-news-tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
 html.theme-clarity .x-news-tools .x-search { flex: 1 1 240px; max-width: 360px; }
-html.theme-clarity .x-news-hero { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 24px; padding: 20px; margin-bottom: 16px; }
+html.theme-clarity .x-news-hero { display: grid; grid-template-columns: minmax(0, 11fr) minmax(0, 9fr); gap: 24px; padding: 20px; margin-bottom: 16px; }
 html.theme-clarity .x-news-art { min-height: 180px; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, var(--cl-ac), var(--cl-feat-art-end)); }
 html.theme-clarity .x-news-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 html.theme-clarity .x-news-body { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -160,6 +160,7 @@ html.theme-clarity .x-memo-fields dt { min-width: 48px; color: var(--cl-dim); }
 html.theme-clarity .x-memo-fields dd { margin: 0; overflow-wrap: anywhere; }
 html.theme-clarity .x-memo-body { margin: 16px 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 html.theme-clarity .x-memo-stats { margin-top: 12px; }
+html.theme-clarity .x-memo-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 0 8px; border-radius: 9999px; background: var(--cl-ok-s); color: var(--cl-ok); font-size: 12px; font-weight: 700; line-height: 22px; }
 /* A5: Admin User Management (role tabs, the user table, the selected user) */
 html.theme-clarity .x-usr-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 2px; }
 html.theme-clarity .x-usr-tabs button { flex: none; min-height: 40px; padding: 0 20px; border: 0; border-radius: 9999px; background: none; font: inherit; font-weight: 500; color: var(--cl-tx); cursor: pointer; transition: background-color .2s var(--cl-ease), color .2s var(--cl-ease); }

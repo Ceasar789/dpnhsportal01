@@ -31,6 +31,17 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const hhmm = value => String(value ?? '').slice(0, 5);
+// Display only (the stored "HH:MM" stays the key): the final design prints
+// 12-hour times with no leading zero and no AM/PM, e.g. "1:00"; the spoken
+// text keeps AM/PM so a screen reader is never ambiguous, e.g. "1:00 PM".
+// A value that is not "HH:MM" is shown as stored.
+const clock = (value, spoken = false) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(value);
+  if (!m) return value;
+  const h = Number(m[1]);
+  const text = `${h % 12 === 0 ? 12 : h % 12}:${m[2]}`;
+  return spoken ? `${text} ${h < 12 ? 'AM' : 'PM'}` : text;
+};
 // A stable soft colour per subject: a style choice, not data.
 const PALETTE = 5;
 const colourFor = (key) => {
@@ -319,7 +330,10 @@ const ClarityAdminSchedulesTab = () => {
                     <tbody>
                       {slots.map(([start, end]) => (
                         <tr key={`${start}|${end}`}>
-                          <th scope="row" className="x-sch-time">{start} – {end}</th>
+                          <th scope="row" className="x-sch-time">
+                            <span aria-hidden="true">{clock(start)} – {clock(end)}</span>
+                            <span className="x-sr">{clock(start, true)} to {clock(end, true)}</span>
+                          </th>
                           {days.map(day => (
                             <td key={day}>
                               {sectionPeriods
@@ -329,7 +343,7 @@ const ClarityAdminSchedulesTab = () => {
                                   const teacher = nameOf(teachers, r.teacher_id);
                                   return (
                                     <div key={r.id} role="group" className={`x-sch-block ${colourFor(subjectKey(r))}`}
-                                      aria-label={`${subject}, ${teacher}, ${day} ${start}–${end}${r.room_number ? `, ${r.room_number}` : ''}`}>
+                                      aria-label={`${subject}, ${teacher}, ${day} ${clock(start, true)}–${clock(end, true)}${r.room_number ? `, ${r.room_number}` : ''}`}>
                                       <b>{subject}</b>
                                       <span>{shortName(teacher)}</span>
                                       {r.room_number && <span>{r.room_number}</span>}

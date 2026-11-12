@@ -89,7 +89,7 @@ const ClarityAdminMemosTab = () => {
           <section className="x-memo-col" aria-labelledby="x-memo-sent">
             <div className="x-sec-colhead">
               <h2 id="x-memo-sent">Sent</h2>
-              <span>{memosLoading ? '' : filteredMemos.length}<span className="x-sr"> {filteredMemos.length === 1 ? 'memo' : 'memos'}</span></span>
+              <span className={memosLoading ? undefined : 'x-memo-count'}>{memosLoading ? '' : filteredMemos.length}<span className="x-sr"> {filteredMemos.length === 1 ? 'memo' : 'memos'}</span></span>
             </div>
             {memosLoading ? (
               <p className="x-empty" role="status">Loading memos…</p>

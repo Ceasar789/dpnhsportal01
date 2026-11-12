@@ -403,36 +403,38 @@ const ClarityAdminTeachingLoadTab = () => {
           <h1 className="x-h1" tabIndex={-1}>Teaching Load</h1>
           <p className="x-sub">Assign subjects with the teacher and grade always in view.</p>
         </div>
-        <div className="x-tld-year">
-          <label htmlFor="teaching-school-year">School year</label>
-          <input id="teaching-school-year" className="x-input"
-            value={schoolYear ?? ''} onChange={event => setSchoolYear(event.target.value)} placeholder="2025-2026"
-            disabled={isDirty || saving || schoolYearSource === 'loading'}
-            aria-describedby={[isDirty && 'teaching-year-lock', settingsSchoolYear && 'teaching-year-teachers'].filter(Boolean).join(' ') || undefined} />
+        {/* The school year and its tools sit top right, as in the final design. */}
+        <div className="x-tld-headact">
+          <div className="x-tld-year">
+            <label htmlFor="teaching-school-year">School year</label>
+            <input id="teaching-school-year" className="x-input"
+              value={schoolYear ?? ''} onChange={event => setSchoolYear(event.target.value)} placeholder="2025-2026"
+              disabled={isDirty || saving || schoolYearSource === 'loading'}
+              aria-describedby={[isDirty && 'teaching-year-lock', settingsSchoolYear && 'teaching-year-teachers'].filter(Boolean).join(' ') || undefined} />
+          </div>
+          {(settingsSchoolYear || prevYear || isDirty) && (
+            <div className="x-tld-tools">
+              {settingsSchoolYear && (
+                <span id="teaching-year-teachers" className="x-cs">Teachers currently see {settingsSchoolYear}.</span>
+              )}
+              {prevYear && (
+                <button type="button" className="x-btn" aria-busy={copying || undefined} disabled={isDirty || saving}
+                  onClick={async () => {
+                    setCopying(true);
+                    try { await copyLoadFromYear(prevYear); } finally { setCopying(false); }
+                  }}>
+                  <Copy size={15} aria-hidden="true" />
+                  {copying ? `Copying from ${prevYear}…` : `Copy from ${prevYear}`}
+                </button>
+              )}
+              {isDirty && (
+                <span id="teaching-year-lock" className="x-cs">Save or discard changes before changing the school year.</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
-
-      {(settingsSchoolYear || prevYear || isDirty) && (
-        <div className="x-tld-tools">
-          {settingsSchoolYear && (
-            <span id="teaching-year-teachers" className="x-cs">Teachers currently see {settingsSchoolYear}.</span>
-          )}
-          {prevYear && (
-            <button type="button" className="x-btn" aria-busy={copying || undefined} disabled={isDirty || saving}
-              onClick={async () => {
-                setCopying(true);
-                try { await copyLoadFromYear(prevYear); } finally { setCopying(false); }
-              }}>
-              <Copy size={15} aria-hidden="true" />
-              {copying ? `Copying from ${prevYear}…` : `Copy from ${prevYear}`}
-            </button>
-          )}
-          {isDirty && (
-            <span id="teaching-year-lock" className="x-cs">Save or discard changes before changing the school year.</span>
-          )}
-        </div>
-      )}
 
       <div className="x-usr-tabs x-tld-grades" role="group" aria-label="Grade level">
         {GRADE_LEVELS.map(g => {

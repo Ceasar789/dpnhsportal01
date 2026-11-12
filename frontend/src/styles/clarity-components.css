@@ -196,7 +196,9 @@ html.theme-clarity .x-usr-bio { white-space: pre-wrap; }
 html.theme-clarity .x-tld-year { display: flex; align-items: center; gap: 12px; }
 html.theme-clarity .x-tld-year label { font-weight: 600; color: var(--cl-tx); }
 html.theme-clarity .x-tld-year .x-input { width: 150px; }
-html.theme-clarity .x-tld-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+html.theme-clarity .x-tld > .x-head { align-items: flex-start; }
+html.theme-clarity .x-tld-headact { display: grid; justify-items: end; gap: 8px; }
+html.theme-clarity .x-tld-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
 html.theme-clarity .x-tld-grades { margin-bottom: 8px; }
 html.theme-clarity .x-tld-n { display: inline-block; margin-left: 10px; min-width: 22px; padding: 0 7px; border-radius: 9999px; font-size: 12px; line-height: 20px; color: var(--cl-mu); }
 html.theme-clarity .x-tld-grades button.on .x-tld-n { background: rgba(255,255,255,.25); color: inherit; }
@@ -772,6 +774,8 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
   html.theme-clarity .x-tat .x-pst button, html.theme-clarity .x-tat-days .x-btn { min-height: 44px; }
   html.theme-clarity .x-set-nav { position: static; display: flex; overflow-x: auto; }
   html.theme-clarity .x-set-nav button { flex: none; min-height: 44px; }
+  html.theme-clarity .x-tld-headact { width: 100%; justify-items: stretch; }
+  html.theme-clarity .x-tld-tools { justify-content: flex-start; }
   html.theme-clarity .x-tld-year { width: 100%; }
   html.theme-clarity .x-tld-year .x-input { flex: 1; width: auto; }
   html.theme-clarity .x-tld-teacher, html.theme-clarity .x-tld-remove { min-height: 48px; }

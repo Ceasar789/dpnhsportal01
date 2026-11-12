@@ -22,6 +22,11 @@ import Modal from '../../ui/Modal';
 import Button from '../../ui/Button';
 import { formatDate, formatDateTime } from '../../../lib/formatDate';
 
+// Sender and audience as stored. A missing part is left out (no dash and no
+// assumed "All"); the arrow shows only when both are there.
+const stored = v => String(v ?? '').trim();
+const audience = m => [m.from_office, m.recipient].map(stored).filter(Boolean).join(' → ');
+
 const ClarityAdminMemosTab = () => {
   const {
     closeModal, deleteMemo, editMemo, filteredMemos = [], mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos = [],
@@ -99,7 +104,7 @@ const ClarityAdminMemosTab = () => {
               <button key={m.id} type="button" className={`x-card x-memo-card${selMemo?.id === m.id ? ' on' : ''}`}
                 aria-current={selMemo?.id === m.id ? 'true' : undefined} onClick={() => setSelMemo(m)}>
                 <b>{m.subject}</b>
-                <span className="x-memo-aud">{m.from_office || '—'} → {m.recipient || 'All'}</span>
+                {audience(m) && <span className="x-memo-aud">{audience(m)}</span>}
                 <span className="x-memo-date">{formatDate(m.created_at)}</span>
               </button>
             ))}
@@ -110,8 +115,8 @@ const ClarityAdminMemosTab = () => {
               <>
                 <h2 className="x-ct" style={{ overflowWrap: 'anywhere' }}>{selMemo.subject}</h2>
                 <dl className="x-memo-fields">
-                  <div><dt>From</dt><dd>{selMemo.from_office || '—'}</dd></div>
-                  <div><dt>To</dt><dd>{selMemo.recipient || 'All Faculty'}</dd></div>
+                  {stored(selMemo.from_office) && <div><dt>From</dt><dd>{stored(selMemo.from_office)}</dd></div>}
+                  {stored(selMemo.recipient) && <div><dt>To</dt><dd>{stored(selMemo.recipient)}</dd></div>}
                   <div><dt>Date</dt><dd>{formatDateTime(selMemo.created_at)}</dd></div>
                 </dl>
                 <p className="x-memo-body">{selMemo.content}</p>

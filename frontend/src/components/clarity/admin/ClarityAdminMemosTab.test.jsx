@@ -49,12 +49,13 @@ describe('layout from real data', () => {
     expect(within(sent()).getByText('3', { selector: '.x-sec-colhead > span' }).textContent).toBe('3 memos');
   });
 
-  it('cards show the real subject, the sender and audience as stored, and the date; no avatar bubbles', () => {
+  it('cards show the real subject, the sender and audience as stored (a missing part left out), and the date; no avatar bubbles', () => {
     show();
     const cards = within(sent()).getAllByRole('button');
     expect(cards.map(c => c.querySelector('b').textContent)).toEqual(['Faculty meeting', 'Uniform reminder', 'Science lab']);
     expect(cards[0].textContent).toContain("Principal's Office → All Faculty");
-    expect(cards[1].textContent).toContain('— → All Students');
+    expect(cards[1].textContent).toContain('All Students');
+    expect(cards[1].textContent).not.toContain('—');
     expect(document.querySelector('.x-ava, img')).toBeNull();
   });
 

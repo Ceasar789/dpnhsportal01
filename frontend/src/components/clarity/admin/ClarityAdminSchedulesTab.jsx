@@ -240,6 +240,16 @@ const ClarityAdminSchedulesTab = () => {
   const subjectKey = row => row.subject_id || `unresolved:${row.id}`;
   const subjectLabel = row => subjects.find(s => s.id === row.subject_id)?.name || 'Subject reference unavailable';
   const gradesWithSections = GRADE_LEVELS.filter(g => sectionIdsByGrade[g].size > 0);
+  // The first section of the picker (grade order, then list order). Opened
+  // on load so the page never starts on an empty prompt when sections exist;
+  // a section already open (from here or from Sections) is left alone.
+  const firstSectionId = gradesWithSections.length
+    ? sections.find(s => normalizeGradeLevel(s.grade_level) === gradesWithSections[0])?.id ?? null
+    : null;
+  const openIsKnown = !!openSectionId && sections.some(s => s.id === openSectionId);
+  useEffect(() => {
+    if (!sectionsLoading && !sectionsError && firstSectionId && !openIsKnown) setOpenSectionId(firstSectionId);
+  }, [sectionsLoading, sectionsError, firstSectionId, openIsKnown, setOpenSectionId]);
 
   // "Add class" moves to the subject list, where each subject has its Add.
   const subjectsCardRef = useRef(null);
@@ -297,21 +307,6 @@ const ClarityAdminSchedulesTab = () => {
           <p className="x-card x-empty">Pick a section above to set its schedule.</p>
         ) : (
           <>
-            <section className="x-card x-pad x-sch-setup" aria-label={`Class setup for ${openSection.name}`}>
-              <p className="x-kl">Class setup</p>
-              <p>
-                {teachersLoading ? 'Adviser: loading…'
-                  : teachersError ? 'Adviser could not be loaded'
-                    : !openSection.adviser_id ? 'No adviser yet'
-                      : `Adviser: ${teachers.find(t => t.id === openSection.adviser_id)?.name || 'a teacher not in the list'}`}
-              </p>
-              <p className="x-cs">
-                {subjectsLoading || schedulesLoading ? 'Loading class setup…'
-                  : subjectsError ? 'Subject coverage unavailable'
-                    : coverageText(subjectCoverage(openSection.id, schedules, activeSubjects))}
-              </p>
-            </section>
-
             <section className="x-card x-sch-card" aria-label={`Weekly timetable for ${openSection.name}`}>
               {schedulesLoading ? (
                 <p className="x-empty">{slowSchedules ? 'Loading schedules…' : ''}</p>
@@ -362,6 +357,21 @@ const ClarityAdminSchedulesTab = () => {
                   </table>
                 </div>
               )}
+            </section>
+
+            <section className="x-card x-pad x-sch-setup" aria-label={`Class setup for ${openSection.name}`}>
+              <p className="x-kl">Class setup</p>
+              <p>
+                {teachersLoading ? 'Adviser: loading…'
+                  : teachersError ? 'Adviser could not be loaded'
+                    : !openSection.adviser_id ? 'No adviser yet'
+                      : `Adviser: ${teachers.find(t => t.id === openSection.adviser_id)?.name || 'a teacher not in the list'}`}
+              </p>
+              <p className="x-cs">
+                {subjectsLoading || schedulesLoading ? 'Loading class setup…'
+                  : subjectsError ? 'Subject coverage unavailable'
+                    : coverageText(subjectCoverage(openSection.id, schedules, activeSubjects))}
+              </p>
             </section>
 
             <section ref={subjectsCardRef} className="x-card x-pad x-sch-subjects" aria-labelledby="x-sch-subjects">

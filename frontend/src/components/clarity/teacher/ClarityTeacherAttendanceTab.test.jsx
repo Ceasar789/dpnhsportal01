@@ -178,7 +178,7 @@ describe('summary card (real counts only)', () => {
     db.attendance = [row('s1', 'Present'), row('s2', 'Absent')];
     await show(ClarityTeacherAttendanceTab);
     const card = screen.getByLabelText('Attendance totals');
-    expect(within(card).getByRole('heading', { level: 2 }).textContent).toBe('Today · Wed, Mar 13, 2030');
+    expect(within(card).getByRole('heading', { level: 2 }).textContent).toBe('Today · Mar 13');
     expect(within(card).getByRole('img', { name: 'Marked present: 33 percent, 1 of 3 students' })).toBeTruthy();
     expect(totals()).toEqual(['1', '1', '0', '0', '1']);
   });

@@ -326,6 +326,8 @@ html.theme-clarity .x-tgr-row:focus-visible { outline: 2px solid var(--cl-ac); o
 html.theme-clarity .x-tgr-who { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 html.theme-clarity .x-tgr-name { margin: 2px 0 0; overflow-wrap: anywhere; }
 html.theme-clarity .x-tgr-ring { width: 120px; margin: 16px 0; }
+/* A long centre score (over 7 characters, e.g. 100 / 100) gets a smaller size so it stays inside the ring. */
+html.theme-clarity .x-tgr-ring-long .x-ringval { font-size: 5px; }
 html.theme-clarity .x-tgr-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 html.theme-clarity .x-tgr-score { margin: 16px 0; font-size: 24px; font-weight: 700; }
 html.theme-clarity .x-tgr-facts { display: grid; gap: 10px; margin: 0 0 16px; }

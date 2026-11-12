@@ -75,6 +75,9 @@ const shiftDate = (key, days) => {
 const PST = { Present: 'p', Absent: 'a', Late: 'l', Excused: 'e' };
 // "Thu, Nov 12, 2026" for the Manila date key on screen, read in UTC on its own date.
 const DAY_LABEL = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+// "Nov 11" for today's card title (the design); other dates keep the full label.
+const SHORT_DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const shortDay = key => { const ms = dateParts(key); return ms === null ? key : SHORT_DAY.format(new Date(ms)); };
 const dayLabel = key => { const ms = dateParts(key); return ms === null ? key : DAY_LABEL.format(new Date(ms)); };
 
 const ClarityTeacherAttendanceTab = () => {
@@ -496,7 +499,7 @@ const ClarityTeacherAttendanceTab = () => {
           </section>
 
           <aside className="x-card x-pad x-tat-sum" aria-label="Attendance totals">
-            <h2 className="x-ct">{selectedDate === today ? 'Today' : weekdayOf(selectedDate) || 'Date'} · {dayLabel(selectedDate)}</h2>
+            <h2 className="x-ct">{selectedDate === today ? 'Today' : weekdayOf(selectedDate) || 'Date'} · {selectedDate === today ? shortDay(selectedDate) : dayLabel(selectedDate)}</h2>
             {ready && (
               <div className="x-tat-ring">
                 <ProgressRing value={(present / roster.length) * 100} label="Marked present" detail={`${present} of ${roster.length} students`} />

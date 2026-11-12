@@ -9,7 +9,9 @@ import { formatNumber, percentForDrawing } from './chartMath';
 // r = 100 / (2π): the circumference is 100, so a dash of N is N percent.
 const R = 15.9155;
 
-const ProgressRing = ({ value, label, detail = '', unit = '' }) => {
+// center: optional text in place of the percentage (e.g. "8 / 15"); the
+// accessible name still says the percentage.
+const ProgressRing = ({ value, label, detail = '', unit = '', center = '' }) => {
   const { pct, note } = percentForDrawing(value);
   if (pct === null) {
     return <div className="x-empty">{label ? `${label}: ` : ''}No data yet</div>;
@@ -23,7 +25,7 @@ const ProgressRing = ({ value, label, detail = '', unit = '' }) => {
         {pct > 0 && (
           <circle className="x-seg-ring c1" cx="21" cy="21" r={R} strokeDasharray={`${pct} ${100 - pct}`} aria-hidden="true" />
         )}
-        <text className="x-ringval" x="21" y="23.5" aria-hidden="true">{`${shown}%`}</text>
+        <text className="x-ringval" x="21" y="23.5" aria-hidden="true">{center || `${shown}%`}</text>
         {unit && <text className="x-ringlbl" x="21" y="28" aria-hidden="true">{unit}</text>}
       </svg>
       {(label || detail) && (

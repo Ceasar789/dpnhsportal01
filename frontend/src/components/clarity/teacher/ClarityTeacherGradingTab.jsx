@@ -23,7 +23,7 @@ import { Search } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
-import { formatDateTime } from '../../../lib/formatDate';
+import { formatDateTime, LOCALE } from '../../../lib/formatDate';
 import { useToast } from '../../../pages/dashboards/teacher/hooks';
 import { Toast } from '../../../pages/dashboards/teacher/shared/ui';
 import { useWorksheetAssessment } from '../../../pages/dashboards/teacher/worksheets/useWorksheetAssessment';
@@ -59,6 +59,14 @@ const STATUS = {
 const StatusPill = ({ row }) => {
   const [label, tone] = STATUS[rowStatus(row)];
   return <span className={`x-badge ${tone}`}>{label}</span>;
+};
+// "Nov 10": the submitted day, in the same local time as formatDateTime.
+const submittedDay = at => { const d = at ? new Date(at) : null; return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' }) : ''; };
+// The row's line (the design): the score when scored, else the submitted day when known.
+const rowLine = s => {
+  if (s.notStarted) return 'No submission yet';
+  const day = submittedDay(s.submitted_at);
+  return s.score == null && s.total_points == null && day ? `Submitted ${day}` : scoreName(s);
 };
 const sourceText = s => (s.source === 'manual' ? 'Paper score' : s.source === 'online' ? 'Online submission' : 'Source unavailable');
 
@@ -211,7 +219,7 @@ const ClarityTeacherGradingTab = () => {
       <div className="x-head x-ov-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1">Grading</h1>
-          <p className="x-sub">Check, release and review worksheet results.</p>
+          <p className="x-sub">Review one submission at a time.</p>
         </div>
         {selected && assessment.paperScoreEncodingAvailable === true && (
           <div className="x-act">
@@ -313,7 +321,7 @@ const ClarityTeacherGradingTab = () => {
                             <button type="button" className={`x-tgr-row${current?.id === s.id ? ' on' : ''}`} aria-pressed={current?.id === s.id} onClick={() => setSelId(s.id)}>
                               <span className="x-tgr-who">
                                 <b>{s.name || 'Student name unavailable'}</b>
-                                <span className="x-cs">{s.notStarted ? 'No submission yet' : scoreName(s)}</span>
+                                <span className="x-cs">{rowLine(s)}</span>
                               </span>
                               <span className="x-news-pills">
                                 <StatusPill row={s} />
@@ -336,7 +344,7 @@ const ClarityTeacherGradingTab = () => {
                         <span className="x-news-pills"><StatusPill row={current} />{isLate(current) && <span className="x-badge er">Late</span>}</span>
                       </div>
                       {percent !== null && drawable(percent) ? (
-                        <div className="x-tgr-ring"><ProgressRing value={percent} label="Score" detail={scoreName(current)} /></div>
+                        <div className={`x-tgr-ring${scoreName(current).length > 7 ? ' x-tgr-ring-long' : ''}`}><ProgressRing value={percent} label="Score" detail={scoreName(current)} center={scoreName(current)} /></div>
                       ) : (
                         <p className="x-tgr-score">{current.notStarted ? 'No submission yet' : scoreName(current)}</p>
                       )}

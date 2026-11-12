@@ -123,7 +123,7 @@ describe('clarity theme is inert', () => {
   it('no source file under frontend/src applies the theme-clarity class yet', () => {
     const offenders = walk(SRC)
       .filter(p => /\.(jsx?|tsx?|html|css)$/.test(p))
-      .filter(p => !/[\\/](clarity|clarity-components)\.css$|[\\/]clarity(Components)?\.test\.js$|[\\/]components[\\/]clarity[\\/]student[\\/]ClarityStudentLayout\.jsx$|[\\/]components[\\/]clarity[\\/]admin[\\/]ClarityAdminLayout\.jsx$/.test(p))
+      .filter(p => !/[\\/](clarity|clarity-components)\.css$|[\\/]clarity(Components)?\.test\.js$|[\\/]components[\\/]clarity[\\/]student[\\/]ClarityStudentLayout\.jsx$|[\\/]components[\\/]clarity[\\/]admin[\\/]ClarityAdminLayout\.jsx$|[\\/]components[\\/]clarity[\\/]teacher[\\/]ClarityTeacherLayout\.jsx$/.test(p))
       .filter(p => readFileSync(p, 'utf8').includes('theme-clarity'));
     expect(offenders).toEqual([]);
     expect(readFileSync(join(SRC, '..', 'index.html'), 'utf8')).not.toContain('theme-clarity');

@@ -34,6 +34,7 @@ import EssayReviewLab from './worksheets/EssayReviewLab';
 import AttendanceTab from './tabs/AttendanceTab';
 import AnnouncementsTab from './tabs/AnnouncementsTab';
 import ProfileTab from '../../profile/ProfileTab';
+import TeacherShellSwitch from '../../../components/clarity/teacher/TeacherShellSwitch';
 import './TeacherDashboard.css';
 
 // ============================================
@@ -488,7 +489,7 @@ const TeacherDashboard = () => {
   return (
     <ThemeContext.Provider value={{ dark: darkMode, toggleDark: toggleDarkMode }}>
       <DashboardThemeStyles />
-      <TeacherLayout>
+      <TeacherShellSwitch classic={TeacherLayout}>
         <PageTransition>
           <Routes>
             <Route path="/" element={<OverviewTab />} />
@@ -516,7 +517,7 @@ const TeacherDashboard = () => {
             <Route path="/profile" element={<div className="teacher-profile"><ProfileTab teacherView /></div>} />
           </Routes>
         </PageTransition>
-      </TeacherLayout>
+      </TeacherShellSwitch>
     </ThemeContext.Provider>
   );
 };

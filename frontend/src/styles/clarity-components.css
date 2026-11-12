@@ -248,6 +248,17 @@ html.theme-clarity .x-set-list { list-style: none; margin: 8px 0 0; padding: 0; 
 html.theme-clarity .x-set-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--cl-bd); }
 html.theme-clarity .x-set-list li:first-child { border-top: 0; }
 html.theme-clarity .x-set-saveact { display: flex; gap: 8px; }
+/* T1: the Teacher shell (the classic tabs render inside .x-tch-classic) */
+html.theme-clarity .x-side.x-tch-mini { width: 76px; }
+html.theme-clarity .x-tch-classic { min-width: 0; }
+/* Printing the manual ILAW or quick-draft editor hides the shell, as the
+   classic rules in FullManualIlawEditor.css do for the classic header and sidebar. */
+@media print {
+  html.theme-clarity .x-tch:has(.teacher-manual-ilaw-active) .x-side,
+  html.theme-clarity .x-tch:has(.teacher-quick-draft-active) .x-side,
+  html.theme-clarity .x-tch:has(.teacher-manual-ilaw-active) .x-top,
+  html.theme-clarity .x-tch:has(.teacher-quick-draft-active) .x-top { display: none; }
+}
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }

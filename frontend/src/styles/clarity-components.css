@@ -89,6 +89,40 @@ html.theme-clarity .x-sub-cell { display: inline-flex; align-items: center; just
 html.theme-clarity .x-sub-cell.on { background: var(--cl-ok-s); color: var(--cl-ok); }
 html.theme-clarity .x-sub-dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; }
 html.theme-clarity .x-sub-msg { text-align: center; padding: 24px; }
+/* A3: Admin Schedules (weekly timetable for one section) and Calendar (week
+   view of all-day event blocks; the month view is the classic one). */
+html.theme-clarity .x-sch-pick { min-width: 220px; max-width: 100%; }
+html.theme-clarity .x-sch-setup { margin-bottom: 16px; }
+html.theme-clarity .x-sch-setup p { margin: 4px 0 0; }
+html.theme-clarity .x-sch-card { padding: 16px; margin-bottom: 16px; }
+html.theme-clarity .x-sch-table { width: 100%; min-width: 640px; border-collapse: separate; border-spacing: 8px; }
+html.theme-clarity .x-sch-table thead th { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--cl-dim); text-align: left; }
+html.theme-clarity .x-sch-table abbr { text-decoration: none; }
+html.theme-clarity .x-sch-table td { vertical-align: top; min-width: 110px; }
+html.theme-clarity .x-sch-time { position: sticky; left: 0; z-index: 1; background: var(--cl-card); font-size: 13px; font-weight: 500; color: var(--cl-mu); text-align: left; vertical-align: top; min-width: 96px; }
+html.theme-clarity .x-sch-block { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 40px 10px 10px; border-radius: 10px; font-size: 12px; margin-bottom: 8px; overflow-wrap: anywhere; }
+html.theme-clarity .x-sch-block b { font-size: 13px; }
+html.theme-clarity .x-sch-block.c1 { background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-sch-block.c2 { background: var(--cl-er-s); color: var(--cl-er); }
+html.theme-clarity .x-sch-block.c3 { background: var(--cl-ok-s); color: var(--cl-ok); }
+html.theme-clarity .x-sch-block.c4 { background: var(--cl-wa-s); color: var(--cl-wa); }
+html.theme-clarity .x-sch-block.c5 { background: var(--cl-bg); color: var(--cl-mu); }
+html.theme-clarity .x-sch-del { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: none; color: inherit; cursor: pointer; }
+html.theme-clarity .x-sch-del:focus-visible, html.theme-clarity .x-cal-ev:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-cal-tools { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+html.theme-clarity .x-cal-card { padding: 16px; }
+html.theme-clarity .x-cal-week { display: grid; gap: 8px; }
+html.theme-clarity .x-cal-day { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: var(--cl-bg); }
+html.theme-clarity .x-cal-day.today { background: var(--cl-ac-s); }
+html.theme-clarity .x-cal-dayhead { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--cl-dim); }
+html.theme-clarity .x-cal-day.today .x-cal-dayhead { color: var(--cl-ac); }
+html.theme-clarity .x-cal-ev { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 44px; padding: 8px 10px; border: 0; border-left: 3px solid currentColor; border-radius: 8px; font: inherit; font-size: 12px; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+html.theme-clarity .x-cal-ev b { font-size: 13px; color: var(--cl-tx); }
+html.theme-clarity .x-cal-ev.in { background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-cal-ev.wa { background: var(--cl-wa-s); color: var(--cl-wa); }
+html.theme-clarity .x-cal-ev.er { background: var(--cl-er-s); color: var(--cl-er); }
+html.theme-clarity .x-cal-ev.ok { background: var(--cl-ok-s); color: var(--cl-ok); }
+html.theme-clarity .x-cal-none { padding: 12px 4px 0; }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -461,6 +495,7 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
   html.theme-clarity .x-ov .x-link { min-height: 40px; }
   html.theme-clarity .x-ov-head .x-act { flex-basis: 100%; }
   html.theme-clarity .x-ov-head .x-act .x-btn { flex: none; }
+  html.theme-clarity .x-sch-del { width: 40px; height: 40px; }
   html.theme-clarity .x-app { font-size: 15px; line-height: 1.55; }
   html.theme-clarity .x-top { padding: 0 16px; }
   html.theme-clarity .x-search { display: none; }

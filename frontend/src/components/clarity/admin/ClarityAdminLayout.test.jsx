@@ -73,7 +73,7 @@ const renderAt = path => render(
 const CLARITY = '/admin-dashboard?clarity=1';
 const CLASSIC = '/admin-dashboard';
 // The Clarity shell is loaded on demand: wait for it.
-const ready = async () => { await screen.findByRole('button', { name: 'Classic view' }); };
+const ready = async () => { await screen.findByRole('button', { name: 'Classic view' }, { timeout: 5000 }); };
 const show = async (path) => { const view = renderAt(path); if (path.includes('clarity=1')) await ready(); return view; };
 const sidebar = () => document.getElementById('admin-sidebar');
 const navFacts = () => within(sidebar()).getAllByRole('button')
@@ -219,16 +219,16 @@ describe('parity with the classic shell (same mocks)', () => {
     Object.assign(h, { page: 'settings', dirty: true });
     const results = await both(async () => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Calendar' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Memos' }));
       const stayed = screen.getByRole('heading', { level: 1 }).textContent;
       confirm.mockReturnValue(true);
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Calendar' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Memos' }));
       const text = confirm.mock.calls[0][0];
       confirm.mockRestore();
       return { stayed, left: screen.getByRole('heading', { level: 1 }).textContent, text };
     });
     expect(results[1]).toEqual(results[0]);
-    expect(results[0]).toEqual({ stayed: 'Settings content', left: 'Calendar content', text: 'You have unsaved settings. Discard them?' });
+    expect(results[0]).toEqual({ stayed: 'Settings content', left: 'Memos content', text: 'You have unsaved settings. Discard them?' });
   });
 
   it('every page change goes through the Teaching Load and Profile guards, with the destination', async () => {

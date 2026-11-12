@@ -1,7 +1,8 @@
 // ============================================
 // FILE: src/components/clarity/student/OverviewTabSwitch.jsx
-// The Overview route's switch. Flag off (the default): the classic
-// OverviewTab, untouched. Flag on: the Clarity Overview (final design). Same data either way.
+// The Overview route's switch. Flag on (the default; ?clarity=1 also turns it
+// on): the Clarity Overview (final design). Flag off (?clarity=0 or "Classic
+// view", remembered as '0'): the classic OverviewTab, untouched. Same data either way.
 // ============================================
 
 import { useClarityFlag } from '../useClarityFlag';

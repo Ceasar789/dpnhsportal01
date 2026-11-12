@@ -48,9 +48,9 @@ afterEach(() => { cleanup(); window.localStorage.clear(); document.documentEleme
 
 describe('the three Teacher tabs behind the flag', () => {
   it.each([
-    ['/teacher-dashboard', 'Dashboard Overview'],
-    ['/teacher-dashboard/students', 'Students'],
-    ['/teacher-dashboard/announcements', 'Announcements'],
+    ['/teacher-dashboard?clarity=0', 'Dashboard Overview'],
+    ['/teacher-dashboard/students?clarity=0', 'Students'],
+    ['/teacher-dashboard/announcements?clarity=0', 'Announcements'],
   ])('flag OFF at %s: the classic tab, no Clarity markup', async (path, heading) => {
     const { container } = renderAt(path);
     expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeTruthy();

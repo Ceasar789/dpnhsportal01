@@ -220,7 +220,7 @@ describe('ScoresTabSwitch', () => {
     state.graph = makeGraph();
     const classic = show(<ScoresTab />).container.innerHTML;
     cleanup();
-    const switched = show(<ScoresTabSwitch classic={ScoresTab} />).container.innerHTML;
+    const switched = show(<ScoresTabSwitch classic={ScoresTab} />, '/student/scores?clarity=0').container.innerHTML;
     expect(switched).toBe(classic);
     expect(document.querySelector('.x-banner')).toBeNull();
   });

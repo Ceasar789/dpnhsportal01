@@ -41,9 +41,9 @@ describe('resolveClarityFlag (pure)', () => {
 });
 
 describe('useClarityFlag', () => {
-  it('is off by default', () => {
+  it('is on by default', () => {
     renderAt('/student-dashboard');
-    expect(state()).toBe('off');
+    expect(state()).toBe('on');
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
   });
 
@@ -56,11 +56,11 @@ describe('useClarityFlag', () => {
     expect(state()).toBe('on');
   });
 
-  it('?clarity=0 turns it off and clears the stored value', () => {
+  it('?clarity=0 turns it off and remembers off', () => {
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
     renderAt('/student-dashboard?clarity=0');
     expect(state()).toBe('off');
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
   it('a stored value other than "1" does not turn it on', () => {
@@ -69,13 +69,13 @@ describe('useClarityFlag', () => {
     expect(state()).toBe('off');
   });
 
-  it('Classic view clears the flag and keeps every other query parameter', () => {
+  it('Classic view remembers off and keeps every other query parameter', () => {
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
     renderAt('/student-dashboard/tasks?view=done&subject=sub-eng');
     expect(state()).toBe('on');
     fireEvent.click(screen.getByRole('button', { name: 'Classic view' }));
     expect(state()).toBe('off');
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
     const url = new URL(`http://x${screen.getByTestId('url').textContent}`);
     expect(url.pathname).toBe('/student-dashboard/tasks');
     expect(url.searchParams.get('view')).toBe('done');
@@ -88,7 +88,7 @@ describe('useClarityFlag', () => {
     expect(screen.getByTestId('url').textContent).toBe('/student-dashboard/tasks?view=upcoming&clarity=1');
   });
 
-  it('storage that throws does not crash: the parameter alone decides', () => {
+  it('storage that throws does not crash: the parameter decides, else on', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
     vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('blocked'); });
@@ -96,7 +96,7 @@ describe('useClarityFlag', () => {
     expect(state()).toBe('on');
     cleanup();
     renderAt('/student-dashboard');
-    expect(state()).toBe('off');
+    expect(state()).toBe('on');
     cleanup();
     renderAt('/student-dashboard?clarity=0');
     expect(state()).toBe('off');

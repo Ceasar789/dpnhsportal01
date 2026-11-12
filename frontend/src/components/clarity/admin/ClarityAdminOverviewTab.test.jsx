@@ -109,7 +109,7 @@ afterEach(() => {
 
 describe('flag', () => {
   it('flag OFF still renders the classic Overview', () => {
-    renderAt('/admin-dashboard');
+    renderAt('/admin-dashboard?clarity=0');
     expect(screen.getByRole('heading', { name: 'Classic overview content' })).toBeTruthy();
     expect(screen.queryByText('Dashboard Overview')).toBeNull();
   });

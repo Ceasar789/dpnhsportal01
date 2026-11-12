@@ -1,8 +1,9 @@
 // ============================================
 // FILE: src/components/clarity/admin/AdminShellSwitch.jsx
-// The Admin dashboard's one switch point, inside <AdminProvider>. Flag off
-// (the default): the classic AdminDashboardShell element, untouched. Flag
-// on: the Clarity Admin shell, loaded on demand so its code (and the copy of
+// The Admin dashboard's one switch point, inside <AdminProvider>. Flag on
+// (the default; ?clarity=1 also turns it on): the Clarity Admin shell. Flag
+// off (?clarity=0 or "Classic view", remembered as '0'): the classic
+// AdminDashboardShell element, untouched. The Clarity shell is loaded on demand so its code (and the copy of
 // the classic style text) is not in the main bundle.
 // ============================================
 

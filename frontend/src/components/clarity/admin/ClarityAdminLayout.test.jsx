@@ -86,7 +86,7 @@ const subNav = () => within(sidebar()).queryAllByRole('button')
 // Both shells, same mocks: run `check` on each and return [classic, clarity].
 const both = async (check) => {
   const out = [];
-  for (const path of [CLASSIC, CLARITY]) {
+  for (const path of [`${CLASSIC}?clarity=0`, CLARITY]) {
     try { window.localStorage.removeItem(CLARITY_STORAGE_KEY); } catch { /* none */ }
     await show(path);
     out.push(await check(path === CLARITY ? 'clarity' : 'classic'));
@@ -110,34 +110,34 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('flag off: the classic shell', () => {
+describe('the switch: classic when off, Clarity by default', () => {
   it('the switch renders exactly the classic element it is given, with the same props', () => {
     const Probe = props => <div data-probe={JSON.stringify(props)}>classic</div>;
     const direct = render(<MemoryRouter><Probe a={1} b="x" /></MemoryRouter>).container.innerHTML;
     cleanup();
-    const switched = render(<MemoryRouter><AdminShellSwitch classic={Probe} a={1} b="x" /></MemoryRouter>).container.innerHTML;
+    const switched = render(<MemoryRouter initialEntries={['/?clarity=0']}><AdminShellSwitch classic={Probe} a={1} b="x" /></MemoryRouter>).container.innerHTML;
     expect(switched).toBe(direct);
   });
 
-  it('by default: the classic shell, no Clarity markup, no class on <html>', async () => {
-    const { container } = await show(CLASSIC);
-    expect(container.querySelector('.dashboard-shell')).toBeTruthy();
-    expect(container.querySelector('.x-app')).toBeNull();
-    expect(htmlHasClass()).toBe(false);
-    expect(screen.getByRole('heading', { name: 'Overview content' })).toBeTruthy();
-  });
-
-  it('?clarity=0 turns it off and forgets it', async () => {
-    window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
-    const { container } = await show('/admin-dashboard?clarity=0');
-    expect(container.querySelector('.dashboard-shell')).toBeTruthy();
+  it('by default: the Clarity shell, no classic markup, the class on <html>, nothing stored', async () => {
+    const { container } = renderAt(CLASSIC); await ready();
+    expect(container.querySelector('.x-app')).toBeTruthy();
+    expect(container.querySelector('.dashboard-shell')).toBeNull();
+    expect(htmlHasClass()).toBe(true);
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
   });
 
-  it('storage that throws: classic by default, and ?clarity=1 still works for that page load', async () => {
+  it('?clarity=0 turns it off and remembers off', async () => {
+    window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
+    const { container } = await show('/admin-dashboard?clarity=0');
+    expect(container.querySelector('.dashboard-shell')).toBeTruthy();
+    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
+  });
+
+  it('storage that throws: Clarity by default, and ?clarity=1 still works for that page load', async () => {
     vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => { throw new Error('blocked'); });
-    let view = await show(CLASSIC);
-    expect(view.container.querySelector('.dashboard-shell')).toBeTruthy();
+    let view = renderAt(CLASSIC); await ready();
+    expect(view.container.querySelector('.x-app')).toBeTruthy();
     cleanup();
     view = await show(CLARITY);
     expect(view.container.querySelector('.x-app')).toBeTruthy();
@@ -163,7 +163,7 @@ describe('flag on: the Clarity shell', () => {
     const params = new URLSearchParams(screen.getByTestId('where').textContent.split('?')[1]);
     expect(params.get('tab')).toBe('x');
     expect(params.get('clarity')).toBe('0');
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
   it('hosts the classic tab components and the classic tab styles', async () => {
@@ -259,7 +259,7 @@ describe('parity with the classic shell (same mocks)', () => {
 
     for (const result of [false, true]) {
       const seen = [];
-      for (const path of [CLASSIC, CLARITY]) {
+      for (const path of [`${CLASSIC}?clarity=0`, CLARITY]) {
         h.deleteConfirm = { label: 'Jane Teacher', role: 'teacher', focusAfterConfirm,
           onConfirm: () => new Promise((r) => { finish = r; }) };
         await show(path);
@@ -288,7 +288,7 @@ describe('parity with the classic shell (same mocks)', () => {
   });
 
   it('archive confirmation: Cancel closes it (and is ignored while busy)', async () => {
-    for (const path of [CLASSIC, CLARITY]) {
+    for (const path of [`${CLASSIC}?clarity=0`, CLARITY]) {
       h.deleteConfirm = { label: 'X', onConfirm: () => new Promise(() => {}) };
       await show(path);
       const dialog = screen.getByRole('dialog', { name: 'Archive User?' });

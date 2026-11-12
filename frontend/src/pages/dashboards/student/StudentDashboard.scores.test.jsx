@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -32,6 +32,7 @@ vi.mock('../../profile/ProfileTab', () => ({ default: () => <div>Profile content
 
 import StudentDashboard from './StudentDashboard';
 
+beforeEach(() => window.localStorage.setItem('smartedu-clarity', '0'));
 afterEach(() => cleanup());
 
 describe('Scores in the student navigation', () => {

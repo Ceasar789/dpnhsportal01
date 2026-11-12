@@ -34,6 +34,7 @@ import StudentDashboard from './StudentDashboard';
 let originalOffsetParent;
 let originalAnimationFrame;
 beforeEach(() => {
+  window.localStorage.setItem('smartedu-clarity', '0');
   logoutMock.mockReset();
   originalOffsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
   Object.defineProperty(HTMLElement.prototype, 'offsetParent', {

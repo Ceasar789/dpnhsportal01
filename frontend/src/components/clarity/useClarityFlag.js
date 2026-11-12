@@ -1,11 +1,12 @@
 // ============================================
 // FILE: src/components/clarity/useClarityFlag.js
-// The Clarity preview flag. OFF unless turned on.
+// The Clarity design flag. ON unless turned off.
 //   ?clarity=1  turns it on and remembers it (localStorage smartedu-clarity=1)
-//   ?clarity=0  turns it off and forgets it
-//   otherwise   the remembered value decides
+//   ?clarity=0  turns it off and remembers that (smartedu-clarity=0)
+//   otherwise   the remembered value decides: "1" on, any other value off,
+//               nothing stored on
 // Storage can throw or be blocked (private mode, policies): then the query
-// parameter alone decides for that page load. Other query parameters are
+// parameter alone decides for that page load, else the default (on). Other query parameters are
 // never touched.
 // ============================================
 
@@ -18,14 +19,17 @@ const store = () => {
   try { return window.localStorage; } catch { return null; }
 };
 
+/** true for "1", false for any other stored value, null when nothing is stored or storage is blocked. */
 export const readStoredFlag = () => {
-  try { return store()?.getItem(CLARITY_STORAGE_KEY) === '1'; } catch { return false; }
+  try {
+    const value = store()?.getItem(CLARITY_STORAGE_KEY);
+    return value == null ? null : value === '1';
+  } catch { return null; }
 };
 
 const writeStoredFlag = (on) => {
   try {
-    if (on) store()?.setItem(CLARITY_STORAGE_KEY, '1');
-    else store()?.removeItem(CLARITY_STORAGE_KEY);
+    store()?.setItem(CLARITY_STORAGE_KEY, on ? '1' : '0');
   } catch { /* storage unavailable: the query parameter decides */ }
 };
 
@@ -35,12 +39,12 @@ export const clarityParam = (search) => {
   return value === '1' || value === '0' ? value : null;
 };
 
-/** On or off for this location: the parameter wins, else the stored value. */
+/** On or off for this location: the parameter wins, else the stored value, else on. */
 export const resolveClarityFlag = (search, stored) => {
   const param = clarityParam(search);
   if (param === '1') return true;
   if (param === '0') return false;
-  return Boolean(stored);
+  return stored == null ? true : Boolean(stored);
 };
 
 export function useClarityFlag() {
@@ -54,7 +58,7 @@ export function useClarityFlag() {
     else if (param === '0') writeStoredFlag(false);
   }, [param]);
 
-  // "Classic view": forget the flag and say so in the URL (?clarity=0),
+  // "Classic view": remember off and say so in the URL (?clarity=0),
   // keeping every other parameter as it was.
   const turnOff = useCallback(() => {
     writeStoredFlag(false);

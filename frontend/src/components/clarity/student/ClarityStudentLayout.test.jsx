@@ -70,20 +70,21 @@ afterEach(() => {
 const navLinks = container => [...container.querySelectorAll('nav a')]
   .map(a => ({ label: a.textContent.trim(), href: a.getAttribute('href'), current: a.getAttribute('aria-current') }));
 
-describe('flag off (the default): the classic shell, exactly as before', () => {
-  it('renders the classic shell, no Clarity class on <html>, nothing stored', () => {
+describe('flag on (the default): the Clarity shell', () => {
+  it('renders the Clarity shell, the Clarity class on <html>, nothing stored', () => {
     const { container } = renderAt('/student-dashboard/tasks');
-    expect(container.querySelector('.student-dashboard-shell')).toBeTruthy();
-    expect(container.querySelector('.x-app')).toBeNull();
+    expect(container.querySelector('.x-app')).toBeTruthy();
+    expect(container.querySelector('.student-dashboard-shell')).toBeNull();
     expect(screen.queryByText('Clarity preview')).toBeNull();
-    expect(htmlHasClass()).toBe(false);
+    expect(htmlHasClass()).toBe(true);
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
     expect(screen.getByRole('heading', { name: 'Tasks content' })).toBeTruthy();
   });
-  it('an unknown parameter value keeps the classic shell', () => {
+  it('an unknown parameter value is ignored: the default (Clarity), nothing stored', () => {
     const { container } = renderAt('/student-dashboard?clarity=yes');
-    expect(container.querySelector('.student-dashboard-shell')).toBeTruthy();
-    expect(htmlHasClass()).toBe(false);
+    expect(container.querySelector('.x-app')).toBeTruthy();
+    expect(htmlHasClass()).toBe(true);
+    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
   });
 });
 
@@ -99,7 +100,7 @@ describe('flag on: the Clarity shell', () => {
   });
 
   it('has the same nav items, order, hrefs and aria-current as the classic shell', () => {
-    const classic = renderAt('/student-dashboard/scores');
+    const classic = renderAt('/student-dashboard/scores?clarity=0');
     const before = navLinks(classic.container);
     cleanup();
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
@@ -130,14 +131,14 @@ describe('flag on: the Clarity shell', () => {
     expect(htmlHasClass()).toBe(false);
   });
 
-  it('Classic view returns to the classic shell, clears the flag and keeps other parameters', () => {
+  it('Classic view returns to the classic shell, remembers off and keeps other parameters', () => {
     h.desktop = true;
     const { container } = renderAt('/student-dashboard/tasks?view=done&clarity=1');
     fireEvent.click(screen.getByRole('button', { name: 'Classic view' }));
     expect(container.querySelector('.student-dashboard-shell')).toBeTruthy();
     expect(container.querySelector('.x-app')).toBeNull();
     expect(htmlHasClass()).toBe(false);
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
     const where = new URLSearchParams(screen.getByTestId('where').textContent.split('?')[1]);
     expect(where.get('view')).toBe('done');
     expect(where.get('clarity')).toBe('0');

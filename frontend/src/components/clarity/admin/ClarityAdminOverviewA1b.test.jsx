@@ -119,7 +119,7 @@ describe('scope and flag', () => {
   });
   it('flag OFF: the switch renders the classic shell it is given', () => {
     const Classic = () => <h1>Classic shell</h1>;
-    render(<MemoryRouter><AdminShellSwitch classic={Classic} /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/?clarity=0']}><AdminShellSwitch classic={Classic} /></MemoryRouter>);
     expect(screen.getByRole('heading', { name: 'Classic shell' })).toBeTruthy();
     expect(screen.queryByText('Dashboard Overview')).toBeNull();
   });

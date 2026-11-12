@@ -35,8 +35,8 @@ const makeGraph = (tasks = [], extra = {}) => ({
 });
 
 const Where = () => { const l = useLocation(); return <output data-testid="where">{l.pathname + l.search}</output>; };
-const show = Tab => render(
-  <MemoryRouter initialEntries={['/student-dashboard']}>
+const show = (Tab, path = '/student-dashboard') => render(
+  <MemoryRouter initialEntries={[path]}>
     <Routes><Route path="*" element={<><Tab /><Where /></>} /></Routes>
   </MemoryRouter>,
 );
@@ -316,9 +316,9 @@ describe('overviewSummary against the classic rules', () => {
 describe('switch and source rules', () => {
   it('flag off (the default) renders the classic tab exactly', () => {
     state.graph = makeGraph([{ sheet: quiz('q'), due: '2030-03-14T08:00:00' }]);
-    const classic = show(OverviewTab).container.innerHTML;
+    const classic = show(OverviewTab, '/student-dashboard?clarity=0').container.innerHTML;
     cleanup();
-    const switched = show(() => <OverviewTabSwitch classic={OverviewTab} />).container.innerHTML;
+    const switched = show(() => <OverviewTabSwitch classic={OverviewTab} />, '/student-dashboard?clarity=0').container.innerHTML;
     expect(switched).toBe(classic);
   });
 

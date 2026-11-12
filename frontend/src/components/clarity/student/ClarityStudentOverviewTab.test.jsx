@@ -48,8 +48,8 @@ const makeGraph = (tasks = TASKS, extra = {}) => ({
 });
 
 const Where = () => { const l = useLocation(); return <output data-testid="where">{l.pathname + l.search}</output>; };
-const show = Tab => render(
-  <MemoryRouter initialEntries={['/student-dashboard']}>
+const show = (Tab, path = '/student-dashboard') => render(
+  <MemoryRouter initialEntries={[path]}>
     <Routes><Route path="*" element={<><Tab /><Where /></>} /></Routes>
   </MemoryRouter>,
 );
@@ -187,9 +187,9 @@ describe('states', () => {
 
 describe('switch, shared chart and CSS', () => {
   it('flag off: the classic tab exactly; flag on: the final-design Clarity tab', () => {
-    const classic = show(OverviewTab).container.innerHTML;
+    const classic = show(OverviewTab, '/student-dashboard?clarity=0').container.innerHTML;
     cleanup();
-    expect(show(() => <OverviewTabSwitch classic={OverviewTab} />).container.innerHTML).toBe(classic);
+    expect(show(() => <OverviewTabSwitch classic={OverviewTab} />, '/student-dashboard?clarity=0').container.innerHTML).toBe(classic);
     cleanup();
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
     const { container } = show(() => <OverviewTabSwitch classic={OverviewTab} />);

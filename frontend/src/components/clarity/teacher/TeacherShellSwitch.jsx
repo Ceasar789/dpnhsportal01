@@ -1,8 +1,9 @@
 // ============================================
 // FILE: src/components/clarity/teacher/TeacherShellSwitch.jsx
 // The single switch point for the Teacher dashboard (the same pattern as
-// StudentShellSwitch). Flag off (the default): the classic layout, exactly as
-// before. Flag on: the Clarity shell. Both receive the same children (the
+// StudentShellSwitch). Flag on (the default; ?clarity=1 also turns it on): the
+// Clarity shell. Flag off (?clarity=0 or "Classic view", remembered as '0'):
+// the classic layout, exactly as before. Both receive the same children (the
 // shared <Routes> with the classic tabs).
 // ============================================
 

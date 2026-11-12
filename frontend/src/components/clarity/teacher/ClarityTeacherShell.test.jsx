@@ -86,11 +86,11 @@ afterEach(() => {
 });
 
 describe('the switch', () => {
-  it('flag OFF (default): the classic shell, untouched; no Clarity class', () => {
+  it('flag ON (default): the Clarity shell; the Clarity class', () => {
     const { container } = renderAt(CLASSIC);
-    expect(container.querySelector('.teacher-dashboard-shell > .teacher-header')).toBeTruthy();
-    expect(container.querySelector('.x-app')).toBeNull();
-    expect(document.documentElement.classList.contains(SCOPE)).toBe(false);
+    expect(container.querySelector('.x-app.x-tch')).toBeTruthy();
+    expect(container.querySelector('.teacher-dashboard-shell > .teacher-header')).toBeNull();
+    expect(document.documentElement.classList.contains(SCOPE)).toBe(true);
   });
 
   it('?clarity=1: the Clarity shell, remembered; Classic view turns it off (?clarity=0) and shows the classic shell', () => {
@@ -102,7 +102,7 @@ describe('the switch', () => {
     expect(screen.getByTestId('where').textContent).toBe('/teacher-dashboard?clarity=0');
     expect(container.querySelector('.teacher-header')).toBeTruthy();
     expect(container.querySelector('.x-app')).toBeNull();
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
   it('the classic tabs render inside the classic shell class names', async () => {
@@ -116,7 +116,7 @@ describe('the switch', () => {
 
 describe('sidebar, brand and top bar', () => {
   it('the same seven links, paths, labels and order as the classic sidebar, under the design groups', () => {
-    renderAt(CLASSIC);
+    renderAt(`${CLASSIC}?clarity=0`);
     const classic = navLinks();
     cleanup();
     renderAt(CLARITY);

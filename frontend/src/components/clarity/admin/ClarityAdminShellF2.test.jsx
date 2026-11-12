@@ -121,7 +121,7 @@ describe('nav labels and icons', () => {
     expect(navLabels()).toEqual(CLARITY_NAV);
     cleanup();
     window.localStorage.clear();
-    renderAt('/admin-dashboard');
+    renderAt('/admin-dashboard?clarity=0');
     const classic = within(document.getElementById('admin-sidebar')).getAllByRole('button')
       .map(b => b.textContent.trim()).filter(t => CLASSIC_NAV.includes(t));
     expect(classic).toEqual(CLASSIC_NAV);

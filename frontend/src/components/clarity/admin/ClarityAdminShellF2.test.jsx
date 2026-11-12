@@ -133,7 +133,7 @@ describe('nav labels and icons', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('News');
     expect(navButton('News').getAttribute('aria-current')).toBe('page');
     fireEvent.click(navButton('Settings'));
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Settings content');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('System Settings');
     expect(within(menu()).getByRole('button', { name: 'Security' })).toBeTruthy();
   });
 
@@ -205,7 +205,7 @@ describe('shell behaviours still hold under the new labels', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     fireEvent.click(navButton('Calendar'));
     expect(confirm).toHaveBeenCalledWith('You have unsaved settings. Discard them?');
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Settings content');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('System Settings');
     confirm.mockRestore();
   });
 

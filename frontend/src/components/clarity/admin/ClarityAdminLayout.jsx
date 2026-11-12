@@ -27,7 +27,7 @@ import ClarityAdminSchedulesTab from './ClarityAdminSchedulesTab';
 import ClarityAdminNewsTab from './ClarityAdminNewsTab';
 import ClarityAdminCalendarTab from './ClarityAdminCalendarTab';
 import ClarityAdminMemosTab from './ClarityAdminMemosTab';
-import SettingsTab from '../../../pages/dashboards/admin/tabs/SettingsTab';
+import ClarityAdminSettingsTab from './ClarityAdminSettingsTab';
 import ProfileTab from '../../../pages/profile/ProfileTab';
 import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
@@ -311,7 +311,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
             {page === 'news' && <ClarityAdminNewsTab />}
             {page === 'calendar' && <ClarityAdminCalendarTab />}
             {page === 'memos' && <ClarityAdminMemosTab />}
-            {page === 'settings' && <SettingsTab />}
+            {page === 'settings' && <ClarityAdminSettingsTab />}
             {page === 'profile' && <ProfileTab />}
           </div>
         </main>

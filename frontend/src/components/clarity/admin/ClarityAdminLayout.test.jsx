@@ -168,8 +168,8 @@ describe('flag on: the Clarity shell', () => {
 
   it('hosts the classic tab components and the classic tab styles', async () => {
     const view = await show(CLARITY);
-    fireEvent.click(within(sidebar()).getByRole('button', { name: /^(System )?Settings$/ }));
-    expect(screen.getByRole('heading', { name: 'Settings content' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' })); fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
+    expect(screen.getByRole('heading', { name: 'Profile content' })).toBeTruthy();
     expect(view.container.querySelector('style').textContent).toContain('.table-card');
   });
 
@@ -192,13 +192,13 @@ describe('parity with the classic shell (same mocks)', () => {
     const [classic, clarity] = await both(async () => {
       const before = navFacts();
       fireEvent.click(within(sidebar()).getByRole('button', { name: /^(System )?Settings$/ }));
-      return { before, after: navFacts(), content: screen.getByRole('heading', { level: 1 }).textContent };
+      return { before, after: navFacts(), content: /^(System Settings|Settings content)$/.test(screen.getByRole('heading', { level: 1 }).textContent) };
     });
     expect(clarity).toEqual(classic);
     expect(classic.before.map(([l]) => l)).toEqual(NAV);
     expect(classic.before[0][1]).toBe('page');
     expect(classic.after.find(([, c]) => c === 'page')[0]).toBe('System Settings');
-    expect(classic.content).toBe('Settings content');
+    expect(classic.content).toBe(true);
   });
 
   it('the Settings sub-nav appears only on settings, with the same items and current item', async () => {
@@ -220,7 +220,7 @@ describe('parity with the classic shell (same mocks)', () => {
     const results = await both(async () => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
       fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' })); fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
-      const stayed = screen.getByRole('heading', { level: 1 }).textContent;
+      const stayed = within(sidebar()).getByRole('button', { name: /^(System )?Settings$/ }).getAttribute('aria-current');
       confirm.mockReturnValue(true);
       fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
       const text = confirm.mock.calls[0][0];
@@ -228,7 +228,7 @@ describe('parity with the classic shell (same mocks)', () => {
       return { stayed, left: screen.getByRole('heading', { level: 1 }).textContent, text };
     });
     expect(results[1]).toEqual(results[0]);
-    expect(results[0]).toEqual({ stayed: 'Settings content', left: 'Profile content', text: 'You have unsaved settings. Discard them?' });
+    expect(results[0]).toEqual({ stayed: 'page', left: 'Profile content', text: 'You have unsaved settings. Discard them?' });
   });
 
   it('every page change goes through the Teaching Load and Profile guards, with the destination', async () => {

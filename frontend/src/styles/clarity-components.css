@@ -224,6 +224,30 @@ html.theme-clarity .x-tld-savecopy { display: grid; gap: 2px; min-width: 0; }
 html.theme-clarity .x-tld-savecopy b { display: inline-flex; align-items: center; gap: 6px; }
 html.theme-clarity .x-tld-savecopy span { font-size: 13px; opacity: .8; }
 html.theme-clarity .x-tld-saveact { display: flex; gap: 8px; }
+/* A7: Admin System Settings (section list, one card per section, the classic save bar) */
+html.theme-clarity .x-set-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start; }
+html.theme-clarity .x-set-nav { position: sticky; top: 16px; display: grid; gap: 4px; }
+html.theme-clarity .x-set-nav button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: none; font: inherit; font-weight: 500; color: var(--cl-mu); text-align: left; cursor: pointer; }
+html.theme-clarity .x-set-nav button:hover { color: var(--cl-tx); }
+html.theme-clarity .x-set-nav button.on { background: var(--cl-ac-s); color: var(--cl-ac); font-weight: 600; }
+html.theme-clarity .x-set-nav button:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-set-cards { display: grid; gap: 16px; min-width: 0; }
+html.theme-clarity .x-set-card { scroll-margin-top: 16px; }
+html.theme-clarity .x-set-card .x-ct { margin: 0 0 4px; }
+html.theme-clarity .x-set-copy { display: grid; gap: 2px; flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-set-copy label { font: inherit; }
+html.theme-clarity .x-set-field { display: grid; gap: 4px; width: min(280px, 100%); }
+html.theme-clarity .x-set-field .x-input { width: 100%; }
+html.theme-clarity .x-set-err { font-size: 13px; color: var(--cl-er); }
+html.theme-clarity .x-set-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; padding: 12px 14px; border-radius: 10px; background: var(--cl-bg); color: var(--cl-mu); }
+html.theme-clarity .x-set-error { color: var(--cl-er); }
+html.theme-clarity .x-set-history { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-set-h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--cl-tx); }
+html.theme-clarity .x-set-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0 0; color: var(--cl-mu); }
+html.theme-clarity .x-set-list { list-style: none; margin: 8px 0 0; padding: 0; }
+html.theme-clarity .x-set-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-set-list li:first-child { border-top: 0; }
+html.theme-clarity .x-set-saveact { display: flex; gap: 8px; }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -601,6 +625,9 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
   html.theme-clarity .x-memo-layout { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-usr-layout { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-tld-layout { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-set-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  html.theme-clarity .x-set-nav { position: static; display: flex; overflow-x: auto; }
+  html.theme-clarity .x-set-nav button { flex: none; min-height: 44px; }
   html.theme-clarity .x-tld-year { width: 100%; }
   html.theme-clarity .x-tld-year .x-input { flex: 1; width: auto; }
   html.theme-clarity .x-tld-teacher, html.theme-clarity .x-tld-remove { min-height: 48px; }

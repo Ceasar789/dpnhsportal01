@@ -72,8 +72,8 @@ describe('the three Teacher tabs behind the flag', () => {
   it('flag ON: the other routes keep their classic tabs inside the classic wrapper', async () => {
     renderAt('/teacher-dashboard?clarity=1');
     await screen.findByRole('heading', { level: 1, name: 'Dashboard Overview' });
-    fireEvent.click(within(sidebar()).getByRole('link', { name: 'Grading' }));
-    const h1 = await screen.findByRole('heading', { name: 'Grades content' });
+    fireEvent.click(within(sidebar()).getByRole('link', { name: 'Worksheets' }));
+    const h1 = await screen.findByRole('heading', { name: 'Worksheets content' });
     expect(h1.closest('.dashboard-shell.teacher-dashboard-shell.x-tch-classic')).toBeTruthy();
     fireEvent.click(within(sidebar()).getByRole('link', { name: 'Announcements' }));
     expect((await screen.findByRole('heading', { level: 1, name: 'Announcements' })).closest('.x-tan')).toBeTruthy();

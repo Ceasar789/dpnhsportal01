@@ -35,6 +35,8 @@ vi.mock('../../../pages/dashboards/teacher/tabs/AnnouncementsTab', () => ({ defa
 vi.mock('./ClarityTeacherOverviewTab', () => ({ default: () => <h2>Overview content</h2> }));
 vi.mock('./ClarityTeacherStudentsTab', () => ({ default: () => <h1>Students content</h1> }));
 vi.mock('./ClarityTeacherAnnouncementsTab', () => ({ default: () => <h1>Announcements content</h1> }));
+vi.mock('./ClarityTeacherGradingTab', () => ({ default: () => <h1>Grades content</h1> }));
+vi.mock('./ClarityTeacherAttendanceTab', () => ({ default: () => <h1>Attendance content</h1> }));
 vi.mock('../../../pages/profile/ProfileTab', () => ({ default: () => <div>Profile content</div> }));
 
 const SCOPE = ['theme', 'clarity'].join('-');
@@ -105,8 +107,8 @@ describe('the switch', () => {
 
   it('the classic tabs render inside the classic shell class names', async () => {
     renderAt(CLARITY);
-    fireEvent.click(within(sidebar()).getByRole('link', { name: 'Grading' }));
-    const heading = await screen.findByRole('heading', { name: 'Grades content' });
+    fireEvent.click(within(sidebar()).getByRole('link', { name: 'Worksheets' }));
+    const heading = await screen.findByRole('heading', { name: 'Worksheets content' });
     expect(heading.closest('.dashboard-shell.teacher-dashboard-shell.x-tch-classic')).toBeTruthy();
     expect(heading.closest('main.x-content')).toBeTruthy();
   });
@@ -220,8 +222,8 @@ describe('navigation behaviour (as classic)', () => {
     h.desktop = false;
     renderAt(CLARITY);
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'Navigation' })).getByRole('link', { name: 'Grading' }));
-    await screen.findByRole('heading', { name: 'Grades content' });
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Navigation' })).getByRole('link', { name: 'Worksheets' }));
+    await screen.findByRole('heading', { name: 'Worksheets content' });
     expect(screen.queryByRole('dialog', { name: 'Navigation' })).toBeNull();
   });
 

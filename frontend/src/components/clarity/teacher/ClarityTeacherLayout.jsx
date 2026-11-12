@@ -43,11 +43,15 @@ import { useHtmlClass } from '../useHtmlClass';
 import ClarityTeacherOverviewTab from './ClarityTeacherOverviewTab';
 import ClarityTeacherStudentsTab from './ClarityTeacherStudentsTab';
 import ClarityTeacherAnnouncementsTab from './ClarityTeacherAnnouncementsTab';
+import ClarityTeacherGradingTab from './ClarityTeacherGradingTab';
+import ClarityTeacherAttendanceTab from './ClarityTeacherAttendanceTab';
 
 // The pages already rebuilt in Clarity; every other route keeps its classic tab.
 const CLARITY_TABS = {
   '/teacher-dashboard': ClarityTeacherOverviewTab,
   '/teacher-dashboard/students': ClarityTeacherStudentsTab,
+  '/teacher-dashboard/grades': ClarityTeacherGradingTab,
+  '/teacher-dashboard/attendance': ClarityTeacherAttendanceTab,
   '/teacher-dashboard/announcements': ClarityTeacherAnnouncementsTab,
 };
 

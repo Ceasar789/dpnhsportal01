@@ -42,6 +42,8 @@ describe('T2 sources', () => {
     expect(lines(map)).toEqual([
       "'/teacher-dashboard': ClarityTeacherOverviewTab,",
       "'/teacher-dashboard/students': ClarityTeacherStudentsTab,",
+      "'/teacher-dashboard/grades': ClarityTeacherGradingTab,",
+      "'/teacher-dashboard/attendance': ClarityTeacherAttendanceTab,",
       "'/teacher-dashboard/announcements': ClarityTeacherAnnouncementsTab,",
     ]);
   });

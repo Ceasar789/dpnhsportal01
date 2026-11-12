@@ -300,6 +300,70 @@ html.theme-clarity .x-sov-task .x-badge { flex: none; }
 html.theme-clarity .x-sov-tcopy { display: grid; gap: 2px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 html.theme-clarity .x-sov-bars { margin-top: 16px; }
 html.theme-clarity .x-sov-more { margin: 16px 0 0; text-align: right; }
+/* T3: Teacher Grading (master-detail) */
+html.theme-clarity .x-tgr-dev { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+html.theme-clarity .x-tgr-saved { margin: 0 0 12px; }
+html.theme-clarity .x-tgr-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+html.theme-clarity .x-tgr-filters .x-select { width: 100%; margin-top: 4px; }
+html.theme-clarity .x-tgr-ws { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+html.theme-clarity .x-tgr-ws .x-ct { margin: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-tgr-summary dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 0 0 16px; }
+html.theme-clarity .x-tgr-summary dl > div { padding: 12px 14px; }
+html.theme-clarity .x-tgr-summary dt { font-size: 12px; color: var(--cl-mu); }
+html.theme-clarity .x-tgr-summary dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+html.theme-clarity .x-tgr-roster { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+html.theme-clarity .x-tgr-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; align-items: start; }
+html.theme-clarity .x-tgr-list { padding: 0; overflow: hidden; }
+html.theme-clarity .x-tgr-tools { display: grid; gap: 10px; padding: 16px; border-bottom: 1px solid var(--cl-bd); }
+html.theme-clarity .x-tgr-tools .x-chips { margin: 0; }
+html.theme-clarity .x-tgr-tools .x-cs { margin: 0; }
+html.theme-clarity .x-tgr-rows { list-style: none; margin: 0; padding: 0; }
+html.theme-clarity .x-tgr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 12px 16px; border: 0; border-top: 1px solid var(--cl-bd); background: none; font: inherit; color: var(--cl-tx); text-align: left; cursor: pointer; }
+html.theme-clarity .x-tgr-rows li:first-child .x-tgr-row { border-top: 0; }
+html.theme-clarity .x-tgr-row:hover { background: var(--cl-table-hover); }
+html.theme-clarity .x-tgr-row.on { background: var(--cl-ac-s); }
+html.theme-clarity .x-tgr-row:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: -2px; }
+html.theme-clarity .x-tgr-who { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-tgr-name { margin: 2px 0 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-tgr-ring { width: 120px; margin: 16px 0; }
+html.theme-clarity .x-tgr-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+html.theme-clarity .x-tgr-score { margin: 16px 0; font-size: 24px; font-weight: 700; }
+html.theme-clarity .x-tgr-facts { display: grid; gap: 10px; margin: 0 0 16px; }
+html.theme-clarity .x-tgr-facts dt { font-size: 12px; color: var(--cl-mu); }
+html.theme-clarity .x-tgr-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-tgr-act { display: flex; flex-wrap: wrap; gap: 8px; }
+html.theme-clarity .x-tgr-act .x-btn.pri { flex: 1 1 200px; }
+/* T3: Teacher Attendance (roster table + sticky summary) */
+html.theme-clarity .x-tat-pick { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+html.theme-clarity .x-tat-pick .x-select, html.theme-clarity .x-tat-pick .x-input { display: block; margin-top: 4px; width: auto; max-width: 100%; }
+html.theme-clarity.dark .x-tat #teacher-attendance-date { color-scheme: dark; }
+html.theme-clarity .x-tat-days { display: flex; gap: 6px; }
+html.theme-clarity .x-tat-section { margin-bottom: 16px; }
+html.theme-clarity .x-tat-section .x-ct { margin: 0 0 4px; overflow-wrap: anywhere; }
+html.theme-clarity .x-tat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+html.theme-clarity .x-tat-list { padding: 0; overflow: hidden; }
+html.theme-clarity .x-tat-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 16px 8px; }
+html.theme-clarity .x-tat-tools .x-search { flex: 1 1 220px; }
+html.theme-clarity .x-tat-count { margin: 0; padding: 0 16px 12px; }
+html.theme-clarity .x-tat-scroll { overflow-x: auto; }
+html.theme-clarity .x-table.x-tat-table { min-width: 560px; }
+html.theme-clarity .x-tat-table .nm > div { display: grid; gap: 2px; }
+html.theme-clarity .x-tat-name { overflow-wrap: anywhere; }
+html.theme-clarity .x-tat-sum { position: sticky; top: 80px; display: grid; gap: 14px; }
+html.theme-clarity .x-tat-sum .x-ct { margin: 0; }
+html.theme-clarity .x-tat-ring { width: 140px; justify-self: center; }
+html.theme-clarity .x-tat-ring figcaption { text-align: center; }
+html.theme-clarity .x-tat-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+html.theme-clarity .x-tat-stats > div { padding: 10px 12px; }
+html.theme-clarity .x-tat-stats dt { font-size: 12px; color: var(--cl-mu); }
+html.theme-clarity .x-tat-stats dd { margin: 2px 0 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+html.theme-clarity .x-tat-save { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-tat-save .x-cs { margin: 0; }
+html.theme-clarity .x-tat-err { margin: 0; font-size: 13px; color: var(--cl-er); }
+html.theme-clarity .x-tat-refresh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+html.theme-clarity .x-tat-saveact { display: flex; gap: 8px; }
+html.theme-clarity .x-tat-saveact .x-btn.pri { flex: 1; }
+html.theme-clarity .x-tat-foot { margin: 16px 0 0; }
 /* Printing the manual ILAW or quick-draft editor hides the shell, as the
    classic rules in FullManualIlawEditor.css do for the classic header and sidebar. */
 @media print {
@@ -686,6 +750,10 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
   html.theme-clarity .x-usr-layout { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-tld-layout { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-set-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  html.theme-clarity .x-tgr-layout { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-tat-layout { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-tat-sum { position: static; }
+  html.theme-clarity .x-tat .x-pst button, html.theme-clarity .x-tat-days .x-btn { min-height: 44px; }
   html.theme-clarity .x-set-nav { position: static; display: flex; overflow-x: auto; }
   html.theme-clarity .x-set-nav button { flex: none; min-height: 44px; }
   html.theme-clarity .x-tld-year { width: 100%; }

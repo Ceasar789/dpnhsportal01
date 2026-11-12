@@ -56,6 +56,16 @@ html.theme-clarity .x-sr { position: absolute; width: 1px; height: 1px; margin: 
 html.theme-clarity .x-bell { display: inline-flex; }
 html.theme-clarity .x-bell .notification-bell-button { background: transparent; color: var(--cl-mu); border-radius: 10px; }
 html.theme-clarity .x-bell .notification-bell-button:hover { background: var(--cl-card); color: var(--cl-tx); }
+/* A1: the Admin Overview (final design). KPI row, a 2/3 + 1/3 chart row,
+   full-width recent activity; one column on phones. */
+html.theme-clarity .x-ov .x-kv { font-size: 32px; }
+html.theme-clarity .x-ov-kpi { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+html.theme-clarity .x-ov-up { color: var(--cl-ok); font-weight: 700; }
+html.theme-clarity .x-ov-ring { width: 64px; flex: none; align-self: center; }
+html.theme-clarity .x-ov-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+html.theme-clarity .x-ov-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+html.theme-clarity .x-ov-ch { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+html.theme-clarity .x-ov-time { flex: none; font-size: 12px; color: var(--cl-dim); }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -423,6 +433,9 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
 
 /* ---------- Phone (the app's 767px rules) ---------- */
 @media (max-width: 767px) {
+  html.theme-clarity .x-ov .x-kpis { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-ov-row { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-ov .x-link { min-height: 40px; }
   html.theme-clarity .x-app { font-size: 15px; line-height: 1.55; }
   html.theme-clarity .x-top { padding: 0 16px; }
   html.theme-clarity .x-search { display: none; }

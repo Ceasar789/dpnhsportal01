@@ -11,7 +11,10 @@ import { countForDrawing, formatNumber, seriesColour } from './chartMath';
 
 const R = 15.9155;
 
-const Donut = ({ segments = [], label = '', totalLabel = 'total' }) => {
+// gap (optional): a thin space between segments, in circumference units (the
+// circle is 100 long; 0.5 is about 2px at the 180px size). 0, the default,
+// draws exactly as before. A single visible segment never gets a gap.
+const Donut = ({ segments = [], label = '', totalLabel = 'total', gap = 0 }) => {
   const rows = (segments || [])
     .map(s => ({ label: String(s?.label ?? ''), value: countForDrawing(s?.value) }))
     .filter(s => s.value !== null);
@@ -26,6 +29,8 @@ const Donut = ({ segments = [], label = '', totalLabel = 'total' }) => {
     ...s, i, share: shares[i], pct: percents[i],
     offset: shares.slice(0, i).reduce((sum, n) => sum + n, 0),
   }));
+  const visible = arcs.filter(a => a.share > 0);
+  const g = Number(gap) > 0 && visible.length > 1 ? Number(gap) : 0;
   const words = arcs.map(a => `${a.label} ${formatNumber(a.value)} (${a.pct} percent)`).join(', ');
   const aria = `${label ? `${label}: ` : ''}${formatNumber(total)} ${totalLabel}. ${words}`;
 
@@ -33,11 +38,16 @@ const Donut = ({ segments = [], label = '', totalLabel = 'total' }) => {
     <figure style={{ margin: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20 }}>
       <svg className="x-svg" viewBox="0 0 42 42" role="img" aria-label={aria} style={{ maxWidth: 180, flex: '0 1 180px' }}>
         <circle className="x-track" cx="21" cy="21" r={R} aria-hidden="true" />
-        {arcs.filter(a => a.share > 0).map(a => (
-          <circle key={a.i} className="x-seg-ring" cx="21" cy="21" r={R} aria-hidden="true"
-            style={{ stroke: seriesColour(a.i) }}
-            strokeDasharray={`${a.share} ${100 - a.share}`} strokeDashoffset={-a.offset} />
-        ))}
+        {visible.map(a => (g
+          ? (
+            <circle key={a.i} className="x-seg-ring" cx="21" cy="21" r={R} aria-hidden="true"
+              style={{ stroke: seriesColour(a.i) }}
+              strokeDasharray={`${Math.max(a.share - g, 0)} ${100 - Math.max(a.share - g, 0)}`} strokeDashoffset={-(a.offset + g / 2)} />
+          ) : (
+            <circle key={a.i} className="x-seg-ring" cx="21" cy="21" r={R} aria-hidden="true"
+              style={{ stroke: seriesColour(a.i) }}
+              strokeDasharray={`${a.share} ${100 - a.share}`} strokeDashoffset={-a.offset} />
+          )))}
         <text className="x-ringval" x="21" y="23" aria-hidden="true">{formatNumber(total)}</text>
         <text className="x-ringlbl" x="21" y="27.5" aria-hidden="true">{totalLabel}</text>
       </svg>

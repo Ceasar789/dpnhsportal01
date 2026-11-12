@@ -168,7 +168,8 @@ describe('flag on: the Clarity shell', () => {
 
   it('hosts the classic tab components and the classic tab styles', async () => {
     const view = await show(CLARITY);
-    expect(screen.getByRole('heading', { name: 'Overview content' })).toBeTruthy();
+    fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
+    expect(screen.getByRole('heading', { name: 'Users content' })).toBeTruthy();
     expect(view.container.querySelector('style').textContent).toContain('.table-card');
   });
 

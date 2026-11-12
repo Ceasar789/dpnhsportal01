@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import NotificationBell from '../../NotificationBell';
 import Avatar from '../../Avatar';
-import OverviewTab from '../../../pages/dashboards/admin/tabs/OverviewTab';
+import ClarityAdminOverviewTab from './ClarityAdminOverviewTab';
 import UsersTab from '../../../pages/dashboards/admin/tabs/UsersTab';
 import SubjectsTab from '../../../pages/dashboards/admin/tabs/SubjectsTab';
 import TeachingLoadTab from '../../../pages/dashboards/admin/tabs/TeachingLoadTab';
@@ -302,7 +302,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
 
         <main ref={mainRef} className="x-content">
           <div key={page} className="x-pagein">
-            {page === 'overview' && <OverviewTab />}
+            {page === 'overview' && <ClarityAdminOverviewTab />}
             {page === 'users' && <UsersTab />}
             {page === 'subjects' && <SubjectsTab />}
             {page === 'teaching-load' && <TeachingLoadTab />}

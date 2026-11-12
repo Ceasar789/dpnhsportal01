@@ -168,8 +168,8 @@ describe('flag on: the Clarity shell', () => {
 
   it('hosts the classic tab components and the classic tab styles', async () => {
     const view = await show(CLARITY);
-    fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
-    expect(screen.getByRole('heading', { name: 'Users content' })).toBeTruthy();
+    fireEvent.click(within(sidebar()).getByRole('button', { name: 'Teaching Load' }));
+    expect(screen.getByRole('heading', { name: 'Teaching Load content' })).toBeTruthy();
     expect(view.container.querySelector('style').textContent).toContain('.table-card');
   });
 
@@ -191,14 +191,14 @@ describe('parity with the classic shell (same mocks)', () => {
   it('the same 10 nav items, order, labels and aria-current; clicking moves it', async () => {
     const [classic, clarity] = await both(async () => {
       const before = navFacts();
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Teaching Load' }));
       return { before, after: navFacts(), content: screen.getByRole('heading', { level: 1 }).textContent };
     });
     expect(clarity).toEqual(classic);
     expect(classic.before.map(([l]) => l)).toEqual(NAV);
     expect(classic.before[0][1]).toBe('page');
-    expect(classic.after.find(([, c]) => c === 'page')[0]).toBe('User Management');
-    expect(classic.content).toBe('Users content');
+    expect(classic.after.find(([, c]) => c === 'page')[0]).toBe('Teaching Load');
+    expect(classic.content).toBe('Teaching Load content');
   });
 
   it('the Settings sub-nav appears only on settings, with the same items and current item', async () => {
@@ -219,16 +219,16 @@ describe('parity with the classic shell (same mocks)', () => {
     Object.assign(h, { page: 'settings', dirty: true });
     const results = await both(async () => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Teaching Load' }));
       const stayed = screen.getByRole('heading', { level: 1 }).textContent;
       confirm.mockReturnValue(true);
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Teaching Load' }));
       const text = confirm.mock.calls[0][0];
       confirm.mockRestore();
       return { stayed, left: screen.getByRole('heading', { level: 1 }).textContent, text };
     });
     expect(results[1]).toEqual(results[0]);
-    expect(results[0]).toEqual({ stayed: 'Settings content', left: 'Users content', text: 'You have unsaved settings. Discard them?' });
+    expect(results[0]).toEqual({ stayed: 'Settings content', left: 'Teaching Load content', text: 'You have unsaved settings. Discard them?' });
   });
 
   it('every page change goes through the Teaching Load and Profile guards, with the destination', async () => {

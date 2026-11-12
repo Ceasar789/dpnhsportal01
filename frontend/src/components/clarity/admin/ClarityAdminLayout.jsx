@@ -19,7 +19,7 @@ import {
 import NotificationBell from '../../NotificationBell';
 import Avatar from '../../Avatar';
 import ClarityAdminOverviewTab from './ClarityAdminOverviewTab';
-import UsersTab from '../../../pages/dashboards/admin/tabs/UsersTab';
+import ClarityAdminUsersTab from './ClarityAdminUsersTab';
 import ClarityAdminSubjectsTab from './ClarityAdminSubjectsTab';
 import TeachingLoadTab from '../../../pages/dashboards/admin/tabs/TeachingLoadTab';
 import ClarityAdminSectionsTab from './ClarityAdminSectionsTab';
@@ -303,7 +303,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
         <main ref={mainRef} className="x-content">
           <div key={page} className="x-pagein">
             {page === 'overview' && <ClarityAdminOverviewTab />}
-            {page === 'users' && <UsersTab />}
+            {page === 'users' && <ClarityAdminUsersTab />}
             {page === 'subjects' && <ClarityAdminSubjectsTab />}
             {page === 'teaching-load' && <TeachingLoadTab />}
             {page === 'sections' && <ClarityAdminSectionsTab />}

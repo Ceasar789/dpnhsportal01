@@ -140,7 +140,7 @@ describe('header', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create user' }));
     expect(h.ctx.setPageSpy).toHaveBeenCalledWith('users');
     expect(h.ctx.openCreateUser).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('heading', { name: 'Users content' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'User Management' })).toBeTruthy();
   });
 });
 
@@ -300,7 +300,7 @@ describe('Recent activity', () => {
     await show();
     fireEvent.click(within(activity()).getByRole('button', { name: 'View users' }));
     expect(h.ctx.setPageSpy).toHaveBeenCalledWith('users');
-    expect(screen.getByRole('heading', { name: 'Users content' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'User Management' })).toBeTruthy();
   });
 });
 

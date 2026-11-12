@@ -251,6 +251,43 @@ html.theme-clarity .x-set-saveact { display: flex; gap: 8px; }
 /* T1: the Teacher shell (the classic tabs render inside .x-tch-classic) */
 html.theme-clarity .x-side.x-tch-mini { width: 76px; }
 html.theme-clarity .x-tch-classic { min-width: 0; }
+/* T2: Teacher Overview (x-tov), Students (x-tst), Announcements (x-tan) */
+html.theme-clarity .x-tov-kpi { width: 100%; border: 1px solid var(--cl-bd); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+html.theme-clarity .x-tov-kpi:hover { border-color: var(--cl-ac); }
+html.theme-clarity .x-tov-kpi:focus-visible, html.theme-clarity .x-tst-jump:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-tov-ring { width: 64px; flex: none; align-self: center; }
+html.theme-clarity .x-tov-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+html.theme-clarity .x-tov-day { list-style: none; margin: 16px 0 0; padding: 0 0 0 20px; border-left: 2px solid var(--cl-bd); display: grid; gap: 16px; }
+html.theme-clarity .x-tov-day li { position: relative; display: grid; gap: 2px; overflow-wrap: anywhere; }
+html.theme-clarity .x-tov-day li::before { content: ""; position: absolute; left: -26px; top: 6px; width: 10px; height: 10px; border-radius: 9999px; background: var(--cl-bd2); }
+html.theme-clarity .x-tov-day li.x-tov-current::before { background: var(--cl-ac); }
+html.theme-clarity .x-tov-day li.x-tov-finished b { color: var(--cl-mu); font-weight: 500; }
+html.theme-clarity .x-tov-facts { margin: 16px 0 0; display: grid; gap: 14px; }
+html.theme-clarity .x-tov-facts dt { font-size: 12px; color: var(--cl-mu); }
+html.theme-clarity .x-tov-facts dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+html.theme-clarity .x-tov-plan { display: grid; gap: 2px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-tov-quick { display: grid; gap: 4px; margin-top: 12px; }
+html.theme-clarity .x-tov-quick .x-btn { justify-content: flex-start; border-color: transparent; background: none; }
+html.theme-clarity .x-tst-search { width: min(320px, 100%); }
+html.theme-clarity .x-tst-main { display: grid; gap: 16px; min-width: 0; }
+html.theme-clarity .x-tst-card { padding: 0; overflow: hidden; }
+html.theme-clarity .x-tst-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+html.theme-clarity .x-tst-head .x-ct { margin: 0; }
+html.theme-clarity .x-tst-scroll { overflow-x: auto; }
+html.theme-clarity .x-table.x-tst-table { min-width: 560px; }
+html.theme-clarity .x-tst-none, html.theme-clarity .x-tan-none { display: grid; gap: 4px; text-align: center; }
+html.theme-clarity .x-tst-jump { display: grid; gap: 2px; min-height: 40px; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+html.theme-clarity .x-tst-jump:hover b { color: var(--cl-ac); }
+html.theme-clarity .x-tan-search { width: min(420px, 100%); margin-bottom: 16px; }
+html.theme-clarity .x-tan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+html.theme-clarity .x-tan-item { display: flex; align-items: flex-start; gap: 16px; }
+html.theme-clarity .x-tan-ico { width: 40px; height: 40px; flex: none; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-tan-ico.hi { background: var(--cl-er-s); color: var(--cl-er); }
+html.theme-clarity .x-tan-body { flex: 1; min-width: 0; }
+html.theme-clarity .x-tan-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+html.theme-clarity .x-tan-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-tan-text { margin: 6px 0 8px; color: var(--cl-mu); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+html.theme-clarity .x-tan-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
 /* Printing the manual ILAW or quick-draft editor hides the shell, as the
    classic rules in FullManualIlawEditor.css do for the classic header and sidebar. */
 @media print {

@@ -32,6 +32,9 @@ vi.mock('../../../pages/dashboards/teacher/tabs/WorksheetsTab', () => ({ default
 vi.mock('../../../pages/dashboards/teacher/tabs/GradesTab', () => ({ default: () => <h1>Grades content</h1> }));
 vi.mock('../../../pages/dashboards/teacher/tabs/AttendanceTab', () => ({ default: () => <h1>Attendance content</h1> }));
 vi.mock('../../../pages/dashboards/teacher/tabs/AnnouncementsTab', () => ({ default: () => <h1>Announcements content</h1> }));
+vi.mock('./ClarityTeacherOverviewTab', () => ({ default: () => <h2>Overview content</h2> }));
+vi.mock('./ClarityTeacherStudentsTab', () => ({ default: () => <h1>Students content</h1> }));
+vi.mock('./ClarityTeacherAnnouncementsTab', () => ({ default: () => <h1>Announcements content</h1> }));
 vi.mock('../../../pages/profile/ProfileTab', () => ({ default: () => <div>Profile content</div> }));
 
 const SCOPE = ['theme', 'clarity'].join('-');
@@ -100,9 +103,10 @@ describe('the switch', () => {
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
   });
 
-  it('the classic tabs render inside the classic shell class names', () => {
+  it('the classic tabs render inside the classic shell class names', async () => {
     renderAt(CLARITY);
-    const heading = screen.getByRole('heading', { name: 'Overview content' });
+    fireEvent.click(within(sidebar()).getByRole('link', { name: 'Grading' }));
+    const heading = await screen.findByRole('heading', { name: 'Grades content' });
     expect(heading.closest('.dashboard-shell.teacher-dashboard-shell.x-tch-classic')).toBeTruthy();
     expect(heading.closest('main.x-content')).toBeTruthy();
   });

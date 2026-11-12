@@ -40,6 +40,16 @@ import Avatar from '../../Avatar';
 import NotificationBell from '../../NotificationBell';
 import ClarityModal from '../ui/ClarityModal';
 import { useHtmlClass } from '../useHtmlClass';
+import ClarityTeacherOverviewTab from './ClarityTeacherOverviewTab';
+import ClarityTeacherStudentsTab from './ClarityTeacherStudentsTab';
+import ClarityTeacherAnnouncementsTab from './ClarityTeacherAnnouncementsTab';
+
+// The pages already rebuilt in Clarity; every other route keeps its classic tab.
+const CLARITY_TABS = {
+  '/teacher-dashboard': ClarityTeacherOverviewTab,
+  '/teacher-dashboard/students': ClarityTeacherStudentsTab,
+  '/teacher-dashboard/announcements': ClarityTeacherAnnouncementsTab,
+};
 
 // The final design's groups, by path. Every classic item appears exactly
 // once, in the classic order (tested).
@@ -193,6 +203,7 @@ const ClarityTeacherLayout = ({ children, onClassicView }) => {
   // Below 1024px a closed drawer is off-screen; hide it from tab and readers.
   const drawerHidden = !desktop && !sidebarOpen;
   const byPath = new Map(navItems.map(item => [item.path, item]));
+  const ClarityTab = CLARITY_TABS[location.pathname.replace(/\/+$/, '')];
 
   return (
     <div className="x-app x-tch">
@@ -310,9 +321,11 @@ const ClarityTeacherLayout = ({ children, onClassicView }) => {
           {location.pathname.endsWith('/profile') && <h1 className="sr-only">Profile Settings</h1>}
           {/* The classic shell's class names, so the classic tabs keep every
               rule they rely on. */}
-          <div className="dashboard-shell teacher-dashboard-shell x-tch-classic">
-            {children}
-          </div>
+          {ClarityTab ? <ClarityTab /> : (
+            <div className="dashboard-shell teacher-dashboard-shell x-tch-classic">
+              {children}
+            </div>
+          )}
         </main>
       </div>
 

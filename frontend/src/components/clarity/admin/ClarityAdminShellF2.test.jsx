@@ -130,7 +130,7 @@ describe('nav labels and icons', () => {
   it('the renamed items still open the same pages (same page keys)', async () => {
     await showClarity();
     fireEvent.click(navButton('News'));
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('News content');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('News');
     expect(navButton('News').getAttribute('aria-current')).toBe('page');
     fireEvent.click(navButton('Settings'));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Settings content');

@@ -24,9 +24,9 @@ import ClarityAdminSubjectsTab from './ClarityAdminSubjectsTab';
 import TeachingLoadTab from '../../../pages/dashboards/admin/tabs/TeachingLoadTab';
 import ClarityAdminSectionsTab from './ClarityAdminSectionsTab';
 import ClarityAdminSchedulesTab from './ClarityAdminSchedulesTab';
-import NewsTab from '../../../pages/dashboards/admin/tabs/NewsTab';
+import ClarityAdminNewsTab from './ClarityAdminNewsTab';
 import ClarityAdminCalendarTab from './ClarityAdminCalendarTab';
-import MemosTab from '../../../pages/dashboards/admin/tabs/MemosTab';
+import ClarityAdminMemosTab from './ClarityAdminMemosTab';
 import SettingsTab from '../../../pages/dashboards/admin/tabs/SettingsTab';
 import ProfileTab from '../../../pages/profile/ProfileTab';
 import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
@@ -308,9 +308,9 @@ const ClarityAdminLayout = ({ navigate, logout, userData, onClassicView }) => {
             {page === 'teaching-load' && <TeachingLoadTab />}
             {page === 'sections' && <ClarityAdminSectionsTab />}
             {page === 'schedules' && <ClarityAdminSchedulesTab />}
-            {page === 'news' && <NewsTab />}
+            {page === 'news' && <ClarityAdminNewsTab />}
             {page === 'calendar' && <ClarityAdminCalendarTab />}
-            {page === 'memos' && <MemosTab />}
+            {page === 'memos' && <ClarityAdminMemosTab />}
             {page === 'settings' && <SettingsTab />}
             {page === 'profile' && <ProfileTab />}
           </div>

@@ -123,6 +123,43 @@ html.theme-clarity .x-cal-ev.wa { background: var(--cl-wa-s); color: var(--cl-wa
 html.theme-clarity .x-cal-ev.er { background: var(--cl-er-s); color: var(--cl-er); }
 html.theme-clarity .x-cal-ev.ok { background: var(--cl-ok-s); color: var(--cl-ok); }
 html.theme-clarity .x-cal-none { padding: 12px 4px 0; }
+/* A4: Admin News (the newest published post wide, then cards) and Memos
+   (one real "Sent" column and the selected memo). */
+html.theme-clarity .x-news-tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+html.theme-clarity .x-news-tools .x-search { flex: 1 1 240px; max-width: 360px; }
+html.theme-clarity .x-news-hero { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 24px; padding: 20px; margin-bottom: 16px; }
+html.theme-clarity .x-news-art { min-height: 180px; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, var(--cl-ac), var(--cl-feat-art-end)); }
+html.theme-clarity .x-news-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+html.theme-clarity .x-news-body { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+html.theme-clarity .x-news-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+html.theme-clarity .x-news-title { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.25; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-news-excerpt { margin: 0; color: var(--cl-mu); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+html.theme-clarity .x-news-meta { margin: 0; font-size: 13px; color: var(--cl-dim); }
+html.theme-clarity .x-news-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+html.theme-clarity .x-news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 16px; }
+html.theme-clarity .x-news-card { padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+html.theme-clarity .x-news-bar { display: block; width: 32px; height: 4px; border-radius: 9999px; background: var(--cl-bd2); }
+html.theme-clarity .x-news-card.ok .x-news-bar { background: var(--cl-ok); }
+html.theme-clarity .x-news-card.wa .x-news-bar { background: var(--cl-wa); }
+html.theme-clarity .x-news-date { font-size: 12px; color: var(--cl-dim); }
+html.theme-clarity .x-news-ctitle { margin: 0; font-size: 15px; font-weight: 700; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-news-cexcerpt { margin: 0; font-size: 13px; color: var(--cl-mu); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+html.theme-clarity .x-news-foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+html.theme-clarity .x-news-aud { font-size: 12px; color: var(--cl-dim); overflow-wrap: anywhere; }
+html.theme-clarity .x-news-cact { display: flex; flex-wrap: wrap; gap: 4px; }
+html.theme-clarity .x-news-count { margin-top: 16px; }
+html.theme-clarity .x-memo-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+html.theme-clarity .x-memo-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+html.theme-clarity .x-memo-card { display: flex; flex-direction: column; gap: 4px; width: 100%; min-height: 44px; padding: 14px 16px; text-align: left; font: inherit; color: var(--cl-tx); cursor: pointer; overflow-wrap: anywhere; }
+html.theme-clarity .x-memo-card.on { border-color: var(--cl-ac); background: var(--cl-ac-s); }
+html.theme-clarity .x-memo-card:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-memo-aud, html.theme-clarity .x-memo-date { font-size: 12px; color: var(--cl-mu); }
+html.theme-clarity .x-memo-fields { margin: 12px 0 0; display: grid; gap: 4px; font-size: 13px; }
+html.theme-clarity .x-memo-fields div { display: flex; gap: 8px; }
+html.theme-clarity .x-memo-fields dt { min-width: 48px; color: var(--cl-dim); }
+html.theme-clarity .x-memo-fields dd { margin: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-memo-body { margin: 16px 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+html.theme-clarity .x-memo-stats { margin-top: 12px; }
 html.theme-clarity .x-avatar { width: 36px; height: 36px; border-radius: 9999px; background: #ffc542; color: #1b1466; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
 html.theme-clarity .x-avatar.sm { width: 32px; height: 32px; font-size: 12px; }
 html.theme-clarity .x-avatar.tint { background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -496,6 +533,8 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
   html.theme-clarity .x-ov-head .x-act { flex-basis: 100%; }
   html.theme-clarity .x-ov-head .x-act .x-btn { flex: none; }
   html.theme-clarity .x-sch-del { width: 40px; height: 40px; }
+  html.theme-clarity .x-news-hero { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-memo-layout { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-app { font-size: 15px; line-height: 1.55; }
   html.theme-clarity .x-top { padding: 0 16px; }
   html.theme-clarity .x-search { display: none; }

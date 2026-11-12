@@ -191,14 +191,14 @@ describe('parity with the classic shell (same mocks)', () => {
   it('the same 10 nav items, order, labels and aria-current; clicking moves it', async () => {
     const [classic, clarity] = await both(async () => {
       const before = navFacts();
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Memos' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
       return { before, after: navFacts(), content: screen.getByRole('heading', { level: 1 }).textContent };
     });
     expect(clarity).toEqual(classic);
     expect(classic.before.map(([l]) => l)).toEqual(NAV);
     expect(classic.before[0][1]).toBe('page');
-    expect(classic.after.find(([, c]) => c === 'page')[0]).toBe('Memos');
-    expect(classic.content).toBe('Memos content');
+    expect(classic.after.find(([, c]) => c === 'page')[0]).toBe('User Management');
+    expect(classic.content).toBe('Users content');
   });
 
   it('the Settings sub-nav appears only on settings, with the same items and current item', async () => {
@@ -219,16 +219,16 @@ describe('parity with the classic shell (same mocks)', () => {
     Object.assign(h, { page: 'settings', dirty: true });
     const results = await both(async () => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Memos' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
       const stayed = screen.getByRole('heading', { level: 1 }).textContent;
       confirm.mockReturnValue(true);
-      fireEvent.click(within(sidebar()).getByRole('button', { name: 'Memos' }));
+      fireEvent.click(within(sidebar()).getByRole('button', { name: 'User Management' }));
       const text = confirm.mock.calls[0][0];
       confirm.mockRestore();
       return { stayed, left: screen.getByRole('heading', { level: 1 }).textContent, text };
     });
     expect(results[1]).toEqual(results[0]);
-    expect(results[0]).toEqual({ stayed: 'Settings content', left: 'Memos content', text: 'You have unsaved settings. Discard them?' });
+    expect(results[0]).toEqual({ stayed: 'Settings content', left: 'Users content', text: 'You have unsaved settings. Discard them?' });
   });
 
   it('every page change goes through the Teaching Load and Profile guards, with the destination', async () => {

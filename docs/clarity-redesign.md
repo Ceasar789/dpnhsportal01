@@ -95,6 +95,21 @@ The only classic file that refers to Clarity is `frontend/src/pages/dashboards/s
 - **LRN:** read from the student data the dashboard already loads (`studentTaskGraph.js:128`, `students.lrn`). No new read. With no LRN on record, the box is left out.
 - **Status:** only the stored status is shown. If none is stored, there is no pill and no assumed "active".
 
+## Student My Attendance and Announcements (S2a)
+
+- **Where:** `components/clarity/student/ClarityStudentAttendanceTab.jsx` and `ClarityStudentAnnouncementsTab.jsx`. The Student Clarity shell shows them through `CLARITY_PAGES` in `ClarityStudentLayout.jsx`. `?clarity=0` shows the classic tabs, which are unchanged.
+- **Logic:** word-for-word temporary copies of the classic tabs (Attendance `:26` and `:30-93`; Announcements `:20-62`), with source-parity tests and no substitutions. Both make the same reads as before.
+- **My Attendance:**
+  - **Calendar:** a month grid with each real record's status on its date, written out (not colour alone).
+  - **Rate and counts:** the attendance rate and its rule, and the Present / Late / Absent / Excused counts.
+  - **Record list:** the full list (date, status, section, subject, notes) with Show more.
+  - **Month and Section selects:** the same as before; "All" lists every record and hides the calendar.
+  - **Empty values:** a missing subject or note is left empty. With no records, no rate or counts are shown.
+- **Announcements:**
+  - **Cards:** search, then one card per announcement with title, text, date, and NEW and Important as before.
+  - **Sender:** shown only when stored. The classic "School Admin" fallback was dropped.
+  - **Audience:** shown only when `target_roles` is stored, with the admin News labels.
+
 ## Not done yet
 
 **Student:** Attendance, Announcements and Tasks still show the classic tab even with the flag on, and so does Profile. According to the owner's plan, Attendance, Announcements and Tasks need their data and handlers moved out of the tab files first; this was **not** re-checked tab by tab for this document.

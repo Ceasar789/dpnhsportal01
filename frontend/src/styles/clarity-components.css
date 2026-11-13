@@ -746,6 +746,50 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
 @keyframes cl-sheet { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes cl-sheetout { to { transform: translateY(100%); } }
 
+/* S2a: Student My Attendance (calendar | rate and counts) and Announcements (Student PDF p4, p5). */
+html.theme-clarity .x-sat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; margin-bottom: 20px; }
+html.theme-clarity .x-sat-calhead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+html.theme-clarity .x-sat-tools { display: flex; flex-wrap: wrap; gap: 12px; }
+html.theme-clarity .x-sat-tools .x-select { display: block; width: auto; margin-top: 4px; }
+html.theme-clarity .x-sat-grid { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; border: 1px solid var(--cl-bd); border-radius: 12px; overflow: hidden; }
+html.theme-clarity .x-sat-grid th { padding: 10px 12px; background: var(--cl-bg); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--cl-dim); text-align: left; }
+html.theme-clarity .x-sat-grid td { height: 96px; padding: 10px 12px; vertical-align: top; border-top: 1px solid var(--cl-bd); border-left: 1px solid var(--cl-bd); }
+html.theme-clarity .x-sat-grid td:first-child { border-left: 0; }
+html.theme-clarity .x-sat-grid td .x-badge { display: flex; width: 100%; margin-top: 6px; border-radius: 6px; overflow-wrap: anywhere; }
+html.theme-clarity .x-sat-d { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 9999px; font-weight: 600; color: var(--cl-tx); }
+html.theme-clarity .x-sat-grid td.out .x-sat-d { color: var(--cl-dim); font-weight: 500; }
+html.theme-clarity .x-sat-d.today { background: var(--cl-ac); color: var(--cl-ac-t); }
+html.theme-clarity .x-sat-side { display: grid; gap: 16px; min-width: 0; }
+html.theme-clarity .x-sat-rate { text-align: center; }
+html.theme-clarity .x-sat-rate .x-cs { margin: 4px 0 0; }
+html.theme-clarity .x-sat-ring { width: 120px; margin: 0 auto 12px; }
+html.theme-clarity .x-sat-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+html.theme-clarity .x-sat-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+html.theme-clarity .x-sat-tiles > div { padding: 16px 18px; }
+html.theme-clarity .x-sat-tiles .x-kl, html.theme-clarity .x-sat-tiles .x-kv { margin: 0; }
+html.theme-clarity .x-sat-records { padding: 0; overflow: hidden; }
+html.theme-clarity .x-sat-records > .x-ct { padding: 20px 20px 12px; }
+html.theme-clarity .x-sat-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-sat-more .x-cs { margin: 0; }
+html.theme-clarity .x-san-search { max-width: 360px; margin-bottom: 16px; }
+html.theme-clarity .x-san-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+html.theme-clarity .x-san-item { display: flex; gap: 16px; padding: 20px 24px; }
+html.theme-clarity .x-san-ico { flex: none; width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-san-body { flex: 1; min-width: 0; }
+html.theme-clarity .x-san-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+html.theme-clarity .x-san-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-san-text { margin: 6px 0 0; color: var(--cl-mu); white-space: pre-wrap; overflow-wrap: anywhere; }
+html.theme-clarity .x-san-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 0; font-size: 13px; color: var(--cl-dim); }
+@media (max-width: 1023px) {
+  html.theme-clarity .x-sat-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
+  html.theme-clarity .x-sat-grid th { padding: 8px 4px; font-size: 11px; }
+  html.theme-clarity .x-sat-grid td { height: 72px; padding: 4px; }
+  html.theme-clarity .x-sat-grid td .x-badge { padding: 1px 4px; font-size: 10px; }
+  html.theme-clarity .x-san-item { padding: 16px; gap: 12px; }
+}
+
 /* G5: Student Profile Settings ("Option A"): identity card | details. */
 html.theme-clarity .x-sprof-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
 html.theme-clarity .x-sprof-id { padding: 28px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }

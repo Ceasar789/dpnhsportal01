@@ -30,10 +30,14 @@ import ClarityModal from '../ui/ClarityModal';
 import { useHtmlClass } from '../useHtmlClass';
 import { overviewSummary } from './overviewSummary';
 import ClarityStudentProfileTab from './ClarityStudentProfileTab';
+import ClarityStudentAttendanceTab from './ClarityStudentAttendanceTab';
+import ClarityStudentAnnouncementsTab from './ClarityStudentAnnouncementsTab';
 
 // Routes shown with a Clarity page instead of the classic tab (the classic
 // route stays in StudentDashboard and is what ?clarity=0 shows).
 const CLARITY_PAGES = {
+  '/student-dashboard/attendance': ClarityStudentAttendanceTab,
+  '/student-dashboard/announcements': ClarityStudentAnnouncementsTab,
   '/student-dashboard/profile': ClarityStudentProfileTab,
 };
 

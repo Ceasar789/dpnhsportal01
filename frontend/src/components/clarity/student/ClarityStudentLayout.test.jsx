@@ -24,7 +24,7 @@ vi.mock('../../../hooks/useSignedPhotoUrl', () => ({ useSignedPhotoUrl: () => ''
 vi.mock('../../NotificationBell', () => ({ default: () => <button type="button">Notifications</button> }));
 vi.mock('../../../components/NotificationBell', () => ({ default: () => <button type="button">Notifications</button> }));
 vi.mock('../../../components/FlippingLogo', () => ({ default: () => <span>Logo</span> }));
-vi.mock('../../../pages/dashboards/student/StudentDataContext', () => ({ StudentDataProvider: ({ children }) => children, useStudentData: () => ({ graph: null, loading: false, refresh: null }) }));
+vi.mock('../../../pages/dashboards/student/StudentDataContext', async () => ({ default: (await import('react')).createContext(null), StudentDataProvider: ({ children }) => children, useStudentData: () => ({ graph: null, loading: false, refresh: null }) }));
 vi.mock('../../../pages/dashboards/student/tabs/OverviewTab', () => ({ default: () => <h1>Overview content</h1> }));
 vi.mock('../../../pages/dashboards/student/tabs/TasksTab', () => ({ default: () => <h1>Tasks content</h1> }));
 vi.mock('../../../pages/dashboards/student/tabs/ScoresTab', () => ({ default: () => <h1>Scores content</h1> }));
@@ -114,7 +114,7 @@ describe('flag on: the Clarity shell', () => {
     h.desktop = true;
     renderAt('/student-dashboard?clarity=1');
     fireEvent.click(screen.getByRole('link', { name: 'Attendance' }));
-    expect(screen.getByRole('heading', { name: 'Attendance content' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'My Attendance' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Attendance' }).getAttribute('aria-current')).toBe('page');
     expect(htmlHasClass()).toBe(true);
   });

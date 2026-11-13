@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
@@ -213,6 +213,15 @@ const ClarityTeacherGradingTab = () => {
     ['Average (released)', releasedAverage(sectionRows)],
   ] : null;
 
+  // The design shows only the worksheet and section pickers; Subject, Grade,
+  // the status chips and the summary sit behind "Filters" (closed by
+  // default). Closed or open, every filter keeps its value and effect.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const listReady = selected && !(scoresLoading || scoreTarget !== selected.id) && !scoresError;
+  const checkButton = selected && (
+    <button type="button" className="x-btn pri" onClick={() => setChecking(selected)}>Check submissions</button>
+  );
+
   return (
     <div className="x-tgr">
       <Toast toast={toast} />
@@ -221,9 +230,26 @@ const ClarityTeacherGradingTab = () => {
           <h1 className="x-h1">Grading</h1>
           <p className="x-sub">Review one submission at a time.</p>
         </div>
-        {selected && assessment.paperScoreEncodingAvailable === true && (
-          <div className="x-act">
-            <button type="button" className="x-btn" onClick={() => setEncoding(selected)}>Encode paper scores</button>
+        {!loading && !listError && owned.length > 0 && (
+          <div className="x-act x-tgr-head">
+            <label className="x-tgr-pick"><span className="x-sr">Worksheet</span>
+              <select className="x-select" value={selected ? String(selected.id) : ''} onChange={e => { setWorksheetId(e.target.value); setSectionId(''); setChip(''); }}>
+                {filtered.length === 0 && <option value="">No matching worksheets</option>}
+                {filtered.map(w => <option key={w.id} value={String(w.id)}>{w.title || 'Untitled worksheet'}</option>)}
+              </select>
+            </label>
+            <label className="x-tgr-pick"><span className="x-sr">Section</span>
+              <select className="x-select" value={selectedSection} onChange={e => { setSectionId(e.target.value); setChip(''); }}>
+                <option value="">All sections</option>{sections.map(id => <option key={id} value={id}>{sectionName(id)}</option>)}
+              </select>
+            </label>
+            <button type="button" className={`x-btn${filtersOpen ? ' on' : ''}`} aria-expanded={filtersOpen} aria-controls="x-tgr-filters"
+              onClick={() => setFiltersOpen(open => !open)}>
+              <SlidersHorizontal size={16} aria-hidden="true" /> Filters
+            </button>
+            {selected && assessment.paperScoreEncodingAvailable === true && (
+              <button type="button" className="x-btn gh" onClick={() => setEncoding(selected)}>Encode paper scores</button>
+            )}
           </div>
         )}
       </div>
@@ -245,39 +271,35 @@ const ClarityTeacherGradingTab = () => {
         )
         : owned.length === 0 ? <p className="x-card x-empty">No worksheets yet. Create one in Worksheets before recording scores.</p>
         : <>
-          <div className="x-card x-pad x-tgr-filters">
-            <label className="x-label">Subject
-              <select className="x-select" value={subject} onChange={e => { setSubject(e.target.value); setGrade(''); setWorksheetId(''); setSectionId(''); setChip(''); }}>
-                <option value="">All subjects</option>{subjects.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </label>
-            <label className="x-label">Grade
-              <select className="x-select" value={grade} onChange={e => { setGrade(e.target.value); setWorksheetId(''); setSectionId(''); setChip(''); }}>
-                <option value="">All grades</option>{grades.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-            </label>
-            <label className="x-label">Worksheet
-              <select className="x-select" value={selected ? String(selected.id) : ''} onChange={e => { setWorksheetId(e.target.value); setSectionId(''); setChip(''); }}>
-                {filtered.length === 0 && <option value="">No matching worksheets</option>}
-                {filtered.map(w => <option key={w.id} value={String(w.id)}>{w.title || 'Untitled worksheet'}</option>)}
-              </select>
-            </label>
-            <label className="x-label">Section
-              <select className="x-select" value={selectedSection} onChange={e => { setSectionId(e.target.value); setChip(''); }}>
-                <option value="">All sections</option>{sections.map(id => <option key={id} value={id}>{sectionName(id)}</option>)}
-              </select>
-            </label>
-          </div>
+          {filtersOpen && (
+            <section id="x-tgr-filters" className="x-card x-pad x-tgr-panel" aria-label="Filters">
+              <div className="x-tgr-filters">
+                <label className="x-label">Subject
+                  <select className="x-select" value={subject} onChange={e => { setSubject(e.target.value); setGrade(''); setWorksheetId(''); setSectionId(''); setChip(''); }}>
+                    <option value="">All subjects</option>{subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </label>
+                <label className="x-label">Grade
+                  <select className="x-select" value={grade} onChange={e => { setGrade(e.target.value); setWorksheetId(''); setSectionId(''); setChip(''); }}>
+                    <option value="">All grades</option>{grades.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </label>
+              </div>
+              {listReady && <>
+                <div className="x-chips" role="group" aria-label="Filter by status">
+                  {CHIPS.filter(([value]) => value !== 'not_started' || rosterOk).map(([value, label]) => (
+                    <button key={label} type="button" className={`x-chip${chip === value ? ' on' : ''}`} aria-pressed={chip === value}
+                      onClick={() => setChip(value)}>{label} <span className="n">({counts[value]})</span></button>
+                  ))}
+                </div>
+                <section aria-label="Summary" className="x-tgr-summary">
+                  <dl>{summary.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+                </section>
+              </>}
+            </section>
+          )}
 
           {!selected ? <p className="x-card x-empty">No worksheets match these filters.</p> : <>
-            <div className="x-tgr-ws">
-              <div style={{ minWidth: 0 }}>
-                <h2 className="x-ct">{selected.title || 'Untitled worksheet'}</h2>
-                <p className="x-cs">{selected.subject || 'Subject unavailable'} · {selected.grade_level || 'Grade unavailable'}</p>
-              </div>
-              <button type="button" className="x-btn pri" onClick={() => setChecking(selected)}>Check submissions</button>
-            </div>
-
             {scoresLoading || scoreTarget !== selected.id ? <p className="x-card x-empty" role="status">Loading worksheet submissions…</p>
               : scoresError ? (
                 <div className="x-card x-pad x-rail">
@@ -285,12 +307,9 @@ const ClarityTeacherGradingTab = () => {
                   <button type="button" className="x-btn" onClick={refreshScores}>Retry submissions</button>
                 </div>
               ) : <>
-                <section aria-label="Summary" className="x-tgr-summary">
-                  <dl>{summary.map(([label, value]) => <div key={label} className="x-card"><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-                </section>
                 {roster.state === 'failed' && roster.target === selected.id && (
                   <p role="alert" className="x-cs x-tgr-roster">
-                    Couldn't load students who haven't started.
+                    Couldn&apos;t load students who haven&apos;t started.
                     <button type="button" className="x-btn" onClick={() => setRosterRefresh(count => count + 1)}>Retry</button>
                   </p>
                 )}
@@ -300,15 +319,9 @@ const ClarityTeacherGradingTab = () => {
                     <div className="x-tgr-tools">
                       <label className="x-search">
                         <Search size={16} aria-hidden="true" />
-                        <input type="search" aria-label="Search students" placeholder="Search students by name" value={search} onChange={e => setSearch(e.target.value)} />
+                        <input type="search" aria-label="Search students" placeholder="Search students" value={search} onChange={e => setSearch(e.target.value)} />
                       </label>
-                      <div className="x-chips" role="group" aria-label="Filter by status">
-                        {CHIPS.filter(([value]) => value !== 'not_started' || rosterOk).map(([value, label]) => (
-                          <button key={label} type="button" className={`x-chip${chip === value ? ' on' : ''}`} aria-pressed={chip === value}
-                            onClick={() => setChip(value)}>{label} <span className="n">({counts[value]})</span></button>
-                        ))}
-                      </div>
-                      <p role="status" className="x-cs">{visible.length} of {allRows.length} students</p>
+                      <p role="status" className="x-sr">{visible.length} of {allRows.length} students</p>
                     </div>
                     {visible.length === 0 ? (
                       <div className="x-empty">{allRows.length
@@ -355,10 +368,13 @@ const ClarityTeacherGradingTab = () => {
                         {isLate(current) && current.submitted_at && <div><dt>Submitted</dt><dd>{formatDateTime(current.submitted_at)}</dd></div>}
                       </dl>
                       <div className="x-tgr-act">
-                        <button type="button" className="x-btn pri" onClick={() => setChecking(selected)}>Check submissions</button>
+                        {checkButton}
                         <button type="button" className="x-btn gh" disabled={!nextRow} onClick={() => nextRow && setSelId(nextRow.id)}>Next student</button>
                       </div>
-                    </> : <p className="x-empty">Select a student to view</p>}
+                    </> : <>
+                      <p className="x-empty">Select a student to view</p>
+                      <div className="x-tgr-act">{checkButton}</div>
+                    </>}
                   </section>
                 </div>
               </>}

@@ -50,8 +50,9 @@ const statusOf = (name) => {
   const li = within(screen.getByRole('list', { name: 'Worksheet submissions' })).getByText(name).closest('li');
   return [...li.querySelectorAll('span')].filter(e => e.children.length === 0).map(e => e.textContent).filter(t => /^(Needs checking|Released|In progress|Not started|Late)$/.test(t));
 };
-const summary = () => [...screen.getByRole('region', { name: 'Summary' }).querySelectorAll('dt')].map(dt => [dt.textContent, dt.nextElementSibling.textContent]);
-const chips = () => within(screen.getByRole('group', { name: 'Filter by status' })).getAllByRole('button').map(b => b.textContent.replace(/\s+/g, ' ').trim());
+const summary = () => { openFilters(); return [...screen.getByRole('region', { name: 'Summary' }).querySelectorAll('dt')].map(dt => [dt.textContent, dt.nextElementSibling.textContent]); };
+const chips = () => { openFilters(); return within(screen.getByRole('group', { name: 'Filter by status' })).getAllByRole('button').map(b => b.textContent.replace(/\s+/g, ' ').trim()); };
+const openFilters = () => { const b = screen.queryByRole('button', { name: 'Filters' }); if (b?.getAttribute('aria-expanded') === 'false') fireEvent.click(b); };
 
 beforeEach(() => {
   Object.assign(fixture, { uid: 'teacher-a', rows: [worksheetA, worksheetB], error: null, submissions: [online, paper, late], roster: [], paperScores: false });
@@ -87,6 +88,7 @@ describe('same data as the classic tab', () => {
   it('chips and search filter the same rows as classic; Clear filters', async () => {
     const run = async (Tab) => {
       show(Tab); await ready();
+      openFilters();
       const out = [];
       fireEvent.click(within(screen.getByRole('group', { name: 'Filter by status' })).getByRole('button', { name: /^Released/ }));
       out.push(names());
@@ -107,6 +109,7 @@ describe('same data as the classic tab', () => {
     const run = async (Tab) => {
       fixture.loadSubmissions.mockClear();
       show(Tab); await ready();
+      openFilters();
       const opts = ['Subject', 'Grade', 'Worksheet', 'Section'].map(l => [...screen.getByLabelText(l).options].map(o => o.textContent));
       fireEvent.change(screen.getByLabelText('Subject'), { target: { value: 'Science' } });
       await ready();

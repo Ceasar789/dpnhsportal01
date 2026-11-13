@@ -740,6 +740,42 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
 @keyframes cl-sheet { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes cl-sheetout { to { transform: translateY(100%); } }
 
+/* G5: Student Profile Settings ("Option A"): identity card | details. */
+html.theme-clarity .x-sprof-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+html.theme-clarity .x-sprof-id { padding: 28px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+html.theme-clarity .x-sprof-id .x-btn { margin-top: 6px; }
+html.theme-clarity .x-sprof-rule { margin: 0; font-size: 12px; color: var(--cl-mu); }
+html.theme-clarity .x-sprof-rule.over { color: var(--cl-er); }
+html.theme-clarity .x-sprof-name { margin: 8px 0 0; font-size: 18px; font-weight: 700; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-sprof-email { margin: 0; font-size: 13px; color: var(--cl-mu); overflow-wrap: anywhere; }
+html.theme-clarity .x-sprof-lrn { width: 100%; margin-top: 8px; padding: 12px 14px; border-radius: 10px; background: var(--cl-bg); text-align: left; }
+html.theme-clarity .x-sprof-lrn span { display: block; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--cl-dim); }
+html.theme-clarity .x-sprof-lrn b { display: block; margin-top: 2px; font-size: 22px; font-weight: 700; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-sprof-main { display: grid; gap: 20px; min-width: 0; }
+html.theme-clarity .x-sprof-form { margin-top: 16px; }
+html.theme-clarity .x-sprof-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+html.theme-clarity .x-sprof-wide { grid-column: 1 / -1; }
+html.theme-clarity .x-sprof .x-label { font-size: 12px; font-weight: 600; }
+html.theme-clarity .x-sprof .x-input { height: 40px; }
+html.theme-clarity .x-sprof .x-input[readonly] { background: var(--cl-bg); color: var(--cl-mu); }
+html.theme-clarity .x-sprof .x-sprof-bio { height: auto; min-height: 120px; padding: 10px 12px; resize: vertical; }
+html.theme-clarity .x-sprof-note { font-weight: 500; color: var(--cl-dim); }
+html.theme-clarity .x-sprof-dirty { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: var(--cl-bg); color: var(--cl-mu); font-weight: 500; }
+html.theme-clarity .x-sprof-act { display: flex; justify-content: flex-end; }
+html.theme-clarity .x-sprof-pw { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+html.theme-clarity .x-sprof-msg { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; font-weight: 600; }
+html.theme-clarity .x-sprof-msg p { margin: 0; }
+html.theme-clarity .x-sprof-msg.success { background: var(--cl-ok-s); color: var(--cl-ok); }
+html.theme-clarity .x-sprof-msg.warning { background: var(--cl-wa-s); color: var(--cl-wa); }
+html.theme-clarity .x-sprof-msg.error { background: var(--cl-er-s); color: var(--cl-er); }
+@media (max-width: 999.98px) {
+  html.theme-clarity .x-sprof-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
+  html.theme-clarity .x-sprof-grid { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-sprof .x-input { height: 48px; }
+}
+
 /* G4: the classic Lesson Plans and Worksheets bodies in the final design's
    layout (Teacher PDF p3, p4). Layout and type only: the classic markup,
    its inline colours and every handler are unchanged. */

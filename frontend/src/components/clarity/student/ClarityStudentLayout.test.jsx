@@ -13,7 +13,7 @@ vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({ isStudent: () => true, userData: { uid: 'student-1', name: 'Sample Student', profile: {} }, logout: h.logout }),
 }));
 vi.mock('../../../context/ProfileUnsavedChangesContext', () => ({
-  useProfileUnsavedChanges: () => ({ requestProfileNavigation: (go) => { go(); return true; } }),
+  useProfileUnsavedChanges: () => ({ requestProfileNavigation: (go) => { go(); return true; }, registerProfileGuard: () => () => {} }),
 }));
 vi.mock('../../../styles/dashboardTheme', () => ({
   useDashboardTheme: () => ({ darkMode: h.dark, toggleDarkMode: h.toggle }),
@@ -166,7 +166,7 @@ describe('flag on: the Clarity shell', () => {
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
-    expect(screen.getByText('Profile content')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Profile Settings' })).toBeTruthy();
   });
 });
 

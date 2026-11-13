@@ -84,6 +84,17 @@ The only classic file that refers to Clarity is `frontend/src/pages/dashboards/s
   - **Worksheets columns:** the "Not distributed / Distributed" columns are not built. Each worksheet does have a real assignee count, and the classic cards already show "Distributed · N" or "Not distributed", but splitting the list into two columns needs component logic, not CSS.
 - **Rollback:** `?clarity=0` shows the classic shell, unchanged.
 
+## Student Profile Settings (G5, "Option A")
+
+- **Where:** `components/clarity/student/ClarityStudentProfileTab.jsx`. The Student Clarity shell shows it on `/student-dashboard/profile` through `CLARITY_PAGES` in `ClarityStudentLayout.jsx`. `?clarity=0` still shows the classic `ProfileTab`, which Admin and Teacher share and which is unchanged.
+- **Logic:** a word-for-word temporary copy of `ProfileTab.jsx` (lines 22–90 and 93–377), checked by source-parity tests. The one declared substitution: `teacherView` is the constant `false`. Photo upload with the 3-per-7-days rule, save, discard, the leave guard and Change Password all behave exactly as before.
+- **Layout:**
+  - **Left card:** the photo (or initials), Change photo, the photo-rule text, name, email, the LRN, and the stored account status.
+  - **Right side:** "Personal information" (Full name, Date of birth, Phone, Email read-only "managed by school", Address, About me; Discard and Save Changes), then a Password card.
+- **Subtitle:** "Your student profile. Your LRN and email are managed by your school." The name is left out because students can edit their own name.
+- **LRN:** read from the student data the dashboard already loads (`studentTaskGraph.js:128`, `students.lrn`). No new read. With no LRN on record, the box is left out.
+- **Status:** only the stored status is shown. If none is stored, there is no pill and no assumed "active".
+
 ## Not done yet
 
 **Student:** Attendance, Announcements and Tasks still show the classic tab even with the flag on, and so does Profile. According to the owner's plan, Attendance, Announcements and Tasks need their data and handlers moved out of the tab files first; this was **not** re-checked tab by tab for this document.

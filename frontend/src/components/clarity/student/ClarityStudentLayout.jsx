@@ -29,6 +29,13 @@ import NotificationBell from '../../NotificationBell';
 import ClarityModal from '../ui/ClarityModal';
 import { useHtmlClass } from '../useHtmlClass';
 import { overviewSummary } from './overviewSummary';
+import ClarityStudentProfileTab from './ClarityStudentProfileTab';
+
+// Routes shown with a Clarity page instead of the classic tab (the classic
+// route stays in StudentDashboard and is what ?clarity=0 shows).
+const CLARITY_PAGES = {
+  '/student-dashboard/profile': ClarityStudentProfileTab,
+};
 
 // The same items, paths and order as the classic StudentLayout.
 const STUDENT_NAV = [
@@ -46,6 +53,7 @@ const ClarityStudentLayout = ({ children }) => {
   const { requestProfileNavigation } = useProfileUnsavedChanges();
   const navigate = useNavigate();
   const location = useLocation();
+  const ClarityPage = CLARITY_PAGES[location.pathname.replace(/\/+$/, '')];
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -239,7 +247,7 @@ const ClarityStudentLayout = ({ children }) => {
         </header>
 
         <main ref={mainRef} className="x-content">
-          {children}
+          {ClarityPage ? <ClarityPage /> : children}
         </main>
       </div>
 

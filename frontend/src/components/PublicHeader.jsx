@@ -11,9 +11,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-// A phone gets two rows: the brand, then the links. No hamburger — the three
+// A phone gets two rows: the brand, then the links. No hamburger — the
 // destinations stay on screen rather than hiding behind an icon.
 export const PUBLIC_HEADER_HEIGHT = { mobile: 118, desktop: 90 };
+
+// L1: on a phone each link gets a 44px-tall tap area from an invisible
+// ::before centred on it, so the bar keeps its height and nothing moves.
+const PHONE_HIT = "relative before:absolute before:top-[calc(50%-22px)] before:h-11 before:content-['']";
 
 // Links, not buttons: this is the only navigation left on the public pages
 // now that the footer's copy is gone, so it has to be openable in a new tab
@@ -22,7 +26,7 @@ const NavLink = ({ title, route, active, compact = false }) => (
   <Link
     to={route}
     aria-current={active ? 'page' : undefined}
-    className={`${compact ? 'px-1.5' : 'px-1'} py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]`}
+    className={`${compact ? `px-1.5 ${PHONE_HIT} before:-inset-x-px` : 'px-1'} py-2 flex flex-col items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]`}
   >
     <span className={`font-work text-white ${compact ? 'text-xs' : 'text-sm'}`} style={{ fontWeight: active ? 700 : 500 }}>
       {title}
@@ -67,7 +71,7 @@ const PublicHeader = ({ isMobile, active }) => {
     </Link>
   );
 
-  const links = [['Home', '/'], ['News', '/news'], ['Calendar', '/calendar']];
+  const links = [['Home', '/'], ['News', '/news'], ['Calendar', '/calendar'], ['About', '/about']];
 
   return (
     <nav
@@ -84,7 +88,7 @@ const PublicHeader = ({ isMobile, active }) => {
             {links.map(([title, route]) => (
               <NavLink key={route} title={title} route={route} active={active === title} compact />
             ))}
-            {!onLoginPage && <LoginButton className="ml-auto px-4 py-1 text-xs" />}
+            {!onLoginPage && <LoginButton className={`ml-auto px-4 py-1 text-xs ${PHONE_HIT} before:inset-x-0`} />}
           </div>
         </div>
       ) : (

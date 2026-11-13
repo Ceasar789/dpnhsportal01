@@ -508,3 +508,22 @@ body {
     font-size: 16px;
   }
 }
+
+/* ===== L1: About page reveal-on-scroll =====
+   Progressive enhancement. Nothing is hidden unless useReveal has put
+   .reveal-on on the page, which it does only when IntersectionObserver
+   exists and reduced motion is off. Opacity and transform only, so the
+   reveal never moves layout. The delay is the per-item stagger. */
+.reveal-on [data-reveal] {
+  transition-property: opacity, transform;
+  transition-duration: 600ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal-on [data-reveal]:not(.is-in) {
+  opacity: 0;
+  transform: translateY(16px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on [data-reveal]:not(.is-in) { opacity: 1; transform: none; }
+}

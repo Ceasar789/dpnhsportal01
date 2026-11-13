@@ -17,7 +17,7 @@ test.describe('home page', () => {
 
     for (const [name, locator] of [
       ['headline', page.locator('h2').first()],
-      ['primary CTA', page.getByRole('button', { name: 'Student Portal' })],
+      ['primary CTA', page.getByRole('button', { name: 'Sign In' })],
       ['carousel controls', page.locator('[aria-label="Carousel controls"]')],
     ]) {
       const box = await locator.boundingBox();
@@ -48,14 +48,13 @@ test.describe('home page', () => {
     }
   });
 
-  test('the hero CTA names where it goes', async ({ page }) => {
+  test('the hero Sign In offers Student and Faculty', async ({ page }) => {
     await page.goto('/');
     await appReady(page);
 
-    // It used to say "Apply for Admission" and navigate to /student-login.
-    // There is no admission route in this app.
     await expect(page.getByRole('button', { name: 'Apply for Admission' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Student Portal' }).click();
+    await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.getByRole('link', { name: /^Student/ }).click();
     await expect(page).toHaveURL(/\/student-login/);
   });
 
@@ -85,14 +84,13 @@ test.describe('home page on small screens', () => {
     });
   }
 
-  test('About us actually scrolls on a phone', async ({ page }) => {
+  test('About us opens the About page on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     await appReady(page);
 
-    await page.getByRole('button', { name: /About us/ }).click();
-    await page.waitForTimeout(700);
-    expect(await page.evaluate(() => window.scrollY), 'About us went nowhere').toBeGreaterThan(0);
+    await page.getByRole('main').getByRole('link', { name: /About us/ }).click();
+    await expect(page).toHaveURL(/\/about$/);
   });
 
   test('every tap target clears 24px on a phone', async ({ page }) => {

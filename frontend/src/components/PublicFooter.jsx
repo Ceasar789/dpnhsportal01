@@ -45,6 +45,10 @@ const PublicFooter = () => {
           <h5 className="font-work font-bold text-xs tracking-widest mb-5" style={{ color: '#FEB300' }}>
             RESOURCES
           </h5>
+          {/* A 44px tap area from an invisible ::before (it fits the 12px gaps); the line itself does not move. */}
+          <Link to="/about" className={`${LINK} relative before:absolute before:inset-x-0 before:top-[calc(50%-22px)] before:h-11 before:content-['']`} style={{ color: '#cbd5e1' }}>
+            About us
+          </Link>
           <Link to="/faculty-login" className={LINK} style={{ color: '#cbd5e1' }}>
             Faculty Portal
           </Link>

@@ -5,20 +5,22 @@
 // ============================================
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
 import PublicFooter from '../../components/PublicFooter';
+import SignInChooser from '../../components/SignInChooser';
 import { Pause, Play } from 'lucide-react';
 import { viewportHeight } from '../../lib/viewportHeight';
 
 const Home = () => {
-  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   // Two rows on a phone (brand over links), one row on a desktop.
   const navHeight = isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop;
   const [paused, setPaused] = useState(false);
   const autoSlideRef = useRef(null);
+  // The open Sign In chooser has to sit above the slideshow controls.
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   // The carousel advances on its own, so it must honour a reduced-motion
   // preference and it must be stoppable - WCAG 2.2.2 (Pause, Stop, Hide).
@@ -96,7 +98,7 @@ const Home = () => {
 
       {/* Hero Content */}
       <div 
-        className="relative z-10 flex flex-col justify-center h-full"
+        className={`relative ${chooserOpen ? 'z-30' : 'z-10'} flex flex-col justify-center h-full`}
         style={{ paddingLeft: isMobile ? '24px' : '60px', paddingRight: isMobile ? '24px' : '60px' }}
       >
         {/* Headline - UPDATED */}
@@ -115,30 +117,16 @@ const Home = () => {
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4">
-          <button
-            onClick={() => navigate('/student-login')}
-            className="font-work font-bold text-sm tracking-widest px-8 py-4 rounded hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-            style={{ 
-              backgroundColor: '#FEB300', 
-              color: '#6A4800',
-              width: isMobile ? '100%' : '250px',
-              height: '58px',
-              boxShadow: '0 20px 25px rgba(126,87,0,0.2)'
-            }}
-          >
-            Student Portal
-          </button>
+          <SignInChooser width={isMobile ? '100%' : '250px'} onOpenChange={setChooserOpen} />
 
-          <button
-            onClick={() => document.getElementById('vision')?.scrollIntoView({
-              behavior: reduceMotion ? 'auto' : 'smooth'
-            })}
+          <Link
+            to="/about"
             className="flex items-center justify-center gap-2 px-5 py-4 rounded border-2 border-white text-white font-work font-bold tracking-widest hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             style={{ height: '58px', width: isMobile ? '100%' : undefined }}
           >
             About us
             <span aria-hidden="true">→</span>
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -229,10 +217,10 @@ const Home = () => {
       <PublicHeader isMobile={isMobile} active="Home" />
 
       <main style={{ paddingTop: navHeight }}>
-        <HeroSection />
+        {HeroSection()}
         {isMobile && <VisionCard />}
-        <PublicFooter />
       </main>
+      <PublicFooter />
     </div>
   );
 };

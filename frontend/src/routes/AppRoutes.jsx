@@ -13,6 +13,7 @@ import Calendar from '../pages/public/Calendar';
 import Login    from '../pages/public/Login';
 import Terms    from '../pages/public/Terms';
 import Privacy  from '../pages/public/Privacy';
+import About    from '../pages/about/About';
 
 // Auth Pages
 import StudentLogin   from '../pages/auth/StudentLogin';
@@ -39,6 +40,7 @@ const AppRoutes = () => {
         <Route path="/login"    element={<PageTransition><Login /></PageTransition>} />
         <Route path="/terms"    element={<PageTransition><Terms /></PageTransition>} />
         <Route path="/privacy"  element={<PageTransition><Privacy /></PageTransition>} />
+        <Route path="/about"    element={<PageTransition><About /></PageTransition>} />
 
         {/* AUTH ROUTES */}
         <Route path="/student-login"   element={<PageTransition><StudentLogin /></PageTransition>} />

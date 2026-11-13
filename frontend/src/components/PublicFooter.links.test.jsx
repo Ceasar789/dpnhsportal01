@@ -64,7 +64,7 @@ describe('public footer links', () => {
   it('every footer link is named and has the shared focus ring', () => {
     const { container } = renderFooter();
     const links = within(container.querySelector('footer')).getAllByRole('link');
-    expect(links).toHaveLength(6);
+    expect(links).toHaveLength(7);
     for (const link of links) {
       expect(link.className).toContain('focus-visible:ring-2');
     }

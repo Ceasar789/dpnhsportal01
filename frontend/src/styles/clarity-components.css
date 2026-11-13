@@ -1034,6 +1034,17 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-area { opacity: .13; }
 }
 
+/* G9a: the admin Profile is the shared classic ProfileTab, whose "Change
+   Password" text button is 20px tall. The teacher Profile already reaches
+   44px through TeacherDashboard.css; this mirrors it for the Clarity shells,
+   on phones and landscape phones only (desktop unchanged). */
+@media (max-width: 767px) {
+  html.theme-clarity .x-content button:has(> .lucide-lock) { min-height: 44px; }
+}
+@media (max-width: 1023.98px) and (max-height: 500px) {
+  html.theme-clarity .x-content button:has(> .lucide-lock) { min-height: 44px; }
+}
+
 /* M2: Teacher Learning Materials (Option A card grid). Tokens only, no motion
    of its own (cards, chips and buttons reuse x-card, x-chip and x-btn), 40px
    controls, 44px on phones, 16px inputs on phones. */

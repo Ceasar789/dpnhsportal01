@@ -1,0 +1,47 @@
+/* ============================================
+   G9a: phone-only fixes that cannot live in the dashboard stylesheet.
+
+   1. The classic teacher Toast (pages/dashboards/teacher/shared/ui.jsx) is
+      portalled into <body>, outside the tab, so it is reached from <html>:
+      when a Clarity teacher tab that uses it is on screen (.x-tch holding
+      .x-tlm, .x-tgr, .x-tst or .x-tat), the toast sits at the bottom above
+      the safe area on phones, like the shell's own toast (G10). Attendance's
+      save-bar toast (data-attendance-toast) stays at the top.
+
+   2. Public header and footer: an invisible 44px hit area on the brand link
+      and every footer link on phones, the same technique as "About us". The
+      links keep their size and place; only the tappable area grows.
+   ============================================ */
+
+@media (max-width: 767px) {
+  html:has(.x-tch .x-tlm, .x-tch .x-tgr, .x-tch .x-tst, .x-tch .x-tat) body > [data-modal-live-region] > div:not([data-attendance-toast]) {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  }
+}
+
+@media (max-width: 767px), (max-width: 1099.98px) and (max-height: 500px) {
+  .public-shell footer a,
+  .public-shell nav a[aria-label="EduScribe home"] { position: relative; }
+
+  .public-shell footer a::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* The brand sits just above the link row, whose hit areas start 2px below
+     it: its area grows upward only. */
+  .public-shell nav a[aria-label="EduScribe home"]::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: max(100%, 44px);
+  }
+}

@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import '../styles/phone-tap.css';
 
 // A phone gets two rows: the brand, then the links. No hamburger — the
 // destinations stay on screen rather than hiding behind an icon.

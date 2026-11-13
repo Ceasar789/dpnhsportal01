@@ -46,6 +46,7 @@ import ClarityTeacherAnnouncementsTab from './ClarityTeacherAnnouncementsTab';
 import ClarityTeacherGradingTab from './ClarityTeacherGradingTab';
 import ClarityTeacherAttendanceTab from './ClarityTeacherAttendanceTab';
 import ClarityTeacherMaterialsTab from './ClarityTeacherMaterialsTab';
+import '../../../styles/phone-tap.css';
 
 // The pages already rebuilt in Clarity; every other route keeps its classic tab.
 const CLARITY_TABS = {

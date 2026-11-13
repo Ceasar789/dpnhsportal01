@@ -12,6 +12,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { School, Facebook, MapPin, Mail, Phone } from 'lucide-react';
+import '../styles/phone-tap.css';
 
 const LINK = 'block mb-3 py-1 font-public text-sm text-left hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]';
 // A contact line that is a link: the same focus ring, and a 40px tap height on phones.

@@ -1,9 +1,9 @@
 // ============================================
 // FILE: src/components/clarity/student/ClarityStudentProfileTab.jsx
 // Student Profile Settings in Clarity ("Option A"): the student's identity
-// card on the left (photo, the 3-per-week photo rule, name, email, LRN when
-// the school has recorded one, the stored account status) and, on the right,
-// Personal information (the same fields, Discard and Save Changes) and a
+// card on the left (photo, the 3-per-week photo rule, name, email, the LRN
+// box, the stored account status) and, on the right, Personal information and
+// Emergency contact (one form: the same Discard and Save Changes) and a
 // Password card (the same Change Password route).
 //
 // TEMPORARY word-for-word copies from pages/profile/ProfileTab.jsx, which
@@ -11,11 +11,18 @@
 // ClarityStudentProfileTab.test.jsx); after the defense they should share them:
 //   - the constants and helpers, :22-90
 //   - the state, effects and handlers, :93-377
-// One declared substitution: the classic component's `teacherView` prop is
-// the constant `false` here (this tab is for students only).
+// Declared substitutions (G5, G7):
+//   - the classic `teacherView` prop is the constant `false` (students only);
+//   - `const { userData, updateProfile } = useAuth();` reads only userData:
+//     updateProfile is the G7 wrapper declared above the copy, which adds the
+//     emergency contact to the same save when it changed;
+//   - `const isDirty = textDirty || Boolean(photoFile);` also counts the
+//     emergency contact, so Discard, the leave guard and beforeunload cover it.
 //
 // LRN: read from the student data the dashboard already loads
 // (StudentDataContext -> studentTaskGraph.js:128, students.lrn). No new read.
+// The box is always shown: the value, or why there is none (loading, a
+// failed load, or not on record yet).
 // ============================================
 
 import { useCallback, useContext, useEffect, useState, useRef } from 'react';
@@ -106,12 +113,52 @@ const profileFailureMessage = (error, stage, cleanupFailed) => {
 const stored = value => String(value ?? '').trim();
 const titleCase = text => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 
+// G7: the student's emergency contact, as stored on the profile row.
+const EMERGENCY_FIELDS = ['emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone'];
+const emergencyOf = data => ({
+  name: stored(data?.profile?.emergency_contact_name),
+  relationship: stored(data?.profile?.emergency_contact_relationship),
+  phone: stored(data?.profile?.emergency_contact_phone),
+});
+
 const ClarityStudentProfileTab = () => {
   // Declared substitution: the classic `teacherView` prop (students only).
   const teacherView = false;
+
+  // G7 emergency contact: kept outside the copy. It joins the same form, the
+  // same dirty state (one declared substitution below) and the same save.
+  const auth = useAuth();
+  const loadedEmergency = emergencyOf(auth.userData);
+  const [emBase, setEmBase] = useState(loadedEmergency);
+  const [emName, setEmName] = useState(loadedEmergency.name);
+  const [emRelationship, setEmRelationship] = useState(loadedEmergency.relationship);
+  const [emPhone, setEmPhone] = useState(loadedEmergency.phone);
+  const [emTried, setEmTried] = useState(false);
+  const emergencyDirty = emName.trim() !== emBase.name || emRelationship.trim() !== emBase.relationship || emPhone.trim() !== emBase.phone;
+  const emergencyAny = Boolean(emName.trim() || emRelationship.trim() || emPhone.trim());
+  const emNameMissing = emergencyAny && !emName.trim();
+  const emPhoneMissing = emergencyAny && !emPhone.trim();
+  const emMountedRef = useRef(true);
+  useEffect(() => () => { emMountedRef.current = false; }, []);
+  // The same save, with the emergency contact added only when it changed
+  // (trimmed; an emptied field saves as null). Students only.
+  const updateProfile = async (payload) => {
+    const next = { name: emName.trim(), relationship: emRelationship.trim(), phone: emPhone.trim() };
+    const withEmergency = auth.userData?.role === 'student' && emergencyDirty;
+    await auth.updateProfile(withEmergency ? {
+      ...payload,
+      [EMERGENCY_FIELDS[0]]: next.name || null,
+      [EMERGENCY_FIELDS[1]]: next.relationship || null,
+      [EMERGENCY_FIELDS[2]]: next.phone || null,
+    } : payload);
+    if (withEmergency && emMountedRef.current) {
+      setEmBase(next); setEmName(next.name); setEmRelationship(next.relationship); setEmPhone(next.phone); setEmTried(false);
+    }
+  };
+
   // ---- TEMPORARY copy (ProfileTab.jsx:93-377) ----
   const navigate = useNavigate();
-  const { userData, updateProfile } = useAuth();
+  const { userData } = useAuth();
   const { registerProfileGuard } = useProfileUnsavedChanges();
   const dataRouter = useContext(UNSAFE_DataRouterContext);
   const fileInputRef = useRef(null);
@@ -142,7 +189,7 @@ const ClarityStudentProfileTab = () => {
 
   const editableValues = { name, phone, dateOfBirth, address, bio };
   const textDirty = !sameEditableValues(editableValues, baseline);
-  const isDirty = textDirty || Boolean(photoFile);
+  const isDirty = textDirty || Boolean(photoFile) || emergencyDirty;
 
   const discardChanges = useCallback((announce = true) => {
     const saved = baseline;
@@ -397,8 +444,34 @@ const ClarityStudentProfileTab = () => {
   }, [discardChanges, pendingLeave]);
   // ---- end of the copy ----
 
-  const { graph } = useStudentData();
+  // All three are optional; once any is filled, the name and the number are needed.
+  const submitProfile = (event) => {
+    if (emNameMissing || emPhoneMissing) {
+      event.preventDefault();
+      setEmTried(true);
+      return;
+    }
+    handleSubmit(event);
+  };
+  const discardAll = () => {
+    discardChanges(true);
+    setEmName(emBase.name); setEmRelationship(emBase.relationship); setEmPhone(emBase.phone); setEmTried(false);
+  };
+  // A refreshed profile (or another account) resets a clean emergency form.
+  const loadedEmergencyKey = JSON.stringify(loadedEmergency);
+  const [emSyncedFor, setEmSyncedFor] = useState({ key: loadedEmergencyKey, user: currentUserId });
+  if ((emSyncedFor.key !== loadedEmergencyKey || emSyncedFor.user !== currentUserId) && (!emergencyDirty || emSyncedFor.user !== currentUserId)) {
+    setEmSyncedFor({ key: loadedEmergencyKey, user: currentUserId });
+    setEmBase(loadedEmergency); setEmName(loadedEmergency.name); setEmRelationship(loadedEmergency.relationship); setEmPhone(loadedEmergency.phone);
+  }
+
+  const { graph, loading: studentDataLoading } = useStudentData();
   const lrn = stored(graph?.studentRecord?.lrn);
+  // Without a value the box stays, saying why: still loading, a failed load
+  // (so the value is unknown), or really not on record yet.
+  const lrnMissingText = !graph && studentDataLoading ? 'Loading…'
+    : graph?.fatalError ? 'Could not load your LRN right now.'
+      : 'Not set yet. Please ask the administrator to add it.';
   const status = stored(userData?.status);
   const email = stored(userData?.email);
 
@@ -491,25 +564,23 @@ const ClarityStudentProfileTab = () => {
           )}
           <h2 className="x-sprof-name">{name || 'User'}</h2>
           {email && <p className="x-sprof-email">{email}</p>}
-          {lrn && (
-            <div className="x-sprof-lrn">
-              <span>LRN</span>
-              <b>{lrn}</b>
-            </div>
-          )}
+          <div className="x-sprof-lrn">
+            <span>LRN</span>
+            {lrn ? <b>{lrn}</b> : <p className="x-sprof-lrn-none">{lrnMissingText}</p>}
+          </div>
           {status && <span className={`x-badge${status.toLowerCase() === 'active' ? ' ok' : ''}`}>{titleCase(status)}</span>}
         </section>
 
         <div className="x-sprof-main">
+          {/* One form across both cards: one Save Changes, one Discard, one dirty state. */}
+          <form onSubmit={submitProfile} className="x-sprof-form" aria-busy={isSaving || undefined}>
           <section className="x-card x-pad" aria-labelledby="x-sprof-info">
             <h2 id="x-sprof-info" className="x-ct">Personal information</h2>
             <p className="x-cs">These details are only visible to you and the administrator.</p>
-
-            <form onSubmit={handleSubmit} className="x-sprof-form" aria-busy={isSaving || undefined}>
               {isDirty && (
                 <div role="status" className="x-sprof-dirty">
                   <span>You have unsaved Profile changes.</span>
-                  <button type="button" className="x-btn" onClick={() => discardChanges(true)} disabled={isSaving}>Discard</button>
+                  <button type="button" className="x-btn" onClick={discardAll} disabled={isSaving}>Discard</button>
                 </div>
               )}
               <div className="x-sprof-grid">
@@ -538,13 +609,36 @@ const ClarityStudentProfileTab = () => {
                   <textarea id="profile-bio" className="x-input x-sprof-bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A short bio..." disabled={isSaving} />
                 </div>
               </div>
-              <div className="x-sprof-act">
-                <button type="submit" className="x-btn pri" disabled={isSaving}>
-                  {isSaving ? <span>Saving…<span className="x-sr"> profile</span></span> : 'Save Changes'}
-                </button>
-              </div>
-            </form>
           </section>
+
+          <section className="x-card x-pad" aria-labelledby="x-sprof-emergency">
+            <h2 id="x-sprof-emergency" className="x-ct">Emergency contact</h2>
+            <p className="x-cs">Who we should call in case of an emergency. Visible only to you and the administrator.</p>
+            <div className="x-sprof-grid x-sprof-emgrid">
+              <div className="x-field x-sprof-wide">
+                <label className="x-label" htmlFor="profile-emergency-name">Contact person&apos;s name</label>
+                <input id="profile-emergency-name" className="x-input" value={emName} maxLength={80} onChange={(e) => setEmName(e.target.value)} disabled={isSaving}
+                  aria-invalid={(emTried && emNameMissing) || undefined} aria-describedby={emTried && emNameMissing ? 'profile-emergency-name-error' : undefined} />
+                {emTried && emNameMissing && <p className="x-sprof-err" id="profile-emergency-name-error">Enter the contact person&apos;s name.</p>}
+              </div>
+              <div className="x-field">
+                <label className="x-label" htmlFor="profile-emergency-relationship">Relationship</label>
+                <input id="profile-emergency-relationship" className="x-input" value={emRelationship} maxLength={40} placeholder="e.g. Mother" onChange={(e) => setEmRelationship(e.target.value)} disabled={isSaving} />
+              </div>
+              <div className="x-field">
+                <label className="x-label" htmlFor="profile-emergency-phone">Contact number</label>
+                <input id="profile-emergency-phone" className="x-input" type="tel" value={emPhone} onChange={(e) => setEmPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving}
+                  aria-invalid={(emTried && emPhoneMissing) || undefined} aria-describedby={emTried && emPhoneMissing ? 'profile-emergency-phone-error' : undefined} />
+                {emTried && emPhoneMissing && <p className="x-sprof-err" id="profile-emergency-phone-error">Enter a contact number.</p>}
+              </div>
+            </div>
+            <div className="x-sprof-act">
+              <button type="submit" className="x-btn pri" disabled={isSaving}>
+                {isSaving ? <span>Saving…<span className="x-sr"> profile</span></span> : 'Save Changes'}
+              </button>
+            </div>
+          </section>
+          </form>
 
           <section className="x-card x-pad x-sprof-pw" aria-labelledby="x-sprof-password">
             <div>

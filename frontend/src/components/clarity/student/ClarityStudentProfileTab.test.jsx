@@ -2,7 +2,8 @@
 // Clarity G5: Student Profile Settings ("Option A"). The logic is a
 // word-for-word copy of the shared ProfileTab (source parity below, one
 // declared substitution), saves exactly what the classic tab saves, and the
-// page shows only stored data: LRN only when recorded, the stored status only.
+// page shows only stored data: the LRN box is always shown (with a note when
+// none is on record), the stored status only.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,8 +55,11 @@ describe('source parity with the shared ProfileTab (temporary copy)', () => {
   it('the constants and helpers (:22-90) are copied word for word', () => {
     expect(copy).toContain(classic.slice(21, 90).join('\n'));
   });
-  it('the state, effects and handlers (:93-377) are copied word for word', () => {
-    expect(copy).toContain(classic.slice(92, 377).join('\n'));
+  it('the state, effects and handlers (:93-377) are copied word for word, with the two declared G7 substitutions', () => {
+    const expected = classic.slice(92, 377).join('\n')
+      .replace('  const { userData, updateProfile } = useAuth();', '  const { userData } = useAuth();')
+      .replace('  const isDirty = textDirty || Boolean(photoFile);', '  const isDirty = textDirty || Boolean(photoFile) || emergencyDirty;');
+    expect(copy).toContain(expected);
   });
   it('the one declared substitution: teacherView is the constant false', () => {
     expect(classic[91]).toBe('const ProfileTab = ({ teacherView = false }) => {');
@@ -76,10 +80,10 @@ describe('Option A layout from stored data', () => {
     expect(within(card).getByText('3 of 3 photo changes left this week')).toBeTruthy();
   });
 
-  it.each([[null], [{ lrn: null }], [{ lrn: '   ' }]])('no LRN on record (%j): the LRN box is left out', (record) => {
+  it.each([[null], [{ lrn: null }], [{ lrn: '   ' }]])('no LRN on record (%j): the LRN box stays, asking the student to ask the administrator', (record) => {
     h.graph = record === null ? null : { studentRecord: record };
     const { container } = show();
-    expect(container.querySelector('.x-sprof-lrn')).toBeNull();
+    expect(container.querySelector('.x-sprof-lrn .x-sprof-lrn-none').textContent).toBe('Not set yet. Please ask the administrator to add it.');
     expect(container.textContent).not.toMatch(/LRN\s*(—|-|0)/);
   });
 

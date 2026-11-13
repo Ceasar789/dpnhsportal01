@@ -207,6 +207,10 @@ const ClarityAdminUsersTab = () => {
                   {formatDate(dayOf(filled(sel.date_of_birth)), '') && <div><dt>Date of birth</dt><dd>{formatDate(dayOf(filled(sel.date_of_birth)))}</dd></div>}
                   {filled(sel.address) && <div><dt>Address</dt><dd>{filled(sel.address)}</dd></div>}
                   {filled(sel.bio) && <div><dt>About me</dt><dd className="x-usr-bio">{filled(sel.bio)}</dd></div>}
+                  {/* G7: a student's emergency contact, from the same profiles row. */}
+                  {sel.role === 'student' && filled(sel.emergency_contact_name) && <div><dt>Emergency contact</dt><dd>{filled(sel.emergency_contact_name)}</dd></div>}
+                  {sel.role === 'student' && filled(sel.emergency_contact_relationship) && <div><dt>Relationship</dt><dd>{filled(sel.emergency_contact_relationship)}</dd></div>}
+                  {sel.role === 'student' && filled(sel.emergency_contact_phone) && <div><dt>Contact number</dt><dd>{filled(sel.emergency_contact_phone)}</dd></div>}
                 </dl>
                 <div className="x-usr-dact">
                   <button type="button" className="x-btn x-usr-edit" aria-label={`Edit ${nameOf(sel)}`} onClick={() => openEditUser(sel)}>Edit</button>

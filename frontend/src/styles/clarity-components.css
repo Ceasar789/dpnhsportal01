@@ -820,7 +820,11 @@ html.theme-clarity .x-sprof-lrn { width: 100%; margin-top: 8px; padding: 12px 14
 html.theme-clarity .x-sprof-lrn span { display: block; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--cl-dim); }
 html.theme-clarity .x-sprof-lrn b { display: block; margin-top: 2px; font-size: 22px; font-weight: 700; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--cl-tx); overflow-wrap: anywhere; }
 html.theme-clarity .x-sprof-main { display: grid; gap: 20px; min-width: 0; }
-html.theme-clarity .x-sprof-form { margin-top: 16px; }
+html.theme-clarity .x-sprof-form { display: grid; gap: 20px; min-width: 0; }
+html.theme-clarity .x-sprof-form .x-card > .x-cs + * { margin-top: 16px; }
+html.theme-clarity .x-sprof-lrn-none { margin: 4px 0 0; font-size: 13px; color: var(--cl-mu); overflow-wrap: anywhere; }
+html.theme-clarity .x-sprof-err { margin: 4px 0 0; font-size: 13px; font-weight: 500; color: var(--cl-er); }
+html.theme-clarity .x-sprof .x-input[aria-invalid="true"] { border-color: var(--cl-er); }
 html.theme-clarity .x-sprof-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 html.theme-clarity .x-sprof-wide { grid-column: 1 / -1; }
 html.theme-clarity .x-sprof .x-label { font-size: 12px; font-weight: 600; }

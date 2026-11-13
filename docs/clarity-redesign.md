@@ -96,6 +96,17 @@ The only classic file that refers to Clarity is `frontend/src/pages/dashboards/s
 - **LRN:** read from the student data the dashboard already loads (`studentTaskGraph.js:128`, `students.lrn`). No new read. With no LRN on record, the box is left out.
 - **Status:** only the stored status is shown. If none is stored, there is no pill and no assumed "active".
 
+## Student Profile: LRN always shown, Emergency contact (G7)
+
+- **LRN box:** always shown on the student's Profile Settings.
+  - With an LRN on record, it shows the value.
+  - Without one, it shows "Not set yet. Please ask the administrator to add it."
+  - It says "Loading…" while the student data loads, and "Could not load your LRN right now." if that load failed. That load fails as a whole if any of its reads fails.
+- **Emergency contact card:** added under Personal information, inside the same form, with Contact person's name (max 80), Relationship (max 40) and Contact number (the same input as Phone). It uses the same Save Changes, Discard, unsaved-changes banner and leave guard.
+  - **Validation:** all three are optional; once any is filled, the name and the number are required.
+  - **Saving:** the three `profiles.emergency_contact_*` columns are added to the existing `updateProfile` save only when they changed. Values are trimmed, and an emptied field saves as `null`. They are only ever sent for students.
+- **Admin:** the Users profile card shows a student's emergency contact when stored. It comes from the same `profiles.*` row as before, with no new read.
+
 ## Student My Attendance and Announcements (S2a)
 
 - **Where:** `components/clarity/student/ClarityStudentAttendanceTab.jsx` and `ClarityStudentAnnouncementsTab.jsx`. The Student Clarity shell shows them through `CLARITY_PAGES` in `ClarityStudentLayout.jsx`. `?clarity=0` shows the classic tabs, which are unchanged.

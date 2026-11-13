@@ -155,11 +155,17 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
   // Clarity Student shell); the hook already traps focus and locks scroll.
   useEffect(() => {
     if (!sidebarOpen) return undefined;
+    const opener = menuButtonRef.current;
     const targets = [headerRef.current, mainRef.current].filter(Boolean);
     const before = targets.map(el => el.inert);
     targets.forEach((el) => { el.inert = true; });
-    return () => targets.forEach((el, i) => { el.inert = Boolean(before[i]); });
-  }, [sidebarOpen]);
+    return () => {
+      targets.forEach((el, i) => { el.inert = Boolean(before[i]); });
+      // The shell hook's cleanup runs first and focuses the menu button while
+      // the header is still inert, so that focus is lost; repeat it here.
+      if (opener && document.contains(opener) && opener.offsetParent !== null) opener.focus();
+    };
+  }, [sidebarOpen, menuButtonRef]);
 
   // Below 1024px a closed drawer is off-screen; hide it from tab and readers.
   const drawerHidden = !desktop && !sidebarOpen;

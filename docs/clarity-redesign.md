@@ -103,6 +103,23 @@ Layout and type only; the data and behaviour are the same as before.
 - **Subject cards:** equal height in each row (grid stretch, each card a flex column). Each card shows the subject name, a 64px ring with "Average" beside it, "Released N / M" at 22px/700, and "N awaiting results" only when it applies. The "Show released scores (N)" button is pinned to the card bottom, so buttons line up across a row, and stays on one line (an ellipsis only as a last resort).
 - **Rings:** they no longer draw the inner "average" caption, which was about 6px. The centre shows the percentage only.
 
+## Responsive pass, phones first (G10)
+
+CSS only, plus one JSX fix, all in `clarity-components.css` and `ClarityAdminLayout.jsx`. Every new rule is inside a phone query (`max-width: 767px`) or a landscape-phone query (`max-width: 1023.98px` and `max-height: 500px`), so desktop is unchanged. Desktop screenshots at 1280 and 1440 were compared before and after, pixel by pixel.
+- **No sideways scroll:** Admin Subjects and Calendar scrolled the whole page sideways on phones (by up to 149px and 319px). The cause was hidden screen-reader text inside the table's scroll box (`.x-tw`): the box was not positioned, so the text escaped it. `.x-tw` is now `position: relative` on phones.
+- **Search boxes:** they were hidden on phones (`.x-search { display: none; }`). They now show full width on their own row: Users, Teaching Load, News, Memos, Teacher Students and Announcements, Student Announcements.
+- **Toast:** on phones it now sits at the bottom, above the safe area, and still lets taps through. It no longer covers the top bar.
+- **Top bar:** on phones the theme toggle comes first, then the bell. This is the visual order only; the keyboard order is unchanged (bell, then theme).
+- **Student Overview:** the refresh button sits beside the title. Text values such as "No released scores" are 24px. The rings are 76px, so the percentage is about 12.7px instead of 9.3px.
+- **Tap targets:** 44px minimum on phones for chips, segments, tabs, role and grade tabs, text links, the bell, task filters, the restyled Lesson Plans and Worksheets controls, pickers and the profile photo button (were 40px, some 20 or 36px).
+- **Phones in landscape (844x390):** these get the drawer layout but not the 767px rules. They now also get 16px inputs (no iOS zoom), including classic inputs in Clarity pages and dialogs, plus the same 44px targets, top-bar order and ring.
+- **Admin drawer focus (JSX):** closing the drawer (Escape, a link, the scrim) now returns focus to the menu button. Before, the shell hook focused the button while the header was still inert, so focus fell to the page body. The layout now repeats the focus after lifting inert.
+- **Checked and fine:** the drawers (focus trap, Escape, closes on navigation, scrim, scroll lock, no layout jump), the dialogs (bottom sheets on phones, inner scroll in landscape, buttons in view), and tables (they scroll inside their own box).
+- **Left as is:**
+  - The Admin Profile "Change Password" text button is 20px tall; it is in the shared classic `ProfileTab`.
+  - Classic toasts on restyled classic pages (such as Student Tasks) still sit at the top; they use shared classic classes.
+- **Tests:** `styles/clarityG10Responsive.test.js` pins the rules. One existing assertion changed, with approval: `styles/clarityComponents.test.js` now expects the phone toast at the bottom.
+
 ## Student Profile: LRN always shown, Emergency contact (G7)
 
 - **LRN box:** always shown on the student's Profile Settings.

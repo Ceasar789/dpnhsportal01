@@ -898,7 +898,7 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
 @media (max-width: 767px) {
   html.theme-clarity .x-ov .x-kpis { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-ov-row { grid-template-columns: minmax(0, 1fr); }
-  html.theme-clarity .x-ov .x-link { min-height: 40px; }
+  html.theme-clarity .x-ov .x-link { min-height: 44px; }
   html.theme-clarity .x-ov-head .x-act { flex-basis: 100%; }
   html.theme-clarity .x-ov-head .x-act .x-btn { flex: none; }
   html.theme-clarity .x-sch-del { width: 40px; height: 40px; }
@@ -920,7 +920,7 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-tld-teacher, html.theme-clarity .x-tld-remove { min-height: 48px; }
   html.theme-clarity .x-app { font-size: 15px; line-height: 1.55; }
   html.theme-clarity .x-top { padding: 0 16px; }
-  html.theme-clarity .x-search { display: none; }
+  html.theme-clarity .x-search { display: flex; flex: 1 1 100%; width: 100%; max-width: none; }
   html.theme-clarity .x-bar-tools .x-search { display: flex; max-width: none; }
   html.theme-clarity .x-content { padding: 24px 20px 32px; }
   html.theme-clarity .x-head { gap: 14px; }
@@ -932,24 +932,24 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-grid2 { grid-template-columns: minmax(0, 1fr); }
   html.theme-clarity .x-rank .r { grid-template-columns: 76px 1fr 48px; }
 
-  /* Tap targets: 40px minimum (48 for buttons, 44 for icon buttons and nav). */
+  /* Tap targets: 44px minimum (48 for buttons). */
   html.theme-clarity .x-btn { min-height: 48px; }
   html.theme-clarity .x-savebar .x-btn { min-height: 40px; }
   html.theme-clarity .x-iconbtn { width: 44px; height: 44px; }
   html.theme-clarity .x-nav { min-height: 44px; }
-  html.theme-clarity .x-chip { min-height: 40px; }
-  html.theme-clarity .x-seg button { min-height: 40px; }
-  html.theme-clarity .r-tabs button { min-height: 40px; }
-  html.theme-clarity .x-pst button { min-height: 40px; }
-  html.theme-clarity .x-subnav a { min-height: 40px; display: flex; align-items: center; }
-  html.theme-clarity .r-mini button { min-height: 40px; }
+  html.theme-clarity .x-chip { min-height: 44px; }
+  html.theme-clarity .x-seg button { min-height: 44px; min-width: 44px; }
+  html.theme-clarity .r-tabs button { min-height: 44px; }
+  html.theme-clarity .x-pst button { min-height: 44px; }
+  html.theme-clarity .x-subnav a { min-height: 44px; display: flex; align-items: center; }
+  html.theme-clarity .r-mini button { min-height: 44px; }
 
   /* Form text at 16px so iPhone Safari does not zoom into the field. */
   html.theme-clarity .x-input, html.theme-clarity .x-select, html.theme-clarity .x-search input { font-size: 16px; }
   html.theme-clarity .x-input { height: 48px; }
 
   /* Tables scroll inside their wrapper instead of widening the page. */
-  html.theme-clarity .x-tw { overflow-x: auto; max-width: 100%; }
+  html.theme-clarity .x-tw { overflow-x: auto; max-width: 100%; position: relative; }
 
   /* Calendars compress event pills to dots. */
   html.theme-clarity .x-cal > div { min-height: 64px; padding: 4px; }
@@ -962,8 +962,51 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-back.out .x-modal { animation: cl-sheetout .2s ease both; }
   html.theme-clarity .x-mf { padding: 16px 24px max(20px, env(safe-area-inset-bottom, 0px)); }
 
-  /* Toast at the top, full width, click-through (as the app does today). */
-  html.theme-clarity .x-toast { top: calc(env(safe-area-inset-top, 0px) + 12px); bottom: auto; left: 16px; right: 16px; max-width: none; pointer-events: none; }
+  /* Toast at the bottom, above the safe area, full width, click-through: it no longer covers the top bar. */
+  html.theme-clarity .x-toast { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); left: 16px; right: 16px; max-width: none; pointer-events: none; }
+}
+
+/* G10: phones first. Every rule below is inside a phone or landscape-phone
+   query, so desktop (1024px and up) is unchanged. */
+@media (max-width: 767px) {
+  /* Top bar: the theme toggle first, then the bell (visual order only). */
+  html.theme-clarity .x-top > .x-iconbtn:not(.x-menubtn) { order: 1; }
+  html.theme-clarity .x-top > .x-bell { order: 2; }
+  /* Student Overview: the refresh button sits beside the title, the values stay tidy,
+     and the ring is large enough for a readable percentage (7/42 of 76px = 12.7px). */
+  html.theme-clarity .x-sov > .x-head { align-items: flex-start; }
+  html.theme-clarity .x-sov > .x-head > :first-child { flex: 1 1 0%; }
+  html.theme-clarity .x-sov .x-kv { font-size: 24px; }
+  html.theme-clarity .x-sov-ring { width: 76px; }
+  /* 44px tap targets: the bell, role and grade tabs, text links, task filters,
+     the restyled Lesson Plans and Worksheets controls, pickers, the photo button. */
+  html.theme-clarity .x-bell .notification-bell-button { width: 44px; height: 44px; }
+  html.theme-clarity .x-usr-tabs button { min-height: 44px; }
+  html.theme-clarity .x-link { min-height: 44px; }
+  html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] > button { min-height: 44px; }
+  html.theme-clarity .x-tlp button, html.theme-clarity .x-tlp select, html.theme-clarity .x-tws button, html.theme-clarity .x-tws select { min-height: 44px; }
+  html.theme-clarity .x-select { min-height: 44px; }
+  html.theme-clarity .x-content [aria-label="Change profile photo"] { min-width: 44px; min-height: 44px; }
+}
+
+/* G10: phones in landscape (e.g. 844x390) get the drawer layout but not the
+   767px rules; give them the same 16px inputs and 44px tap targets. */
+@media (max-width: 1023.98px) and (max-height: 500px) {
+  html.theme-clarity .x-input, html.theme-clarity .x-select, html.theme-clarity .x-search input,
+  html.theme-clarity .x-app input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), html.theme-clarity .x-app select, html.theme-clarity .x-app textarea,
+  html.theme-clarity .ux-modal input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), html.theme-clarity .ux-modal select, html.theme-clarity .ux-modal textarea { font-size: 16px; }
+  html.theme-clarity .x-top > .x-iconbtn:not(.x-menubtn) { order: 1; }
+  html.theme-clarity .x-top > .x-bell { order: 2; }
+  html.theme-clarity .x-sov-ring { width: 76px; }
+  html.theme-clarity .x-btn, html.theme-clarity .x-select { min-height: 44px; }
+  html.theme-clarity .x-iconbtn, html.theme-clarity .x-bell .notification-bell-button { width: 44px; height: 44px; }
+  html.theme-clarity .x-seg button { min-height: 44px; min-width: 44px; }
+  html.theme-clarity .x-chip, html.theme-clarity .r-tabs button, html.theme-clarity .x-pst button, html.theme-clarity .x-set-nav button,
+  html.theme-clarity .x-usr-tabs button, html.theme-clarity .r-mini button, html.theme-clarity .x-subnav a { min-height: 44px; }
+  html.theme-clarity .x-link { min-height: 44px; }
+  html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] > button { min-height: 44px; }
+  html.theme-clarity .x-tlp button, html.theme-clarity .x-tlp select, html.theme-clarity .x-tws button, html.theme-clarity .x-tws select { min-height: 44px; }
+  html.theme-clarity .x-content [aria-label="Change profile photo"] { min-width: 44px; min-height: 44px; }
 }
 
 @media (max-width: 520px) {

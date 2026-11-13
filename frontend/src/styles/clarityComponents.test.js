@@ -114,10 +114,10 @@ describe("the app's phone and accessibility rules", () => {
     expect(parseInt(icon.decls.height, 10)).toBeGreaterThanOrEqual(40);
   });
 
-  it('the toast sits at the top and is click-through on phones', () => {
+  it('the toast sits at the bottom, above the safe area, and is click-through on phones', () => {
     const toast = find(PHONE, '.x-toast');
-    expect(toast.decls.top).toContain('12px');
-    expect(toast.decls.bottom).toBe('auto');
+    expect(toast.decls.bottom).toBe('calc(env(safe-area-inset-bottom, 0px) + 16px)');
+    expect(toast.decls.top).toBe('auto');
     expect(toast.decls['pointer-events']).toBe('none');
   });
 

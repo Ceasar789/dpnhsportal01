@@ -105,7 +105,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   if (offsetParent) Object.defineProperty(HTMLElement.prototype, 'offsetParent', offsetParent);
-  try { window.localStorage.clear(); } catch { /* none */ }
+  try { window.localStorage.clear(); window.sessionStorage.clear(); } catch { /* none */ }
   document.documentElement.classList.remove(SCOPE);
   vi.restoreAllMocks();
 });
@@ -127,11 +127,11 @@ describe('the switch: classic when off, Clarity by default', () => {
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
   });
 
-  it('?clarity=0 turns it off and remembers off', async () => {
+  it('?clarity=0 turns it off for this tab session', async () => {
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
     const { container } = await show('/admin-dashboard?clarity=0');
     expect(container.querySelector('.dashboard-shell')).toBeTruthy();
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
   it('storage that throws: Clarity by default, and ?clarity=1 still works for that page load', async () => {
@@ -145,12 +145,12 @@ describe('the switch: classic when off, Clarity by default', () => {
 });
 
 describe('flag on: the Clarity shell', () => {
-  it('?clarity=1 shows it, remembers it, and adds the class on <html> while mounted', async () => {
+  it('?clarity=1 shows it, clears any session rollback, and adds the class on <html> while mounted', async () => {
     const view = await show(CLARITY);
     expect(view.container.querySelector('.x-app')).toBeTruthy();
     expect(view.container.querySelector('.dashboard-shell')).toBeNull();
     expect(htmlHasClass()).toBe(true);
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('1');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
     view.unmount();
     expect(htmlHasClass()).toBe(false);
   });
@@ -165,7 +165,7 @@ describe('flag on: the Clarity shell', () => {
     const params = new URLSearchParams(screen.getByTestId('where').textContent.split('?')[1]);
     expect(params.get('tab')).toBe('x');
     expect(params.get('clarity')).toBe('0');
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
   it('hosts the classic tab components and the classic tab styles', async () => {

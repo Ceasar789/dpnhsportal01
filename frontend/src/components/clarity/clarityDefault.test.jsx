@@ -92,10 +92,10 @@ const Probe = () => {
 };
 const probeAt = path => render(<MemoryRouter initialEntries={[path]}><Routes><Route path="*" element={<Probe />} /></Routes></MemoryRouter>);
 const state = () => screen.getByTestId('state').textContent;
-const stored = () => window.localStorage.getItem(CLARITY_STORAGE_KEY);
+const stored = () => window.sessionStorage.getItem(CLARITY_STORAGE_KEY);
 
-beforeEach(() => { window.localStorage.clear(); });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); document.documentElement.classList.remove(SCOPE); });
+beforeEach(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); window.sessionStorage.clear(); document.documentElement.classList.remove(SCOPE); });
 
 describe('the flag: Clarity by default', () => {
   it('resolve: nothing stored is on; a stored value or the parameter still decides', () => {
@@ -107,11 +107,10 @@ describe('the flag: Clarity by default', () => {
     expect(resolveClarityFlag('?clarity=1', false)).toBe(true);
   });
 
-  it('readStoredFlag: "1" on, "0" or any other value off, nothing stored null', () => {
+  it('readStoredFlag: a session rollback "0" is off; localStorage never decides; nothing stored null', () => {
     expect(readStoredFlag()).toBeNull();
-    window.localStorage.setItem(CLARITY_STORAGE_KEY, '1'); expect(readStoredFlag()).toBe(true);
-    window.localStorage.setItem(CLARITY_STORAGE_KEY, '0'); expect(readStoredFlag()).toBe(false);
-    window.localStorage.setItem(CLARITY_STORAGE_KEY, 'true'); expect(readStoredFlag()).toBe(false);
+    window.localStorage.setItem(CLARITY_STORAGE_KEY, '0'); expect(readStoredFlag()).toBeNull();
+    window.sessionStorage.setItem(CLARITY_STORAGE_KEY, '0'); expect(readStoredFlag()).toBe(false);
   });
 
   it('nothing stored, no parameter: on, and nothing is written', () => {
@@ -120,7 +119,7 @@ describe('the flag: Clarity by default', () => {
     expect(stored()).toBeNull();
   });
 
-  it('?clarity=0 turns it off and remembers off for later visits', () => {
+  it('?clarity=0 turns it off and keeps it off for this tab session', () => {
     probeAt('/teacher-dashboard?clarity=0');
     expect(state()).toBe('off');
     expect(stored()).toBe('0');
@@ -129,20 +128,20 @@ describe('the flag: Clarity by default', () => {
     expect(state()).toBe('off');
   });
 
-  it('?clarity=1 turns it on and remembers it, also over a stored off', () => {
-    window.localStorage.setItem(CLARITY_STORAGE_KEY, '0');
+  it('?clarity=1 turns it on and clears a session rollback', () => {
+    window.sessionStorage.setItem(CLARITY_STORAGE_KEY, '0');
     probeAt('/admin-dashboard?clarity=1');
     expect(state()).toBe('on');
-    expect(stored()).toBe('1');
+    expect(stored()).toBeNull();
   });
 
-  it('a stored off wins over the default', () => {
-    window.localStorage.setItem(CLARITY_STORAGE_KEY, '0');
+  it('a session rollback wins over the default', () => {
+    window.sessionStorage.setItem(CLARITY_STORAGE_KEY, '0');
     probeAt('/admin-dashboard');
     expect(state()).toBe('off');
   });
 
-  it('Classic view turns it off, remembers off and keeps the other parameters', () => {
+  it('turnOff sets the session rollback and keeps the other parameters', () => {
     probeAt('/student-dashboard/tasks?view=done');
     expect(state()).toBe('on');
     fireEvent.click(screen.getByRole('button', { name: 'Classic view' }));

@@ -53,7 +53,7 @@ let originalOffsetParent;
 let originalFrame;
 beforeEach(() => {
   h.logout.mockReset(); h.toggle.mockReset(); h.dark = false; h.desktop = false;
-  window.localStorage.clear();
+  window.localStorage.clear(); window.sessionStorage.clear();
   originalOffsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
   Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentElement; } });
   originalFrame = window.requestAnimationFrame;
@@ -89,14 +89,14 @@ describe('flag on (the default): the Clarity shell', () => {
 });
 
 describe('flag on: the Clarity shell', () => {
-  it('?clarity=1 shows the Clarity shell with the tab content, sets the <html> class and remembers it', () => {
+  it('?clarity=1 shows the Clarity shell with the tab content, sets the <html> class and clears any session rollback', () => {
     const { container } = renderAt('/student-dashboard/tasks?clarity=1');
     expect(container.querySelector('.x-app')).toBeTruthy();
     expect(container.querySelector('.student-dashboard-shell')).toBeNull();
     expect(container.querySelector('.x-app')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Tasks content' })).toBeTruthy();
     expect(htmlHasClass()).toBe(true);
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('1');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
   });
 
   it('has the same nav items, order, hrefs and aria-current as the classic shell', () => {
@@ -131,7 +131,7 @@ describe('flag on: the Clarity shell', () => {
     expect(htmlHasClass()).toBe(false);
   });
 
-  it('no Classic view button; ?view=done&clarity=0 returns to the classic shell, remembers off and keeps other parameters', () => {
+  it('no Classic view button; ?view=done&clarity=0 returns to the classic shell for this tab session and keeps other parameters', () => {
     h.desktop = true;
     renderAt('/student-dashboard/tasks?view=done&clarity=1');
     expect(screen.queryByRole('button', { name: 'Classic view' })).toBeNull();
@@ -140,7 +140,7 @@ describe('flag on: the Clarity shell', () => {
     expect(container.querySelector('.student-dashboard-shell')).toBeTruthy();
     expect(container.querySelector('.x-app')).toBeNull();
     expect(htmlHasClass()).toBe(false);
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
     const where = new URLSearchParams(screen.getByTestId('where').textContent.split('?')[1]);
     expect(where.get('view')).toBe('done');
     expect(where.get('clarity')).toBe('0');

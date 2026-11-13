@@ -191,7 +191,7 @@ describe('switch, shared chart and CSS', () => {
     cleanup();
     expect(show(() => <OverviewTabSwitch classic={OverviewTab} />, '/student-dashboard?clarity=0').container.innerHTML).toBe(classic);
     cleanup();
-    window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
+    window.sessionStorage.removeItem(CLARITY_STORAGE_KEY);
     const { container } = show(() => <OverviewTabSwitch classic={OverviewTab} />);
     expect(container.querySelector('.x-sov')).toBeTruthy();
   });

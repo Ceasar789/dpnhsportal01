@@ -1,13 +1,16 @@
 // ============================================
 // FILE: src/components/clarity/useClarityFlag.js
-// The Clarity design flag. ON unless turned off.
-//   ?clarity=1  turns it on and remembers it (localStorage smartedu-clarity=1)
-//   ?clarity=0  turns it off and remembers that (smartedu-clarity=0)
-//   otherwise   the remembered value decides: "1" on, any other value off,
-//               nothing stored on
+// The Clarity design flag. ON, everywhere (desktop and phone).
+//   ?clarity=0  a hidden rollback for THIS TAB SESSION only
+//               (sessionStorage smartedu-clarity=0); nothing is written to
+//               localStorage, so it never sticks across tabs or visits
+//   ?clarity=1  clears that rollback
+//   otherwise   on, unless this tab session has the rollback
+// A stale localStorage smartedu-clarity='0' (written by the removed "Classic
+// view" button or by ?clarity=0 before G0) is ignored and removed on load.
 // Storage can throw or be blocked (private mode, policies): then the query
-// parameter alone decides for that page load, else the default (on). Other query parameters are
-// never touched.
+// parameter alone decides for that page load, else the default (on). Other
+// query parameters are never touched.
 // ============================================
 
 import { useCallback, useEffect } from 'react';
@@ -15,22 +18,35 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 export const CLARITY_STORAGE_KEY = 'smartedu-clarity';
 
-const store = () => {
+const local = () => {
   try { return window.localStorage; } catch { return null; }
 };
+const session = () => {
+  try { return window.sessionStorage; } catch { return null; }
+};
 
-/** true for "1", false for any other stored value, null when nothing is stored or storage is blocked. */
+/** false when this tab session holds the ?clarity=0 rollback, else null (no rollback: on). */
 export const readStoredFlag = () => {
   try {
-    const value = store()?.getItem(CLARITY_STORAGE_KEY);
-    return value == null ? null : value === '1';
+    return session()?.getItem(CLARITY_STORAGE_KEY) === '0' ? false : null;
   } catch { return null; }
 };
 
-const writeStoredFlag = (on) => {
+const setRollback = (off) => {
   try {
-    store()?.setItem(CLARITY_STORAGE_KEY, on ? '1' : '0');
+    const s = session();
+    if (!s) return;
+    if (off) s.setItem(CLARITY_STORAGE_KEY, '0');
+    else s.removeItem(CLARITY_STORAGE_KEY);
   } catch { /* storage unavailable: the query parameter decides */ }
+};
+
+// The old persisted "off" must not keep anyone on the classic design.
+const clearStaleOff = () => {
+  try {
+    const l = local();
+    if (l && l.getItem(CLARITY_STORAGE_KEY) === '0') l.removeItem(CLARITY_STORAGE_KEY);
+  } catch { /* storage unavailable: nothing to clear */ }
 };
 
 /** '1' or '0' from the query string, or null for anything else. */
@@ -39,7 +55,7 @@ export const clarityParam = (search) => {
   return value === '1' || value === '0' ? value : null;
 };
 
-/** On or off for this location: the parameter wins, else the stored value, else on. */
+/** On or off for this location: the parameter wins, else the session rollback, else on. */
 export const resolveClarityFlag = (search, stored) => {
   const param = clarityParam(search);
   if (param === '1') return true;
@@ -53,15 +69,16 @@ export function useClarityFlag() {
   const param = clarityParam(location.search);
   const enabled = resolveClarityFlag(location.search, readStoredFlag());
 
+  useEffect(() => { clearStaleOff(); }, []);
   useEffect(() => {
-    if (param === '1') writeStoredFlag(true);
-    else if (param === '0') writeStoredFlag(false);
+    if (param === '1') setRollback(false);
+    else if (param === '0') setRollback(true);
   }, [param]);
 
-  // "Classic view": remember off and say so in the URL (?clarity=0),
-  // keeping every other parameter as it was.
+  // The hidden rollback (no visible button calls it since G1): this tab
+  // session only, said in the URL (?clarity=0), every other parameter kept.
   const turnOff = useCallback(() => {
-    writeStoredFlag(false);
+    setRollback(true);
     const params = new URLSearchParams(location.search);
     params.set('clarity', '0');
     navigate({ pathname: location.pathname, search: `?${params.toString()}`, hash: location.hash }, { replace: true });

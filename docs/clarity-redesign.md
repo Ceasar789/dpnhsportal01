@@ -13,13 +13,14 @@ It is being added **beside** the current screens, not in place of them:
 
 ## The Clarity flag
 
-- **On by default** (since F5). A visitor who does nothing sees the Clarity dashboard. If the browser blocks `localStorage`, it also falls back to Clarity.
-- **Turn it off (hidden rollback):** add `?clarity=0` to the URL. The **Classic view** button was removed from all three Clarity headers in G1; the URL parameter is the only switch. The choice is remembered in the browser's `localStorage` under `smartedu-clarity` as `0` (`frontend/src/components/clarity/useClarityFlag.js:16`).
-- **Turn it back on:** add `?clarity=1`; this is remembered as `1`.
+- **On by default, everywhere** (desktop and phone). A visitor who does nothing sees the Clarity dashboard. If the browser blocks storage, it also falls back to Clarity.
+- **Stale "off" ignored (since G0):** before G0, the removed **Classic view** button and `?clarity=0` saved `smartedu-clarity = 0` in `localStorage`. That kept a device on the classic design for good, which is why some phones still showed it. A stored `0` no longer turns Clarity off, and it is removed when a dashboard loads.
+- **Hidden rollback:** add `?clarity=0` to the URL. It lasts only for **this tab session**: it is saved in `sessionStorage` (same key), never in `localStorage`. A new tab or visit is back on Clarity. See `frontend/src/components/clarity/useClarityFlag.js`.
+- **Turn it back on:** add `?clarity=1`. This clears the rollback.
 - **While Clarity is on**, the class `theme-clarity` is placed on the page's `<html>` element. All Clarity styles only apply under that class, so they cannot change a classic screen.
 - **Dark mode** is the existing dashboard setting. Clarity follows it.
 
-> **Demo warning:** before the defense, open every demo device with `?clarity=0` once, so no device is still remembering the preview.
+> **Demo note:** Clarity is the default on every device. `?clarity=0` only affects the tab it is opened in.
 
 ## What exists now (Student dashboard only)
 

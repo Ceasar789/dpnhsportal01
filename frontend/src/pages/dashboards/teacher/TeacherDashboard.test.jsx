@@ -120,7 +120,7 @@ describe('Teacher shell navigation', () => {
   let originalElementScrollTo;
 
   beforeEach(() => {
-    window.localStorage.setItem('smartedu-clarity', '0');
+    window.sessionStorage.setItem('smartedu-clarity', '0');
     teacherState.uid = 'teacher-1';
     logoutMock.mockReset();
     profileGuard.mode = 'clean';

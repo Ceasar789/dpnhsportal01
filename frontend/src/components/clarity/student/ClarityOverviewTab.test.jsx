@@ -106,7 +106,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup(); vi.useRealTimers(); delete window.matchMedia;
-  try { window.localStorage.clear(); } catch { /* none */ }
+  try { window.localStorage.clear(); window.sessionStorage.clear(); } catch { /* none */ }
 });
 
 describe('parity with the classic Overview (same graph, both versions)', () => {

@@ -65,7 +65,7 @@ beforeEach(() => {
   Object.assign(h, { profile: {}, desktop: true });
   h.guard.mode = 'clean'; h.guard.action = null;
   h.logout.mockReset();
-  window.localStorage.clear();
+  window.localStorage.clear(); window.sessionStorage.clear();
   saved = { raf: window.requestAnimationFrame, caf: window.cancelAnimationFrame, scrollTo: window.scrollTo,
     offsetParent: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent') };
   Object.defineProperty(HTMLElement.prototype, 'offsetParent', { configurable: true, get() { return this.parentElement; } });
@@ -93,17 +93,17 @@ describe('the switch', () => {
     expect(document.documentElement.classList.contains(SCOPE)).toBe(true);
   });
 
-  it('?clarity=1: the Clarity shell, remembered; ?clarity=0 turns it off and shows the classic shell', () => {
+  it('?clarity=1: the Clarity shell; ?clarity=0 turns it off for this tab session and shows the classic shell', () => {
     const { container } = renderAt(CLARITY);
     expect(container.querySelector('.x-app.x-tch')).toBeTruthy();
     expect(document.documentElement.classList.contains(SCOPE)).toBe(true);
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('1');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
     cleanup();
     const { container: off } = renderAt(`${CLASSIC}?clarity=0`);
     expect(screen.getByTestId('where').textContent).toBe('/teacher-dashboard?clarity=0');
     expect(off.querySelector('.teacher-header')).toBeTruthy();
     expect(off.querySelector('.x-app')).toBeNull();
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
   it('the classic tabs render inside the classic shell class names', async () => {

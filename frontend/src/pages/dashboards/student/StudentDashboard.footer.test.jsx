@@ -32,7 +32,7 @@ vi.mock('../../profile/ProfileTab', () => ({ default: () => <div>Profile content
 
 import StudentDashboard from './StudentDashboard';
 
-beforeEach(() => window.localStorage.setItem('smartedu-clarity', '0'));
+beforeEach(() => window.sessionStorage.setItem('smartedu-clarity', '0'));
 afterEach(() => cleanup());
 
 describe('student shell footer', () => {

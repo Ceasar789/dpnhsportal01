@@ -24,8 +24,8 @@ const renderAt = path => render(
 );
 const state = () => screen.getByTestId('state').textContent;
 
-beforeEach(() => { window.localStorage.clear(); });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
+beforeEach(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); window.sessionStorage.clear(); });
 
 describe('resolveClarityFlag (pure)', () => {
   it('the parameter wins; otherwise the stored value; default off', () => {
@@ -47,35 +47,35 @@ describe('useClarityFlag', () => {
     expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
   });
 
-  it('?clarity=1 turns it on and remembers it for later visits', () => {
+  it('?clarity=1 turns it on and clears any session rollback', () => {
     renderAt('/student-dashboard?clarity=1');
     expect(state()).toBe('on');
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('1');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBeNull();
     cleanup();
     renderAt('/student-dashboard/tasks');
     expect(state()).toBe('on');
   });
 
-  it('?clarity=0 turns it off and remembers off', () => {
+  it('?clarity=0 turns it off for this tab session', () => {
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
     renderAt('/student-dashboard?clarity=0');
     expect(state()).toBe('off');
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
   });
 
-  it('a stored value other than "1" does not turn it on', () => {
+  it('a stored localStorage value never turns it off', () => {
     window.localStorage.setItem(CLARITY_STORAGE_KEY, 'true');
     renderAt('/student-dashboard');
-    expect(state()).toBe('off');
+    expect(state()).toBe('on');
   });
 
-  it('Classic view remembers off and keeps every other query parameter', () => {
+  it('turnOff sets the session rollback and keeps every other query parameter', () => {
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
     renderAt('/student-dashboard/tasks?view=done&subject=sub-eng');
     expect(state()).toBe('on');
     fireEvent.click(screen.getByRole('button', { name: 'Classic view' }));
     expect(state()).toBe('off');
-    expect(window.localStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
+    expect(window.sessionStorage.getItem(CLARITY_STORAGE_KEY)).toBe('0');
     const url = new URL(`http://x${screen.getByTestId('url').textContent}`);
     expect(url.pathname).toBe('/student-dashboard/tasks');
     expect(url.searchParams.get('view')).toBe('done');

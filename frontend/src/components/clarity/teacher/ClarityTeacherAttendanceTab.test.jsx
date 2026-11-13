@@ -3,7 +3,7 @@
 // same table fake and save RPC as the classic AttendanceTab test, auth, the
 // toast hook, withRetry); each behaviour is compared with the classic tab.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const db = vi.hoisted(() => ({
@@ -93,6 +93,7 @@ describe('same data and behaviour as the classic tab', () => {
     const run = async (Tab) => {
       db.reads = [];
       await show(Tab);
+      await waitFor(() => expect(db.reads.map(r => r.table)).toContain('calendar_events'));
       const out = { reads: db.reads.map(r => r.table), names: rosterNames(), totals: totals(),
         pressed: people.map(([, n]) => ['Present', 'Absent', 'Late', 'Excused'].filter(s => pressed(n, s))),
         heading: screen.getByRole('heading', { name: /^Daily attendance/ }).textContent,

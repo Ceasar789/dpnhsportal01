@@ -71,6 +71,19 @@ The only classic file that refers to Clarity is `frontend/src/pages/dashboards/s
   - Students still cannot change their own LRN in Profile Settings.
 - **Actions:** Edit, Resend invitation and Archive/Restore are in the card and use the same handlers as before.
 
+## Teacher Lesson Plans and Worksheets (G4)
+
+- **What changed:** both pages still show the classic tab components, inside the Clarity shell. `ClarityTeacherLayout.jsx` gives their wrapper one more class, `x-tlp` (Lesson Plans) or `x-tws` (Worksheets). Scoped CSS in `clarity-components.css` then lays them out like the final design.
+  - **Both pages:** the classic padding is removed, so content no longer sits further in than other pages, and titles are 26px.
+  - **Lesson Plans:** the AI and Manual cards are on the left and the saved list on the right. Below 1100px wide they stack.
+- **What did not change:** every editor, dialog, print, PDF and save path, and the shared draft props that `TeacherDashboard.jsx` passes these tabs.
+- **Why not a rebuilt Clarity tab:** each tab keeps all of its state in one large component, and the Clarity shell cannot pass the shared draft props. The owner chose this restyle-in-place approach for G4.
+- **Not matched yet:**
+  - **Header text:** the subtitles keep the classic wording.
+  - **Colours:** the classic markup sets its colours inline, and Clarity CSS does not use `!important`.
+  - **Worksheets columns:** the "Not distributed / Distributed" columns are not built. Each worksheet does have a real assignee count, and the classic cards already show "Distributed · N" or "Not distributed", but splitting the list into two columns needs component logic, not CSS.
+- **Rollback:** `?clarity=0` shows the classic shell, unchanged.
+
 ## Not done yet
 
 **Student:** Attendance, Announcements and Tasks still show the classic tab even with the flag on, and so does Profile. According to the owner's plan, Attendance, Announcements and Tasks need their data and handlers moved out of the tab files first; this was **not** re-checked tab by tab for this document.

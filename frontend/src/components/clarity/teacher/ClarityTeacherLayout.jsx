@@ -55,6 +55,14 @@ const CLARITY_TABS = {
   '/teacher-dashboard/announcements': ClarityTeacherAnnouncementsTab,
 };
 
+// Classic tabs shown in the final design's layout by scoped CSS only (G4):
+// the classic component, its props and every editor, dialog and save path
+// are unchanged; the wrapper just gets one more class.
+const RESTYLED_CLASSIC = {
+  '/teacher-dashboard/lesson-plans': 'x-tlp',
+  '/teacher-dashboard/worksheets': 'x-tws',
+};
+
 // The final design's groups, by path. Every classic item appears exactly
 // once, in the classic order (tested).
 const GROUPS = [
@@ -208,6 +216,7 @@ const ClarityTeacherLayout = ({ children }) => {
   const drawerHidden = !desktop && !sidebarOpen;
   const byPath = new Map(navItems.map(item => [item.path, item]));
   const ClarityTab = CLARITY_TABS[location.pathname.replace(/\/+$/, '')];
+  const restyled = RESTYLED_CLASSIC[location.pathname.replace(/\/+$/, '')];
 
   return (
     <div className="x-app x-tch">
@@ -325,7 +334,7 @@ const ClarityTeacherLayout = ({ children }) => {
           {/* The classic shell's class names, so the classic tabs keep every
               rule they rely on. */}
           {ClarityTab ? <ClarityTab /> : (
-            <div className="dashboard-shell teacher-dashboard-shell x-tch-classic">
+            <div className={`dashboard-shell teacher-dashboard-shell x-tch-classic${restyled ? ` ${restyled}` : ''}`}>
               {children}
             </div>
           )}

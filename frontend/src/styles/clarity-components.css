@@ -740,6 +740,21 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
 @keyframes cl-sheet { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes cl-sheetout { to { transform: translateY(100%); } }
 
+/* G4: the classic Lesson Plans and Worksheets bodies in the final design's
+   layout (Teacher PDF p3, p4). Layout and type only: the classic markup,
+   its inline colours and every handler are unchanged. */
+html.theme-clarity .x-tlp > .page-transition > div, html.theme-clarity .x-tws > .page-transition > div { padding: 0; }
+html.theme-clarity .x-tlp > .page-transition > div > header h1, html.theme-clarity .x-tws > .page-transition > div h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading"]) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px 32px; align-items: start; }
+html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading"]) > * { margin-top: 0; min-width: 0; }
+html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading"]) > section[aria-labelledby="saved-plans-heading"] { grid-column: 2; grid-row: 1 / span 2; }
+html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading"]) > :first-child { text-align: left; }
+html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading"]) > :first-child > .w-12.h-12 { display: none; }
+@media (max-width: 1099.98px) {
+  html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading"]) { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading"]) > section[aria-labelledby="saved-plans-heading"] { grid-column: auto; grid-row: auto; }
+}
+
 /* ---------- Sidebar stays put on desktop: only the page scrolls ---------- */
 @media screen and (min-width: 1024px) {
   html.theme-clarity .x-side { position: sticky; top: 0; align-self: flex-start; height: 100vh; height: 100dvh; overflow-y: auto; }

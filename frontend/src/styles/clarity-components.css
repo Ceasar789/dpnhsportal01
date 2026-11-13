@@ -746,6 +746,24 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) both; }
 @keyframes cl-sheet { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes cl-sheetout { to { transform: translateY(100%); } }
 
+/* S2b: the classic student Tasks body in the final design's layout (Student PDF p2).
+   Layout and type only: the classic markup, its inline colours and every
+   read, filter and answer/submit flow are unchanged. */
+html.theme-clarity .x-stk > .page-transition > div { padding: 0; }
+html.theme-clarity .x-stk > .page-transition > div > header { margin-bottom: 24px; }
+html.theme-clarity .x-stk > .page-transition > div > header h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+html.theme-clarity .x-stk > .page-transition > div > header h1 + p { font-size: 14px; }
+html.theme-clarity .x-stk > .page-transition > div > .rounded-xl:has(> [aria-label="Filter tasks"]) { padding: 10px; margin-bottom: 20px; }
+html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] { gap: 8px; }
+html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] > button { min-height: 40px; padding: 0 20px; font-size: 14px; }
+html.theme-clarity .x-stk > .page-transition > div > .space-y-3 > .rounded-xl { padding: 18px 24px; gap: 16px; }
+html.theme-clarity .x-stk > .page-transition > div > .space-y-3 > .rounded-xl > .min-w-0 > div:first-child > p { font-size: 16px; font-weight: 600; }
+html.theme-clarity .x-stk > .page-transition > div > .space-y-3 > .rounded-xl > .min-w-0 > p { font-size: 13px; margin-top: 4px; }
+html.theme-clarity .x-stk > .page-transition > div > .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
+@media (max-width: 767px) {
+  html.theme-clarity .x-stk > .page-transition > div > .space-y-3 > .rounded-xl { padding: 16px; flex-wrap: wrap; }
+}
+
 /* S2a: Student My Attendance (calendar | rate and counts) and Announcements (Student PDF p4, p5). */
 html.theme-clarity .x-sat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; margin-bottom: 20px; }
 html.theme-clarity .x-sat-calhead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }

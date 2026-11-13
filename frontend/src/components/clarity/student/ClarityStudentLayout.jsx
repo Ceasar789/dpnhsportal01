@@ -41,6 +41,13 @@ const CLARITY_PAGES = {
   '/student-dashboard/profile': ClarityStudentProfileTab,
 };
 
+// Classic tabs shown in the final design's layout by scoped CSS only (S2b):
+// the classic component and every read, filter and answer/submit flow are
+// unchanged; its wrapper just gets one class.
+const RESTYLED_CLASSIC = {
+  '/student-dashboard/tasks': 'x-stk',
+};
+
 // The same items, paths and order as the classic StudentLayout.
 const STUDENT_NAV = [
   { path: '/student-dashboard', icon: LayoutDashboard, label: 'Overview' },
@@ -58,6 +65,7 @@ const ClarityStudentLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const ClarityPage = CLARITY_PAGES[location.pathname.replace(/\/+$/, '')];
+  const restyled = RESTYLED_CLASSIC[location.pathname.replace(/\/+$/, '')];
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -251,7 +259,7 @@ const ClarityStudentLayout = ({ children }) => {
         </header>
 
         <main ref={mainRef} className="x-content">
-          {ClarityPage ? <ClarityPage /> : children}
+          {ClarityPage ? <ClarityPage /> : restyled ? <div className={restyled}>{children}</div> : children}
         </main>
       </div>
 

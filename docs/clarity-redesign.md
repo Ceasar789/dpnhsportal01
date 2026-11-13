@@ -110,6 +110,16 @@ The only classic file that refers to Clarity is `frontend/src/pages/dashboards/s
   - **Sender:** shown only when stored. The classic "School Admin" fallback was dropped.
   - **Audience:** shown only when `target_roles` is stored, with the admin News labels.
 
+## Student Tasks (S2b)
+
+- **What changed:** the classic student Tasks tab (826 lines) is shown inside the Clarity shell unchanged. `ClarityStudentLayout.jsx` wraps it in one extra class, `x-stk`. Scoped CSS then applies the final design's layout and type: no double inset, a 26px title, 40px filter tabs, and roomier task cards with 16px titles.
+- **What did not change:** every read, the `?view=` filter, and every answer, submit and save flow.
+- **Not matched:**
+  - **Group headings:** the PDF's Today / This week / Done / Later headings would need component logic.
+  - **Checkboxes:** they have no function behind them.
+  - **Colours:** the classic inline colours stay, because Clarity CSS does not use `!important`.
+- **Rollback:** `?clarity=0` shows the classic shell, unchanged.
+
 ## Not done yet
 
 **Student:** Attendance, Announcements and Tasks still show the classic tab even with the flag on, and so does Profile. According to the owner's plan, Attendance, Announcements and Tasks need their data and handlers moved out of the tab files first; this was **not** re-checked tab by tab for this document.

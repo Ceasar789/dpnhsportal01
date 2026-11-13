@@ -144,8 +144,8 @@ describe("the app's phone and accessibility rules", () => {
     expect(focus.decls.outline).toBe('2px solid var(--cl-ac)');
   });
 
-  it('long text wraps: no white-space: nowrap anywhere', () => {
-    expect(css).not.toMatch(/white-space:\s*nowrap/);
+  it('long text wraps: no white-space: nowrap anywhere, except the Scores card button (one line, with an ellipsis)', () => {
+    expect(css.replace('html.theme-clarity .x-sc-btn { margin-top: auto; width: 100%; padding: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }', '')).not.toMatch(/white-space:\s*nowrap/);
   });
 
   it('safe-area insets are only used with a fallback', () => {

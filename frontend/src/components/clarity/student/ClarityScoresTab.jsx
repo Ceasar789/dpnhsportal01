@@ -26,34 +26,32 @@ const usable = p => typeof p === 'number' && Number.isFinite(p);
 const percentText = p => (usable(p) ? `${p}%` : '—');
 // The rings get no `label`: ProgressRing draws its label as a <b> that
 // .o-ring b positions over the ring. The visible headings carry it instead.
+// G8: no `unit` either: its caption inside a 64px ring was about 6px and
+// unreadable, so the centre shows only the percentage and "Average" sits
+// beside the ring.
 const releasedCount = n => `${n} released ${n === 1 ? 'score' : 'scores'}`;
 
 const SubjectCard = ({ subject }) => {
   const [open, setOpen] = useState(false);
   const listId = `scores-${subject.key}`;
   return (
-    <article className="x-card x-pad" aria-labelledby={`${listId}-name`}>
-      <h2 id={`${listId}-name`} className="x-ct" style={WRAP}>{subject.name}</h2>
-      <dl className="x-pair" style={{ marginTop: 16 }}>
-        <div>
-          <dt className="x-kl">Average</dt>
-          <dd style={{ margin: 0 }}>
-            {!usable(subject.percent)
-              ? <p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p>
-              : drawable(subject.percent) === null
-                ? <p className="x-kv">{percentText(subject.percent)}</p>
-                : <span className="x-sc-ring"><ProgressRing value={subject.percent} detail={`${subject.name} average`} unit="average" /></span>}
-          </dd>
+    <article className="x-card x-sc-card" aria-labelledby={`${listId}-name`}>
+      <div className="x-sc-top">
+        <h2 id={`${listId}-name`} className="x-sc-name" style={WRAP}>{subject.name}</h2>
+        <div className="x-sc-avg">
+          {!usable(subject.percent)
+            ? <p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p>
+            : drawable(subject.percent) === null
+              ? <p className="x-kv">{percentText(subject.percent)}</p>
+              : <span className="x-sc-ring"><ProgressRing value={subject.percent} detail={`${subject.name} average`} /></span>}
         </div>
-        <div>
-          <dt className="x-kl">Released</dt>
-          <dd className="x-kv" style={{ margin: 0 }}>{subject.items.length} / {subject.assigned}</dd>
-        </div>
-      </dl>
-      {subject.awaiting > 0 && <p className="x-cs" style={{ marginTop: 12 }}>{subject.awaiting} awaiting results</p>}
+        <p className="x-cs x-sc-sub">Average</p>
+      </div>
+      <p className="x-sc-rel"><span className="x-kl">Released</span><b className="x-sc-num">{subject.items.length} / {subject.assigned}</b></p>
+      {subject.awaiting > 0 && <p className="x-cs x-sc-await">{subject.awaiting} awaiting results</p>}
       {subject.items.length > 0 && (
         <>
-          <button type="button" className="x-btn" style={{ marginTop: 12 }} aria-expanded={open} aria-controls={listId}
+          <button type="button" className="x-btn x-sc-btn" aria-expanded={open} aria-controls={listId}
             onClick={() => setOpen(value => !value)}>
             {open ? 'Hide released scores' : `Show released scores (${subject.items.length})`}
           </button>
@@ -113,22 +111,25 @@ const ClarityScoresTab = () => {
         </div>
       ) : ready ? (
         <>
-          <section aria-label="Overall" className="x-card x-pad" style={{ marginBottom: 16 }}>
-            {!usable(overall.percent)
-              ? <><p className="x-kl">Overall average</p><p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p></>
-              : drawable(overall.percent) === null
-                ? <><p className="x-kl">Overall average</p><p className="x-kv">{percentText(overall.percent)}</p></>
-                : <span className="x-sc-ring"><ProgressRing value={overall.percent} detail="Overall average" unit="average" /></span>}
-            <p className="x-kd">{releasedCount(overall.count)}</p>
-          </section>
+          <div className="x-sc-grid">
+            <section aria-label="Overall" className="x-card x-sc-card x-sc-overall">
+              <div className="x-sc-top">
+                <p className="x-sc-name">Overall average</p>
+                <div className="x-sc-avg">
+                  {!usable(overall.percent)
+                    ? <p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p>
+                    : drawable(overall.percent) === null
+                      ? <p className="x-kv">{percentText(overall.percent)}</p>
+                      : <span className="x-sc-ring"><ProgressRing value={overall.percent} detail="Overall average" /></span>}
+                </div>
+                <p className="x-cs x-sc-sub">{releasedCount(overall.count)}</p>
+              </div>
+            </section>
+            {subjects.map(subject => <SubjectCard key={subject.key} subject={subject} />)}
+          </div>
           {overall.count === 0 && (
-            <div className="x-card x-empty" style={{ marginBottom: 16 }}>
+            <div className="x-card x-empty" style={{ marginTop: 16 }}>
               <p>No released scores yet.</p>
-            </div>
-          )}
-          {subjects.length > 0 && (
-            <div className="x-sc-grid">
-              {subjects.map(subject => <SubjectCard key={subject.key} subject={subject} />)}
             </div>
           )}
         </>

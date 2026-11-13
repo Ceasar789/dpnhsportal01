@@ -96,6 +96,13 @@ The only classic file that refers to Clarity is `frontend/src/pages/dashboards/s
 - **LRN:** read from the student data the dashboard already loads (`studentTaskGraph.js:128`, `students.lrn`). No new read. With no LRN on record, the box is left out.
 - **Status:** only the stored status is shown. If none is stored, there is no pill and no assumed "active".
 
+## Student Scores layout (G8)
+
+Layout and type only; the data and behaviour are the same as before.
+- **Overall average:** now a compact card, the first cell of the same auto-fill grid as the subject cards. It has a 72px ring beside "Overall average" and "N released scores", and takes only its content's height.
+- **Subject cards:** equal height in each row (grid stretch, each card a flex column). Each card shows the subject name, a 64px ring with "Average" beside it, "Released N / M" at 22px/700, and "N awaiting results" only when it applies. The "Show released scores (N)" button is pinned to the card bottom, so buttons line up across a row, and stays on one line (an ellipsis only as a last resort).
+- **Rings:** they no longer draw the inner "average" caption, which was about 6px. The centre shows the percentage only.
+
 ## Student Profile: LRN always shown, Emergency contact (G7)
 
 - **LRN box:** always shown on the student's Profile Settings.

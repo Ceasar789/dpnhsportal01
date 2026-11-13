@@ -21,6 +21,7 @@ import { composeOptions, filterOptions } from '../../../lib/memoRecipients';
 import Modal from '../../ui/Modal';
 import Button from '../../ui/Button';
 import { formatDate, formatDateTime } from '../../../lib/formatDate';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // Sender and audience as stored. A missing part is left out (no dash and no
 // assumed "All"); the arrow shows only when both are there.
@@ -97,7 +98,18 @@ const ClarityAdminMemosTab = () => {
               <span className={memosLoading ? undefined : 'x-memo-count'}>{memosLoading ? '' : filteredMemos.length}<span className="x-sr"> {filteredMemos.length === 1 ? 'memo' : 'memos'}</span></span>
             </div>
             {memosLoading ? (
-              <p className="x-empty" role="status">Loading memos…</p>
+              <>
+                <p className="x-sr" role="status">Loading memos…</p>
+                <SkeletonGroup>
+                  {[0, 1, 2, 3].map(i => (
+                    <div key={i} className="x-card x-memo-card">
+                      <b><Skeleton inline h="0.8em" w="65%" /></b>
+                      <span className="x-memo-aud"><Skeleton inline h="0.8em" w={90} /></span>
+                      <span className="x-memo-date"><Skeleton inline h="0.8em" w={80} /></span>
+                    </div>
+                  ))}
+                </SkeletonGroup>
+              </>
             ) : filteredMemos.length === 0 && !memosError ? (
               <p className="x-card x-empty">No memos found</p>
             ) : filteredMemos.map(m => (

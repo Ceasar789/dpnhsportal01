@@ -27,6 +27,7 @@ import {
   monthLabel, monthOf, monthOptions, RATE_RULE, statusKey,
 } from '../../../pages/dashboards/student/attendanceView';
 import ProgressRing from '../charts/ProgressRing';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (AttendanceTab.jsx:26) ----
 const PAGE_SIZE = 20;
@@ -177,6 +178,11 @@ const ClarityStudentAttendanceTab = () => {
         <section className="x-card x-pad x-sat-cal" aria-labelledby="x-sat-month">
           <div className="x-sat-calhead">
             <h2 id="x-sat-month" className="x-ct">{month === 'all' ? 'All months' : monthLabel(month)}</h2>
+            {loading && (
+              <SkeletonGroup className="x-sat-tools">
+                <span className="x-label"><Skeleton inline h="0.8em" w={44} /><span className="x-select" style={{ display: 'block', width: 150 }} /></span>
+              </SkeletonGroup>
+            )}
             {!loading && !loadError && records.length > 0 && (
               <div className="x-sat-tools">
                 <label className="x-label">Month
@@ -196,7 +202,21 @@ const ClarityStudentAttendanceTab = () => {
               </div>
             )}
           </div>
-          {loading ? <p className="x-empty" role="status">Loading your attendance…</p>
+          {loading ? (
+            <>
+              <p className="x-sr" role="status">Loading your attendance…</p>
+              <SkeletonGroup>
+                <table className="x-sat-grid">
+                  <thead><tr>{[0, 1, 2, 3, 4, 5, 6].map(d => <th key={d} scope="col"><Skeleton inline h="0.8em" w={24} /></th>)}</tr></thead>
+                  <tbody>
+                    {[0, 1, 2, 3, 4].map(w => (
+                      <tr key={w}>{[0, 1, 2, 3, 4, 5, 6].map(d => <td key={d}><span className="x-sat-d"><Skeleton inline h="0.8em" w={14} /></span></td>)}</tr>
+                    ))}
+                  </tbody>
+                </table>
+              </SkeletonGroup>
+            </>
+          )
             : loadError ? (
               <div className="x-empty">
                 <p role="alert" className="x-ct">Could not load your attendance.</p>
@@ -210,7 +230,17 @@ const ClarityStudentAttendanceTab = () => {
 
         <div className="x-sat-side">
           <section className="x-card x-pad x-sat-rate" aria-label="Attendance rate">
-            {loading ? <p className="x-empty">Loading…</p>
+            {loading ? (
+              <>
+                <p className="x-sr">Loading…</p>
+                <SkeletonGroup>
+                  <div className="x-sat-ring"><Skeleton w="100%" h="100%" className="sk-round" /></div>
+                  <p className="x-ct"><Skeleton inline h="0.8em" w="55%" /></p>
+                  <p className="x-cs"><Skeleton inline h="0.8em" w="70%" /></p>
+                  <p className="x-cs"><Skeleton inline h="0.8em" w="85%" /></p>
+                </SkeletonGroup>
+              </>
+            )
               : loadError ? <p className="x-empty">Could not load your attendance.</p>
               : totals.total === 0 ? <p className="x-empty">No attendance recorded yet.</p>
               : <>

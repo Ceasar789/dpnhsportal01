@@ -11,6 +11,7 @@ import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { useAdminContext } from '../AdminContext';
 import { formatEnrollmentDate, membershipStatusLabel } from './sectionMembership';
+import { Skeleton, SkeletonGroup } from '../../../../components/ui/Skeleton';
 
 // students.student_status CHECK (confirmed on the live database). Not set
 // saves NULL: the CHECK rejects an empty string.
@@ -137,7 +138,14 @@ export default function StudentProfileSheet({ student, onClose }) {
       )}
     >
       {loading ? (
-        <p role="status">Loading profile…</p>
+        <>
+          <p role="status" className="sr-only">Loading profile…</p>
+          <SkeletonGroup>
+            <dl className="row-sheet">
+              {[0, 1, 2].map(i => <div key={i} className="row-sheet-pair"><dt><Skeleton inline h="0.8em" w={60} /></dt><dd><Skeleton inline h="0.8em" w="70%" /></dd></div>)}
+            </dl>
+          </SkeletonGroup>
+        </>
       ) : (
         <>
           {detailsError && (

@@ -1,0 +1,52 @@
+/* ============================================
+   L2: shared skeleton loading shapes (components/ui/Skeleton.jsx).
+
+   One stylesheet for every context. Colours come from the dashboard
+   tokens when they exist (--cl-bd for the block, --cl-side-hov for the
+   shimmer highlight, --cl-r for card corners), so the shapes follow the
+   light and dark themes; outside the dashboards the neutral fallbacks
+   apply. No new colours.
+
+   Motion: the shimmer moves a highlight with transform only. A group fades
+   in after 300ms (the same wait as useDelayedFlag), so a fast response never
+   flashes a skeleton; the space is held from the first frame. With reduced
+   motion the shimmer is removed and the blocks are static.
+   ============================================ */
+
+.sk-in { animation: sk-in 1ms linear 300ms both; }
+@keyframes sk-in { from { opacity: 0; } to { opacity: 1; } }
+
+.sk-b {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  background: var(--cl-bd, #e5e7eb);
+  border-radius: var(--sk-r, 10px);
+}
+.sk-b::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--cl-side-hov, #f3f4f6), transparent);
+  transform: translateX(-100%);
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes sk-shimmer { to { transform: translateX(100%); } }
+
+.sk-round { border-radius: 9999px; }
+/* Inside a line of text: keeps the line's own height, so nothing moves when
+   the text arrives. The margin tops the bar up to one line (1lh), which also
+   holds when the text's container is a flex box. */
+.sk-inline { display: inline-block; vertical-align: top; margin-block: max(0px, calc((1lh - var(--sk-h, 0.8em)) / 2)); }
+.sk-lines { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sk-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sk-card-act { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
+.sk-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 0; }
+.sk-row > .sk-lines { flex: 1 1 auto; }
+.sk-stat { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sk-td { padding-top: 14px; padding-bottom: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-b::after { display: none; animation: none; }
+}

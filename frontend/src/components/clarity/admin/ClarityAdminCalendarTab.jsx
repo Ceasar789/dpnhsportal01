@@ -28,6 +28,7 @@ import Button from '../../ui/Button';
 import { formatDateLong, formatDateRange } from '../../../lib/formatDate';
 import { agendaGroups, agendaTimeline } from '../../../lib/agenda';
 import { isInvalidCalendarRange, matchesCalendarFilter } from '../../../lib/calendarRules';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // Local calendar dates, as the classic grid builds them (`${year}-${mm}-${dd}`).
 const pad = n => String(n).padStart(2, '0');
@@ -152,7 +153,19 @@ const ClarityAdminCalendarTab = () => {
             </div>
             <section className="x-card x-cal-card" aria-label={weekTitle}>
               {calLoading ? (
-                <p className="x-empty">{slowCal ? 'Loading events…' : ''}</p>
+                <>
+                  <p className="x-sr">{slowCal ? 'Loading events…' : ''}</p>
+                  <SkeletonGroup className="x-tw">
+                    <div className="x-cal-week" style={{ gridTemplateColumns: `repeat(${weekDays.length}, minmax(140px, 1fr))` }}>
+                      {weekDays.map(d => (
+                        <div key={keyOf(d)} className="x-cal-day">
+                          <p className="x-cal-dayhead"><Skeleton inline h="0.8em" w={56} /></p>
+                          <Skeleton h={44} />
+                        </div>
+                      ))}
+                    </div>
+                  </SkeletonGroup>
+                </>
               ) : (
                 <div className="x-tw">
                   <div className="x-cal-week" style={{ gridTemplateColumns: `repeat(${weekDays.length}, minmax(140px, 1fr))` }}>
@@ -256,7 +269,17 @@ const ClarityAdminCalendarTab = () => {
                       one is shown, so neither view can go stale). */}
                   <div className="cal-agenda">
                     {calLoading ? (
-                      <div className="cal-agenda-empty">{slowCal ? 'Loading events…' : ''}</div>
+                      <>
+                        <div className="x-sr">{slowCal ? 'Loading events…' : ''}</div>
+                        <SkeletonGroup>
+                          {[0, 1, 2].map(i => (
+                            <div key={i} className="cal-agenda-day">
+                              <p className="cal-agenda-date"><Skeleton inline h="0.8em" w={150} /></p>
+                              <ul className="cal-agenda-list"><li><span className="ux-unbutton cal-agenda-item"><Skeleton inline h="0.8em" w="70%" /></span></li></ul>
+                            </div>
+                          ))}
+                        </SkeletonGroup>
+                      </>
                     ) : agendaRows.length === 0 ? (
                       <div className="cal-agenda-empty">
                         {calFilter ? `No ${calFilter} events this month.` : 'No events this month.'}

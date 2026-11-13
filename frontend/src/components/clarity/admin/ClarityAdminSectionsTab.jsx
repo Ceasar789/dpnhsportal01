@@ -29,6 +29,7 @@ import { coverageText, subjectCoverage } from '../../../pages/dashboards/admin/s
 import { formatEnrollmentDate, membershipStatusLabel, REMOVAL_REASONS } from '../../../pages/dashboards/admin/shared/sectionMembership';
 import { GRADE_LEVELS, normalizeGradeLevel } from '../../../lib/academicRules';
 import { isActiveSectionAdviser, otherAdvisedSections, validateSectionCapacity } from '../../../pages/dashboards/admin/shared/sectionsValidation';
+import { Skeleton, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
 // Sections grouped by grade, in the school's grade order; a grade_level the
 // list does not know keeps its own column after the known ones.
@@ -171,7 +172,27 @@ const ClarityAdminSectionsTab = () => {
         <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
 
         {sectionsLoading ? (
-          <p className="x-empty">Loading sections…</p>
+          <>
+            <p className="x-sr" role="status">Loading sections…</p>
+            <SkeletonGroup className="x-sec-board">
+              {[0, 1].map(g => (
+                <div key={g} className="x-sec-col">
+                  <div className="x-sec-colhead"><h2><Skeleton inline h="0.8em" w={70} /></h2><span><Skeleton inline h="0.8em" w={12} /></span></div>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="x-card x-sec-card">
+                      <h3 className="x-sec-name"><Skeleton inline h="0.8em" w="55%" /></h3>
+                      <p className="x-sec-meta"><Skeleton inline h="0.8em" w="80%" /></p>
+                      <p className="x-sec-meta"><Skeleton inline h="0.8em" w="65%" /></p>
+                      <div className="x-sec-act">
+                        {[0, 1, 2].map(b => <span key={b} className="x-iconbtn"><Skeleton w="100%" h="100%" /></span>)}
+                        <span className="x-btn gh x-sec-setup"><Skeleton inline h="0.8em" w={110} /></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </SkeletonGroup>
+          </>
         ) : sectionsError ? (
           <div className="x-card x-empty">
             <p>Could not load sections. Check your connection and try again.</p>
@@ -371,7 +392,10 @@ const ClarityAdminSectionsTab = () => {
               <thead><tr><th>#</th><th>Student</th><th>Email</th><th style={{ width: 60 }}></th></tr></thead>
               <tbody>
                 {classListLoading ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-16)' }}>Loading class list…</td></tr>
+                  <>
+                    <tr><td colSpan={4} className="x-sr">Loading class list…</td></tr>
+                    <SkeletonTable rows={5} cols={4} widths={['24px', '70%', '80%', '24px']} />
+                  </>
                 ) : classListError ? (
                   <tr><td colSpan={4} style={{ textAlign: 'center', padding: 'var(--space-16)' }}>
                     Could not load. Check your connection and try again.

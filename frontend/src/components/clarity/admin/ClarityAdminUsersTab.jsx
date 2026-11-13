@@ -37,6 +37,7 @@ import Avatar from '../../Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { focusAfterRemoval } from '../../../lib/focusAfterRemoval';
 import { formatDate } from '../../../lib/formatDate';
+import { Skeleton, SkeletonCircle, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (UsersTab.jsx:14) ----
 // The roles an admin can give an account.
@@ -156,7 +157,19 @@ const ClarityAdminUsersTab = () => {
         <div className="x-usr-layout">
           <div className="x-card x-usr-list">
             {usersLoading ? (
-              <p className="x-empty" role="status">Loading users…</p>
+              <>
+                <p className="x-sr" role="status">Loading users…</p>
+                <SkeletonGroup className="x-usr-scroll">
+                  <table className="x-table x-usr-table">
+                    <thead><tr>{[48, 36, 44, 48].map((w, i) => <th key={i} scope="col"><Skeleton inline h="0.8em" w={w} /></th>)}</tr></thead>
+                    <tbody>
+                      <SkeletonTable rows={6} cols={4} cell={c => (c === 0 ? (
+                        <span className="x-usr-pick nm"><SkeletonCircle size={32} /><span className="x-usr-name"><Skeleton inline h="0.8em" w={120} /></span></span>
+                      ) : c === 2 ? <Skeleton inline h="0.8em" w="80%" /> : <Skeleton inline h={22} w={64} className="sk-round" />)} />
+                    </tbody>
+                  </table>
+                </SkeletonGroup>
+              </>
             ) : usersError ? (
               <div className="x-empty" role="alert">
                 <span>Unable to load users.</span>{' '}

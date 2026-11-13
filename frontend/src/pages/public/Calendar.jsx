@@ -9,7 +9,8 @@ import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeade
 import PublicFooter from '../../components/PublicFooter';
 import { supabase } from '../../config/supabase';
 import { formatClockTime } from '../../lib/taskFormatting';
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, AlertCircle, Loader2, Megaphone } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, AlertCircle, Megaphone } from 'lucide-react';
+import { Skeleton, SkeletonGroup } from '../../components/ui/Skeleton';
 
 const CalendarPage = () => {
   const navigate = useNavigate();
@@ -178,7 +179,43 @@ const CalendarPage = () => {
         )}
 
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#1e3a5f]" size={32} /></div>
+          <>
+            {/* L2: the same month grid and upcoming list as the loaded page, in bars. */}
+            <p role="status" className="sr-only">Loading events…</p>
+            <SkeletonGroup className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                  <div className="flex items-center gap-3"><Skeleton w={36} h={36} /><Skeleton w={140} h={28} /><Skeleton w={84} h={38} /><Skeleton w={36} h={36} /></div>
+                  <div className="flex gap-2 pb-2">{[0, 1, 2, 3].map(i => <Skeleton key={i} w={64} h={30} />)}</div>
+                </div>
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {[0, 1, 2, 3, 4, 5, 6].map(d => <div key={d} className="text-center text-xs font-semibold py-2"><Skeleton inline h="0.8em" w={24} /></div>)}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} className={isMobile ? 'min-h-[52px]' : 'min-h-[96px]'} />)}
+                  {Array.from({ length: daysInMonth }, (_, i) => (
+                    <div key={i} className={`${isMobile ? 'min-h-[52px]' : 'min-h-[96px]'} rounded-lg border border-gray-100 p-1.5`}>
+                      <span className="text-sm font-semibold"><Skeleton inline h="0.8em" w={14} /></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="text-sm font-semibold uppercase tracking-wider mb-4"><Skeleton inline h="0.8em" w={130} /></div>
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-start gap-3">
+                      <Skeleton w={48} h={48} style={{ flexShrink: 0 }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold mb-1"><Skeleton inline h="0.8em" w="70%" /></div>
+                        <div className="text-xs"><Skeleton inline h="0.8em" w="50%" /></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SkeletonGroup>
+          </>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Calendar Grid */}

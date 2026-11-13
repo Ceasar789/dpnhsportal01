@@ -25,6 +25,7 @@ import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import SchoolYearNotice from '../../../pages/dashboards/admin/shared/SchoolYearNotice';
 import { coverageText, sortPeriods, subjectCoverage, teacherNamesFor } from '../../../pages/dashboards/admin/shared/classSetup';
 import { GRADE_LEVELS, normalizeGradeLevel, canTeachSection } from '../../../lib/academicRules';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // TEMPORARY copy (SchedulesTab.jsx:50).
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -54,6 +55,28 @@ const shortName = (name) => {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   return parts.length < 2 ? parts.join('') : `${parts[0][0]}. ${parts[parts.length - 1]}`;
 };
+
+// L2: the weekly timetable while it loads: the same table, bars for the times and classes.
+const TimetableSkeleton = () => (
+  <SkeletonGroup className="x-tw">
+    <table className="x-sch-table">
+      <thead>
+        <tr>
+          <th scope="col" className="x-sch-time" />
+          {[0, 1, 2, 3, 4].map(d => <th scope="col" key={d}><Skeleton inline h="0.8em" w={28} /></th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {[0, 1, 2, 3].map(r => (
+          <tr key={r}>
+            <th scope="row" className="x-sch-time"><Skeleton inline h="0.8em" w={72} /></th>
+            {[0, 1, 2, 3, 4].map(d => <td key={d}><Skeleton h={44} /></td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </SkeletonGroup>
+);
 
 const ClarityAdminSchedulesTab = () => {
   const {
@@ -300,7 +323,10 @@ const ClarityAdminSchedulesTab = () => {
             <button type="button" className="x-btn" style={{ marginTop: 12 }} onClick={() => fetchSchedules()}>Retry schedules</button>
           </div>
         ) : sectionsLoading ? (
-          <p className="x-empty">{slowSections ? 'Loading sections…' : ''}</p>
+          <>
+            <p className="x-sr">{slowSections ? 'Loading sections…' : ''}</p>
+            <div className="x-card x-sch-card" aria-hidden="true"><TimetableSkeleton /></div>
+          </>
         ) : gradesWithSections.length === 0 ? (
           <p className="x-card x-empty">No sections for {schoolYear}. Create them in Sections first.</p>
         ) : !openSection ? (
@@ -309,7 +335,10 @@ const ClarityAdminSchedulesTab = () => {
           <>
             <section className="x-card x-sch-card" aria-label={`Weekly timetable for ${openSection.name}`}>
               {schedulesLoading ? (
-                <p className="x-empty">{slowSchedules ? 'Loading schedules…' : ''}</p>
+                <>
+                  <p className="x-sr">{slowSchedules ? 'Loading schedules…' : ''}</p>
+                  <TimetableSkeleton />
+                </>
               ) : slots.length === 0 ? (
                 <p className="x-empty">No classes scheduled for {openSection.name} yet.</p>
               ) : (
@@ -383,7 +412,22 @@ const ClarityAdminSchedulesTab = () => {
                   <button type="button" className="x-btn" style={{ marginTop: 12 }} onClick={() => fetchSubjects()}>Retry subjects</button>
                 </div>
               ) : subjectsLoading ? (
-                <p className="x-empty">{slowSubjects ? 'Loading subjects…' : ''}</p>
+                <>
+                  <p className="x-sr">{slowSubjects ? 'Loading subjects…' : ''}</p>
+                  <SkeletonGroup>
+                    <ul className="x-rows">
+                      {[0, 1, 2, 3].map(i => (
+                        <li key={i}>
+                          <div className="g">
+                            <span className="t" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="45%" /></span>
+                            <span className="m" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="70%" /></span>
+                          </div>
+                          <span className="x-btn gh"><Skeleton inline h="0.8em" w={36} /></span>
+                        </li>
+                      ))}
+                    </ul>
+                  </SkeletonGroup>
+                </>
               ) : displaySubjects.length === 0 ? (
                 <p className="x-empty">No active subjects yet — a timetable needs subjects to schedule. Add them in Subjects first.</p>
               ) : (

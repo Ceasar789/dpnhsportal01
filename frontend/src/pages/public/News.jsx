@@ -13,6 +13,7 @@ import { ArrowRight, ExternalLink, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { localNowTimestamp } from '../../lib/taskFormatting';
+import { Skeleton, SkeletonGroup } from '../../components/ui/Skeleton';
 
 const News = () => {
   const navigate = useNavigate();
@@ -224,9 +225,32 @@ const News = () => {
 
       <main style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>
         {loading ? (
-          <div className="flex justify-center items-center" style={{ height: '400px' }}>
-            <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <>
+            {/* L2: the same section, header and card grid as the loaded page, in bars. */}
+            <p role="status" className="sr-only">Loading news…</p>
+            <SkeletonGroup className="w-full py-8 lg:py-[60px] px-5 lg:px-[100px] max-w-[1280px] mx-auto">
+              <div className="flex justify-between items-end mb-6 lg:mb-10">
+                <div>
+                  <div className="w-10 h-1 mb-4" style={{ backgroundColor: '#FEB300' }} />
+                  {/* Two word-long bars, so the heading wraps where "Latest News" does. */}
+                  <div className="font-work font-extrabold text-3xl tracking-tight"><Skeleton inline h="0.8em" w={104} /> <Skeleton inline h="0.8em" w={84} /></div>
+                </div>
+                <span className="flex items-center gap-1.5 rounded px-1 py-1 font-work font-bold text-xs tracking-widest"><Skeleton inline h="0.8em" w={112} /></span>
+              </div>
+              <div className="grid grid-cols-1 items-start gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2, 3].map(i => (
+                  <div key={i} className={`flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ${i === 0 ? 'sm:col-span-2 lg:col-span-3 border-2 border-slate-200' : 'border border-slate-200'}`}>
+                    <div className="flex flex-col p-5">
+                      {i === 0 && <span className="self-start mb-3"><Skeleton inline h={20} w={64} r={9999} /></span>}
+                      <div className="flex items-center gap-3 mb-3 text-xs"><Skeleton inline h="0.8em" w={70} /><Skeleton inline h="0.8em" w={110} /></div>
+                      <div className={`font-work font-bold leading-snug mb-2 ${i === 0 ? 'text-xl sm:text-2xl' : 'text-lg'}`}><Skeleton inline h="0.8em" w="70%" /></div>
+                      <div className="font-public text-sm leading-relaxed"><Skeleton inline h="0.8em" w="95%" /><br /><Skeleton inline h="0.8em" w="60%" /></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SkeletonGroup>
+          </>
         ) : loadError ? (
           <div className="flex flex-col justify-center items-center gap-3" style={{ height: '400px' }} role="alert">
             <AlertTriangle size={28} aria-hidden="true" style={{ color: '#b91c1c' }} />

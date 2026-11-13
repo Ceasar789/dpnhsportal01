@@ -26,6 +26,7 @@ import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { savedPlanType, SAVED_PLAN_TYPE_LABEL } from '../../../pages/dashboards/teacher/lessonPlans/savedPlanType';
 import ProgressRing from '../charts/ProgressRing';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (OverviewTab.jsx:20-45) ----
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -70,6 +71,44 @@ const Kpi = ({ label, value, sub, icon: Icon, ring, onClick }) => (
       {ring || <span className="x-ico" aria-hidden="true"><Icon size={16} /></span>}
     </span>
   </button>
+);
+
+// L2: the four metric tiles while they load: the same tiles, bars for the words.
+const KPI_SKELETON = (
+  <SkeletonGroup as="section" className="x-kpis">
+    {[0, 1, 2, 3].map(i => (
+      <span key={i} className="x-card x-kpi x-tov-kpi">
+        <span className="x-ov-kpi">
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span className="x-kl" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="60%" /></span>
+            <span className="x-kv" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="3ch" /></span>
+            {/* Two words-long bars, so the caption wraps where the real one does. */}
+            <span className="x-kd" style={{ display: 'block' }}><Skeleton inline h="0.8em" w={i === 2 ? 110 : 90} /> <Skeleton inline h="0.8em" w={i === 2 ? 60 : 30} /></span>
+          </span>
+          {/* The last two tiles carry a progress ring once there is data. */}
+          {i < 2 ? <Skeleton w={32} h={32} r={9} style={{ flex: 'none' }} /> : <span className="x-tov-ring"><Skeleton w={64} h={64} r={9999} /></span>}
+        </span>
+      </span>
+    ))}
+  </SkeletonGroup>
+);
+
+// L2: a list card's rows while they load.
+const rowsSkeleton = (count, trailing = false) => (
+  <SkeletonGroup>
+    <ul className="x-rows">
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i}>
+          <Skeleton w={32} h={32} r={9} style={{ flex: 'none' }} />
+          <span className="x-tov-plan">
+            <b style={{ display: 'block' }}><Skeleton inline h="0.8em" w="55%" /></b>
+            <span className="x-cs" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="80%" /></span>
+          </span>
+          {trailing && <span className="x-news-pills"><Skeleton inline h={22} w={56} className="sk-round" /></span>}
+        </li>
+      ))}
+    </ul>
+  </SkeletonGroup>
 );
 
 const ClarityTeacherOverviewTab = () => {
@@ -254,7 +293,8 @@ const ClarityTeacherOverviewTab = () => {
           <button type="button" className="x-btn" onClick={fetchOverviewData}>Retry dashboard</button>
         </div>
       )}
-      {!overviewError && loading && <p role="status" className="x-cs" style={{ marginBottom: 16 }}>Loading dashboard data…</p>}
+      {!overviewError && loading && <p role="status" className="x-sr">Loading dashboard data…</p>}
+      {!overviewError && loading && KPI_SKELETON}
 
       {!overviewError && !loading && (
         <section className="x-kpis" aria-label="Teaching metrics">
@@ -287,7 +327,21 @@ const ClarityTeacherOverviewTab = () => {
               </div>
               {!loading && stats.classesToday > 0 && <span className="x-badge in">{stats.classesToday} remaining</span>}
             </div>
-            {loading ? <p className="x-empty">Loading classes…</p>
+            {loading ? (
+              <>
+                <p className="x-sr">Loading classes…</p>
+                <SkeletonGroup>
+                  <ol className="x-tov-day">
+                    {[0, 1, 2].map(i => (
+                      <li key={i}>
+                        <b style={{ display: 'block' }}><Skeleton inline h="0.8em" w="70%" /></b>
+                        <span className="x-cs" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="45%" /></span>
+                      </li>
+                    ))}
+                  </ol>
+                </SkeletonGroup>
+              </>
+            )
               : todaysClasses.length === 0 ? <p className="x-empty">No classes scheduled today.</p> : (
                 <ol className="x-tov-day">
                   {todaysClasses.map(c => (
@@ -304,7 +358,16 @@ const ClarityTeacherOverviewTab = () => {
         {!overviewError && (
           <section className="x-card x-pad" aria-labelledby="x-tov-activity">
             <h2 className="x-ct" id="x-tov-activity">Lesson planning activity</h2>
-            {loading ? <p className="x-empty">Loading AI activity…</p> : (
+            {loading ? (
+              <>
+                <p className="x-sr">Loading AI activity…</p>
+                <SkeletonGroup>
+                  <dl className="x-tov-facts">
+                    {[0, 1, 2].map(i => <div key={i}><dt><Skeleton inline h="0.8em" w={120} /></dt><dd><Skeleton inline h="0.8em" w="50%" /></dd></div>)}
+                  </dl>
+                </SkeletonGroup>
+              </>
+            ) : (
               <dl className="x-tov-facts">
                 <div><dt>AI-generated plans</dt><dd>{stats.aiGeneratedPlans}</dd></div>
                 <div><dt>Last AI-generated lesson</dt><dd>{lastAILesson?.title || 'None yet'}{lastAILesson && <span className="x-cs"> · {formatDate(lastAILesson.created_at)}</span>}</dd></div>
@@ -322,7 +385,7 @@ const ClarityTeacherOverviewTab = () => {
               <h2 className="x-ct" id="x-tov-recent">Recent lesson plans</h2>
               <button type="button" className="x-link" onClick={go('/teacher-dashboard/lesson-plans')}>View all lesson plans →</button>
             </div>
-            {loading ? <p className="x-empty">Loading lesson plans…</p>
+            {loading ? <><p className="x-sr">Loading lesson plans…</p>{rowsSkeleton(4, true)}</>
               : recentLessonPlans.length === 0 ? <p className="x-empty">No lesson plans yet.</p> : (
                 <ul className="x-rows">
                   {recentLessonPlans.map(plan => {

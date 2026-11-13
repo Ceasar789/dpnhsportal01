@@ -21,6 +21,7 @@ import Modal from '../../ui/Modal';
 import Button from '../../ui/Button';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import { GRADE_LEVELS, normalizeGradeLevel } from '../../../lib/academicRules';
+import { Skeleton, SkeletonTable } from '../../ui/Skeleton';
 
 // Grade 7 to 10 always (the design's columns); a higher grade only when the
 // teaching load really uses it.
@@ -92,7 +93,14 @@ const ClarityAdminSubjectsTab = () => {
             </thead>
             <tbody>
               {subjectsLoading ? (
-                <tr><td colSpan={columns} className="x-sub-msg">Loading subjects…</td></tr>
+                <>
+                  <tr><td colSpan={columns} className="x-sr">Loading subjects…</td></tr>
+                  <SkeletonTable rows={5} cols={columns} cell={c => (c === 0 ? (
+                    <span className="nm"><Skeleton inline h="0.8em" w={140} /><span><Skeleton inline h="0.8em" w={48} /></span></span>
+                  ) : c === columns - 1 ? (
+                    <div className="x-rowact"><span className="x-iconbtn"><Skeleton w="100%" h="100%" /></span><span className="x-iconbtn"><Skeleton w="100%" h="100%" /></span></div>
+                  ) : <Skeleton inline h={22} w={56} className="sk-round" />)} />
+                </>
               ) : subjectsError ? (
                 <tr><td colSpan={columns} className="x-sub-msg">
                   Could not load subjects. Check your connection and try again.

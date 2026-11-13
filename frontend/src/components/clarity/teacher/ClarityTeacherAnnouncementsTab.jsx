@@ -17,6 +17,7 @@ import { Megaphone, Search } from 'lucide-react';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { localNowTimestamp } from '../../../lib/taskFormatting';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const ClarityTeacherAnnouncementsTab = () => {
   // ---- TEMPORARY copy (AnnouncementsTab.jsx:17-65) ----
@@ -93,7 +94,21 @@ const ClarityTeacherAnnouncementsTab = () => {
       </label>
 
       {loading ? (
-        <p className="x-empty" role="status">{readError ? 'Retrying announcements…' : 'Loading announcements…'}</p>
+        <>
+          <p className="x-sr" role="status">{readError ? 'Retrying announcements…' : 'Loading announcements…'}</p>
+          <SkeletonGroup as="ul" className="x-tan-list">
+            {[0, 1, 2].map(i => (
+              <li key={i} className="x-card x-pad x-tan-item">
+                <span className="x-tan-ico"><Skeleton w="100%" h="100%" /></span>
+                <div className="x-tan-body">
+                  <div className="x-tan-top"><p className="x-tan-title"><Skeleton inline h="0.8em" w={220} /></p></div>
+                  <p className="x-tan-text"><Skeleton inline h="0.8em" w="90%" /></p>
+                  <p className="x-cs x-tan-meta"><Skeleton inline h="0.8em" w={260} /></p>
+                </div>
+              </li>
+            ))}
+          </SkeletonGroup>
+        </>
       ) : readError ? (
         <div className="x-card x-pad x-rail">
           <span role="alert">Announcements could not be loaded. Check your connection and try again.</span>

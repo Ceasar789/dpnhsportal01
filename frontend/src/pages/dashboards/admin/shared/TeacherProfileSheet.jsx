@@ -8,6 +8,7 @@ import Modal from '../../../../components/ui/Modal';
 import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import { useAdminContext } from '../AdminContext';
 import { DAY_ORDER } from './classSetup';
+import { SkeletonGroup, SkeletonText } from '../../../../components/ui/Skeleton';
 
 const show = value => (String(value ?? '').trim() ? String(value) : 'Not set');
 const accountStatus = (status) => {
@@ -39,7 +40,14 @@ const Block = ({ error, loading, onRetry, errorText, empty, emptyText, children 
       </div>
     );
   }
-  if (loading) return <p style={mutedStyle}>Loading…</p>;
+  if (loading) {
+    return (
+      <>
+        <p className="sr-only">Loading…</p>
+        <SkeletonGroup><SkeletonText lines={2} /></SkeletonGroup>
+      </>
+    );
+  }
   if (empty) return <p style={{ color: 'var(--text)' }}>{emptyText}</p>;
   return children;
 };

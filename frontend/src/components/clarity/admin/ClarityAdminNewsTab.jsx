@@ -25,6 +25,7 @@ import Modal from '../../ui/Modal';
 import { TARGET_ROLES } from '../../../pages/dashboards/admin/shared/helpers';
 import Button from '../../ui/Button';
 import { formatDate } from '../../../lib/formatDate';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const STATUS_VIEWS = [['', 'All'], ['Published', 'Published'], ['Draft', 'Draft'], ['Archived', 'Archived']];
 const TONE = { Published: 'ok', Draft: 'wa', Archived: '' };
@@ -172,7 +173,31 @@ const ClarityAdminNewsTab = () => {
         )}
 
         {newsLoading ? (
-          <p className="x-empty" role="status">Loading posts…</p>
+          <>
+            <p className="x-sr" role="status">Loading posts…</p>
+            <SkeletonGroup>
+              <div className="x-card x-news-hero">
+                <div className="x-news-art"><Skeleton w="100%" h="100%" r={0} /></div>
+                <div className="x-news-body">
+                  <div className="x-news-pills"><Skeleton inline h={22} w={72} className="sk-round" /><Skeleton inline h={22} w={64} className="sk-round" /></div>
+                  <p className="x-news-title"><Skeleton inline h="0.8em" w="70%" /></p>
+                  <p className="x-news-excerpt"><Skeleton inline h="0.8em" w="95%" /> <Skeleton inline h="0.8em" w="80%" /></p>
+                  <p className="x-news-meta"><Skeleton inline h="0.8em" w={160} /></p>
+                  <div className="x-news-act">{[84, 84, 64].map((w, i) => <span key={i} className="x-btn gh"><Skeleton inline h="0.8em" w={w - 32} /></span>)}</div>
+                </div>
+              </div>
+              <div className="x-news-grid">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="x-card x-news-card">
+                    <div className="x-news-pills"><Skeleton inline h={22} w={72} className="sk-round" /></div>
+                    <p className="x-news-ctitle"><Skeleton inline h="0.8em" w="75%" /></p>
+                    <p className="x-news-cexcerpt"><Skeleton inline h="0.8em" w="95%" /> <Skeleton inline h="0.8em" w="60%" /></p>
+                    <div className="x-news-foot"><span className="x-news-aud"><Skeleton inline h="0.8em" w={64} /></span></div>
+                  </div>
+                ))}
+              </div>
+            </SkeletonGroup>
+          </>
         ) : (
           <>
             {hero && (

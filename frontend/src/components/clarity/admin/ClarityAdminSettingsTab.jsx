@@ -25,6 +25,7 @@ import { useEffect } from 'react';
 import { useDelayedFlag } from '../../../lib/useDelayedFlag';
 import { formatDateTime } from '../../../lib/formatDate';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (SettingsTab.jsx:35-48) ----
 const normalizedStatus = (status) => String(status || '').trim().toLowerCase();
@@ -193,7 +194,19 @@ const ClarityAdminSettingsTab = () => {
               <h3 className="x-set-h3" id="backup-history-heading">Backup history</h3>
               <p className="x-cs">The 10 most recent runs recorded by the backup workflow.</p>
               {(backupHistoryStatus === 'idle' || backupHistoryStatus === 'loading')
-                ? <p className="x-set-empty" role="status">{slowBackup ? 'Loading backup history…' : ''}</p>
+                ? <>
+                  <p className="x-sr" role="status">{slowBackup ? 'Loading backup history…' : ''}</p>
+                  <SkeletonGroup>
+                    <ul className="x-set-list">
+                      {[0, 1, 2].map(i => (
+                        <li key={i}>
+                          <div className="x-set-copy"><b><Skeleton inline h="0.8em" w={170} /></b><span className="d"><Skeleton inline h="0.8em" w={120} /></span></div>
+                          <Skeleton inline h={22} w={72} className="sk-round" />
+                        </li>
+                      ))}
+                    </ul>
+                  </SkeletonGroup>
+                </>
                 : backupHistoryStatus === 'error'
                   ? <div className="x-set-empty x-set-error" role="alert">
                       <span>{backupHistoryError}</span>
@@ -219,7 +232,19 @@ const ClarityAdminSettingsTab = () => {
               <h3 className="x-set-h3" id="activity-history-heading">Recent admin activity</h3>
               <p className="x-cs">The 5 most recent administrative actions recorded by the portal.</p>
               {overviewLoading
-                ? <p className="x-set-empty">{slowActivity ? 'Loading activity…' : ''}</p>
+                ? <>
+                  <p className="x-sr">{slowActivity ? 'Loading activity…' : ''}</p>
+                  <SkeletonGroup>
+                    <ul className="x-set-list">
+                      {[0, 1, 2].map(i => (
+                        <li key={i}>
+                          <div className="x-set-copy"><b><Skeleton inline h="0.8em" w={170} /></b><span className="d"><Skeleton inline h="0.8em" w={120} /></span></div>
+                          <Skeleton inline h={22} w={72} className="sk-round" />
+                        </li>
+                      ))}
+                    </ul>
+                  </SkeletonGroup>
+                </>
                 : activityLogs.length === 0 && <p className="x-set-empty">No administrative activity has been recorded.</p>}
               {!overviewLoading && activityLogs.length > 0 && (
                 <ul className="x-set-list" aria-labelledby="activity-history-heading">

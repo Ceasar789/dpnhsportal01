@@ -17,6 +17,7 @@ import { dueSoon, groupOf, rowsFromGraph } from '../../../pages/dashboards/stude
 import { formatCountdown, formatManila, manilaInstant } from '../../../lib/taskFormatting';
 import ProgressRing from '../charts/ProgressRing';
 import { overviewSummary } from './overviewSummary';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const WRAP = { minWidth: 0, overflowWrap: 'anywhere' };
 const TAP = { minHeight: 44 };
@@ -93,7 +94,21 @@ export const Subjects = ({ subjects, tasksBySubject, loading, loadError, onRetry
     return () => clearInterval(id);
   }, []);
 
-  if (loading) return <p className="x-empty" role="status">Loading your subjects…</p>;
+  if (loading) {
+    return (
+      <>
+        <p className="x-sr" role="status">Loading your subjects…</p>
+        <SkeletonGroup className="x-grid3">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="x-card x-pad" style={{ ...TAP, display: 'block' }}>
+              <span className="x-ct" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="60%" /></span>
+              <span className="x-cs" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="35%" /></span>
+            </div>
+          ))}
+        </SkeletonGroup>
+      </>
+    );
+  }
   if (loadError) {
     return (
       <div className="x-empty">

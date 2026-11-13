@@ -23,6 +23,7 @@ import { withRetry } from '../../../lib/supabaseRetry';
 import { useToast } from '../../../pages/dashboards/teacher/hooks';
 import { Toast } from '../../../pages/dashboards/teacher/shared/ui';
 import { initials } from '../../../pages/dashboards/admin/shared/helpers';
+import { Skeleton, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (StudentsTab.jsx:20-60) ----
 const fetchRosterForSections = async (sectionIds) => {
@@ -88,6 +89,47 @@ const Roster = ({ students, emptyMessage, label }) => students.length === 0 ? (
       </tbody>
     </table>
   </div>
+);
+
+// L2: the roster cards while they load: the same layout, bars for the words.
+const ROSTER_SKELETON = (
+  <SkeletonGroup>
+    <div className="x-kpis">
+      {[0, 1].map(i => (
+        <div key={i} className="x-card x-kpi">
+          <span className="x-kl"><Skeleton inline h="0.8em" w={120} /></span>
+          <span className="x-kv"><Skeleton inline h="0.8em" w="2ch" /></span>
+          <span className="x-kd"><Skeleton inline h="0.8em" w={80} /></span>
+        </div>
+      ))}
+    </div>
+    <p className="x-cs" style={{ marginBottom: 12 }}><Skeleton inline h="0.8em" w={260} /></p>
+    <div className="x-cols">
+    <div className="x-tst-main">
+      <div className="x-card x-tst-card">
+        <div className="x-pad x-tst-head"><p className="x-ct"><Skeleton inline h="0.8em" w={110} /></p><span className="x-cs"><Skeleton inline h="0.8em" w={90} /></span></div>
+        <div className="x-tst-scroll">
+          <table className="x-table x-tst-table">
+            <thead><tr>{[44, 32, 44, 56].map((w, i) => <th key={i} scope="col"><Skeleton inline h="0.8em" w={w} /></th>)}</tr></thead>
+            <tbody>
+              <SkeletonTable rows={5} cols={4} cell={c => (c === 0 ? (
+                <span className="nm"><span className="x-avatar sm"><Skeleton w="100%" h="100%" className="sk-round" /></span><Skeleton inline h="0.8em" w={120} /></span>
+              ) : c === 3 ? <Skeleton inline h={22} w={64} className="sk-round" /> : <Skeleton inline h="0.8em" w="75%" />)} />
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div className="x-card x-pad">
+      <p className="x-ct"><Skeleton inline h="0.8em" w={130} /></p>
+      <ul className="x-rows">
+        {[0, 1, 2].map(i => (
+          <li key={i}><span className="g"><span className="t" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="60%" /></span><span className="m" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="40%" /></span></span></li>
+        ))}
+      </ul>
+    </div>
+    </div>
+  </SkeletonGroup>
 );
 
 const ClarityTeacherStudentsTab = () => {
@@ -245,7 +287,10 @@ const ClarityTeacherStudentsTab = () => {
       )}
 
       {loading ? (
-        <p className="x-empty" role="status">Loading student rosters…</p>
+        <>
+          <p className="x-sr" role="status">Loading student rosters…</p>
+          {ROSTER_SKELETON}
+        </>
       ) : loadError ? (
         <div className="x-card x-pad x-rail">
           <span role="alert">Could not load student rosters.</span>

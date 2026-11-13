@@ -22,6 +22,7 @@ import ProgressRing from '../charts/ProgressRing';
 import RankedBars from '../charts/RankedBars';
 import { Subjects } from './ClarityOverviewTab';
 import { overviewSummary } from './overviewSummary';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // A ring can only draw 0-100; any other recorded value shows as the number only.
@@ -35,6 +36,19 @@ const linkFor = (row, now) => {
   if (row.sheet.subject_id) params.set('subject', row.sheet.subject_id);
   return `/student-dashboard/tasks?${params}`;
 };
+
+// L2: a tile value still loading. The words stay for screen readers (the
+// tile still reads "Loading…"); the bar holds the value's line.
+const LOADING_VALUE = (
+  <>
+    <span className="x-sr">Loading…</span>
+    <SkeletonGroup as="span" style={{ display: 'inline-block', verticalAlign: 'middle', width: '4ch' }}><Skeleton h="0.8em" /></SkeletonGroup>
+  </>
+);
+
+// L2: while loading, the tile's caption and (for the two percentages) its ring.
+const LOADING_SUB = <SkeletonGroup as="span"><Skeleton inline h="0.8em" w="70%" /></SkeletonGroup>;
+const LOADING_RING = <SkeletonGroup as="span" className="x-sov-ring"><Skeleton w="100%" h="auto" r={9999} style={{ aspectRatio: '1' }} /></SkeletonGroup>;
 
 const Kpi = ({ label, value, sub, ring, icon: Icon }) => (
   <div className="x-card x-kpi">
@@ -65,7 +79,7 @@ const ClarityStudentOverviewTab = () => {
   const today = dayKey(now);
 
   // Loading, failed, or the real value.
-  const shown = (value) => (loading ? 'Loading…' : loadError ? 'Could not load' : value);
+  const shown = (value) => (loading ? LOADING_VALUE : loadError ? 'Could not load' : value);
   const enrolment = settled
     ? [info.gradeLevel && info.section ? `${info.gradeLevel} · ${info.section}` : 'Not yet enrolled in a section',
       info.studentId && `ID: ${info.studentId}`, info.schoolYear && `School Year ${info.schoolYear}`].filter(Boolean).join(' · ')
@@ -78,6 +92,7 @@ const ClarityStudentOverviewTab = () => {
           <h1 className="x-h1">Overview</h1>
           <p className="x-sub">Your subjects, tasks and attendance at a glance.</p>
           {enrolment && <p className="x-cs x-sov-who">{enrolment}</p>}
+          {loading && <SkeletonGroup as="p" className="x-cs x-sov-who"><Skeleton inline h="0.8em" w={260} /></SkeletonGroup>}
           {loadError && <p className="x-cs x-sov-who">Could not load your enrolment</p>}
         </div>
         {refresh && (
@@ -92,19 +107,19 @@ const ClarityStudentOverviewTab = () => {
       <section aria-label="Your progress" className="x-kpis">
         <Kpi label="Worksheet performance"
           value={shown(performance ? `${performance.percent}%` : 'No released scores')}
-          sub={settled ? (performance ? `Average of ${plural(performance.count, 'released score')}` : 'No scores yet') : ''}
-          ring={settled && performance && drawable(performance.percent) !== null ? (
+          sub={settled ? (performance ? `Average of ${plural(performance.count, 'released score')}` : 'No scores yet') : loading ? LOADING_SUB : ''}
+          ring={loading ? LOADING_RING : settled && performance && drawable(performance.percent) !== null ? (
             <span className="x-sov-ring"><ProgressRing value={performance.percent} label="Worksheet performance" detail={`average of ${plural(performance.count, 'released score')}`} /></span>
           ) : null} />
         <Kpi label="Attendance"
           value={shown(attendance ? `${attendance.percent}%` : 'No data yet')}
-          sub={settled ? (attendance ? `${attendance.present} of ${attendance.total} recorded days` : 'Not yet recorded') : ''}
-          ring={settled && attendance && drawable(attendance.percent) !== null ? (
+          sub={settled ? (attendance ? `${attendance.present} of ${attendance.total} recorded days` : 'Not yet recorded') : loading ? LOADING_SUB : ''}
+          ring={loading ? LOADING_RING : settled && attendance && drawable(attendance.percent) !== null ? (
             <span className="x-sov-ring"><ProgressRing value={attendance.percent} label="Attendance" detail={`${attendance.present} of ${attendance.total} recorded days present`} /></span>
           ) : null} />
         <Kpi label="Pending tasks" icon={ClipboardList}
           value={shown(String(pendingCount))}
-          sub={settled ? (soon.todayCount > 0 ? `${soon.todayCount} due today` : pendingCount === 0 ? 'Nothing due' : `task${pendingCount === 1 ? '' : 's'} due`) : ''} />
+          sub={settled ? (soon.todayCount > 0 ? `${soon.todayCount} due today` : pendingCount === 0 ? 'Nothing due' : `task${pendingCount === 1 ? '' : 's'} due`) : loading ? LOADING_SUB : ''} />
       </section>
 
       <div className="x-cols">
@@ -114,6 +129,19 @@ const ClarityStudentOverviewTab = () => {
             {loading ? 'Loading your tasks…' : loadError ? 'Could not load your tasks.'
               : `${soon.todayCount} due today · ${soon.weekCount} this week`}
           </p>
+          {loading && (
+            <SkeletonGroup as="ul" className="x-rows x-sov-due">
+              {[0, 1].map(i => (
+                <li key={i}>
+                  <span className="x-sov-task">
+                    <Skeleton w={32} h={32} r={9} style={{ flex: 'none' }} />
+                    <span className="x-sov-tcopy"><b><Skeleton inline h="0.8em" w="60%" /></b><span className="x-cs"><Skeleton inline h="0.8em" w="80%" /></span></span>
+                    <Skeleton inline h={22} w={72} r={9999} />
+                  </span>
+                </li>
+              ))}
+            </SkeletonGroup>
+          )}
           {settled && (soon.items.length === 0 ? (
             <p className="x-empty">Nothing due this week. Nice work!</p>
           ) : (
@@ -151,7 +179,22 @@ const ClarityStudentOverviewTab = () => {
               </div>
             )}
           </div>
-          {loading ? <p className="x-empty" role="status">Loading your scores…</p>
+          {loading ? (
+            <>
+              <p className="x-sr" role="status">Loading your scores…</p>
+              <SkeletonGroup className="x-sov-bars">
+                <div className="x-rank">
+                  {[0, 1, 2, 3].map(i => (
+                    <div className="r" key={i}>
+                      <span><Skeleton inline h="0.8em" w={90} /></span>
+                      <div className="tr" />
+                      <span className="v"><Skeleton inline h="0.8em" w={32} /></span>
+                    </div>
+                  ))}
+                </div>
+              </SkeletonGroup>
+            </>
+          )
             : loadError ? <p className="x-empty">Could not load your scores.</p>
               : withScores.length === 0 ? <p className="x-empty">No released scores yet.</p> : (
                 <div className="x-sov-bars">

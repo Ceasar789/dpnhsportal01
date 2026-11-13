@@ -19,6 +19,7 @@ import ProgressRing from '../charts/ProgressRing';
 import Donut from '../charts/Donut';
 import StackedBar from '../charts/StackedBar';
 import RankedBars from '../charts/RankedBars';
+import { Skeleton, SkeletonCircle, SkeletonGroup } from '../../ui/Skeleton';
 
 // The school's static name (as in the final design). It is not stored in
 // school_settings today; if settings.school_name is ever set, that wins.
@@ -69,6 +70,33 @@ const Segmented = ({ label, options, value, onChange }) => (
   </div>
 );
 
+// L2: a KPI value still loading. The words stay for screen readers (and
+// the KPI's text is still "Loading…"); the bar holds the number's line.
+const LOADING_VALUE = (
+  <>
+    <span className="x-sr">Loading…</span>
+    <SkeletonGroup as="span" style={{ display: 'inline-block', verticalAlign: 'middle', width: '3.5ch' }}><Skeleton h="0.8em" /></SkeletonGroup>
+  </>
+);
+
+// L2: the activity list while it loads: the same rows, bars for the words.
+const ACTIVITY_SKELETON = (
+  <SkeletonGroup>
+    <ul className="x-rows">
+      {[0, 1, 2, 3].map(i => (
+        <li key={i}>
+          <Skeleton w={32} h={32} r={9} style={{ flex: 'none' }} />
+          <div className="g">
+            <span className="t" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="55%" /></span>
+            <span className="m" style={{ display: 'block' }}><Skeleton inline h="0.8em" w="75%" /></span>
+          </div>
+          <span className="x-ov-time"><Skeleton inline h="0.8em" w={48} /></span>
+        </li>
+      ))}
+    </ul>
+  </SkeletonGroup>
+);
+
 const Kpi = ({ label, icon: Icon, value, caption, side }) => (
   <div className="x-card x-kpi">
     <div className="x-ov-kpi">
@@ -98,7 +126,7 @@ const ClarityAdminOverviewTab = () => {
   const thisMonth = manilaDateToday(new Date()).slice(0, 7);
 
   const totalsKnown = !overviewLoading;
-  const kpiValue = key => (statsErrors[key] ? 'Unavailable' : totalsKnown ? NUMBER.format(Number(stats[key]) || 0) : 'Loading…');
+  const kpiValue = key => (statsErrors[key] ? 'Unavailable' : totalsKnown ? NUMBER.format(Number(stats[key]) || 0) : LOADING_VALUE);
 
   const usersReady = !usersLoading && !usersError;
   const newThisMonth = usersReady ? users.filter(u => MONTH(u.created_at) === thisMonth).length : null;
@@ -187,6 +215,12 @@ const ClarityAdminOverviewTab = () => {
             <div>
               <h2 id="ov-roles" className="x-ct">Role distribution</h2>
               {roleCounts && <p className="x-cs">{NUMBER.format(roleTotal)} active {roleTotal === 1 ? 'account' : 'accounts'}</p>}
+              {!roleCounts && !usersError && (
+                <SkeletonGroup>
+                  <p className="x-cs"><Skeleton inline h="0.8em" w={120} /></p>
+                  <div className="x-ov-seg"><Skeleton w={210} h={40} /></div>
+                </SkeletonGroup>
+              )}
               {/* As in the design: the view control sits under the subtitle. */}
               {roleCounts && roleTotal > 0 && (
                 <div className="x-ov-seg">
@@ -201,7 +235,10 @@ const ClarityAdminOverviewTab = () => {
               {fetchUsers && <button type="button" className="x-btn" style={{ marginTop: 12 }} onClick={() => fetchUsers()}>Retry</button>}
             </div>
           ) : !roleCounts ? (
-            <p className="x-empty">{slow || usersLoading ? 'Loading roles…' : ''}</p>
+            <>
+              <p className="x-sr">{slow || usersLoading ? 'Loading roles…' : ''}</p>
+              <SkeletonGroup style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}><SkeletonCircle size={130} /></SkeletonGroup>
+            </>
           ) : roleTotal === 0 ? (
             <p className="x-empty">No accounts yet</p>
           ) : roleView === 'Donut' ? (
@@ -224,7 +261,10 @@ const ClarityAdminOverviewTab = () => {
           )}
         </div>
         {overviewLoading ? (
-          <p className="x-empty">{slow ? 'Loading activity…' : ''}</p>
+          <>
+            <p className="x-sr">{slow ? 'Loading activity…' : ''}</p>
+            {ACTIVITY_SKELETON}
+          </>
         ) : activityError ? (
           <div role="alert" className="x-empty">
             <p>{activityError}</p>

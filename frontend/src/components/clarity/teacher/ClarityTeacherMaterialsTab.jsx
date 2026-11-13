@@ -20,12 +20,28 @@ import {
   filterMaterials, metaLine, safeLink, subjectChips, subjectGradeLine, subjectOptions, typeLabel, typeOptions,
 } from './materials/materialRules';
 import { listMaterials, loadOfficialSchoolYear, openInNewTab, signedMaterialUrl } from './materials/materialsApi';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const TypeIcon = ({ row }) => {
   if (row.kind === 'link') return <Link2 size={14} aria-hidden="true" />;
   if (typeLabel(row) === 'Image') return <ImageIcon size={14} aria-hidden="true" />;
   return <FileText size={14} aria-hidden="true" />;
 };
+
+// L2: the card grid while it loads: the same grid and cards, bars for the words.
+const GRID_SKELETON = (
+  <SkeletonGroup as="ul" className="x-tlm-grid">
+    {[0, 1, 2, 3, 4, 5].map(i => (
+      <li key={i} className="x-card x-tlm-card">
+        <span><Skeleton inline h={22} w={72} className="sk-round" /></span>
+        <p className="x-tlm-title"><Skeleton inline h="0.8em" w="70%" /></p>
+        <p className="x-tlm-sg"><Skeleton inline h="0.8em" w="45%" /></p>
+        <p className="x-cs x-tlm-meta"><Skeleton inline h="0.8em" w="55%" /></p>
+        <div className="x-tlm-act"><span className="x-btn"><Skeleton inline h="0.8em" w={40} /></span><span className="x-btn gh"><Skeleton inline h="0.8em" w={40} /></span></div>
+      </li>
+    ))}
+  </SkeletonGroup>
+);
 
 const ClarityTeacherMaterialsTab = () => {
   const { userData } = useAuth();
@@ -170,7 +186,11 @@ const ClarityTeacherMaterialsTab = () => {
       )}
 
       {materials.status === 'loading' && rows.length === 0 ? (
-        <p className="x-empty" role="status">Loading learning materials…</p>
+        <>
+          <p className="x-sr" role="status">Loading learning materials…</p>
+          <SkeletonGroup className="x-tlm-tools"><span className="x-search x-tlm-search"><Skeleton inline h="0.8em" w="40%" /></span></SkeletonGroup>
+          {GRID_SKELETON}
+        </>
       ) : materials.status === 'error' ? (
         <div className="x-card x-pad x-rail">
           <span role="alert">Learning materials could not be loaded. Check your connection and try again.</span>

@@ -169,7 +169,7 @@ export async function appReady(page) {
   // Both pages drop the spinner when the data lands, which is the same
   // moment networkidle used to catch and is a fact about the page rather
   // than about the network.
-  await expect(page.locator('.animate-spin, .loading-row .spin')).toHaveCount(0);
+  await expect(page.locator('.animate-spin, .loading-row .spin, [data-skeleton]')).toHaveCount(0);
 }
 
 // spec cannot reach one by URL — it clicks the sidebar entry, exactly as a

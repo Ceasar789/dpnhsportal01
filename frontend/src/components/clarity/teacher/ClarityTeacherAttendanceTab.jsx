@@ -31,6 +31,7 @@ import useDialogSafety from '../../../pages/dashboards/teacher/worksheets/useDia
 import { saveAttendance } from '../../../pages/dashboards/teacher/tabs/attendanceSaveClient';
 import { initials } from '../../../pages/dashboards/admin/shared/helpers';
 import ProgressRing from '../charts/ProgressRing';
+import { Skeleton, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (AttendanceTab.jsx:23-33) ----
 const TopToast = ({ toast }) => {
@@ -428,7 +429,32 @@ const ClarityTeacherAttendanceTab = () => {
         <div className="x-tat-layout">
           <section className="x-card x-tat-list" aria-label="Attendance roster">
             {loading ? (
-              <p className="x-empty" role="status">Loading attendance…</p>
+              <>
+                <p className="x-sr" role="status">Loading attendance…</p>
+                <SkeletonGroup>
+                  <div className="x-tat-tools"><Skeleton h={42} style={{ flex: '1 1 200px' }} /><Skeleton h={40} w={140} /></div>
+                  <p className="x-cs x-tat-count"><Skeleton inline h="0.8em" w={200} /></p>
+                  <div className="x-tat-scroll">
+                    <table className="x-table x-tat-table">
+                      <thead><tr><th scope="col"><Skeleton inline h="0.8em" w={56} /></th><th scope="col"><Skeleton inline h="0.8em" w={72} /></th></tr></thead>
+                      <tbody>
+                        <SkeletonTable rows={6} cols={2} cell={c => (c === 0 ? (
+                          <div className="nm">
+                            <span className="x-avatar sm"><Skeleton w="100%" h="100%" className="sk-round" /></span>
+                            <div style={{ minWidth: 0 }}>
+                              <b className="x-tat-name"><Skeleton inline h="0.8em" w={130} /></b>
+                              <span><Skeleton inline h="0.8em" w={110} /></span>
+                              <span><Skeleton inline h="0.8em" w={70} /></span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="x-pst">{['Present', 'Absent', 'Late', 'Excused'].map(s => <button key={s} type="button" disabled tabIndex={-1}><Skeleton inline h="0.8em" w={s.length * 7} /></button>)}</div>
+                        ))} />
+                      </tbody>
+                    </table>
+                  </div>
+                </SkeletonGroup>
+              </>
             ) : loadError ? (
               <div className="x-empty">
                 <p role="alert">Could not load attendance for this date.</p>

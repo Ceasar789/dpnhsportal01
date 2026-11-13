@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
-import { FileText, Loader2, Clock, CalendarClock } from 'lucide-react';
+import { FileText, Clock, CalendarClock } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
@@ -25,6 +25,7 @@ import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 import PageHeader from '../PageHeader';
 import { countdownTone, GREEN, INFO, NEUTRAL, RED, YELLOW } from '../badgeTones';
 import { groupTasks, isOverdue, VIEWS, VIEW_LABELS } from '../taskGroups';
+import { Skeleton, SkeletonGroup } from '../../../../components/ui/Skeleton';
 
 // What each view says when it has nothing in it.
 const EMPTY_VIEW_TEXT = {
@@ -729,7 +730,23 @@ const StudentTasksTab = () => {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={32} style={muted} /></div>
+        // L2: the filter card and task cards, in bars (purely presentational).
+        <SkeletonGroup>
+          <Card className="p-4 mb-4">
+            <div className="flex flex-wrap gap-2">{[0, 1, 2, 3].map(i => <Skeleton key={i} w={96} h={44} r={9999} />)}</div>
+          </Card>
+          <div className="space-y-3">
+            {[0, 1, 2].map(i => (
+              <Card key={i} className="p-4 flex items-center justify-between">
+                <div className="min-w-0" style={{ flex: 1 }}>
+                  <p className="text-sm font-semibold"><Skeleton inline h="0.8em" w="55%" /></p>
+                  <p className="text-xs"><Skeleton inline h="0.8em" w="30%" /></p>
+                  <p className="text-xs mt-1"><Skeleton inline h="0.8em" w="40%" /></p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </SkeletonGroup>
       ) : loadError ? (
         <Card className="p-8 text-center">
           <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>Could not load your tasks.</p>

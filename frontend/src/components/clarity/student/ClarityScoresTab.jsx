@@ -13,6 +13,7 @@ import { useStudentData } from '../../../pages/dashboards/student/StudentDataCon
 import { overallScores, scoresBySubject } from '../../../pages/dashboards/student/scoresView';
 import { formatManila } from '../../../lib/taskFormatting';
 import ProgressRing from '../charts/ProgressRing';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const WRAP = { minWidth: 0, overflowWrap: 'anywhere' };
 const NO_RELEASED = 'No released scores';
@@ -77,6 +78,15 @@ const SubjectCard = ({ subject }) => {
   );
 };
 
+// L2: one score card while it loads: name, ring, caption.
+const SCORE_CARD_SKELETON = (
+  <div className="x-sc-top">
+    <p className="x-sc-name"><Skeleton inline h="0.8em" w="60%" /></p>
+    <div className="x-sc-avg"><span className="x-sc-ring"><Skeleton w="100%" h="100%" r={9999} /></span></div>
+    <p className="x-cs x-sc-sub"><Skeleton inline h="0.8em" w="45%" /></p>
+  </div>
+);
+
 const ClarityScoresTab = () => {
   const { graph, loading, refresh } = useStudentData();
   const loadError = !!graph && !!graph.fatalError;
@@ -102,7 +112,13 @@ const ClarityScoresTab = () => {
       <p className="x-banner">Based on your released scores only. This is not an official grade.</p>
 
       {loading && !graph ? (
-        <p className="x-empty" role="status">Loading your scores…</p>
+        <>
+          <p className="x-sr" role="status">Loading your scores…</p>
+          <SkeletonGroup className="x-sc-grid">
+            <div className="x-card x-sc-card x-sc-overall">{SCORE_CARD_SKELETON}</div>
+            {[1, 2, 3].map(i => <div key={i} className="x-card x-sc-card">{SCORE_CARD_SKELETON}</div>)}
+          </SkeletonGroup>
+        </>
       ) : loadError ? (
         <div className="x-card x-pad x-empty">
           <p role="alert" className="x-ct">Could not load your scores.</p>

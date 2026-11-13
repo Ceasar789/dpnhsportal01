@@ -30,6 +30,7 @@ import { useWorksheetAssessment } from '../../../pages/dashboards/teacher/worksh
 import CheckSubmissionsModal from '../../../pages/dashboards/teacher/worksheets/CheckSubmissionsModal';
 import EncodeScoresModal from '../../../pages/dashboards/teacher/worksheets/EncodeScoresModal';
 import ProgressRing from '../charts/ProgressRing';
+import { Skeleton, SkeletonGroup, SkeletonRows } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (GradesTab.jsx:17-18) ----
 const rowStatus = row => (row.notStarted ? 'not_started' : row.released === true ? 'released'
@@ -69,6 +70,30 @@ const rowLine = s => {
   return s.score == null && s.total_points == null && day ? `Submitted ${day}` : scoreName(s);
 };
 const sourceText = s => (s.source === 'manual' ? 'Paper score' : s.source === 'online' ? 'Online submission' : 'Source unavailable');
+
+// L2: the submissions layout while it loads: the list (search, rows) and the detail card.
+const SUBMISSIONS_SKELETON = (
+  <SkeletonGroup className="x-tgr-layout">
+    <div className="x-card x-tgr-list">
+      <div className="x-tgr-tools"><Skeleton h={42} /></div>
+      <ul className="x-tgr-rows">
+        {[0, 1, 2, 3, 4].map(i => (
+          <li key={i}>
+            <span className="x-tgr-row">
+              <span className="x-tgr-who"><b style={{ display: 'block' }}><Skeleton inline h="0.8em" w={140} /></b><span className="x-cs" style={{ display: 'block' }}><Skeleton inline h="0.8em" w={100} /></span></span>
+              <span className="x-news-pills"><Skeleton inline h={22} w={72} className="sk-round" /></span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+    <div className="x-card x-pad x-tgr-detail">
+      <p className="x-cs"><Skeleton inline h="0.8em" w={70} /></p>
+      <p className="x-ct"><Skeleton inline h="0.8em" w="60%" /></p>
+      <Skeleton h={120} w={120} className="sk-round" style={{ margin: '16px auto' }} />
+    </div>
+  </SkeletonGroup>
+);
 
 const ClarityTeacherGradingTab = () => {
   // ---- TEMPORARY copy (GradesTab.jsx:39-164) ----
@@ -262,7 +287,12 @@ const ClarityTeacherGradingTab = () => {
       )}
       {savedMessage && <p role="status" className="x-card x-pad x-tgr-saved">{savedMessage}</p>}
 
-      {loading ? <p className="x-card x-empty" role="status">Loading your worksheets…</p>
+      {loading ? <>
+        <p className="x-sr" role="status">Loading your worksheets…</p>
+        <SkeletonGroup className="x-card x-pad">
+          <SkeletonRows count={3} trailing="pill" />
+        </SkeletonGroup>
+      </>
         : listError ? (
           <div className="x-card x-pad x-rail">
             <span role="alert">Could not load your worksheets.</span>
@@ -300,7 +330,7 @@ const ClarityTeacherGradingTab = () => {
           )}
 
           {!selected ? <p className="x-card x-empty">No worksheets match these filters.</p> : <>
-            {scoresLoading || scoreTarget !== selected.id ? <p className="x-card x-empty" role="status">Loading worksheet submissions…</p>
+            {scoresLoading || scoreTarget !== selected.id ? <><p className="x-sr" role="status">Loading worksheet submissions…</p>{SUBMISSIONS_SKELETON}</>
               : scoresError ? (
                 <div className="x-card x-pad x-rail">
                   <span role="alert">Could not load worksheet submissions. Scores are hidden until the read succeeds.</span>

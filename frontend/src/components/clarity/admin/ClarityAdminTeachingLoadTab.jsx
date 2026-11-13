@@ -37,6 +37,7 @@ import { focusAfterRemoval } from '../../../lib/focusAfterRemoval';
 import { useDelayedFlag } from '../../../lib/useDelayedFlag';
 import { GRADE_LEVELS } from '../../../lib/academicRules';
 import Modal from '../../ui/Modal';
+import { Skeleton, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (TeachingLoadTab.jsx:22-57) ----
 const TeachingLoadRouteBlocker = ({ when, onBlocked }) => {
@@ -475,7 +476,20 @@ const ClarityAdminTeachingLoadTab = () => {
                 <button type="button" className="x-btn" onClick={() => fetchTeachers()}>Retry</button>
               </p>
             ) : teachersLoading ? (
-              <p className="x-empty" role="status">{slowTeachers ? 'Loading teachers…' : ''}</p>
+              <>
+                <p className="x-sr" role="status">{slowTeachers ? 'Loading teachers…' : ''}</p>
+                <SkeletonGroup>
+                  {[0, 1, 2, 3, 4].map(i => (
+                    <span key={i} className="x-tld-teacher">
+                      <span className="x-avatar sm"><Skeleton w="100%" h="100%" className="sk-round" /></span>
+                      <span className="x-tld-tcopy">
+                        <b><Skeleton inline h="0.8em" w={120} /></b>
+                        <span><Skeleton inline h="0.8em" w={90} /></span>
+                      </span>
+                    </span>
+                  ))}
+                </SkeletonGroup>
+              </>
             ) : teachers.length === 0 ? (
               <p className="x-empty">No teachers yet. Create them in User Management first.</p>
             ) : visibleTeachers.length === 0 ? (
@@ -557,7 +571,17 @@ const ClarityAdminTeachingLoadTab = () => {
               <div className="x-tld-rows">
                 <h3 className="x-tld-rows-title">Assigned subjects ({selectedRows.length})</h3>
                 {teachingLoadLoading ? (
-                  <p className="x-empty" role="status">Loading teaching load…</p>
+                  <>
+                    <p className="x-sr" role="status">Loading teaching load…</p>
+                    <SkeletonGroup className="x-tld-scroll">
+                      <table className="x-table x-tld-table">
+                        <thead><tr><th scope="col"><Skeleton inline h="0.8em" w={56} /></th><th scope="col" /></tr></thead>
+                        <tbody>
+                          <SkeletonTable rows={3} cols={2} cell={c => (c === 0 ? <Skeleton inline h="0.8em" w={160} /> : <span className="x-btn x-tld-remove"><Skeleton inline h="0.8em" w={52} /></span>)} />
+                        </tbody>
+                      </table>
+                    </SkeletonGroup>
+                  </>
                 ) : selectedRows.length === 0 ? (
                   <p className="x-empty"><b>No subjects assigned yet.</b> Use the selector above to assign the first subject.</p>
                 ) : (

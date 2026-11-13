@@ -20,6 +20,7 @@ import { localNowTimestamp } from '../../../lib/taskFormatting';
 import { useToast } from '../../../pages/dashboards/student/hooks';
 import { isNewAnnouncement } from '../../../pages/dashboards/student/announcementAge';
 import { TARGET_ROLES } from '../../../pages/dashboards/admin/shared/helpers';
+import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const stored = value => String(value ?? '').trim();
 // The audience as the admin News tab names it; an unknown stored value shows as stored.
@@ -106,7 +107,20 @@ const ClarityStudentAnnouncementsTab = () => {
           value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
       </label>
 
-      {loading ? <p className="x-card x-empty" role="status">Loading announcements…</p>
+      {loading ? <>
+        <p className="x-sr" role="status">Loading announcements…</p>
+        <SkeletonGroup as="ul" className="x-san-list">
+          {[0, 1, 2].map(i => (
+            <li key={i} className="x-card x-san-item">
+              <span className="x-san-ico"><Skeleton w="100%" h="100%" /></span>
+              <div className="x-san-body">
+                <div className="x-san-top"><p className="x-san-title"><Skeleton inline h="0.8em" w={200} /></p></div>
+                <p className="x-san-text"><Skeleton inline h="0.8em" w="90%" /></p>
+              </div>
+            </li>
+          ))}
+        </SkeletonGroup>
+      </>
         : loadError ? (
           <div className="x-card x-pad x-empty">
             <p role="alert" className="x-ct">Could not load announcements.</p>

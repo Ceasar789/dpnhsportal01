@@ -36,12 +36,13 @@ describe('T2 sources', () => {
     expect(all.split('\n').filter(l => ADDED.test(l.trim()))).toEqual(["      setTodaysClasses(todays); // Clarity: keep today's list for display"]);
   });
 
-  it('the layout renders the Clarity tabs for exactly these three routes', () => {
+  it('the layout renders the Clarity tabs for exactly these routes', () => {
     const layout = read('components/clarity/teacher/ClarityTeacherLayout.jsx');
     const map = layout.match(/const CLARITY_TABS = \{([\s\S]*?)\};/)[1];
     expect(lines(map)).toEqual([
       "'/teacher-dashboard': ClarityTeacherOverviewTab,",
       "'/teacher-dashboard/students': ClarityTeacherStudentsTab,",
+      "'/teacher-dashboard/learning-materials': ClarityTeacherMaterialsTab,",
       "'/teacher-dashboard/grades': ClarityTeacherGradingTab,",
       "'/teacher-dashboard/attendance': ClarityTeacherAttendanceTab,",
       "'/teacher-dashboard/announcements': ClarityTeacherAnnouncementsTab,",

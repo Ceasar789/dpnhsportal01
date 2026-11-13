@@ -103,6 +103,31 @@ Layout and type only; the data and behaviour are the same as before.
 - **Subject cards:** equal height in each row (grid stretch, each card a flex column). Each card shows the subject name, a 64px ring with "Average" beside it, "Released N / M" at 22px/700, and "N awaiting results" only when it applies. The "Show released scores (N)" button is pinned to the card bottom, so buttons line up across a row, and stays on one line (an ellipsis only as a last resort).
 - **Rings:** they no longer draw the inner "average" caption, which was about 6px. The centre shows the percentage only.
 
+## Learning Materials (M2)
+
+A new Teacher tab, in the Clarity shell only, at `/teacher-dashboard/learning-materials`, between Worksheets and Grading. It is the teacher's own store of files and links. Students do not see it, and there is no Published/Draft yet.
+- **Data:** only the teacher's rows in `public.learning_materials` and files in the private `learning-materials` bucket (20 MB, ten MIME types). Both use owner-only RLS, plus read-only access for admins. The owner applied the SQL in Supabase by hand; there is no SQL file in the repo. Subject and grade choices come only from the teacher's own `teacher_subjects` pairs for the official school year (`useQuickCreateAssignments`).
+- **Layout (Option A):**
+  - A search box, subject chips (only subjects that have materials) and a type filter (only types that exist).
+  - A card grid. Each card shows a type badge, the title, subject · grade, the description (3 lines), size or link host · date, and Open and Edit. Missing parts are left out.
+  - States: loading, error with Retry, an empty state for no materials and one for no matches.
+- **Files:**
+  - Allowed: pdf, doc, docx, ppt, pptx, xls, xlsx, jpg, jpeg, png, txt, up to 20 MB.
+  - The MIME type is taken from the extension, because browsers send an empty type or `application/octet-stream` for some files.
+  - Stored at `<teacher id>/<uuid>-<safe name>` with `upsert: false`.
+  - The file is uploaded first, then the row is inserted. If the insert fails, the upload is removed. On delete, the row goes first, then the file. If a file cannot be removed, a warning says so.
+  - Open asks for a 5-minute signed URL and opens it in a new tab with `rel="noopener noreferrer"`. The URL is never shown, logged or kept.
+- **Links:** only `http://` and `https://` (no `javascript:`, `data:` or `ftp:`). They open in a new tab with `rel="noopener noreferrer"`.
+- **Dialogs:**
+  - Add (File or Link) and Edit use `ClarityModal` with `useDialogSafety`: unsaved changes ask before closing, Save is busy and disabled while it runs, nothing can be submitted twice, and the dialog cannot be closed while saving.
+  - Edit changes the title, description, subject, grade and a link's URL. A file is not replaced.
+  - Delete is inside Edit, behind a confirm.
+- **Shell:** a Clarity-only nav item declared after the word-for-word copy in `ClarityTeacherLayout.jsx`, with `byPath` extended and GROUPS updated. The classic `TeacherDashboard.jsx` and the copy are unchanged, and there is no classic route. With `?clarity=0` the tab is not in the nav, and its URL shows an empty page.
+- **Code:** rules in `materials/materialRules.js`, reads and writes in `materials/materialsApi.js`, the dialog in `materials/MaterialFormModal.jsx`, the page in `ClarityTeacherMaterialsTab.jsx`. CSS `x-tlm-` is at the very end of `clarity-components.css`.
+- **Tests:**
+  - New: `materialRules.test.js`, `materialsApi.test.js`, `ClarityTeacherMaterialsTab.test.jsx`, `styles/clarityTeacherMaterials.test.js`.
+  - Two existing tests changed, with approval: the nav order in `ClarityTeacherShell.test.jsx`, and the `CLARITY_TABS` list in `ClarityTeacherT2Sources.test.js`.
+
 ## Responsive pass, phones first (G10)
 
 CSS only, plus one JSX fix, all in `clarity-components.css` and `ClarityAdminLayout.jsx`. Every new rule is inside a phone query (`max-width: 767px`) or a landscape-phone query (`max-width: 1023.98px` and `max-height: 500px`), so desktop is unchanged. Desktop screenshots at 1280 and 1440 were compared before and after, pixel by pixel.

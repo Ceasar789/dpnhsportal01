@@ -28,7 +28,7 @@ import { useNavigate, Link, useLocation, useNavigationType } from 'react-router-
 import {
   Users, BookOpen, GraduationCap,
   CalendarCheck, Megaphone, Moon, Sun, LogOut, Menu,
-  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Settings, X,
+  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Settings, X, FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -45,11 +45,13 @@ import ClarityTeacherStudentsTab from './ClarityTeacherStudentsTab';
 import ClarityTeacherAnnouncementsTab from './ClarityTeacherAnnouncementsTab';
 import ClarityTeacherGradingTab from './ClarityTeacherGradingTab';
 import ClarityTeacherAttendanceTab from './ClarityTeacherAttendanceTab';
+import ClarityTeacherMaterialsTab from './ClarityTeacherMaterialsTab';
 
 // The pages already rebuilt in Clarity; every other route keeps its classic tab.
 const CLARITY_TABS = {
   '/teacher-dashboard': ClarityTeacherOverviewTab,
   '/teacher-dashboard/students': ClarityTeacherStudentsTab,
+  '/teacher-dashboard/learning-materials': ClarityTeacherMaterialsTab,
   '/teacher-dashboard/grades': ClarityTeacherGradingTab,
   '/teacher-dashboard/attendance': ClarityTeacherAttendanceTab,
   '/teacher-dashboard/announcements': ClarityTeacherAnnouncementsTab,
@@ -64,10 +66,11 @@ const RESTYLED_CLASSIC = {
 };
 
 // The final design's groups, by path. Every classic item appears exactly
-// once, in the classic order (tested).
+// once, in the classic order (tested); Learning Materials is Clarity-only (M2).
 const GROUPS = [
   [null, ['/teacher-dashboard', '/teacher-dashboard/students']],
-  ['Teaching', ['/teacher-dashboard/lesson-plans', '/teacher-dashboard/worksheets', '/teacher-dashboard/grades', '/teacher-dashboard/attendance']],
+  ['Teaching', ['/teacher-dashboard/lesson-plans', '/teacher-dashboard/worksheets', '/teacher-dashboard/learning-materials',
+    '/teacher-dashboard/grades', '/teacher-dashboard/attendance']],
   ['School', ['/teacher-dashboard/announcements']],
 ];
 
@@ -199,6 +202,12 @@ const ClarityTeacherLayout = ({ children }) => {
   ];
   // ---- end of the copy ----
 
+  // M2: a Clarity-only page (no classic route or nav item), so it is kept
+  // out of the copy above; GROUPS places it between Worksheets and Grading.
+  const clarityOnlyNavItems = [
+    { path: '/teacher-dashboard/learning-materials', icon: FolderOpen, label: 'Learning Materials' },
+  ];
+
   // The classic shell records each entry's scroll from <main>'s scroll event;
   // here the page scrolls, so the same map is filled from the window.
   useEffect(() => {
@@ -214,7 +223,7 @@ const ClarityTeacherLayout = ({ children }) => {
   const collapsed = desktop && sidebarCollapsed;
   // Below 1024px a closed drawer is off-screen; hide it from tab and readers.
   const drawerHidden = !desktop && !sidebarOpen;
-  const byPath = new Map(navItems.map(item => [item.path, item]));
+  const byPath = new Map([...navItems, ...clarityOnlyNavItems].map(item => [item.path, item]));
   const ClarityTab = CLARITY_TABS[location.pathname.replace(/\/+$/, '')];
   const restyled = RESTYLED_CLASSIC[location.pathname.replace(/\/+$/, '')];
 

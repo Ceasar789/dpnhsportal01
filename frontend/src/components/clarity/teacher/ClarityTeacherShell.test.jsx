@@ -116,15 +116,16 @@ describe('the switch', () => {
 });
 
 describe('sidebar, brand and top bar', () => {
-  it('the same seven links, paths, labels and order as the classic sidebar, under the design groups', () => {
+  it('the classic seven links, plus Learning Materials (Clarity only) between Worksheets and Grading, under the design groups', () => {
     renderAt(`${CLASSIC}?clarity=0`);
     const classic = navLinks();
     cleanup();
     renderAt(CLARITY);
-    expect(navLinks()).toEqual(classic);
+    const materials = ['Learning Materials', '/teacher-dashboard/learning-materials', null];
+    expect(navLinks()).toEqual([...classic.slice(0, 4), materials, ...classic.slice(4)]);
     expect(classic.map(([label]) => label)).toEqual(['Overview', 'Students', 'Lesson Plans', 'Worksheets', 'Grading', 'Attendance', 'Announcements']);
     const order = [...sidebar().querySelectorAll('nav .x-grp, nav .x-nav')].map(el => el.textContent.trim());
-    expect(order).toEqual(['Overview', 'Students', 'Teaching', 'Lesson Plans', 'Worksheets', 'Grading', 'Attendance', 'School', 'Announcements']);
+    expect(order).toEqual(['Overview', 'Students', 'Teaching', 'Lesson Plans', 'Worksheets', 'Learning Materials', 'Grading', 'Attendance', 'School', 'Announcements']);
     expect(sidebar().querySelector('.cnt')).toBeNull();
   });
 

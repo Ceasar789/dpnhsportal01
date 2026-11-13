@@ -1033,3 +1033,51 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-line { stroke-dashoffset: 0; }
   html.theme-clarity .x-area { opacity: .13; }
 }
+
+/* M2: Teacher Learning Materials (Option A card grid). Tokens only, no motion
+   of its own (cards, chips and buttons reuse x-card, x-chip and x-btn), 40px
+   controls, 44px on phones, 16px inputs on phones. */
+html.theme-clarity .x-tlm-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+html.theme-clarity .x-tlm-tools .x-search { flex: 1 1 260px; max-width: 420px; }
+html.theme-clarity .x-tlm-type .x-select { min-width: 160px; max-width: 100%; }
+html.theme-clarity .x-tlm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+html.theme-clarity .x-tlm-chips .x-chip { min-height: 40px; max-width: 100%; overflow-wrap: anywhere; }
+html.theme-clarity .x-tlm-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 16px; }
+html.theme-clarity .x-tlm-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 20px; border-radius: var(--cl-r); }
+html.theme-clarity .x-tlm-badge { align-self: flex-start; }
+html.theme-clarity .x-tlm-badge.link { background: var(--cl-ac-s); color: var(--cl-in); }
+html.theme-clarity .x-tlm-title { margin: 0; font-family: var(--cl-font); font-size: 16px; font-weight: 600; line-height: 1.35; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-tlm-sg { margin: 0; font-size: 13px; font-weight: 600; color: var(--cl-ac); overflow-wrap: anywhere; }
+html.theme-clarity .x-tlm-desc { margin: 0; color: var(--cl-mu); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+html.theme-clarity .x-tlm-meta { margin: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-tlm-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 8px; }
+html.theme-clarity .x-tlm-act .x-btn { flex: 1 1 110px; min-height: 40px; text-decoration: none; }
+html.theme-clarity .x-tlm-none { display: grid; justify-items: center; gap: 6px; text-align: center; }
+html.theme-clarity .x-tlm-clear { margin-top: 6px; }
+html.theme-clarity .x-tlm-err { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--cl-er-s); color: var(--cl-er); font-weight: 600; overflow-wrap: anywhere; }
+html.theme-clarity .x-tlm-kind { margin-bottom: 16px; }
+html.theme-clarity .x-tlm-kind button { min-height: 40px; min-width: 72px; }
+html.theme-clarity .x-tlm-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+html.theme-clarity .x-tlm-row .x-select { width: 100%; }
+html.theme-clarity .x-tlm-desc-input { height: auto; min-height: 96px; padding: 10px 12px; resize: vertical; }
+html.theme-clarity .x-tlm-opt { font-weight: 500; color: var(--cl-dim); }
+html.theme-clarity .x-tlm-filename { margin: 0; color: var(--cl-mu); overflow-wrap: anywhere; }
+html.theme-clarity .x-tlm-subjhint { margin: -6px 0 0; }
+html.theme-clarity .x-tlm-retry { min-height: 40px; padding: 0 10px; }
+html.theme-clarity .x-tlm-mf { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; width: 100%; }
+html.theme-clarity .x-tlm-mf .x-tlm-del { margin-right: auto; }
+@media (max-width: 767px) {
+  html.theme-clarity .x-tlm-tools .x-search { flex-basis: 100%; max-width: none; }
+  html.theme-clarity .x-tlm-type, html.theme-clarity .x-tlm-type .x-select { width: 100%; }
+  html.theme-clarity .x-tlm-chips .x-chip, html.theme-clarity .x-tlm-act .x-btn, html.theme-clarity .x-tlm-kind button, html.theme-clarity .x-tlm-retry { min-height: 44px; }
+  html.theme-clarity .x-tlm-file label[for], html.theme-clarity .x-tlm-file button { display: inline-flex; align-items: center; min-height: 44px; }
+  html.theme-clarity .x-tlm-row { grid-template-columns: minmax(0, 1fr); }
+  html.theme-clarity .x-tlm-card { padding: 16px; }
+  html.theme-clarity .x-tlm-desc-input { height: auto; font-size: 16px; }
+  html.theme-clarity .x-tlm-mf .x-btn { flex: 1 1 auto; }
+  html.theme-clarity .x-tlm-mf .x-tlm-del { margin-right: 0; }
+}
+@media (max-width: 1023.98px) and (max-height: 500px) {
+  html.theme-clarity .x-tlm-chips .x-chip, html.theme-clarity .x-tlm-act .x-btn, html.theme-clarity .x-tlm-kind button, html.theme-clarity .x-tlm-retry { min-height: 44px; }
+  html.theme-clarity .x-tlm-file label[for], html.theme-clarity .x-tlm-file button { display: inline-flex; align-items: center; min-height: 44px; }
+}

@@ -1,0 +1,23 @@
+/* ============================================
+   G11b: contrast fixes for classic markup shown inside the Clarity shells.
+
+   These elements set their colour in an inline style, so only !important
+   reaches them (and the Clarity stylesheet forbids !important); the classic
+   files themselves stay untouched. Every rule is scoped to a Clarity-only
+   class (.x-app, .x-tws), so the classic dashboards are not affected.
+
+   #4  Admin Profile "Change Password" in dark (classic ProfileTab; the
+       teacher shell already fixes its own copy in TeacherDashboard.css).
+   #12 The Profile "Active" status in light (admin and teacher).
+   #6  Worksheets stat labels ("Saved Worksheets", "Distributed", ...).
+   #5  Worksheets selected filter chips in dark (inline white text on the
+       light dark-mode accent).
+   ============================================ */
+
+html.dark .x-app:not(.x-tch) .x-content button.mt-auto:has(> .lucide-lock) { color: var(--cl-ac) !important; }
+
+html:not(.dark) .x-app .x-content .text-left > .justify-between > span[style*="capitalize"] { color: var(--cl-ok) !important; }
+
+.x-app .x-tws .grid > .rounded-xl.p-4 > p.text-xs.mb-1:first-child { color: var(--cl-mu) !important; }
+
+html.dark .x-app .x-tws [role="group"][aria-label^="Filter worksheets"] > button[aria-pressed="true"] { color: var(--cl-ac-t) !important; }

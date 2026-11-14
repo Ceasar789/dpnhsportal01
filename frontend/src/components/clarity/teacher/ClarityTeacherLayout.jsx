@@ -47,6 +47,7 @@ import ClarityTeacherGradingTab from './ClarityTeacherGradingTab';
 import ClarityTeacherAttendanceTab from './ClarityTeacherAttendanceTab';
 import ClarityTeacherMaterialsTab from './ClarityTeacherMaterialsTab';
 import '../../../styles/phone-tap.css';
+import '../../../styles/classic-contrast.css';
 
 // The pages already rebuilt in Clarity; every other route keeps its classic tab.
 const CLARITY_TABS = {
@@ -230,6 +231,8 @@ const ClarityTeacherLayout = ({ children }) => {
 
   return (
     <div className="x-app x-tch">
+      {/* G11b #20: the first stop for keyboard users, hidden until focused. */}
+      <a href="#x-main" className="x-skip" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
       {sidebarOpen && <div className="x-scrim" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
 
       <aside
@@ -339,7 +342,7 @@ const ClarityTeacherLayout = ({ children }) => {
           </button>
         </header>
 
-        <main ref={mainRef} className="x-content">
+        <main ref={mainRef} id="x-main" tabIndex={-1} className="x-content">
           {location.pathname.endsWith('/profile') && <h1 className="sr-only">Profile Settings</h1>}
           {/* The classic shell's class names, so the classic tabs keep every
               rule they rely on. */}

@@ -176,6 +176,8 @@ const ClarityStudentLayout = ({ children }) => {
 
   return (
     <div className="x-app">
+      {/* G11b #20: the first stop for keyboard users, hidden until focused. */}
+      <a href="#x-main" className="x-skip" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
       {sidebarOpen && <div className="x-scrim" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
 
       <aside
@@ -258,7 +260,7 @@ const ClarityStudentLayout = ({ children }) => {
           </button>
         </header>
 
-        <main ref={mainRef} className="x-content">
+        <main ref={mainRef} id="x-main" tabIndex={-1} className="x-content">
           {ClarityPage ? <ClarityPage /> : restyled ? <div className={restyled}>{children}</div> : children}
         </main>
       </div>

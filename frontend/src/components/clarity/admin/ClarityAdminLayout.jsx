@@ -36,6 +36,7 @@ import ClarityModal from '../ui/ClarityModal';
 import { useHtmlClass } from '../useHtmlClass';
 import ClassicAdminStyles from './ClassicAdminStyles';
 import { useAdminShellBehavior } from './useAdminShellBehavior';
+import '../../../styles/classic-contrast.css';
 
 // The classic items, keys, labels and order (AdminDashboard.jsx:1338-1349),
 // grouped under headings. The grouping is an ASSUMPTION the owner may change.
@@ -172,6 +173,8 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
 
   return (
     <div className="x-app">
+      {/* G11b #20: the first stop for keyboard users, hidden until focused. */}
+      <a href="#x-main" className="x-skip" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
       <ClassicAdminStyles />
 
       {/* The same live region as the classic shell: mounted always, alert
@@ -305,7 +308,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
           </button>
         </header>
 
-        <main ref={mainRef} className="x-content">
+        <main ref={mainRef} id="x-main" tabIndex={-1} className="x-content">
           <div key={page} className="x-pagein">
             {page === 'overview' && <ClarityAdminOverviewTab />}
             {page === 'users' && <ClarityAdminUsersTab />}

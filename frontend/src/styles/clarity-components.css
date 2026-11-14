@@ -1034,6 +1034,31 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-area { opacity: .13; }
 }
 
+/* G11b: accessibility and dark-mode fixes (numbers from the G11 audit).
+   #1: the classic admin stylesheet styles every <nav> (navy, 76px, shadow),
+   which hit the Settings subnav; neutralised here. #3: native selects and
+   date pickers follow dark mode. #5: dark text on selected chips in the
+   restyled Tasks and Worksheets bodies. #7: a visible ring on the selected
+   Tasks chip. #8 #9: the focus ring takes the accent in dark. #10 #11: rings
+   inside scrollers are no longer clipped. #13: the selected grade's count
+   badge reads 4.5:1. #15: placeholders read 4.5:1. #17: the file picker's
+   label shows focus. #20: a skip link, hidden until focused. */
+html.theme-clarity .x-set-nav { height: auto; padding: 0; background: none; box-shadow: none; z-index: auto; }
+html.theme-clarity.dark .x-app, html.theme-clarity.dark .x-back, html.theme-clarity.dark .modal-overlay { color-scheme: dark; }
+html.theme-clarity.dark .x-stk, html.theme-clarity.dark .x-tws { --on-accent: var(--cl-ac-t); }
+html.theme-clarity .x-stk [aria-label="Filter tasks"] > button:focus-visible { outline: 2px solid var(--cl-tx); outline-offset: 2px; }
+html.theme-clarity.dark .x-app :focus-visible, html.theme-clarity.dark .x-back :focus-visible { outline-color: var(--cl-ac); }
+html.theme-clarity .x-usr-tabs { padding: 4px 4px 6px; margin: -4px -4px 12px; scroll-padding-inline: 4px; }
+html.theme-clarity .x-tld-grades { margin-bottom: 4px; }
+html.theme-clarity .x-side .x-nav:focus-visible, html.theme-clarity .x-set-nav button:focus-visible { outline-offset: -2px; }
+html.theme-clarity .x-tld-grades button.on .x-tld-n { background: var(--cl-ac); }
+html.theme-clarity .x-content input::placeholder, html.theme-clarity .x-content textarea::placeholder { color: var(--cl-mu); }
+html.theme-clarity .x-content .x-search input::placeholder, html.theme-clarity .x-content .x-input::placeholder { color: var(--cl-dim); }
+html.theme-clarity .x-tlp .border-dashed:focus-within label[for] { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-skip { position: fixed; left: 12px; top: 12px; z-index: 200; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 10px; background: var(--cl-card); color: var(--cl-tx); font-weight: 600; text-decoration: none; box-shadow: var(--cl-shh); transform: translateY(-200%); }
+html.theme-clarity .x-skip:focus { transform: none; outline: 2px solid var(--cl-ac); outline-offset: 2px; }
+html.theme-clarity .x-content:focus { outline: none; }
+
 /* G9a: the admin Profile is the shared classic ProfileTab, whose "Change
    Password" text button is 20px tall. The teacher Profile already reaches
    44px through TeacherDashboard.css; this mirrors it for the Clarity shells,

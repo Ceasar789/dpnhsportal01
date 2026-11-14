@@ -20,12 +20,11 @@ import { Pencil, Trash2, Plus } from 'lucide-react';
 import Modal from '../../ui/Modal';
 import Button from '../../ui/Button';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
-import { GRADE_LEVELS, normalizeGradeLevel } from '../../../lib/academicRules';
+import { GRADE_LEVELS, isRetiredGradeLevel, normalizeGradeLevel } from '../../../lib/academicRules';
 import { Skeleton, SkeletonTable } from '../../ui/Skeleton';
 
-// Grade 7 to 10 always (the design's columns); a higher grade only when the
-// teaching load really uses it.
-const BASE_GRADES = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
+// One column per offered grade (Grade 7 to 10). A Grade 11/12 row left in the
+// load never adds a column or counts a teacher.
 const shortGrade = grade => `G${grade.replace(/\D/g, '')}`;
 
 const ClarityAdminSubjectsTab = () => {
@@ -57,10 +56,9 @@ const ClarityAdminSubjectsTab = () => {
 
   // The grade cells and teacher counts, only when the teaching load loaded.
   const loadReady = !teachingLoadLoading && !teachingLoadError && Array.isArray(teachingLoad);
-  const loadGrades = loadReady ? teachingLoad.map(row => normalizeGradeLevel(row.grade_level)).filter(Boolean) : [];
-  const grades = GRADE_LEVELS.filter(g => BASE_GRADES.includes(g) || loadGrades.includes(g));
+  const grades = GRADE_LEVELS;
   const runsIn = (subjectId, grade) => teachingLoad.some(row => row.subject_id === subjectId && normalizeGradeLevel(row.grade_level) === grade);
-  const teacherCount = subjectId => new Set(teachingLoad.filter(row => row.subject_id === subjectId).map(row => row.teacher_id)).size;
+  const teacherCount = subjectId => new Set(teachingLoad.filter(row => row.subject_id === subjectId && !isRetiredGradeLevel(row.grade_level)).map(row => row.teacher_id)).size;
   const columns = 3 + (loadReady ? grades.length + 1 : 0);
 
   return (

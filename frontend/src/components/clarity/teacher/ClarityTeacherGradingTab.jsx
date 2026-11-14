@@ -31,6 +31,7 @@ import CheckSubmissionsModal from '../../../pages/dashboards/teacher/worksheets/
 import EncodeScoresModal from '../../../pages/dashboards/teacher/worksheets/EncodeScoresModal';
 import ProgressRing from '../charts/ProgressRing';
 import { Skeleton, SkeletonGroup, SkeletonRows } from '../../ui/Skeleton';
+import { NO_TEACHING_LOAD_MESSAGE } from '../../../lib/academicRules';
 
 // ---- TEMPORARY copy (GradesTab.jsx:17-18) ----
 const rowStatus = row => (row.notStarted ? 'not_started' : row.released === true ? 'released'
@@ -224,6 +225,9 @@ const ClarityTeacherGradingTab = () => {
   const refreshScores = () => { setScoreTarget(null); setScoresRefresh(count => count + 1); };
   const closeDialog = setter => { setter(null); refreshScores(); };
   // ---- end of the copy ----
+  // No worksheets and no teaching load: say why, instead of "create one".
+  const noLoad = assessment.subjectLoading === false && !assessment.subjectError
+    && Array.isArray(assessment.mySubjects) && assessment.mySubjects.length === 0;
 
   // Selection only: the first visible row until one is picked. Nothing is called.
   const [selId, setSelId] = useState(null);
@@ -299,7 +303,7 @@ const ClarityTeacherGradingTab = () => {
             <button type="button" className="x-btn" onClick={fetchWorksheets}>Retry worksheets</button>
           </div>
         )
-        : owned.length === 0 ? <p className="x-card x-empty">No worksheets yet. Create one in Worksheets before recording scores.</p>
+        : owned.length === 0 ? <p className="x-card x-empty">{noLoad ? NO_TEACHING_LOAD_MESSAGE : 'No worksheets yet. Create one in Worksheets before recording scores.'}</p>
         : <>
           {filtersOpen && (
             <section id="x-tgr-filters" className="x-card x-pad x-tgr-panel" aria-label="Filters">

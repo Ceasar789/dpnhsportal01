@@ -85,7 +85,7 @@ describe('layout from real data', () => {
     const grades = within(screen.getByRole('group', { name: 'Grade level' })).getAllByRole('button');
     expect(grades.map(b => b.getAttribute('aria-label'))).toEqual([
       'Grade 7, 2 teaching assignments', 'Grade 8, 0 teaching assignments', 'Grade 9, 1 teaching assignment',
-      'Grade 10, 0 teaching assignments', 'Grade 11, 0 teaching assignments', 'Grade 12, 0 teaching assignments',
+      'Grade 10, 0 teaching assignments',
     ]);
     expect(grades[0].getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText('Numbers show assignments per grade.')).toBeTruthy();
@@ -93,7 +93,7 @@ describe('layout from real data', () => {
 
   it('the grade tab names equal the classic ones', async () => {
     const r = await both({ teachingLoad: [load('l1', ANA, ENG, 'Grade 8')] }, () => (
-      [7, 8, 9, 10, 11, 12].map(n => screen.getByRole('button', { name: new RegExp(`^Grade ${n},`) }).getAttribute('aria-label'))));
+      [7, 8, 9, 10].map(n => screen.getByRole('button', { name: new RegExp(`^Grade ${n},`) }).getAttribute('aria-label'))));
     expect(r.clarity).toEqual(r.classic);
   });
 

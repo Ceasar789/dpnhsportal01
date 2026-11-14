@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
-import { canTeachSection, currentSchoolYear, describeScheduleClashes, findScheduleClashes } from '../../../lib/academicRules';
+import { canTeachSection, currentSchoolYear, describeScheduleClashes, findScheduleClashes, GRADE_LEVELS, isRetiredGradeLevel, normalizeGradeLevel } from '../../../lib/academicRules';
 import { hasExactDeletedIds } from '../../../lib/deleteVerification';
 import { statusForReason } from './shared/sectionMembership';
 import { isLockedLoadRow, lockedSubjectId, LOCKED_REMOVAL_MESSAGE } from './shared/departmentSubject';
@@ -207,7 +207,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       return;
     }
     setTeachingLoadError(false);
-    setTeachingLoad(data || []);
+    // An old Grade 11/12 row (archived data) is not listed anywhere in admin.
+    setTeachingLoad((data || []).filter(row => !isRetiredGradeLevel(row?.grade_level)));
     setTeachingLoadLoading(false);
   }, [schoolYear]);
 
@@ -237,7 +238,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   const addLoadEntries = async (entries) => {
     if (schoolYear === null) { showToast(YEAR_NOT_READY, 'error'); return null; }
     const clean = (entries || []).filter(
-      e => e && e.teacher_id && e.subject_id && e.grade_level
+      e => e && e.teacher_id && e.subject_id && e.grade_level && !isRetiredGradeLevel(e.grade_level)
     );
     if (clean.length === 0) {
       showToast('Nothing to assign — add at least one entry to the list first', 'error');
@@ -336,7 +337,17 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     if (error) { showToast(`Could not read ${fromYear}: ${error.message}`, 'error'); return 0; }
     if (!data || data.length === 0) { showToast(`No teaching load found for ${fromYear}`, 'error'); return 0; }
 
-    const rows = data.map(r => ({ ...r, school_year: schoolYear }));
+    // Only grades the school still offers are copied; Grade 11/12 rows stay behind.
+    const offered = data.filter(r => GRADE_LEVELS.includes(normalizeGradeLevel(r.grade_level)));
+    const skipped = data.length - offered.length;
+    const skippedText = skipped === 0 ? ''
+      : ` ${skipped === 1 ? '1 entry was' : `${skipped} entries were`} left out because the school no longer offers that grade.`;
+    if (offered.length === 0) {
+      showToast(`Nothing was copied from ${fromYear}.${skippedText}`, 'error');
+      return 0;
+    }
+
+    const rows = offered.map(r => ({ ...r, school_year: schoolYear }));
     // Keep each teacher's department subject in every grade they are copied
     // into, even if last year's load did not have it.
     const have = new Set(rows.map(r => `${r.teacher_id}|${r.subject_id}|${r.grade_level}`));
@@ -355,7 +366,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
 
     if (insertError) { showToast(`Could not copy: ${insertError.message}`, 'error'); return 0; }
 
-    showToast(`Copied ${rows.length} entries from ${fromYear}`);
+    showToast(skipped ? `Copied ${rows.length} entries from ${fromYear}.${skippedText}` : `Copied ${rows.length} entries from ${fromYear}`);
     fetchTeachingLoad();
     return rows.length;
   };
@@ -397,7 +408,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       return;
     }
     setSectionsError(false);
-    setSections(data || []);
+    setSections((data || []).filter(section => !isRetiredGradeLevel(section?.grade_level)));
     setSectionsLoading(false);
   }, [schoolYear]);
 
@@ -425,6 +436,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     const name = secName.trim();
     if (!name) return showToast('Section name is required', 'error');
     if (!secGrade) return showToast('Grade level is required', 'error');
+    if (isRetiredGradeLevel(secGrade)) return showToast('Choose a grade level from Grade 7 to Grade 10.', 'error');
 
     const capacityResult = validateSectionCapacity(secCapacity);
     setSecCapacityError(capacityResult.message);

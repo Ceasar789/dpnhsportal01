@@ -56,7 +56,7 @@ export const LessonPlanForm = ({ onSubmit, isLoading, dark }) => {
               label="Grade Level"
               value={form.getFormValue('gradeLevel')}
               onChange={(e) => form.updateField('gradeLevel', e.target.value)}
-              placeholder="e.g., Grade 7, Grade 11"
+              placeholder="e.g., Grade 7, Grade 10"
               dark={dark}
               required
             />

@@ -1,3 +1,5 @@
+import { isRetiredGradeLevel } from '../../../../lib/academicRules';
+
 // These helpers describe a proposed payload only. No production save uses them.
 export function eligibleQuickCreateSubjects(rows) {
   const grouped = new Map();
@@ -5,7 +7,8 @@ export function eligibleQuickCreateSubjects(rows) {
   for (const row of rows) {
     if (typeof row?.subject_id !== 'string' || !row.subject_id ||
       row.subjects?.id !== row.subject_id || typeof row.subjects?.name !== 'string' ||
-      !row.subjects.name.trim() || typeof row.grade_level !== 'string' || !row.grade_level.trim()) continue;
+      !row.subjects.name.trim() || typeof row.grade_level !== 'string' || !row.grade_level.trim()
+      || isRetiredGradeLevel(row.grade_level)) continue;
     if (!grouped.has(row.subject_id)) grouped.set(row.subject_id, {
       id: row.subject_id, name: row.subjects.name, grades: [],
     });

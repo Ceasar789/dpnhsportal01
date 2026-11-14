@@ -15,6 +15,7 @@ import {
   draftFromRow, draftIsDirty, draftProblem, emptyDraft, formatBytes, rowFields, typeLabel,
 } from './materialRules';
 import { createFileMaterial, createLinkMaterial, deleteMaterial, updateMaterial } from './materialsApi';
+import { NO_TEACHING_LOAD_MESSAGE } from '../../../../lib/academicRules';
 
 const BUSY_LABEL = { uploading: 'Uploading…', saving: 'Saving…', deleting: 'Deleting…' };
 
@@ -87,7 +88,7 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
 
   const subjectHint = subjectsState === 'loading' ? 'Loading your subjects…'
     : subjectsState === 'error' ? 'Your subjects could not be loaded.'
-      : choices.length === 0 ? 'No teaching load is recorded for this school year, so a subject cannot be chosen.' : '';
+      : choices.length === 0 ? NO_TEACHING_LOAD_MESSAGE : '';
 
   return (
     <>

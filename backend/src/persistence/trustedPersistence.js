@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { normalizeManualIlawV2, parseManualIlawV2, validateManualIlawSave } from '../../../frontend/src/pages/dashboards/teacher/ilaw/manualIlawV2.js';
+import { isRetiredGradeLevel } from '../../../frontend/src/lib/academicRules.js';
 import { PersistenceError, requireThat, identity, exact, boundedJson, canonical,
   validateWorksheetDraft, validateWorksheetForDistribution, prepareNormalizedAssessmentProjection, UNAVAILABLE } from '../../../shared/trustedPersistence/contracts.js';
 
@@ -20,6 +21,8 @@ export function resolveOfficialYear(settings) {
 function assignmentFor(tx, userId, selected, year, optional = false) {
   if (selected === null && optional) return null;
   requireThat(selected && selected.schoolYear === year, 'assignment_denied');
+  // A Grade 11/12 assignment is refused even if an old load row still names it.
+  requireThat(!isRetiredGradeLevel(selected.gradeLevel), 'assignment_denied');
   const tuple = tx.assignments().find(a => a.teacher_id === userId && a.subject_id === selected.subjectId &&
     a.grade_level === selected.gradeLevel && a.school_year === year);
   requireThat(tuple, 'assignment_denied');

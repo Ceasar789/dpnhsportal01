@@ -4,9 +4,15 @@
 // Kept free of React and Supabase so it can be unit-tested directly.
 // ============================================
 
+// The school offers Junior High only (Grades 7-10). Grade 11/12 data was
+// archived out of the live tables; every grade strip, select and count reads
+// this list, so it is the one place the offered grades are named.
 export const GRADE_LEVELS = [
-  'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12',
+  'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10',
 ];
+
+// Shown wherever a teacher needs a teaching load and has none.
+export const NO_TEACHING_LOAD_MESSAGE = 'You have no classes assigned yet. Ask your admin to assign your subjects and sections.';
 
 /**
  * The school year we are currently inside, as "YYYY-YYYY".
@@ -37,6 +43,14 @@ export function normalizeGradeLevel(value) {
   if (!digits) return null;
   const candidate = `Grade ${digits[0]}`;
   return GRADE_LEVELS.includes(candidate) ? candidate : null;
+}
+
+// A grade with a number the school no longer offers (Grade 11/12, or any
+// number outside GRADE_LEVELS). Such a value is never saved and never listed.
+// Text with no number is left to the existing checks, so Grade 7-10 handling
+// is unchanged.
+export function isRetiredGradeLevel(value) {
+  return value != null && /\d/.test(String(value)) && normalizeGradeLevel(value) === null;
 }
 
 export function teacherLoadFor(load, schoolYear) {

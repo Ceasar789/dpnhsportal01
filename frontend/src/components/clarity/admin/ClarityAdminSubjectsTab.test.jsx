@@ -68,10 +68,10 @@ describe('layout from real data', () => {
     expect([...row('Science').querySelectorAll('td')][5].textContent).toBe('1');
   });
 
-  it('a higher grade appears only when the load really uses it', () => {
+  it('a Grade 11 or 12 row left in the load never adds a column', () => {
     h.ctx.teachingLoad = [...LOAD, { teacher_id: 't4', subject_id: 's', grade_level: 'Grade 11' }];
     show();
-    expect(headers()).toContain('G11');
+    expect(headers()).not.toContain('G11');
     expect(headers()).not.toContain('G12');
   });
 

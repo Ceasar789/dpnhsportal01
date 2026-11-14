@@ -93,7 +93,7 @@ const unit = [
   ['TC-UNT-017', 'formatCountdown flips to “late” once the deadline passes', 'tone = late, isLate = true', PASS],
   ['TC-UNT-018', 'The exact deadline instant is not yet late', 'tone ≠ late', PASS],
   ['TC-UNT-019', 'combineDateAndTime falls back to the default time, and returns null with no date', 'Timestamp or null', PASS],
-  ['TC-UNT-020', 'GRADE_LEVELS lists Grade 7 to Grade 12 in order', 'Six values', PASS],
+  ['TC-UNT-020', 'GRADE_LEVELS lists Grade 7 to Grade 10 in order', 'Four values', PASS],
   ['TC-UNT-021', 'normalizeGradeLevel accepts a bare number and differing case or spacing', 'Canonical “Grade N”', PASS],
   ['TC-UNT-022', 'canTeachSection allows a subject and grade the teacher holds', 'ok = true', PASS],
   ['TC-UNT-023', 'canTeachSection rejects the right subject at the wrong grade level', 'ok = false, reason given', PASS],

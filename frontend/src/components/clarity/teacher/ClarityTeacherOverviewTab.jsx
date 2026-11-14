@@ -27,6 +27,7 @@ import { withRetry } from '../../../lib/supabaseRetry';
 import { savedPlanType, SAVED_PLAN_TYPE_LABEL } from '../../../pages/dashboards/teacher/lessonPlans/savedPlanType';
 import ProgressRing from '../charts/ProgressRing';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
+import { NO_TEACHING_LOAD_MESSAGE } from '../../../lib/academicRules';
 
 // ---- TEMPORARY copy (OverviewTab.jsx:20-45) ----
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -268,6 +269,9 @@ const ClarityTeacherOverviewTab = () => {
     fetchOverviewData();
   }, [fetchOverviewData]);
   // ---- end of the copy ----
+  // No class scheduled all week (no subjects or sections assigned yet): say so,
+  // from the schedules this tab already reads (no extra request).
+  const noLoad = stats.classesThisWeek === 0;
 
   const doneToday = todaysClasses.filter(c => c.status === 'finished').length;
   const go = path => () => navigate(path);
@@ -292,6 +296,9 @@ const ClarityTeacherOverviewTab = () => {
           <span>Dashboard data could not be loaded. Check your connection and try again.</span>
           <button type="button" className="x-btn" onClick={fetchOverviewData}>Retry dashboard</button>
         </div>
+      )}
+      {!overviewError && !loading && noLoad && (
+        <p className="x-card x-pad" role="status" style={{ marginBottom: 16 }}>{NO_TEACHING_LOAD_MESSAGE}</p>
       )}
       {!overviewError && loading && <p role="status" className="x-sr">Loading dashboard data…</p>}
       {!overviewError && loading && KPI_SKELETON}

@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { isRetiredGradeLevel } from '../../../../lib/academicRules';
 import { normalizePoints, round2 } from '../../../../lib/worksheetChecking';
 import { TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { distributeDayTask } from './dayTaskDistributeClient';
@@ -711,6 +712,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     const byId = new Map();
     (data || []).forEach(r => {
       if (!r.subject_id || r.subjects?.id !== r.subject_id || !r.subjects?.name || !r.grade_level) return;
+      if (isRetiredGradeLevel(r.grade_level)) return; // an old Grade 11/12 row is not offered
       if (!byId.has(r.subject_id)) byId.set(r.subject_id, { id: r.subject_id, name: r.subjects.name, grades: [] });
       const subject = byId.get(r.subject_id);
       if (!subject.grades.includes(r.grade_level)) subject.grades.push(r.grade_level);

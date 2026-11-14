@@ -27,15 +27,17 @@ import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import SchoolYearNotice from '../../../pages/dashboards/admin/shared/SchoolYearNotice';
 import { coverageText, subjectCoverage } from '../../../pages/dashboards/admin/shared/classSetup';
 import { formatEnrollmentDate, membershipStatusLabel, REMOVAL_REASONS } from '../../../pages/dashboards/admin/shared/sectionMembership';
-import { GRADE_LEVELS, normalizeGradeLevel } from '../../../lib/academicRules';
+import { GRADE_LEVELS, isRetiredGradeLevel, normalizeGradeLevel } from '../../../lib/academicRules';
 import { isActiveSectionAdviser, otherAdvisedSections, validateSectionCapacity } from '../../../pages/dashboards/admin/shared/sectionsValidation';
 import { Skeleton, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
 // Sections grouped by grade, in the school's grade order; a grade_level the
-// list does not know keeps its own column after the known ones.
+// list does not know keeps its own column after the known ones, except a
+// retired grade (Grade 11/12), which is not listed.
 const groupByGrade = (sections) => {
   const groups = new Map();
   for (const section of sections) {
+    if (isRetiredGradeLevel(section.grade_level)) continue;
     const grade = normalizeGradeLevel(section.grade_level) || String(section.grade_level || '').trim() || 'No grade level';
     if (!groups.has(grade)) groups.set(grade, []);
     groups.get(grade).push(section);

@@ -128,7 +128,7 @@ async function verifyLayout(page, width, theme) {
 
 async function verifySearchFocus(page, theme) {
   const search = page.getByLabel('Search teachers');
-  await page.getByRole('button', { name: /^Grade 12/ }).focus();
+  await page.getByRole('button', { name: /^Grade 10/ }).focus();
   await page.keyboard.press('Tab');
   await expect(search, `${theme}: search receives keyboard focus`).toBeFocused();
 

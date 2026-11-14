@@ -1,9 +1,9 @@
 // ============================================
 // FILE: src/pages/dashboards/admin/GradeTabs.jsx
-// The Grade 7 … Grade 12 strip shared by Teaching Load and Schedules.
+// The Grade 7 … Grade 10 strip shared by Teaching Load and Schedules.
 //
 // The count beside each grade is the point, not decoration: filtering a
-// screen to one grade hides the other five, so without it "is Grade 9 done?"
+// screen to one grade hides the other three, so without it "is Grade 9 done?"
 // costs a tab switch. With it, the whole year is readable at a glance.
 // ============================================
 

@@ -441,9 +441,10 @@ Compared with the 2026-11-09 list above, this table adds the two other TWF-02 te
 - **Safe-area insets:** they have no effect. `frontend/index.html:11` has no `viewport-fit=cover`, which was deliberately not added.
 
 **Scope:**
-- **Senior High is not supported:**
-  - There are no SHS strands or semesters.
-  - Grade 11 and Grade 12 still appear in the admin grade list (`lib/academicRules.js:7-9`, `admin/GradeTabs.jsx`).
+- **Grades 7-10 only:**
+  - The school offers Junior High only. `GRADE_LEVELS` lists Grade 7 to Grade 10 (`lib/academicRules.js`), so every admin grade strip, select and count shows four grades.
+  - Grade 11/12 values are refused on save (`isRetiredGradeLevel` in the admin and teacher save paths, the shared worksheet contract and the trusted backend) and are not listed when read.
+  - The old Grade 11/12 teaching load is archived in the database, outside the app.
 - **No promotion:**
   - There is no Grade 7→8 promotion wizard.
   - There are no Promoted, Retained or Completed statuses.
@@ -465,7 +466,6 @@ Compared with the 2026-11-09 list above, this table adds the two other TWF-02 te
 
 None of the following exists in the repository:
 - a Grade 7→8 promotion wizard, and Promoted, Retained and Completed statuses
-- Senior High strands and semesters
 - database enforcement for one advisory section per teacher, the department lock and schedule clashes
 - a department picker built from the subjects list
 - profile photo upload
@@ -603,7 +603,6 @@ Written from the repository at commit `7e778f6`. This part adds the work done la
   - The Privacy text tells users this: "teachers and administrators can also see the school directory, including contact details" (`Privacy.jsx:62-64`).
 - **Unused layout files:** `components/layout/DashboardLayout.jsx`, `SideBar.jsx`, `MobileDrawer.jsx` and `MobileAppBar.jsx`. No app file imports them; only `routes/roleRemoval.test.jsx` mentions them.
 - **No priority on admin news:** the admin News form has no field for it (no `priority` in `admin/tabs/NewsTab.jsx` or `admin/useAdminLogic.jsx`).
-- **Senior High:** Grade 11 and 12 are left out of QA and the demo, but still appear in the admin grade list (see Scope above).
 - **Unchanged and still listed above:**
   - `staff_can_see_student` and `section_students_read` do not filter `status = 'active'`.
   - The schedule clash check and the department lock run in the browser only.
@@ -640,7 +639,6 @@ Written from the repository at commit `7e778f6`. This part adds the work done la
 - A consent record (a migration that stores who agreed, and when)
 - A feedback form backed by the database (feedback is an email link today)
 - The Grade 7→8 promotion wizard
-- Senior High (Grade 11-12)
 - A priority field for admin news
 - Hardening the gaps above: unreleased marks, `ws_subs_teacher_write`, the active-status filters, server-side clash and department checks, the removal reason, phone landscape, `viewport-fit=cover`, and narrower profile reads
 - Finishing the Clarity redesign (see [docs/clarity-redesign.md](clarity-redesign.md))

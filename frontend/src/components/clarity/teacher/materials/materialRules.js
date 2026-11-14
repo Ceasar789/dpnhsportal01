@@ -9,6 +9,7 @@
 import {
   MATERIAL_TYPES, extensionOf, formatBytes, fileProblem, linkProblem, safeMaterialFileName, linkHost,
 } from '../../../../lib/uploadRules';
+import { isRetiredGradeLevel } from '../../../../lib/academicRules';
 
 // The shared file and link rules live in lib/uploadRules.js (S3); these names
 // are re-exported unchanged.
@@ -58,6 +59,7 @@ export const subjectOptions = (assignmentRows) => {
   const byId = new Map();
   (assignmentRows || []).forEach((r) => {
     if (!r?.subject_id || r.subjects?.id !== r.subject_id || !r.subjects?.name || !r.grade_level) return;
+    if (isRetiredGradeLevel(r.grade_level)) return; // an old Grade 11/12 row is not offered
     if (!byId.has(r.subject_id)) byId.set(r.subject_id, { id: r.subject_id, name: r.subjects.name, grades: [] });
     const subject = byId.get(r.subject_id);
     if (!subject.grades.includes(r.grade_level)) subject.grades.push(r.grade_level);
@@ -106,7 +108,8 @@ export const draftIsDirty = (draft, baseline) => ['kind', 'title', 'description'
 // The first problem with a draft (null when it can be saved).
 export const draftProblem = (draft, { editing = false } = {}) => titleProblem(draft.title)
   || descriptionProblem(draft.description)
-  || (draft.kind === 'link' ? linkProblem(draft.url) : editing ? null : fileProblem(draft.file));
+  || (draft.kind === 'link' ? linkProblem(draft.url) : editing ? null : fileProblem(draft.file))
+  || (draft.subjectId && isRetiredGradeLevel(draft.gradeLevel) ? 'Choose a grade level from Grade 7 to Grade 10.' : null);
 
 // The shared columns of a row, from a draft (empty values become null).
 export const rowFields = draft => ({

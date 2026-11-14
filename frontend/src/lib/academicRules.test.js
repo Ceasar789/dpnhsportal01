@@ -19,9 +19,9 @@ const load = [
 ];
 
 describe('GRADE_LEVELS', () => {
-  it('lists the six canonical levels in order', () => {
+  it('lists the four canonical levels in order (Junior High only)', () => {
     expect(GRADE_LEVELS).toEqual([
-      'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12',
+      'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10',
     ]);
   });
 });

@@ -1,5 +1,7 @@
 // JSON contracts shared by editor adapters and the trusted application service.
 // No database, network, browser storage, or environment access belongs here.
+import { isRetiredGradeLevel } from '../../frontend/src/lib/academicRules.js';
+
 export class PersistenceError extends Error {
   constructor(code) { super(code); this.name = 'PersistenceError'; this.code = code; }
 }
@@ -48,6 +50,8 @@ export function validateWorksheetDraft(input) {
   if (value.assignment !== null) {
     exact(value.assignment, ['subjectId', 'gradeLevel', 'schoolYear']);
     requireThat(identity(value.assignment.subjectId) && text(value.assignment.gradeLevel, 50) && text(value.assignment.schoolYear, 20));
+    // Grade 11/12 (any grade the school no longer offers) is never saved.
+    requireThat(!isRetiredGradeLevel(value.assignment.gradeLevel), 'assignment_denied');
   }
   requireThat(Array.isArray(value.groups) && value.groups.length <= 100);
   requireThat(Array.isArray(value.questions) && value.questions.length <= 500 && isRecord(value.answerKeys));

@@ -1,4 +1,5 @@
 import { supabase } from '../../../../config/supabase';
+import { isRetiredGradeLevel } from '../../../../lib/academicRules';
 
 // A task the teacher writes by hand. It is one worksheets row with no
 // questions yet; the Questions editor adds them afterwards.
@@ -29,7 +30,7 @@ export function buildManualTaskRow({ teacherId, title, taskType, directions, che
   const text = typeof directions === 'string' ? directions : '';
   if (!teacherId || !cleanTitle || cleanTitle.length > MAX_TITLE || !MANUAL_TASK_TYPES.includes(taskType)
     || text.length > MAX_DIRECTIONS || (taskType === 'activity' && !text.trim())
-    || !subject?.id || !subject?.name || !gradeLevel) return null;
+    || !subject?.id || !subject?.name || !gradeLevel || isRetiredGradeLevel(gradeLevel)) return null;
   const attachment = handIn === 'attachment';
   // A file/link task needs directions (it has no questions) and its points.
   if (attachment && (!HAND_IN_TYPES.includes(taskType) || !text.trim() || pointsProblem(points))) return null;

@@ -1,34 +1,24 @@
 // ============================================
 // FILE: src/components/FlippingLogo.jsx
-// Coin-flip logo: the EduScribe brand mark on the front, the original school
-// seal on the back, flipping sideways on the Y axis so both stay in use.
-// Timing lives in the .eduscribe-flip rules in src/styles/index.css.
+// The EduScribe logo, static (N1). It used to coin-flip between the
+// EduScribe mark and the school seal; it now shows only the EduScribe mark,
+// in the same box. The name and path stay so existing imports and test
+// mocks keep working. Styles: .eduscribe-logo in src/styles/index.css.
 // ============================================
-
-import React from 'react';
 
 // `size` sets a fixed pixel box. Omit it and pass Tailwind sizing in
 // `className` instead when the logo needs to be responsive.
 const FlippingLogo = ({ size, className = '', alt = 'EduScribe' }) => (
   <div
-    className={`eduscribe-flip ${className}`}
+    className={`eduscribe-logo ${className}`}
     style={size ? { width: size, height: size } : undefined}
   >
-    <div className="eduscribe-flip-inner">
-      <img
-        src="/EduScribeLogoIcon.png"
-        alt={alt}
-        className="eduscribe-flip-face"
-        onError={(e) => { e.target.style.visibility = 'hidden'; }}
-      />
-      <img
-        src="/capstonelogo.png"
-        alt=""
-        aria-hidden="true"
-        className="eduscribe-flip-face eduscribe-flip-back"
-        onError={(e) => { e.target.style.visibility = 'hidden'; }}
-      />
-    </div>
+    <img
+      src="/EduScribeLogoIcon.png"
+      alt={alt}
+      className="eduscribe-logo-img"
+      onError={(e) => { e.target.style.visibility = 'hidden'; }}
+    />
   </div>
 );
 

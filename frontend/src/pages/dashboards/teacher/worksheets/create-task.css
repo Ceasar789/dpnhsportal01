@@ -1,0 +1,20 @@
+/* ============================================
+   S4: the Create task form (CreateTaskModal.jsx), imported by the modal only.
+   On phones every field in the form reads at 16px, so iOS does not zoom when
+   a field takes focus, and is at least 44px tall. Desktop keeps the modal's
+   existing text-sm, 40px fields.
+   The new Points error uses a red that passes contrast in dark too.
+   ============================================ */
+
+/* The Points error: --badge-red-fg reads on both panels (7:1 light, 5:1 dark). */
+.ctm-form .ctm-error { color: var(--badge-red-fg); }
+
+/* Phones, upright and landscape (the same query as phone-tap.css). */
+@media (max-width: 767px), (max-width: 1099.98px) and (max-height: 500px) {
+  .ctm-form input,
+  .ctm-form select,
+  .ctm-form textarea { font-size: 16px; }
+
+  .ctm-form input,
+  .ctm-form select { min-height: 44px; }
+}

@@ -12,7 +12,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ExternalLink, FileText, Link2 } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { formatManila, manilaInstant } from '../../../../lib/taskFormatting';
-import { MATERIAL_ACCEPT, MATERIAL_FILE_GUIDANCE, formatBytes, linkHost, openInNewTab } from '../../../../lib/uploadRules';
+import { MATERIAL_ACCEPT, MATERIAL_FILE_GUIDANCE, formatBytes, linkHost } from '../../../../lib/uploadRules';
 import { Skeleton, SkeletonGroup } from '../../../../components/ui/Skeleton';
 import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
@@ -23,11 +23,11 @@ import { RED } from '../badgeTones';
 import { MESSAGES, NOTE_MAX, attachmentStatus, panelState } from './attachmentRules';
 import {
   addAttachment, ensureSubmission, loadYourWork, removeAttachment, replaceAttachment, saveNote,
-  signedOwnFileUrl, turnIn, unsubmit,
+  turnIn, unsubmit,
 } from './attachmentApi';
+import useOpenWork from './useOpenWork';
 import './your-work.css';
 
-const FALLBACK_MS = 55 * 1000;
 const BUSY_LABELS = { add: 'Adding…', replace: 'Replacing…', remove: 'Removing…', note: 'Saving…', turnIn: 'Turning in…', unsubmit: 'Unsubmitting…', open: 'Opening…' };
 
 export default function YourWorkPanel({ row, onChanged, showToast, registerLeaveGuard }) {
@@ -52,9 +52,7 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
   const busyRef = useRef(false);
   const [error, setError] = useState(null); // { where: 'form' | 'note' | 'action', message }
   const [confirm, setConfirm] = useState(null); // 'turnIn' | 'unsubmit' | 'remove'
-  const [fallback, setFallback] = useState(false);
-  const fallbackRef = useRef(null);
-  const fallbackTimer = useRef(null);
+  const { openFile, openLink, fallbackRef, fallbackShown } = useOpenWork();
   const [now] = useState(() => Date.now());
 
   const submissionId = row.submission?.id;
@@ -72,8 +70,6 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
     });
     return () => { active = false; };
   }, [submissionId, released, studentId, loadSeq]);
-
-  useEffect(() => () => clearTimeout(fallbackTimer.current), []);
 
   const state = panelState(submission, Boolean(attachment));
   const open = state === 'none' || state === 'attached';
@@ -173,27 +169,16 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
     done('Unsubmitted. You can change your work and turn it in again.');
   });
 
-  // A file opens through a 60-second signed URL. If the browser blocks the new
-  // tab (iOS Safari after an await), "Open file" stays tappable for 55 seconds.
-  // The URL lives only on that link's href, set through a ref: never in state,
-  // never logged.
+  // Opening the work: useOpenWork (a 60-second signed URL for a file, with the
+  // iOS fallback link; a link only if http/https).
   const openWork = () => {
     if (!attachment) return;
     if (attachment.kind === 'link') {
-      if (!openInNewTab(attachment.link_url)) setError({ where: 'action', message: MESSAGES.openFailed });
+      if (!openLink(attachment.link_url)) setError({ where: 'action', message: MESSAGES.openFailed });
       return;
     }
     run('open', async () => {
-      const url = await signedOwnFileUrl({ current: attachment });
-      if (!url) { setError({ where: 'action', message: MESSAGES.openFailed }); return; }
-      clearTimeout(fallbackTimer.current);
-      if (fallbackRef.current) fallbackRef.current.href = url;
-      setFallback(true);
-      openInNewTab(url);
-      fallbackTimer.current = setTimeout(() => {
-        fallbackRef.current?.removeAttribute('href');
-        setFallback(false);
-      }, FALLBACK_MS);
+      if (!(await openFile(attachment))) setError({ where: 'action', message: MESSAGES.openFailed });
     });
   };
 
@@ -332,7 +317,7 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
 
         {actionError && <p className="yw-error" role="alert">{actionError}</p>}
         {busyNotice && <p className="yw-muted" role="status">{busyNotice}</p>}
-        <p className="yw-fallback" hidden={!fallback}>
+        <p className="yw-fallback" hidden={!fallbackShown}>
           File didn&apos;t open? <a ref={fallbackRef} target="_blank" rel="noopener noreferrer">Open file</a>
         </p>
       </section>

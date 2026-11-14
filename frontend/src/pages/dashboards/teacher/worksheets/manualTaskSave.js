@@ -5,6 +5,15 @@ import { supabase } from '../../../../config/supabase';
 export const MANUAL_TASK_TYPES = ['activity', 'quiz', 'assignment', 'exam'];
 export const MAX_TITLE = 150;
 export const MAX_DIRECTIONS = 2000;
+// S4: the types a student may hand in as one file or one link, and the points rule
+// (worksheets.max_points: above 0, at most 9999.99, at most 2 decimals).
+export const HAND_IN_TYPES = ['activity', 'assignment'];
+export const pointsProblem = (value) => {
+  const text = String(value ?? '').trim();
+  if (!text) return 'Enter the points for this task.';
+  if (!/^\d{1,4}(\.\d{1,2})?$/.test(text) || Number(text) <= 0) return 'Enter points above 0, up to 9999.99, with at most 2 decimals.';
+  return null;
+};
 
 const STORED_TYPES = { activity: 'worksheet', quiz: 'quiz', assignment: 'assignment', exam: 'exam' };
 const INVALID = 'Check the title, type and directions, then try again.';
@@ -15,12 +24,15 @@ const FAILED = 'The worksheet could not be created. Check your worksheet list, t
 // an Assignment is answered in writing and checked by the teacher.
 export const checkingModeFor = (taskType, chosen) => ((taskType === 'quiz' || taskType === 'exam') && chosen === 'auto' ? 'auto' : 'manual');
 
-export function buildManualTaskRow({ teacherId, title, taskType, directions, checkingMode, subject, gradeLevel }) {
+export function buildManualTaskRow({ teacherId, title, taskType, directions, checkingMode, subject, gradeLevel, handIn, points }) {
   const cleanTitle = typeof title === 'string' ? title.trim() : '';
   const text = typeof directions === 'string' ? directions : '';
   if (!teacherId || !cleanTitle || cleanTitle.length > MAX_TITLE || !MANUAL_TASK_TYPES.includes(taskType)
     || text.length > MAX_DIRECTIONS || (taskType === 'activity' && !text.trim())
     || !subject?.id || !subject?.name || !gradeLevel) return null;
+  const attachment = handIn === 'attachment';
+  // A file/link task needs directions (it has no questions) and its points.
+  if (attachment && (!HAND_IN_TYPES.includes(taskType) || !text.trim() || pointsProblem(points))) return null;
   return {
     teacher_id: teacherId,
     title: cleanTitle,
@@ -30,12 +42,13 @@ export function buildManualTaskRow({ teacherId, title, taskType, directions, che
     origin: 'manual',
     source_lesson_plan_id: null,
     collection_id: null,
-    checking_mode: checkingModeFor(taskType, checkingMode),
+    checking_mode: attachment ? 'manual' : checkingModeFor(taskType, checkingMode),
     status: 'Draft',
     subject: subject.name,
     subject_id: subject.id,
     grade_level: gradeLevel,
     created_at: new Date().toISOString(),
+    ...(attachment ? { submission_mode: 'attachment', max_points: Number(String(points).trim()) } : {}),
   };
 }
 

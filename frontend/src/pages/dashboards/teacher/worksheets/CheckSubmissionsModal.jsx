@@ -24,6 +24,7 @@ import { Modal, Btn } from '../shared/ui';
 import { useTheme } from '../hooks';
 import { scoreSubmission, round2 } from '../../../../lib/worksheetChecking';
 import useDialogSafety from './useDialogSafety';
+import AttachmentReviewModal from './AttachmentReviewModal';
 
 // The marks one release sends, for Release and Release all alike.
 const perItemMarks = (items, keys, marks) => items.map(i => {
@@ -560,4 +561,11 @@ const CheckSubmissionsModal = ({
   );
 };
 
-export default CheckSubmissionsModal;
+// S4: a file/link task (submission_mode = 'attachment') has no answers to mark;
+// its submissions are reviewed and scored in AttachmentReviewModal. Every other
+// task opens exactly the dialog above, with the same props.
+const CheckSubmissions = props => (props.worksheet?.submission_mode === 'attachment'
+  ? <AttachmentReviewModal worksheet={props.worksheet} onClose={props.onClose} />
+  : <CheckSubmissionsModal {...props} />);
+
+export default CheckSubmissions;

@@ -354,6 +354,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       setCreatingTask(false);
       fetchWorksheets(true);
       if (values.taskType === 'activity') showToast('Activity created');
+      else if (values.handIn === 'attachment') showToast('Assignment created');
       else setBuildingWorksheet(result.row);
       return result;
     } finally {
@@ -427,7 +428,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
 
   // Preview offers Edit questions on the same terms the old Questions menu item had:
   // a Manual row, once the counts are known and nobody has it yet.
-  const canEditQuestions = worksheet => worksheetSource(worksheet) === MANUAL
+  // A file/link task has no questions (S4).
+  const canEditQuestions = worksheet => worksheetSource(worksheet) === MANUAL && worksheet.submission_mode !== 'attachment'
     && !assessment.assigneeCountsLoading && !assessment.assigneeCountsError
     && !((assessment.assigneeCounts[worksheet.id] || 0) > 0);
   const editQuestionsFrom = (worksheet, closePreview) => {
@@ -922,7 +924,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           const firstAssigned = assessment.firstAssignedAt?.[ws.id];
           // Mirrors what the distribute database function accepts.
           const distributeReason = ws.collection_id ? 'Part of a weekly collection'
-            : Number(ws.items) > 0 || (ws.task_type === 'worksheet' && typeof ws.instructions === 'string' && ws.instructions.trim())
+            : Number(ws.items) > 0 || ((ws.task_type === 'worksheet' || ws.submission_mode === 'attachment') && typeof ws.instructions === 'string' && ws.instructions.trim())
               ? null : 'No questions or directions yet';
           return (
           <Card key={ws.id} className="p-4 min-w-0 flex flex-col" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
@@ -958,7 +960,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             </div>
             <div className="mb-1"><Badge color="var(--banner-accent)" bg="var(--card2)">{worksheetSource(ws)}</Badge></div>
             <h3 className="text-sm font-semibold mb-1 break-words" style={{ color: 'var(--text)' }}>{ws.title}</h3>
-            <p className="text-xs mb-3 break-words" style={{ color: 'var(--text-muted)' }}>{ws.subject || 'Subject unavailable'} · {ws.pages || '—'} pages · {!Number(ws.items) && ws.instructions?.trim() ? 'Activity · text only' : `${ws.items || '—'} items`}</p>
+            <p className="text-xs mb-3 break-words" style={{ color: 'var(--text-muted)' }}>{ws.subject || 'Subject unavailable'} · {ws.pages || '—'} pages · {ws.submission_mode === 'attachment' ? `File or link · ${ws.max_points} pts` : !Number(ws.items) && ws.instructions?.trim() ? 'Activity · text only' : `${ws.items || '—'} items`}</p>
             {countKnown && distributedCount > 0 && Number.isFinite(firstAssigned) && (
               <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Distributed on {manilaDate(firstAssigned)}</p>
             )}

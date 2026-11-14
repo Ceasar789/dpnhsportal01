@@ -52,7 +52,7 @@ describe('isHandout', () => {
 describe('student task graph', () => {
   it('reads the item count and instructions, and keeps them on the row', async () => {
     const graph = await fetchStudentTaskGraph('student-1');
-    expect(db.selects.worksheets).toBe('id, title, subject, task_type, subject_id, items, instructions');
+    expect(db.selects.worksheets).toBe('id, title, subject, task_type, subject_id, items, instructions, submission_mode, max_points');
     expect(isHandout(graph.sheetById.get('w1'))).toBe(true);
   });
 });

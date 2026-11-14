@@ -137,16 +137,5 @@ export async function signedMaterialUrl(row, { client = supabase } = {}) {
   }
 }
 
-// Opens a URL in a new tab with rel="noopener noreferrer". Only http(s).
-export function openInNewTab(url, doc = document) {
-  if (!safeLink(url)) return false;
-  const a = doc.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  a.style.display = 'none';
-  doc.body.appendChild(a);
-  a.click();
-  a.remove();
-  return true;
-}
+// Opens a URL in a new tab with rel="noopener noreferrer"; lives in lib/uploadRules.js (S3).
+export { openInNewTab } from '../../../../lib/uploadRules';

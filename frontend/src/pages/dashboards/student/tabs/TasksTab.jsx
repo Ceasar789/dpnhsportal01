@@ -19,7 +19,9 @@ import { useStudentData } from '../StudentDataContext';
 import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 import StudentWorksheetHeader from './StudentWorksheetHeader';
 import { essayRuleText } from '../../../../lib/essayRule';
-import { hasStudentAnswer, isHandout, submittedMessage } from './studentAnswers';
+import { hasStudentAnswer, isAttachmentTask, isHandout, submittedMessage } from './studentAnswers';
+import YourWorkPanel from '../submissions/YourWorkPanel';
+import { attachmentHeading, attachmentStatus } from '../submissions/attachmentRules';
 import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 import PageHeader from '../PageHeader';
@@ -124,6 +126,9 @@ const StudentTasksTab = () => {
   const [worksheetView, setWorksheetView] = useState(null);
   const unansweredCount = items.filter(item => !hasStudentAnswer(answers[item.id])).length;
   const viewRequestRef = useRef(0);
+  // The Your work panel's unsaved-changes guard (S3), asked before Back.
+  const leaveGuardRef = useRef(null);
+  const registerLeaveGuard = useCallback((guard) => { leaveGuardRef.current = guard; }, []);
   useEffect(() => () => { viewRequestRef.current += 1; }, []);
 
   // Drives the live countdown on every row from ONE interval for the whole
@@ -257,7 +262,8 @@ const StudentTasksTab = () => {
     }
 
     // The real items win: a stale count on the row must not hide real questions.
-    if (isHandout(row.sheet) && (itemRows || []).length === 0) {
+    // An attachment task has no questions either; its Your work panel reads its own state.
+    if ((isHandout(row.sheet) || isAttachmentTask(row.sheet)) && (itemRows || []).length === 0) {
       setItems([]);
       setAnswers({});
       setSubmission(null);
@@ -576,6 +582,8 @@ const StudentTasksTab = () => {
   if (active) {
     const done = submission?.status !== 'in_progress';
     const handout = items.length === 0 && isHandout(active.sheet);
+    const attachment = items.length === 0 && isAttachmentTask(active.sheet);
+    const back = () => { viewRequestRef.current += 1; setWorksheetView(null); resetSaveState(); setActive(null); };
     const enrolled = graph?.enrolments?.find(entry => entry.section_id === active.assignee.section_id);
     const orderedItems = [...items].sort((a, b) => Number(a.position) - Number(b.position));
     const knownTypes = new Set(PAPER_GROUPS.map(([type]) => type));
@@ -595,7 +603,7 @@ const StudentTasksTab = () => {
       <div className="p-6">
         <Toast />
         <div className="mx-auto" style={{ maxWidth: 1100 }}>
-          <button onClick={() => { viewRequestRef.current += 1; setWorksheetView(null); resetSaveState(); setActive(null); }}
+          <button onClick={() => (leaveGuardRef.current ? leaveGuardRef.current(back) : back())}
             className="text-sm mb-4 min-h-11 px-1" style={muted}>← Back</button>
           <article aria-label="Worksheet test paper" className="rounded border p-5 sm:p-8 shadow-sm" {...PAPER_GUARD}
             style={{ backgroundColor: '#fffefb', borderColor: '#c9c3b8', color: '#1f1f1f',
@@ -603,14 +611,15 @@ const StudentTasksTab = () => {
             <StudentWorksheetHeader title={active.sheet.title} subject={active.sheet.subject}
               grade={enrolled?.sections?.grade_level} section={enrolled?.sections?.name}
               schoolYear={enrolled?.sections?.school_year} studentName={userData?.name}
-              instructions={worksheetView?.instructions} items={items} handout={handout}
+              instructions={worksheetView?.instructions} items={items} handout={handout || attachment}
+              heading={attachment ? attachmentHeading(active.sheet) : null}
               releasedScore={submission?.released === true && submission.score != null
                 && submission.total_points != null
                 ? { score: submission.score, total: submission.total_points } : null} />
         {items.length === 0 ? (
           <p className="mt-6 text-center text-sm" style={{ color: '#4b443d' }}>
             {handout ? "This is an activity. Follow your teacher's directions."
-              : 'Ask your teacher for this task.'}
+              : attachment ? 'Add your work below, then turn it in.' : 'Ask your teacher for this task.'}
           </p>
         ) : (
           <div className="mt-7 space-y-6">
@@ -687,6 +696,7 @@ const StudentTasksTab = () => {
           </div>
         )}
           </article>
+          {attachment && <YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} />}
           {items.length > 0 && <div className="mt-5 space-y-3">
             {!done && (
               <Btn className="min-h-11 px-5" onClick={() => setConfirmingSubmit(true)} disabled={busy || unansweredCount > 0}>
@@ -794,7 +804,9 @@ const StudentTasksTab = () => {
             const handoutRow = isHandout(row.sheet);
             // A teacher Activity is stored as task_type 'worksheet' with no
             // questions; isHandout is that rule, so its badge reads Activity.
-            const typeLabel = handoutRow ? 'Activity' : (TASK_TYPE_LABELS[row.sheet.task_type] || 'Task');
+            const attachmentRow = isAttachmentTask(row.sheet);
+            const typeLabel = handoutRow || (attachmentRow && row.sheet.task_type === 'worksheet') ? 'Activity' : (TASK_TYPE_LABELS[row.sheet.task_type] || 'Task');
+            const tone = attachmentRow ? attachmentStatus(row.submission).tone : statusTone(row);
             // Once handed in, the deadline no longer counts down or reads as late.
             const handedIn = Boolean(row.submission) && row.submission.status !== 'in_progress';
             return (
@@ -821,12 +833,12 @@ const StudentTasksTab = () => {
                     {isOverdue(row, now) && <Badge color={RED.color} bg={RED.bg}>Overdue</Badge>}
                     {!handedIn && !(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
                     {/* An Activity's status would only repeat its Activity badge. */}
-                    {!handoutRow && <Badge color={statusTone(row).color} bg={statusTone(row).bg}>{statusLabel(row)}</Badge>}
+                    {!handoutRow && <Badge color={tone.color} bg={tone.bg}>{attachmentRow ? attachmentStatus(row.submission).label : statusLabel(row)}</Badge>}
                     {handedIn && row.submission.is_late === true && <Badge color={RED.color} bg={RED.bg}>Submitted late</Badge>}
                   </div>
                   <div className="flex justify-end mt-2">
                     <Btn variant="pastel" className="min-h-11" onClick={() => open(row)} disabled={busy}>
-                      {handoutRow || row.submission ? 'Open' : 'Start'}
+                      {handoutRow || attachmentRow || row.submission ? 'Open' : 'Start'}
                     </Btn>
                   </div>
                 </div>

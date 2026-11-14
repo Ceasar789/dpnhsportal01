@@ -7,7 +7,12 @@ export const hasStudentAnswer = value => (typeof value === 'string'
 // An Activity: read-only directions with nothing to answer or submit. Anything
 // unknown is not a handout, so a task with missing data behaves as a normal one.
 export const isHandout = sheet => sheet?.task_type === 'worksheet' && sheet.items === 0
-  && typeof sheet.instructions === 'string' && sheet.instructions.trim().length > 0;
+  && typeof sheet.instructions === 'string' && sheet.instructions.trim().length > 0
+  && !isAttachmentTask(sheet);
+
+// A task the student hands in as one file or one link (S3). A row without the
+// column (older data) is an answers task.
+export function isAttachmentTask(sheet) { return sheet?.submission_mode === 'attachment'; }
 
 // The toast after a submit, from the re-read row. A score is named only when the
 // row is released; a missing row (the re-read failed) says just "Submitted."

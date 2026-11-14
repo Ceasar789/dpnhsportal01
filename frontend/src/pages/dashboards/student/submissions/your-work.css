@@ -1,0 +1,169 @@
+/* ============================================
+   S3: the student's Your work panel (YourWorkPanel.jsx), imported by the
+   panel only. One stylesheet for both shells: colours come from the
+   dashboard tokens when they exist (--cl-*), with the classic tokens as the
+   fallback, so the panel follows light and dark in both. No new colours.
+
+   Phones: every control is at least 44px tall and inputs use 16px text (no
+   iOS zoom). The shared file picker's "Choose file" label and "Remove"
+   button are raised to 44px here, inside the panel only. Reduced motion:
+   the buttons' hover transition is removed.
+   ============================================ */
+
+.yw {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid var(--cl-bd, var(--border));
+  border-radius: var(--cl-r, 12px);
+  background: var(--cl-card, var(--card-bg));
+  color: var(--cl-tx, var(--text));
+  font-family: inherit;
+}
+
+.yw-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.yw-title { margin: 0; font-size: 16px; font-weight: 700; }
+.yw-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.yw-muted {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--cl-mu, var(--text-muted));
+  overflow-wrap: anywhere;
+}
+
+.yw-warn {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--cl-wa, var(--yellow));
+  border-radius: 8px;
+  background: var(--cl-wa-s, var(--card2));
+  color: var(--cl-tx, var(--text));
+  font-size: 14px;
+}
+
+.yw-error {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cl-er, var(--red));
+}
+
+.yw-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--cl-bd, var(--border));
+  border-radius: 10px;
+  background: var(--cl-bg, var(--card2));
+}
+
+.yw-item-text { flex: 1 1 180px; min-width: 0; }
+.yw-item-name { margin: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+
+.yw-form { display: grid; gap: 12px; margin-top: 12px; }
+.yw-block { margin-top: 12px; }
+.yw-field { min-width: 0; }
+
+.yw-label {
+  display: block;
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cl-tx, var(--text));
+}
+
+.yw-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.yw-kinds legend { width: 100%; }
+
+.yw-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--cl-bd2, var(--border));
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.yw-kind.on { border: 2px solid var(--cl-ac, var(--banner-accent)); padding: 0 15px; }
+.yw-kind input { width: 18px; height: 18px; margin: 0; accent-color: var(--cl-ac, var(--banner-accent)); }
+.yw-kind:focus-within { outline: 2px solid var(--cl-ac, var(--banner-accent)); outline-offset: 2px; }
+
+.yw-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--cl-bd2, var(--border));
+  border-radius: 8px;
+  background: var(--cl-card, var(--card-bg));
+  color: var(--cl-tx, var(--text));
+  font-size: 16px;
+  font-family: inherit;
+}
+
+textarea.yw-input { resize: vertical; }
+.yw-input:focus-visible { outline: 2px solid var(--cl-ac, var(--banner-accent)); outline-offset: 2px; }
+.yw-count { text-align: right; }
+
+.yw-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.yw .yw-btn { min-height: 44px; justify-content: center; }
+
+.yw .yw-pri {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--cl-ac, #1908DF);
+  color: var(--cl-ac-t, #ffffff);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.yw .yw-pri:disabled { opacity: .5; cursor: default; }
+.yw button:focus-visible { outline: 2px solid var(--cl-ac, var(--banner-accent)); outline-offset: 2px; }
+
+.yw-note { margin: 4px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.yw-score { margin: 0; font-size: 18px; font-weight: 700; }
+.yw-skeleton { display: grid; gap: 8px; margin-top: 12px; }
+
+.yw-fallback { margin: 8px 0 0; font-size: 14px; }
+.yw-fallback a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--cl-ac, var(--banner-accent));
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* The shared file picker, inside the panel only. */
+.yw [data-testid$="-dropzone"] label[for],
+.yw [data-testid$="-dropzone"] button { min-height: 44px; }
+
+@media (max-width: 767px) {
+  .yw { padding: 16px; }
+  .yw-actions .yw-btn { flex: 1 1 140px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yw .yw-btn,
+  .yw button { transition: none; }
+}

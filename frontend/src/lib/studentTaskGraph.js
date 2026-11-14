@@ -111,7 +111,7 @@ export async function fetchStudentTaskGraph(studentId) {
       : Promise.resolve({ data: [], error: null }),
     taskIds.length
       ? withRetry(() => supabase.from('worksheets')
-        .select('id, title, subject, task_type, subject_id, items, instructions').in('id', taskIds),
+        .select('id, title, subject, task_type, subject_id, items, instructions, submission_mode, max_points').in('id', taskIds),
         { label: 'Student tasks fetch' })
       : Promise.resolve({ data: [], error: null }),
     withRetry(() => supabase.from('worksheet_submissions')

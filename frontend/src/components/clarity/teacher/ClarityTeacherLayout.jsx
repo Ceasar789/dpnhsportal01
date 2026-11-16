@@ -28,7 +28,7 @@ import { useNavigate, Link, useLocation, useNavigationType } from 'react-router-
 import {
   Users, BookOpen, GraduationCap,
   CalendarCheck, Megaphone, Moon, Sun, LogOut, Menu,
-  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Settings, X, FolderOpen,
+  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Settings, X, FolderOpen, UserRound,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -48,6 +48,7 @@ import ClarityTeacherAttendanceTab from './ClarityTeacherAttendanceTab';
 import ClarityTeacherMaterialsTab from './ClarityTeacherMaterialsTab';
 import '../../../styles/phone-tap.css';
 import '../../../styles/classic-contrast.css';
+import '../../../styles/top-title.css';
 
 // The pages already rebuilt in Clarity; every other route keeps its classic tab.
 const CLARITY_TABS = {
@@ -228,6 +229,12 @@ const ClarityTeacherLayout = ({ children }) => {
   const byPath = new Map([...navItems, ...clarityOnlyNavItems].map(item => [item.path, item]));
   const ClarityTab = CLARITY_TABS[location.pathname.replace(/\/+$/, '')];
   const restyled = RESTYLED_CLASSIC[location.pathname.replace(/\/+$/, '')];
+  // V2a: the page name in the phone top bar (the longest matching nav path).
+  const trimmedPath = location.pathname.replace(/\/+$/, '');
+  const onProfile = trimmedPath === '/teacher-dashboard/profile';
+  const pageTitle = onProfile ? 'Profile Settings' : [...byPath.values()]
+    .filter(item => trimmedPath === item.path || trimmedPath.startsWith(`${item.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0]?.label || '';
 
   return (
     <div className="x-app x-tch">
@@ -297,6 +304,14 @@ const ClarityTeacherLayout = ({ children }) => {
 
         {/* Pinned to the bottom: the profile link (when open) above the user card. */}
         <div style={{ marginTop: 'auto' }}>
+          {/* V2a: Profile and the password change, always one tap away. */}
+          <Link to="/teacher-dashboard/profile" onClick={() => setSidebarOpen(false)}
+            aria-current={onProfile ? 'page' : undefined}
+            aria-label={collapsed ? 'Profile & password' : undefined} title={collapsed ? 'Profile & password' : undefined}
+            className={`x-nav${onProfile ? ' on' : ''}`}>
+            <UserRound size={18} aria-hidden="true" />
+            {!collapsed && <span>Profile &amp; password</span>}
+          </Link>
           {profileOpen && !collapsed && (
             <button type="button" className="x-nav" onClick={() => { navigate('profile'); setProfileOpen(false); setSidebarOpen(false); }}>
               <Settings size={16} aria-hidden="true" /> <span>Profile Settings</span>
@@ -330,6 +345,7 @@ const ClarityTeacherLayout = ({ children }) => {
             aria-label="Open navigation menu" aria-expanded={sidebarOpen} aria-controls="teacher-sidebar">
             <Menu size={20} aria-hidden="true" />
           </button>
+          {pageTitle && <span className="x-top-title" title={pageTitle} aria-hidden="true">{pageTitle}</span>}
           <span className="x-sp" />
           {/* The shared bell keeps its real unread count; .x-bell restyles its
               button as a plain icon (scoped CSS, NotificationBell unchanged). */}

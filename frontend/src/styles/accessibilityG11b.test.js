@@ -88,8 +88,10 @@ describe('classic-contrast.css (inline-styled classic markup, !important)', () =
   });
   it('scoped to Clarity-only classes, never the theme class literal, imported by the admin and teacher shells', () => {
     const rules = [...contrast.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)].map(m => m[1].trim());
-    expect(rules).toHaveLength(4);
-    for (const r of rules) expect(r, r).toContain('.x-app');
+    expect(rules).toHaveLength(5);
+    // Four Clarity-shell rules, and (V2a) one for the classic dashboards in dark only.
+    expect(rules.filter(r => r.includes('.x-app'))).toHaveLength(4);
+    for (const r of rules) expect(r, r).toMatch(/\.x-app|^html\.dark \.dashboard-shell:not\(\.x-tch-classic\) /);
     expect(contrast).not.toContain(['theme', 'clarity'].join('-'));
     expect(src('components/clarity/admin/ClarityAdminLayout.jsx')).toContain("import '../../../styles/classic-contrast.css';");
     expect(src('components/clarity/teacher/ClarityTeacherLayout.jsx')).toContain("import '../../../styles/classic-contrast.css';");

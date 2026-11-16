@@ -414,7 +414,7 @@ html.theme-clarity .x-main { flex: 1; min-width: 0; display: flex; flex-directio
 html.theme-clarity .x-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 28px; background: var(--cl-top-bg); border-bottom: 1px solid var(--cl-bd); }
 html.theme-clarity .x-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; min-width: 0; flex: 0 1 340px; border: 1px solid var(--cl-bd); border-radius: 10px; background: var(--cl-card); color: var(--cl-dim); transition: border-color .2s, box-shadow .2s; }
 html.theme-clarity .x-search:focus-within { border-color: var(--cl-ac); box-shadow: 0 0 0 3px var(--cl-focus-ring); }
-html.theme-clarity .x-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--cl-tx); font: inherit; }
+html.theme-clarity .x-search input { flex: 1; align-self: stretch; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--cl-tx); font: inherit; }
 html.theme-clarity .x-sp { flex: 1; }
 html.theme-clarity .x-iconbtn { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--cl-mu); background: none; border: 1px solid transparent; cursor: pointer; position: relative; transition: background-color .2s, color .2s, transform .2s var(--cl-ease); }
 html.theme-clarity .x-iconbtn:hover { background: var(--cl-card); border-color: var(--cl-bd); color: var(--cl-tx); }
@@ -846,6 +846,10 @@ html.theme-clarity .x-sprof-grid { display: grid; grid-template-columns: repeat(
 html.theme-clarity .x-sprof-wide { grid-column: 1 / -1; }
 html.theme-clarity .x-sprof .x-label { font-size: 12px; font-weight: 600; }
 html.theme-clarity .x-sprof .x-input { height: 40px; }
+/* V2a: the form kit's calm field ring on the student Profile: the 1px accent border plus a soft
+   2px ring 1px out, no halo. .x-app outranks the dark-mode ring colour (G11b #8 #9). */
+html.theme-clarity .x-sprof .x-input:focus { box-shadow: none; }
+html.theme-clarity .x-app .x-sprof .x-input:focus-visible { outline: 2px solid var(--cl-ring-soft); outline-offset: 1px; }
 html.theme-clarity .x-sprof .x-input[readonly] { background: var(--cl-bg); color: var(--cl-mu); }
 html.theme-clarity .x-sprof .x-sprof-bio { height: auto; min-height: 120px; padding: 10px 12px; resize: vertical; }
 html.theme-clarity .x-sprof-note { font-weight: 500; color: var(--cl-dim); }
@@ -987,7 +991,16 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] > button { min-height: 44px; }
   html.theme-clarity .x-tlp button, html.theme-clarity .x-tlp select, html.theme-clarity .x-tws button, html.theme-clarity .x-tws select { min-height: 44px; }
   html.theme-clarity .x-select { min-height: 44px; }
+  html.theme-clarity .x-search { min-height: 44px; }
   html.theme-clarity .x-content [aria-label="Change profile photo"] { min-width: 44px; min-height: 44px; }
+  /* V2a: rows that scroll sideways show a soft edge where more items are hidden
+     (scroll shadows: the page-colour covers move with the content, the edges stay). */
+  html.theme-clarity .x-usr-tabs, html.theme-clarity .x-set-layout > .x-set-nav {
+    background: linear-gradient(90deg, var(--cl-bg) 30%, transparent) left / 40px 100% no-repeat local,
+      linear-gradient(270deg, var(--cl-bg) 30%, transparent) right / 40px 100% no-repeat local,
+      linear-gradient(90deg, var(--cl-bd2), transparent) left / 10px 100% no-repeat scroll,
+      linear-gradient(270deg, var(--cl-bd2), transparent) right / 10px 100% no-repeat scroll;
+  }
 }
 
 /* G10: phones in landscape (e.g. 844x390) get the drawer layout but not the
@@ -1005,6 +1018,8 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-chip, html.theme-clarity .r-tabs button, html.theme-clarity .x-pst button, html.theme-clarity .x-set-nav button,
   html.theme-clarity .x-usr-tabs button, html.theme-clarity .r-mini button, html.theme-clarity .x-subnav a { min-height: 44px; }
   html.theme-clarity .x-link { min-height: 44px; }
+  html.theme-clarity .x-nav { min-height: 44px; }
+  html.theme-clarity .x-search { min-height: 44px; }
   html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] > button { min-height: 44px; }
   html.theme-clarity .x-tlp button, html.theme-clarity .x-tlp select, html.theme-clarity .x-tws button, html.theme-clarity .x-tws select { min-height: 44px; }
   html.theme-clarity .x-content [aria-label="Change profile photo"] { min-width: 44px; min-height: 44px; }

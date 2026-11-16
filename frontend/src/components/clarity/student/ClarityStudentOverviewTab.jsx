@@ -11,7 +11,7 @@
 // ============================================
 
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ClipboardList, FileText, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useStudentData } from '../../../pages/dashboards/student/StudentDataContext';
@@ -23,6 +23,7 @@ import RankedBars from '../charts/RankedBars';
 import { Subjects } from './ClarityOverviewTab';
 import { overviewSummary } from './overviewSummary';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
+import GettingStartedCard from '../GettingStartedCard';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // A ring can only draw 0-100; any other recorded value shows as the number only.
@@ -65,6 +66,7 @@ const Kpi = ({ label, value, sub, ring, icon: Icon }) => (
 
 const ClarityStudentOverviewTab = () => {
   const { userData } = useAuth();
+  const navigate = useNavigate();
   const { graph, loading, refresh } = useStudentData();
   const loadError = !!graph && !!(graph.fatalError || graph.scheduleError);
   const { info, performance, attendance, subjects, tasksBySubject, pendingCount } = useMemo(
@@ -85,6 +87,15 @@ const ClarityStudentOverviewTab = () => {
       info.studentId && `ID: ${info.studentId}`, info.schoolYear && `School Year ${info.schoolYear}`].filter(Boolean).join(' · ')
     : null;
 
+  // V2a: the first-time steps, from a task to its score.
+  const toTasks = () => navigate('/student-dashboard/tasks');
+  const firstSteps = [
+    { id: 'tasks', title: 'See your tasks', text: 'Your teachers\' tasks are listed by due date.', action: 'Open Tasks', go: toTasks },
+    { id: 'open', title: 'Open a task', text: 'Tap a task to read what to do.', action: 'Open Tasks', go: toTasks },
+    { id: 'turn-in', title: 'Turn in your work', text: 'Add your file or link, then press Turn in.', action: 'Open Tasks', go: toTasks },
+    { id: 'score', title: 'See your score', text: 'Scores show here after your teacher returns your work.', action: 'Open Scores', go: () => navigate('/student-dashboard/scores') },
+  ];
+
   return (
     <div className="x-sov">
       <div className="x-head">
@@ -103,6 +114,8 @@ const ClarityStudentOverviewTab = () => {
           </div>
         )}
       </div>
+
+      <GettingStartedCard role="student" uid={userData?.uid} steps={firstSteps} />
 
       <section aria-label="Your progress" className="x-kpis">
         <Kpi label="Worksheet performance"
@@ -196,7 +209,12 @@ const ClarityStudentOverviewTab = () => {
             </>
           )
             : loadError ? <p className="x-empty">Could not load your scores.</p>
-              : withScores.length === 0 ? <p className="x-empty">No released scores yet.</p> : (
+              : withScores.length === 0 ? (
+                <div className="x-empty">
+                  <p>No released scores yet.</p>
+                  <p className="x-cs">Scores show here after your teacher returns your work.</p>
+                </div>
+              ) : (
                 <div className="x-sov-bars">
                   <RankedBars label="Average of released scores by subject" sorted={view === 'ranked'}
                     rows={withScores.map(s => ({ label: s.name, value: s.percent }))} />

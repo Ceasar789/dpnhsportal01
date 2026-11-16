@@ -66,7 +66,7 @@ const PublicHeader = ({ isMobile, active }) => {
     <Link
       to="/login"
       className={`font-work font-semibold text-white rounded-lg text-center hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a] ${className}`}
-      style={{ backgroundColor: '#22c55e' }}
+      style={{ backgroundColor: '#15803d' }}
     >
       Login
     </Link>
@@ -78,14 +78,14 @@ const PublicHeader = ({ isMobile, active }) => {
     <nav
       className="fixed top-0 left-0 right-0 z-50"
       style={{
-        height: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop,
+        minHeight: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop,
         backgroundColor: '#003b7a',
       }}
     >
       {isMobile ? (
-        <div className="flex h-full flex-col justify-center gap-1.5 px-4">
+        <div className="flex min-h-[inherit] flex-col justify-center gap-1.5 px-4">
           <Brand logo="38px" title="text-lg" subtitle="text-[11px]" />
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {links.map(([title, route]) => (
               <NavLink key={route} title={title} route={route} active={active === title} compact />
             ))}

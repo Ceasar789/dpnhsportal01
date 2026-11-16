@@ -7,7 +7,7 @@ const read = path => readFileSync(fileURLToPath(new URL(path, import.meta.url)),
 const css = read('./index.css');
 
 describe('phone text fields are 16px so iPhone Safari does not zoom', () => {
-  const block = css.match(/@media \(max-width: 767px\) \{\s*:root :is\(([\s\S]*?)\)\s*\{\s*font-size: 16px;\s*\}\s*\}/);
+  const block = css.match(/@media \(max-width: 767px\), \(max-width: 1023\.98px\) and \(max-height: 500px\) \{\s*:root :is\(([\s\S]*?)\)\s*\{\s*font-size: 16px;\s*\}\s*\}/);
 
   it('exists inside the phone media query, without !important', () => {
     expect(block).toBeTruthy();

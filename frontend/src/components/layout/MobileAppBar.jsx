@@ -7,9 +7,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Menu, User, Lock, LogOut } from 'lucide-react';
+import { Menu, User, UserRound, Lock, LogOut } from 'lucide-react';
 
-const MobileAppBar = ({ role, onMenuClick }) => {
+// V2a: Profile has a URL for students and teachers; the admin Profile is a page
+// inside the admin dashboard, so that shell passes onProfileClick.
+const PROFILE_PATH = { student: '/student-dashboard/profile', teacher: '/teacher-dashboard/profile' };
+
+const MobileAppBar = ({ role, onMenuClick, onProfileClick }) => {
   const navigate = useNavigate();
   const { logout, userData } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -18,6 +22,8 @@ const MobileAppBar = ({ role, onMenuClick }) => {
     await logout();
     navigate('/', { replace: true });
   };
+
+  const openProfile = onProfileClick || (PROFILE_PATH[role] ? () => navigate(PROFILE_PATH[role]) : null);
 
   const portalTitle = {
     student: 'Student Portal',
@@ -64,6 +70,19 @@ const MobileAppBar = ({ role, onMenuClick }) => {
             </div>
 
             {/* Menu Items */}
+            {openProfile && (
+              <button
+                onClick={() => {
+                  openProfile();
+                  setMenuOpen(false);
+                }}
+                className="w-full min-h-[44px] flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 text-left"
+              >
+                <UserRound size={18} aria-hidden="true" />
+                <span className="text-sm">Profile &amp; password</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 navigate('/change-password');

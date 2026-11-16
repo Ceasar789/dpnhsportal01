@@ -12,6 +12,10 @@
    #6  Worksheets stat labels ("Saved Worksheets", "Distributed", ...).
    #5  Worksheets selected filter chips in dark (inline white text on the
        light dark-mode accent).
+   V2a The classic dashboards in dark (the hidden rollback): accent text
+       (#4b3bf5, 2.07-2.61:1 on the dark surfaces) takes the light dark-mode
+       accent. Scoped to the classic shell root; the Clarity teacher shell
+       reuses that class for its classic tabs, hence the :not().
    ============================================ */
 
 html.dark .x-app:not(.x-tch) .x-content button.mt-auto:has(> .lucide-lock) { color: var(--cl-ac) !important; }
@@ -21,3 +25,5 @@ html:not(.dark) .x-app .x-content .text-left > .justify-between > span[style*="c
 .x-app .x-tws .grid > .rounded-xl.p-4 > p.text-xs.mb-1:first-child { color: var(--cl-mu) !important; }
 
 html.dark .x-app .x-tws [role="group"][aria-label^="Filter worksheets"] > button[aria-pressed="true"] { color: var(--cl-ac-t) !important; }
+
+html.dark .dashboard-shell:not(.x-tch-classic) :is(.sidebar-item.active, .sidebar-sub.active, .btn-ghost, .edit-action, .archive-toggle:hover, .archive-toggle.active, .teacher-option-avatar, .teacher-summary-avatar, .teaching-empty-icon, .subject-chip-state, .grade-tab.active, .news-action.blue, .cal-agenda-today, .settings-hint a, .teacher-sidebar-link-active, .student-sidebar-link-active, [style^="color: var(--accent)"], button.mt-auto:has(> .lucide-lock)) { color: var(--heading-accent) !important; }

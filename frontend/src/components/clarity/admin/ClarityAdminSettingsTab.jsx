@@ -21,10 +21,11 @@
 //   - the slow-load flags, settingsReady and the beforeunload warning, :62-75
 // ============================================
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDelayedFlag } from '../../../lib/useDelayedFlag';
 import { formatDateTime } from '../../../lib/formatDate';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
+import { centerSelectedInRow } from '../../../lib/scrollRow';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // ---- TEMPORARY copy (SettingsTab.jsx:35-48) ----
@@ -99,6 +100,10 @@ const ClarityAdminSettingsTab = () => {
   }, [settingsDirty]);
   // ---- end of the copy ----
 
+  // V2a: on phones the section list scrolls sideways; keep the current one in view.
+  const sectionNavRef = useRef(null);
+  useEffect(() => { centerSelectedInRow(sectionNavRef.current); }, [activeSettingsSub]);
+
   // U4 (decision 4): Save stays enabled while a value is invalid. The message
   // is already on the field; pressing Save moves focus there (no toast).
   const pressSave = async () => {
@@ -116,7 +121,7 @@ const ClarityAdminSettingsTab = () => {
       </div>
 
       <div className="x-set-layout">
-        <nav className="x-set-nav" aria-label="Settings sections">
+        <nav ref={sectionNavRef} className="x-set-nav" aria-label="Settings sections">
           {SECTIONS.map(([id, label]) => (
             <button key={id} type="button" className={activeSettingsSub === id ? 'on' : undefined}
               aria-current={activeSettingsSub === id ? 'true' : undefined}

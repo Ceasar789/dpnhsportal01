@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BarChart3, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Menu, Moon, Settings, Sun, X,
+  BarChart3, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Menu, Moon, Settings, Sun, UserRound, X,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -32,6 +32,7 @@ import { overviewSummary } from './overviewSummary';
 import ClarityStudentProfileTab from './ClarityStudentProfileTab';
 import ClarityStudentAttendanceTab from './ClarityStudentAttendanceTab';
 import ClarityStudentAnnouncementsTab from './ClarityStudentAnnouncementsTab';
+import '../../../styles/top-title.css';
 
 // Routes shown with a Clarity page instead of the classic tab (the classic
 // route stays in StudentDashboard and is what ?clarity=0 shows).
@@ -66,6 +67,12 @@ const ClarityStudentLayout = ({ children }) => {
   const location = useLocation();
   const ClarityPage = CLARITY_PAGES[location.pathname.replace(/\/+$/, '')];
   const restyled = RESTYLED_CLASSIC[location.pathname.replace(/\/+$/, '')];
+  // V2a: the page name in the phone top bar (the longest matching nav path).
+  const trimmedPath = location.pathname.replace(/\/+$/, '');
+  const onProfile = trimmedPath === '/student-dashboard/profile';
+  const pageTitle = onProfile ? 'Profile Settings' : STUDENT_NAV
+    .filter(item => trimmedPath === item.path || trimmedPath.startsWith(`${item.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0]?.label || '';
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -221,6 +228,12 @@ const ClarityStudentLayout = ({ children }) => {
 
         {/* Pinned to the bottom: the profile link (when open) above the user card. */}
         <div style={{ marginTop: 'auto' }}>
+        {/* V2a: Profile and the password change, always one tap away. */}
+        <Link to="/student-dashboard/profile" onClick={() => setSidebarOpen(false)}
+          aria-current={onProfile ? 'page' : undefined} className={`x-nav${onProfile ? ' on' : ''}`}>
+          <UserRound size={18} aria-hidden="true" />
+          <span>Profile &amp; password</span>
+        </Link>
         {profileOpen && (
           <button type="button" className="x-nav" onClick={() => { navigate('profile'); setProfileOpen(false); setSidebarOpen(false); }}>
             <Settings size={16} aria-hidden="true" /> Profile Settings
@@ -248,6 +261,7 @@ const ClarityStudentLayout = ({ children }) => {
             aria-label="Open navigation menu" aria-expanded={sidebarOpen} aria-controls="student-sidebar">
             <Menu size={20} aria-hidden="true" />
           </button>
+          {pageTitle && <span className="x-top-title" title={pageTitle} aria-hidden="true">{pageTitle}</span>}
           <span className="x-sp" />
           {/* The shared bell keeps its real unread count; .x-bell restyles its
               button as a plain icon (scoped CSS, NotificationBell unchanged). */}

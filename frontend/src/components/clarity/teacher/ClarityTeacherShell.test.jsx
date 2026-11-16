@@ -57,7 +57,7 @@ const renderAt = (path) => render(
 const CLARITY = '/teacher-dashboard?clarity=1';
 const CLASSIC = '/teacher-dashboard';
 const sidebar = () => document.getElementById('teacher-sidebar');
-const navLinks = () => within(sidebar()).getAllByRole('link').map(a => [a.textContent.trim() || a.getAttribute('aria-label'), a.getAttribute('href'), a.getAttribute('aria-current')]);
+const navLinks = () => within(sidebar().querySelector('nav')).getAllByRole('link').map(a => [a.textContent.trim() || a.getAttribute('aria-label'), a.getAttribute('href'), a.getAttribute('aria-current')]);
 const setScrollY = (y) => { Object.defineProperty(window, 'scrollY', { configurable: true, writable: true, value: y }); fireEvent.scroll(window); };
 
 let saved;

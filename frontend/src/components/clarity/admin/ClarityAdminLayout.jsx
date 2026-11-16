@@ -14,7 +14,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   Sun, Moon, LogOut, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings,
-  ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, Clock,
+  ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, Clock, UserRound,
 } from 'lucide-react';
 import NotificationBell from '../../NotificationBell';
 import Avatar from '../../Avatar';
@@ -37,6 +37,7 @@ import { useHtmlClass } from '../useHtmlClass';
 import ClassicAdminStyles from './ClassicAdminStyles';
 import { useAdminShellBehavior } from './useAdminShellBehavior';
 import '../../../styles/classic-contrast.css';
+import '../../../styles/top-title.css';
 
 // The classic items, keys, labels and order (AdminDashboard.jsx:1338-1349),
 // grouped under headings. The grouping is an ASSUMPTION the owner may change.
@@ -170,6 +171,10 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
 
   // Below 1024px a closed drawer is off-screen; hide it from tab and readers.
   const drawerHidden = !desktop && !sidebarOpen;
+  // V2a: the page name in the phone top bar.
+  const onProfile = page === 'profile';
+  const pageTitle = onProfile ? 'Profile Settings'
+    : NAV_GROUPS.flatMap(group => group.items).find(([key]) => key === page)?.[1] || '';
 
   return (
     <div className="x-app">
@@ -265,6 +270,14 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
 
         {/* Pinned to the bottom: the profile link (when open) above the user card. */}
         <div style={{ marginTop: 'auto' }}>
+          {/* V2a: Profile and the password change, always one tap away. */}
+          <button type="button" className={`x-nav${onProfile ? ' on' : ''}`}
+            aria-current={onProfile ? 'page' : undefined}
+            aria-label={collapsed ? 'Profile & password' : undefined} title={collapsed ? 'Profile & password' : undefined}
+            onClick={() => requestSidebarNavigation(() => setPage('profile'), 'Profile Settings')}>
+            <UserRound size={18} aria-hidden="true" />
+            {!collapsed && <span>Profile &amp; password</span>}
+          </button>
           {profileOpen && !collapsed && (
             <button type="button" className="x-nav"
               onClick={() => requestSidebarNavigation(() => { setPage('profile'); setProfileOpen(false); }, 'Profile Settings')}>
@@ -296,6 +309,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
             aria-label="Open navigation" aria-expanded={sidebarOpen} aria-controls="admin-sidebar">
             <Menu size={20} aria-hidden="true" />
           </button>
+          {pageTitle && <span className="x-top-title" title={pageTitle} aria-hidden="true">{pageTitle}</span>}
           <span className="x-sp" />
           {/* The shared bell keeps its real unread count; .x-bell restyles its
               button as a plain icon (scoped CSS, NotificationBell unchanged). */}

@@ -474,8 +474,9 @@ body {
    color, file and button-type inputs are untouched. :root plus the typed
    selectors give 0,2,1, enough to beat the single-class size utilities
    (text-sm, text-xs, .form-input) and the admin field rule without
-   !important. 768px and up keep their current sizes. */
-@media (max-width: 767px) {
+   !important. 768px and up keep their current sizes, except phones held
+   sideways (V2a: up to 1023.98px wide and at most 500px tall). */
+@media (max-width: 767px), (max-width: 1023.98px) and (max-height: 500px) {
   :root :is(
     input:not([type]),
     input[type="text"], input[type="email"], input[type="password"], input[type="search"],

@@ -1,0 +1,31 @@
+/* ============================================
+   V2a: the page name in the Clarity top bar, below 1024px (where the
+   sidebar is a drawer and the page heading scrolls away). One line: a long
+   name is clamped with an ellipsis and the full name is in its title. No
+   white-space: nowrap (line-clamp instead). Scoped to its own class, used
+   only by the three Clarity shells; tokens with a plain fallback.
+   ============================================ */
+
+.x-top .x-top-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--cl-tx, #0f172a);
+}
+
+/* Only the title gives way on a narrow bar: the 44px buttons keep their size. */
+@media (max-width: 1023.98px) {
+  .x-top > :not(.x-top-title) { flex-shrink: 0; }
+}
+
+@media (min-width: 1024px) {
+  .x-top .x-top-title { display: none; }
+}

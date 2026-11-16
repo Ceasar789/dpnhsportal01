@@ -24,7 +24,7 @@
 //   - the resend-invitation click body (no row click to stop here)
 // ============================================
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Archive, ArchiveRestore, Plus, Search } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
@@ -33,6 +33,7 @@ import Avatar from '../../Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { focusAfterRemoval } from '../../../lib/focusAfterRemoval';
 import { formatDate } from '../../../lib/formatDate';
+import { centerSelectedInRow } from '../../../lib/scrollRow';
 import { Skeleton, SkeletonCircle, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
 
@@ -75,6 +76,10 @@ const ClarityAdminUsersTab = () => {
     showArchived, statusFilter = '', userSearch = '', users = [], usersLoading, usersError
   } = useAdminContext();
 
+  // V2a: the selected role tab stays in view when the row scrolls sideways.
+  const roleTabsRef = useRef(null);
+  useEffect(() => { centerSelectedInRow(roleTabsRef.current); }, [roleFilter]);
+
   const [selId, setSelId] = useState(null);
   // Selection only: nothing shows until a row is picked. Nothing is called.
   const sel = filteredUsers.find(u => u.id === selId) || null;
@@ -104,7 +109,7 @@ const ClarityAdminUsersTab = () => {
           </div>
         </div>
 
-        <div className="x-usr-tabs" role="group" aria-label="Filter users by role">
+        <div ref={roleTabsRef} className="x-usr-tabs" role="group" aria-label="Filter users by role">
           {ROLE_TABS.map(([value, label]) => (
             <button key={label} type="button" className={roleFilter === value ? 'on' : ''}
               aria-pressed={roleFilter === value} onClick={() => setRoleFilter(value)}>{label}</button>

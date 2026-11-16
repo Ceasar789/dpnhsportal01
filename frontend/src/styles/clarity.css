@@ -54,6 +54,7 @@ html.theme-clarity {
   --cl-top-bg: rgba(246, 247, 251, 0.86);   /* .x-top: bg 86%, transparent */
   --cl-tabbar-bg: rgba(255, 255, 255, 0.9); /* .x-tabbar: card 90%, transparent */
   --cl-focus-ring: rgba(61, 52, 224, 0.18); /* focus ring: ac 18%, transparent */
+  --cl-ring-soft: rgba(61, 52, 224, 0.6);   /* calm field ring (form kit): ac 60%, transparent */
   --cl-btn-hover: #ececee;                  /* .x-btn:hover: card 92%, tx */
   --cl-pri-hover: #362ec5;                  /* .x-btn.pri:hover: ac 88%, #000 */
   --cl-pri-shadow: rgba(61, 52, 224, 0.32); /* .x-btn.pri:hover shadow: ac 32%, transparent */
@@ -107,6 +108,7 @@ html.theme-clarity.dark {
   --cl-top-bg: rgba(12, 15, 28, 0.86);
   --cl-tabbar-bg: rgba(20, 24, 48, 0.9);
   --cl-focus-ring: rgba(154, 148, 255, 0.18);
+  --cl-ring-soft: rgba(154, 148, 255, 0.7);
   --cl-btn-hover: #252940;
   --cl-pri-hover: #8882e0;
   --cl-pri-shadow: rgba(154, 148, 255, 0.32);

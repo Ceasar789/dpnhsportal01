@@ -27,7 +27,7 @@ export const AdminProvider = ({ userData, children }) => {
     { status: adminLogic.settingsStatus, year: adminLogic.settingsSavedYear });
 
   return (
-    <AdminContext.Provider value={{ ...adminLogic, ...academicLogic }}>
+    <AdminContext.Provider value={{ ...adminLogic, ...academicLogic, currentUserId: userData?.uid }}>
       {children}
     </AdminContext.Provider>
   );

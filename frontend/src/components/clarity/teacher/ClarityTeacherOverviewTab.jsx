@@ -22,6 +22,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Calendar, FileText, Megaphone, Plus, Sparkles, Upload } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import GettingStartedCard from '../GettingStartedCard';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { savedPlanType, SAVED_PLAN_TYPE_LABEL } from '../../../pages/dashboards/teacher/lessonPlans/savedPlanType';
@@ -276,6 +277,13 @@ const ClarityTeacherOverviewTab = () => {
   const doneToday = todaysClasses.filter(c => c.status === 'finished').length;
   const go = path => () => navigate(path);
   const yearText = loading ? 'Loading…' : overviewError ? 'Unavailable' : academicYear;
+  // V2a: the first-time steps, from classes to scores.
+  const firstSteps = [
+    { id: 'classes', title: 'Confirm your classes', text: 'Check the sections and students your admin gave you.', action: 'Open Students', go: go('/teacher-dashboard/students') },
+    { id: 'task', title: 'Create a task', text: 'Make a worksheet, assignment or quiz.', action: 'Open Worksheets', go: go('/teacher-dashboard/worksheets') },
+    { id: 'distribute', title: 'Send it to a class', text: 'Distribute the task to one of your sections.', action: 'Open Worksheets', go: go('/teacher-dashboard/worksheets') },
+    { id: 'submissions', title: 'Check submissions', text: 'See who turned in work and give scores.', action: 'Open Grading', go: go('/teacher-dashboard/grades') },
+  ];
 
   return (
     <div className="x-tov">
@@ -290,6 +298,8 @@ const ClarityTeacherOverviewTab = () => {
           </button>
         </div>
       </div>
+
+      <GettingStartedCard role="teacher" uid={userData?.uid} steps={firstSteps} />
 
       {overviewError && (
         <div className="x-card x-pad x-rail" role="alert" style={{ marginBottom: 16 }}>
@@ -393,7 +403,12 @@ const ClarityTeacherOverviewTab = () => {
               <button type="button" className="x-link" onClick={go('/teacher-dashboard/lesson-plans')}>View all lesson plans →</button>
             </div>
             {loading ? <><p className="x-sr">Loading lesson plans…</p>{rowsSkeleton(4, true)}</>
-              : recentLessonPlans.length === 0 ? <p className="x-empty">No lesson plans yet.</p> : (
+              : recentLessonPlans.length === 0 ? (
+                <div className="x-empty">
+                  <p>No lesson plans yet.</p>
+                  <button type="button" className="x-btn pri" style={{ marginTop: 12 }} onClick={go('/teacher-dashboard/lesson-plans')}>Create your first lesson plan</button>
+                </div>
+              ) : (
                 <ul className="x-rows">
                   {recentLessonPlans.map(plan => {
                     const status = getStatusStyle(plan.status);

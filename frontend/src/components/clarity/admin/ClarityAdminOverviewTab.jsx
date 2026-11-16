@@ -12,6 +12,7 @@ import {
   Activity, ArrowRight, Calendar, FileText, Newspaper, Plus, Settings, Users,
 } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
+import GettingStartedCard from '../GettingStartedCard';
 import { useDelayedFlag } from '../../../lib/useDelayedFlag';
 import { manilaDateToday } from '../../../lib/taskFormatting';
 import { wholePercents } from '../../../lib/percentages';
@@ -110,6 +111,17 @@ const Kpi = ({ label, icon: Icon, value, caption, side }) => (
   </div>
 );
 
+// V2a: the first-time set-up order. Each later step needs the one before it.
+const adminSteps = setPage => [
+  { id: 'settings', title: 'Check the school year', text: 'Set the school name, school year and term.', action: 'Open Settings', go: () => setPage('settings') },
+  { id: 'subjects', title: 'Add subjects and sections', text: 'Add the subjects first, then the class sections.', action: 'Open Subjects', go: () => setPage('subjects') },
+  { id: 'users', title: 'Add teachers and students', text: 'Create an account for each person.', action: 'Open Users', go: () => setPage('users') },
+  { id: 'assign', title: 'Assign teachers and schedules', text: 'Choose who teaches each subject and section, then add the weekly class times.', actions: [
+    { id: 'teaching-load', label: 'Open Teaching Load', go: () => setPage('teaching-load') },
+    { id: 'schedules', label: 'Open Schedules', go: () => setPage('schedules') },
+  ] },
+];
+
 const ClarityAdminOverviewTab = () => {
   const {
     stats = {}, statsErrors = {}, overviewLoading = false, fetchStats,
@@ -119,7 +131,7 @@ const ClarityAdminOverviewTab = () => {
     calEvents = [], calLoading = false, calError = false,
     memos = [], memosLoading = false, memosError = '',
     activityLogs = [], activityError = '', fetchLogs,
-    setPage, openCreateUser,
+    setPage, openCreateUser, currentUserId,
   } = useAdminContext() || {};
   const slow = useDelayedFlag(overviewLoading);
   const [roleView, setRoleView] = useState('Donut');
@@ -173,6 +185,8 @@ const ClarityAdminOverviewTab = () => {
           </div>
         )}
       </div>
+
+      {setPage && <GettingStartedCard role="admin" uid={currentUserId} steps={adminSteps(setPage)} />}
 
       {Object.values(statsErrors).some(Boolean) && (
         <div className="x-card x-pad x-rail" role="alert" style={{ marginBottom: 16 }}>
@@ -240,7 +254,12 @@ const ClarityAdminOverviewTab = () => {
               <SkeletonGroup style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}><SkeletonCircle size={130} /></SkeletonGroup>
             </>
           ) : roleTotal === 0 ? (
-            <p className="x-empty">No accounts yet</p>
+            <div className="x-empty">
+              <p>No accounts yet</p>
+              {openCreateUser && setPage && (
+                <button type="button" className="x-btn pri" style={{ marginTop: 12 }} onClick={createUser}>Create the first user</button>
+              )}
+            </div>
           ) : roleView === 'Donut' ? (
             <Donut segments={roleCounts} label="Role distribution" totalLabel="users" gap={0.5} size={130} showPercent={false} />
           ) : roleView === 'Split' ? (
@@ -271,7 +290,10 @@ const ClarityAdminOverviewTab = () => {
             {fetchLogs && <button type="button" className="x-btn" style={{ marginTop: 12 }} onClick={fetchLogs}>Retry</button>}
           </div>
         ) : activityLogs.length === 0 ? (
-          <p className="x-empty">No recent activity</p>
+          <div className="x-empty">
+            <p>No recent activity</p>
+            <p className="x-cs">New accounts and changes will show here.</p>
+          </div>
         ) : (
           <ul className="x-rows">
             {activityLogs.map((log) => {

@@ -305,29 +305,33 @@ describe('the user dialog is the classic one', () => {
     expect(norm(screen.getByRole('dialog').outerHTML)).toBe(classic);
   });
 
-  it('validation: Send Invitation with empty fields shows the same errors and calls saveUser', () => {
+  it('validation: Send invite with empty fields shows the same errors, focuses Full name, and does not call saveUser', () => {
     const run = (Tab) => {
       h.ctx = baseCtx({ modal: 'user' });
       show(Tab);
-      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send Invitation' }));
-      const out = [norm(screen.getByRole('dialog').outerHTML), h.ctx.saveUser.mock.calls.length];
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send invite' }));
+      const out = [norm(screen.getByRole('dialog').outerHTML), h.ctx.saveUser.mock.calls.length, document.activeElement.id];
       cleanup();
       return out;
     };
     const clarity = run(ClarityAdminUsersTab);
     expect(clarity).toEqual(run(UsersTab));
-    expect(clarity[0]).toContain('Full name is required.');
-    expect(clarity[0]).toContain('Email is required.');
-    expect(clarity[1]).toBe(1);
+    expect(clarity[0]).toContain('Enter the full name.');
+    expect(clarity[0]).toContain('Enter the email address.');
+    expect(clarity[0]).toContain('Please fix 3 things:');
+    expect(clarity[1]).toBe(0);
+    expect(clarity[2]).toBe('users-full-name');
   });
 
-  it('the discard guard is kept', () => {
+  it('the discard guard is kept, in-app', () => {
     h.ctx = baseCtx({ modal: 'user' });
-    show();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    screen.getByLabelText(/Full Name/).value = 'Changed';
+    const view = show();
+    h.ctx = baseCtx({ modal: 'user', uName: 'Changed' });   // as if typed
+    view.rerender(<ClarityAdminUsersTab />);
+    const confirm = vi.spyOn(window, 'confirm');
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
-    expect(confirm).toHaveBeenCalledWith('Discard changes?');
+    expect(screen.getByRole('alertdialog', { name: 'Discard your changes?' })).toBeTruthy();
+    expect(confirm).not.toHaveBeenCalled();
     expect(h.ctx.closeModal).not.toHaveBeenCalled();
   });
 });

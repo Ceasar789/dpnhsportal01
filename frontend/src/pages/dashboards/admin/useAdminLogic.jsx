@@ -27,7 +27,8 @@ import {
   verifyUpdatedSettingsRows,
 } from './shared/settingsRules';
 import { filterAndRankUsers } from './shared/userSearch';
-import { LRN_PATTERN, LRN_REQUIRED, LRN_TAKEN } from './shared/lrn';
+import { LRN_TAKEN } from './shared/lrn';
+import { resendInviteError, userSaveError, validateUserForm } from './shared/userForm';
 import {
   isInvalidCalendarRange,
   philippineDateKey,
@@ -352,7 +353,7 @@ export const useAdminLogic = (userData) => {
       await backendRequest(`/api/admin/users/${invitedUser.id}/resend-invitation`, { method: 'POST' });
       showToast(`Invitation resent to ${invitedUser.email}.`);
     } catch (error) {
-      showToast(error.message || 'Invitation could not be resent.', 'error');
+      showToast(resendInviteError(error), 'error');
       throw error;
     }
   };
@@ -366,21 +367,24 @@ export const useAdminLogic = (userData) => {
     openModal('user');
   };
 
-  const saveUser = async () => {
-  if (!uName.trim() || !uEmail.trim()) return showToast('Name and email required', 'error');
+  // U3: returns { ok } so the dialog can show field errors next to the
+  // fields. Field problems are never toasted (the dialog shows them inline);
+  // a toast reports only the final result. Server errors go through
+  // userSaveError, so no raw database or server text is shown.
+  //   addAnother  after a successful CREATE, keep the dialog open, keep the
+  //               role, clear the other fields (Send and add another, D4)
+  const saveUser = async ({ addAnother = false } = {}) => {
+  const fieldErrors = validateUserForm({ name: uName, email: uEmail, role: uRole, lrn: uLrn, editing: Boolean(editUser) });
+  if (fieldErrors.length) return { ok: false, fieldErrors };
   if (editUser?.id === userData?.uid
       && (uRole !== editUser.role || uStatus !== (editUser.status || 'active').toLowerCase())) {
     showToast('You cannot change your own administrator role or account status.', 'error');
-    return;
+    return { ok: false };
   }
   // LRN, students only: required to create one; on edit only checked (and
   // saved) when filled in, so a legacy student without one can still be saved.
   const lrnValue = uRole === 'student' ? uLrn.trim() : '';
-  if (uRole === 'student' && (!editUser || lrnValue) && !LRN_PATTERN.test(lrnValue)) {
-    showToast(LRN_REQUIRED, 'error');
-    return;
-  }
-  if (savingUserRef.current) return;   // the second of a double click
+  if (savingUserRef.current) return { ok: false, busy: true };   // the second of a double click
   savingUserRef.current = true;
   setUSaving(true);
   try {
@@ -428,6 +432,9 @@ export const useAdminLogic = (userData) => {
       setStats(prev => ({ ...prev, users: prev.users + 1 }));
       await logActivity('Invited user', `${uName} (${uRole})`);
       showToast('User invited. They can create their password from the email link.');
+      if (addAnother) {
+        setUName(''); setUEmail(''); setUDept(''); setULrn('');
+      }
     }
     
     // Step 6: Refresh stats (non-blocking)
@@ -438,12 +445,15 @@ export const useAdminLogic = (userData) => {
       console.warn('⚠️ Stats refresh failed (non-blocking):', err);
     }
     
-    closeModal();
+    if (!(addAnother && !editUser)) closeModal();
     console.log('🎉 User operation completed successfully');
-    
+    return { ok: true };
   } catch (e) {
     console.error('❌ User save error:', e);
-    showToast(e.message || 'Error saving user', 'error');
+    const mapped = userSaveError(e);
+    if (mapped.fieldId) return { ok: false, fieldErrors: [{ fieldId: mapped.fieldId, message: mapped.message }] };
+    showToast(mapped.message, 'error');
+    return { ok: false };
   } finally { 
     savingUserRef.current = false;
     setUSaving(false); 

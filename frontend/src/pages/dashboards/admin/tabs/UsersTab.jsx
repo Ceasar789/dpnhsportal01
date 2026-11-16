@@ -4,15 +4,11 @@
 // Includes the USER MODAL, which only this tab opens.
 // ============================================
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Archive, ArchiveRestore, Mail, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { avatarColor, roleBadge, roleLabel } from '../shared/helpers';
-import { LRN_PATTERN, LRN_REQUIRED, lrnInput } from '../shared/lrn';
-
-// The roles an admin can give an account.
-const ASSIGNABLE_ROLES = ['student', 'teacher', 'main_admin'];
-import Modal from '../../../../components/ui/Modal';
+import UserFormDialog from '../shared/UserFormDialog';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import Button from '../../../../components/ui/Button';
 import { useSignedPhotoUrl } from '../../../../hooks/useSignedPhotoUrl';
@@ -29,9 +25,9 @@ const UserAvatarCell = ({ user }) => {
 
 const UsersTab = () => {
   const {
-    closeModal, deleteUser, restoreUser, editUser, fetchUsers, filteredUsers, modal, openCreateUser, openEditUser, resendInvitation, roleFilter, saveUser, setRoleFilter,
-    setStatusFilter, setShowArchived, setUEmail, setUName, setURole, setUStatus, setUserSearch,
-    showArchived, statusFilter, uDept, setUDept, uEmail, uLrn = '', setULrn, uName, uRole, uSaving, uStatus, userSearch, users, usersLoading, usersError, onlineUsers
+    deleteUser, restoreUser, fetchUsers, filteredUsers, openCreateUser, openEditUser, resendInvitation, roleFilter, setRoleFilter,
+    setStatusFilter, setShowArchived, setUserSearch,
+    showArchived, statusFilter, userSearch, users, usersLoading, usersError, onlineUsers
   } = useAdminContext();
 
   // UX-062: the form mixed required and optional fields and distinguished
@@ -42,21 +38,7 @@ const UsersTab = () => {
   const narrow = useMediaQuery('(max-width: 560px)');
   const [sheetUser, setSheetUser] = useState(null);
 
-  const [tried, setTried] = useState(false);
   const [resendingId, setResendingId] = useState(null);
-  // Reset on CLOSE, not on open. Modal is a child, so its snapshot
-  // effect runs before this one — clearing a stale confirm value on open
-  // would change a field after the snapshot was taken and the modal would
-  // report a form the admin has not touched as dirty.
-  useEffect(() => {
-    if (modal !== 'user') {
-      setTried(false);
-    }
-  }, [modal]);
-  const missingName = tried && !uName.trim();
-  const missingEmail = tried && !uEmail.trim();
-  // A student's LRN: required to create one; on edit only checked when filled in.
-  const badLrn = tried && uRole === 'student' && (!editUser || uLrn.trim() !== '') && !LRN_PATTERN.test(uLrn.trim());
 
   return (
     <>
@@ -210,90 +192,8 @@ const UsersTab = () => {
         onClose={() => setSheetUser(null)}
       />
 
-      {/* USER MODAL — first migration to <Modal>. Fixes UX-098 (no focus
-          contract) and UX-026 (every close path discarded the form). The
-          fields are untouched; labels and validation are Phase 2 and 3. */}
-      <Modal
-        open={modal === 'user'}
-        title={editUser ? 'Edit User' : 'Create User'}
-        onClose={closeModal}
-        footer={(requestClose) => (
-          <>
-            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-            <Button
-              onClick={() => {
-                setTried(true);
-                saveUser();
-              }}
-              busy={uSaving}
-              busyLabel={editUser ? 'Updating…' : 'Sending…'}
-            >
-              {editUser ? 'Update' : 'Send Invitation'}
-            </Button>
-          </>
-        )}
-      >
-          <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="users-full-name">Full Name<span className="form-req" aria-hidden="true">*</span></label>
-            <input id="users-full-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz"
-              aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'users-full-name-error' : undefined} />
-            {missingName && <div className="field-error" id="users-full-name-error">Full name is required.</div>}
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="users-email">Email{!editUser && <span className="form-req" aria-hidden="true">*</span>}</label>
-            <input id="users-email" className={`form-input${missingEmail ? ' is-invalid' : ''}`} value={uEmail} onChange={e => setUEmail(e.target.value)} placeholder="user@school.edu" disabled={!!editUser}
-              aria-required={editUser ? undefined : 'true'} aria-invalid={missingEmail || undefined}
-              aria-describedby={editUser ? 'users-email-hint' : missingEmail ? 'users-email-error' : undefined} />
-            {/* UX-058: disabled with nothing saying why, or what would make
-                it editable. */}
-            {editUser && <div className="form-hint" id="users-email-hint">An account's email address is its login and cannot be changed here. Archive the account and create a new one to move someone to a different address.</div>}
-            {missingEmail && <div className="field-error" id="users-email-error">Email is required.</div>}
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="users-role">Role</label>
-            <select id="users-role" className="form-input" value={uRole} onChange={e => setURole(e.target.value)} disabled={editUser?.onboarding_status === 'invitation_pending'}>
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="main_admin">Admin</option>
-              {/* An account still holding a role the app no longer uses
-                  (faculty, registrar) shows that role instead of silently
-                  reading as Student. It cannot be chosen again. */}
-              {!ASSIGNABLE_ROLES.includes(uRole) && (
-                <option value={uRole} disabled>{`${roleLabel(uRole)} (no longer used)`}</option>
-              )}
-            </select>
-            {editUser?.onboarding_status === 'invitation_pending' && <div className="form-hint">The assigned role is locked until password setup completes.</div>}
-          </div>
-          {(uRole === 'teacher' || uRole === 'faculty') && (
-            <div className="form-row">
-              <label className="form-label" htmlFor="users-department-subject">Department / Subject</label>
-              <input id="users-department-subject" className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
-            </div>
-          )}
-          {uRole === 'student' && (
-            <div className="form-row">
-              <label className="form-label" htmlFor="users-lrn">LRN{!editUser && <span className="form-req" aria-hidden="true">*</span>}</label>
-              <input id="users-lrn" className={`form-input${badLrn ? ' is-invalid' : ''}`} value={uLrn} onChange={e => setULrn(lrnInput(e.target.value))} placeholder="12 digits"
-                inputMode="numeric" maxLength={12} autoComplete="off"
-                aria-required={editUser ? undefined : 'true'} aria-invalid={badLrn || undefined} aria-describedby={badLrn ? 'users-lrn-error' : undefined} />
-              {badLrn && <div className="field-error" id="users-lrn-error">{LRN_REQUIRED}</div>}
-            </div>
-          )}
-          {editUser && <div className="form-row">
-            <label className="form-label" htmlFor="users-account-status">Account Status</label>
-            <select id="users-account-status" className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)} disabled={editUser.onboarding_status === 'invitation_pending'}>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            {editUser.onboarding_status === 'invitation_pending' && <div className="form-hint">This account becomes active after the user creates a password.</div>}
-          </div>}
-          {!editUser && (
-            <div className="form-hint" role="note">
-              The account will remain pending until the user follows the Supabase invitation and creates their own password. No password is shown to or sent by the administrator.
-            </div>
-          )}
-      </Modal>
+      {/* USER MODAL: one shared dialog (U3), the same in the Clarity tab. */}
+      <UserFormDialog />
 
     </>
   );

@@ -53,89 +53,47 @@ test.describe('admin forms', () => {
     await expect(page.locator('#sections-capacity')).not.toHaveAttribute('aria-required', 'true');
   });
 
-  // UX-062: required and optional were indistinguishable until you submitted.
-  test('Users · the required fields are marked, the optional one is not', async ({ page }) => {
+  // UX-062, updated in U3: required fields carry aria-required; optional ones
+  // say "Optional" after the label (no "* Required" legend any more).
+  // Stale before U3: these tests expected admin-set password fields, which
+  // were removed by the invitation flow.
+  test('Users · required fields carry aria-required; optional ones say Optional', async ({ page }) => {
     await loginAsAdmin(page);
     await openAdminTab(page, 'User Management');
-    await page.getByRole('button', { name: /Create User/ }).click();
+    await page.getByRole('button', { name: /Create User/i }).click();
 
     await expect(page.locator('#users-full-name')).toHaveAttribute('aria-required', 'true');
     await expect(page.locator('#users-email')).toHaveAttribute('aria-required', 'true');
-    await expect(page.locator('#users-password')).toHaveAttribute('aria-required', 'true');
-    // Role has a default, so it is not a required choice.
-    await expect(page.locator('#users-role')).not.toHaveAttribute('aria-required', 'true');
-    await expect(page.getByText('* Required')).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Role' })).toHaveAttribute('aria-required', 'true');
+    await page.getByRole('radio', { name: 'Teacher' }).click();
+    await expect(page.getByText('Optional')).toBeVisible();
+    await expect(page.getByText('* Required')).toHaveCount(0);
   });
 
-  // UX-075 / Sprint A: both copies start masked, can be inspected
-  // independently, and the meter describes the typed password without
-  // changing the validation enforced by saveUser.
-  test('Users · password visibility is independent and strength is informational', async ({ page }) => {
-    let posts = 0;
-    await page.route('**/auth/v1/signup**', (route) => { posts += 1; return route.abort(); });
-
+  // The invitation flow: an administrator never sets or sees a password.
+  test('Users · no password field in Create or Edit', async ({ page }) => {
     await loginAsAdmin(page);
     await openAdminTab(page, 'User Management');
-    await page.getByRole('button', { name: /Create User/ }).click();
+    await page.getByRole('button', { name: /Create User/i }).click();
+    await expect(page.getByRole('dialog').getByLabel(/password/i)).toHaveCount(0);
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
 
-    const pass = page.locator('#users-password');
-    const confirm = page.locator('#users-password-confirm');
-    await expect(pass).toHaveAttribute('type', 'password');
-    await expect(confirm).toHaveAttribute('type', 'password');
-
-    await page.getByRole('button', { name: 'Show password' }).click();
-    await expect(pass).toHaveAttribute('type', 'text');
-    await expect(confirm).toHaveAttribute('type', 'password');
-
-    await page.getByRole('button', { name: 'Show confirm password' }).click();
-    await expect(confirm).toHaveAttribute('type', 'text');
-    await expect(pass).toHaveAttribute('type', 'text');
-
-    await page.getByRole('button', { name: 'Hide password' }).click();
-    await expect(pass).toHaveAttribute('type', 'password');
-    await expect(confirm).toHaveAttribute('type', 'text');
-
-    await page.locator('#users-full-name').fill('Probe Person');
-    await page.locator('#users-email').fill('probe.person@example.invalid');
-    await pass.fill('Sup3rSecret!Pass');
-    await expect(page.getByRole('status')).toContainText('Password strength');
-    await expect(page.getByRole('status')).toContainText('Strong');
-    await expect(page.locator('.password-strength-meter .active')).toHaveCount(5);
-    await confirm.fill('Sup3rSecret!Pasz');
-    await page.getByRole('button', { name: /^Create$/ }).click();
-
-    await expect(page.getByText('The two passwords do not match.')).toBeVisible();
-    await expect(confirm).toHaveAttribute('aria-invalid', 'true');
-    // A mismatch must not reach the account-creation call at all.
-    await page.waitForTimeout(1000);
-    expect(posts, 'a mismatched password was sent to signup').toBe(0);
-  });
-
-  // Editing an existing user does not set a password at all, so there is
-  // nothing to confirm. The confirm field must not be there to be required.
-  test('Users · editing an existing user has no password to confirm', async ({ page }) => {
-    await loginAsAdmin(page);
-    await openAdminTab(page, 'User Management');
     await page.getByRole('button', { name: /^Edit / }).first().click();
-
-    await expect(page.locator('#users-password')).toHaveCount(0);
-    await expect(page.locator('#users-password-confirm')).toHaveCount(0);
+    await expect(page.getByRole('dialog').getByLabel(/password/i)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /show (confirm )?password/i })).toHaveCount(0);
-
-    // And the form still saves with no password in sight.
-    await expect(page.getByRole('button', { name: /^Update$/ })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Save changes' })).toBeEnabled();
   });
 
   // UX-058: a field disabled with nothing saying why, or what would change it.
-  test('Users · the locked email says why it is locked', async ({ page }) => {
+  test('Users · editing: the email is locked and says why', async ({ page }) => {
     await loginAsAdmin(page);
     await openAdminTab(page, 'User Management');
     await page.getByRole('button', { name: /^Edit / }).first().click();
 
     const email = page.locator('#users-email');
     await expect(email).toBeDisabled();
-    expect(await email.getAttribute('aria-describedby')).toBe('users-email-hint');
-    await expect(page.locator('#users-email-hint')).toContainText(/cannot be changed here/i);
+    expect(await email.getAttribute('aria-describedby')).toBe('users-email-help');
+    await expect(page.locator('#users-email-help')).toContainText(/cannot be changed here/i);
   });
 
   test('Settings · the locked portal name says why it is locked', async ({ page }) => {

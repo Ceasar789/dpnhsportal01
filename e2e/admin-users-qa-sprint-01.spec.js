@@ -129,12 +129,13 @@ test('Users QA workflow protects the current admin and completes archive restore
   const state = await openInterceptedUsers(page);
 
   await page.getByRole('button', { name: 'Edit Current Administrator' }).click();
-  await page.getByLabel('Role', { exact: true }).selectOption('student');
-  await page.getByRole('dialog', { name: 'Edit User' }).getByRole('button', { name: 'Update' }).click();
+  await page.getByRole('radio', { name: 'Student' }).click();
+  await page.getByRole('dialog', { name: 'Edit User' }).getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('You cannot change your own administrator role or account status.')).toBeVisible();
   expect(state.profilePatches).toBe(0);
-  page.once('dialog', dialog => dialog.accept());
   await page.getByRole('dialog', { name: 'Edit User' }).getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('alertdialog', { name: 'Discard your changes?' })
+    .getByRole('button', { name: 'Discard changes' }).click();
 
   await page.getByRole('button', { name: 'Archive Current Administrator' }).click();
   await expect(page.getByText('You cannot archive your own administrator account.')).toBeVisible();
@@ -194,24 +195,28 @@ test('User creation sends an invitation and fails without adding local state', a
   let dialog = page.getByRole('dialog', { name: 'Create User' });
   await dialog.getByLabel('Full Name').fill('Failed Invitation User');
   await dialog.getByLabel('Email').fill('failed.invitation@example.com');
+  await dialog.getByLabel(/^LRN/).fill('108123456780');
   await expect(dialog.getByLabel(/^Password/)).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Send Invitation' }).click();
+  await dialog.getByRole('button', { name: 'Send invite' }).click();
   await expect(page.getByText(/invitation could not be completed/i)).toBeVisible();
   await expect(dialog).toBeVisible();
   await expect(page.getByText('Failed Invitation User', { exact: true })).toHaveCount(0);
 
-  page.once('dialog', prompt => prompt.accept());
   await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('alertdialog', { name: 'Discard your changes?' })
+    .getByRole('button', { name: 'Discard changes' }).click();
   state.failInvites = false;
 
   await page.getByRole('button', { name: /Create User/ }).click();
   dialog = page.getByRole('dialog', { name: 'Create User' });
   await dialog.getByLabel('Full Name').fill('Invited User');
   await dialog.getByLabel('Email').fill('invited.user@example.com');
-  await dialog.getByRole('button', { name: 'Send Invitation' }).click();
+  // Stale before U3 (since the G2 LRN rule): a student cannot be invited without an LRN.
+  await dialog.getByLabel(/^LRN/).fill('108123456789');
+  await dialog.getByRole('button', { name: 'Send invite' }).click();
 
   await expect(dialog).toHaveCount(0);
-  expect(state.lastInviteBody).toEqual({ name: 'Invited User', email: 'invited.user@example.com', role: 'student', department: null });
+  expect(state.lastInviteBody).toEqual({ name: 'Invited User', email: 'invited.user@example.com', role: 'student', department: null, lrn: '108123456789' });
   await expect(page.getByText('Invited User', { exact: true })).toBeVisible();
   await expect(page.getByText('Invitation Pending')).toBeVisible();
 });

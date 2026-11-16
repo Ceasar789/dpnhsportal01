@@ -27,11 +27,12 @@ afterEach(cleanup);
 
 describe('invitation-based user creation', () => {
   it('never asks an administrator to create another user password', () => {
+    h.ctx = { ...h.ctx, uName: 'Ana', uEmail: 'ana@school.test', uLrn: '108123456789' };   // a valid form
     render(<UsersTab />);
 
-    expect(screen.queryByLabelText(/^Password/)).toBeNull();
-    expect(screen.getByRole('note').textContent).toContain('creates their own password');
-    fireEvent.click(screen.getByRole('button', { name: 'Send Invitation' }));
+    expect(screen.queryByLabelText(/password/i)).toBeNull();
+    expect(screen.getByRole('dialog').textContent).toContain('set their own password');
+    fireEvent.click(screen.getByRole('button', { name: 'Send invite' }));
     expect(h.ctx.saveUser).toHaveBeenCalledOnce();
   });
 });

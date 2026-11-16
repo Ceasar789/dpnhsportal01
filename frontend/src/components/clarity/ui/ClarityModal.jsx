@@ -36,11 +36,15 @@ const ClarityModal = ({ title, description, onClose, closeDisabled = false, dism
       return;
     }
     if (event.key === 'Tab') {
-      if (!cycleTab(panelRef.current, event)) {
-        // Nothing focusable is measurable (or one item): keep focus inside.
+      // cycleTab wraps at the ends and returns false for an ordinary Tab
+      // between controls, which must be left to the browser. Only when
+      // nothing inside can be measured does focus stay on the panel.
+      if (focusableWithin(panelRef.current).length === 0) {
         event.preventDefault();
         panelRef.current?.focus();
+        return;
       }
+      cycleTab(panelRef.current, event);
     }
   };
 

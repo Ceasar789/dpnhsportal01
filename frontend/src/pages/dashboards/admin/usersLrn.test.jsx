@@ -58,7 +58,8 @@ describe.each([['classic', UsersTab], ['Clarity', ClarityAdminUsersTab]])('the %
     const { unmount } = render(<Tab />);
     const input = screen.getByLabelText(/^LRN/);
     expect(input.getAttribute('inputmode')).toBe('numeric');
-    expect(input.getAttribute('maxlength')).toBe('12');
+    expect(input.getAttribute('maxlength')).toBeNull();          // paste of 1081-2345-6789 is not cut
+    expect(input.getAttribute('autocomplete')).toBe('off');
     expect(input.getAttribute('aria-required')).toBe('true');
     unmount();
     for (const uRole of ['teacher', 'main_admin']) {
@@ -75,18 +76,19 @@ describe.each([['classic', UsersTab], ['Clarity', ClarityAdminUsersTab]])('the %
     expect(h.ctx.setULrn).toHaveBeenLastCalledWith('108123456789');
   });
 
-  it('create: an empty or invalid LRN is marked invalid after Send Invitation', () => {
+  it('create: an empty LRN is marked invalid after Send invite', () => {
     render(<Tab />);
-    fireEvent.click(screen.getByRole('button', { name: 'Send Invitation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send invite' }));
     const input = screen.getByLabelText(/^LRN/);
     expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(screen.getByText('A 12-digit LRN is required for a student.')).toBeTruthy();
+    expect(screen.getAllByText("Enter the student's 12-digit LRN.").length).toBeGreaterThan(0);  // field + summary
   });
 
   it('edit: a blank LRN on a legacy student is not an error and is not required', () => {
     h.ctx = ctx({ editUser: { id: 'u1', role: 'student' }, uName: 'Kid', uEmail: 'kid@school.test' });
     render(<Tab />);
-    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(screen.getByText('Optional')).toBeTruthy();
     const input = screen.getByLabelText(/^LRN/);
     expect(input.getAttribute('aria-invalid')).toBeNull();
     expect(input.getAttribute('aria-required')).toBeNull();
@@ -122,9 +124,10 @@ describe('useAdminLogic saveUser', () => {
     act(() => hook.result.current.openCreateUser());
     for (const lrn of ['', '12345', '1081234567ab']) {
       await fill(hook, { lrn });
-      await save(hook);
+      let result; await act(async () => { result = await hook.result.current.saveUser(); });
       expect(invites()).toEqual([]);
-      expect(hook.result.current.toast).toEqual({ msg: 'A 12-digit LRN is required for a student.', type: 'error' });
+      expect(result).toEqual({ ok: false, fieldErrors: [expect.objectContaining({ fieldId: 'users-lrn' })] });
+      expect(hook.result.current.toast).toBeNull();      // no toast repeats a field error
     }
   });
 
@@ -169,8 +172,9 @@ describe('useAdminLogic saveUser', () => {
     h.upsertError = { code: '23505', message: 'duplicate key value' };
     const hook = await setup();
     act(() => hook.result.current.openEditUser({ id: 'u1', name: 'Kid', email: 'kid@school.test', role: 'student', status: 'active', lrn: '108123456789' }));
-    await save(hook);
-    expect(hook.result.current.toast).toEqual({ msg: 'This LRN is already used by another student.', type: 'error' });
+    let result; await act(async () => { result = await hook.result.current.saveUser(); });
+    expect(result).toEqual({ ok: false, fieldErrors: [{ fieldId: 'users-lrn', message: 'This LRN is already used by another student.' }] });
+    expect(hook.result.current.toast).toBeNull();
     expect(h.calls.some(c => c[0] === 'update' && c[1] === 'profiles')).toBe(false);
   });
 

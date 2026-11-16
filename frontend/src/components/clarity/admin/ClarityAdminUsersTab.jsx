@@ -17,32 +17,24 @@
 // plus lrn from the students table); an empty one is left out, and LRN shows
 // for students only.
 //
-// TEMPORARY word-for-word copies from pages/dashboards/admin/tabs/UsersTab.jsx
-// (parity-tested in ClarityAdminUsersTab.test.jsx); after the defense the
-// classic tab and this one should share them:
-//   - ASSIGNABLE_ROLES, :14
-//   - the tried / resendingId state and the reset-on-close effect, :45-59
-//   - the resend-invitation click body, :137-138 (no row click to stop here)
-//   - the user dialog, :216-296 (the shared Modal, unchanged)
+// The user dialog is the shared pages/dashboards/admin/shared/UserFormDialog
+// (U3), the same component the classic tab renders, so the two cannot drift.
+// TEMPORARY word-for-word copy from pages/dashboards/admin/tabs/UsersTab.jsx
+// (parity-tested in ClarityAdminUsersTab.test.jsx):
+//   - the resend-invitation click body (no row click to stop here)
 // ============================================
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Archive, ArchiveRestore, Plus, Search } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
-import { LRN_PATTERN, LRN_REQUIRED, lrnInput } from '../../../pages/dashboards/admin/shared/lrn';
-import Modal from '../../ui/Modal';
-import Button from '../../ui/Button';
+import UserFormDialog from '../../../pages/dashboards/admin/shared/UserFormDialog';
 import Avatar from '../../Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { focusAfterRemoval } from '../../../lib/focusAfterRemoval';
 import { formatDate } from '../../../lib/formatDate';
 import { Skeleton, SkeletonCircle, SkeletonGroup, SkeletonTable } from '../../ui/Skeleton';
 
-// ---- TEMPORARY copy (UsersTab.jsx:14) ----
-// The roles an admin can give an account.
-const ASSIGNABLE_ROLES = ['student', 'teacher', 'main_admin'];
-// ---- end of the copy ----
 
 // The classic role filter's options, as tabs.
 const ROLE_TABS = [['', 'All'], ['student', 'Students'], ['teacher', 'Teachers'], ['main_admin', 'Admins']];
@@ -78,33 +70,16 @@ const UserPhoto = ({ user, size, big }) => {
 
 const ClarityAdminUsersTab = () => {
   const {
-    closeModal, deleteUser, restoreUser, editUser, fetchUsers, filteredUsers = [], modal, openCreateUser, openEditUser, resendInvitation, roleFilter = '', saveUser, setRoleFilter,
-    setStatusFilter, setShowArchived, setUEmail, setUName, setURole, setUStatus, setUserSearch,
-    showArchived, statusFilter = '', uDept, setUDept, uEmail = '', uLrn = '', setULrn, uName = '', uRole = 'student', uSaving, uStatus, userSearch = '', users = [], usersLoading, usersError
+    deleteUser, restoreUser, fetchUsers, filteredUsers = [], openCreateUser, openEditUser, resendInvitation, roleFilter = '', setRoleFilter,
+    setStatusFilter, setShowArchived, setUserSearch,
+    showArchived, statusFilter = '', userSearch = '', users = [], usersLoading, usersError
   } = useAdminContext();
 
   const [selId, setSelId] = useState(null);
   // Selection only: nothing shows until a row is picked. Nothing is called.
   const sel = filteredUsers.find(u => u.id === selId) || null;
 
-  // ---- TEMPORARY copy (UsersTab.jsx:45-59) ----
-  const [tried, setTried] = useState(false);
   const [resendingId, setResendingId] = useState(null);
-  // Reset on CLOSE, not on open. Modal is a child, so its snapshot
-  // effect runs before this one — clearing a stale confirm value on open
-  // would change a field after the snapshot was taken and the modal would
-  // report a form the admin has not touched as dirty.
-  useEffect(() => {
-    if (modal !== 'user') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- word-for-word copy of the classic reset
-      setTried(false);
-    }
-  }, [modal]);
-  const missingName = tried && !uName.trim();
-  const missingEmail = tried && !uEmail.trim();
-  // A student's LRN: required to create one; on edit only checked when filled in.
-  const badLrn = tried && uRole === 'student' && (!editUser || uLrn.trim() !== '') && !LRN_PATTERN.test(uLrn.trim());
-  // ---- end of the copy ----
 
   // Archive / Restore sit in the detail card, so focus is handed over from the
   // selected row's button: next row, else previous, else the page heading.
@@ -254,88 +229,8 @@ const ClarityAdminUsersTab = () => {
         </div>
       </div>
 
-      {/* ---- TEMPORARY copy (UsersTab.jsx:216-296): USER MODAL ---- */}
-      <Modal
-        open={modal === 'user'}
-        title={editUser ? 'Edit User' : 'Create User'}
-        onClose={closeModal}
-        footer={(requestClose) => (
-          <>
-            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-            <Button
-              onClick={() => {
-                setTried(true);
-                saveUser();
-              }}
-              busy={uSaving}
-              busyLabel={editUser ? 'Updating…' : 'Sending…'}
-            >
-              {editUser ? 'Update' : 'Send Invitation'}
-            </Button>
-          </>
-        )}
-      >
-          <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="users-full-name">Full Name<span className="form-req" aria-hidden="true">*</span></label>
-            <input id="users-full-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={uName} onChange={e => setUName(e.target.value)} placeholder="Juan dela Cruz"
-              aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'users-full-name-error' : undefined} />
-            {missingName && <div className="field-error" id="users-full-name-error">Full name is required.</div>}
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="users-email">Email{!editUser && <span className="form-req" aria-hidden="true">*</span>}</label>
-            <input id="users-email" className={`form-input${missingEmail ? ' is-invalid' : ''}`} value={uEmail} onChange={e => setUEmail(e.target.value)} placeholder="user@school.edu" disabled={!!editUser}
-              aria-required={editUser ? undefined : 'true'} aria-invalid={missingEmail || undefined}
-              aria-describedby={editUser ? 'users-email-hint' : missingEmail ? 'users-email-error' : undefined} />
-            {/* UX-058: disabled with nothing saying why, or what would make
-                it editable. */}
-            {editUser && <div className="form-hint" id="users-email-hint">An account's email address is its login and cannot be changed here. Archive the account and create a new one to move someone to a different address.</div>}
-            {missingEmail && <div className="field-error" id="users-email-error">Email is required.</div>}
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="users-role">Role</label>
-            <select id="users-role" className="form-input" value={uRole} onChange={e => setURole(e.target.value)} disabled={editUser?.onboarding_status === 'invitation_pending'}>
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="main_admin">Admin</option>
-              {/* An account still holding a role the app no longer uses
-                  (faculty, registrar) shows that role instead of silently
-                  reading as Student. It cannot be chosen again. */}
-              {!ASSIGNABLE_ROLES.includes(uRole) && (
-                <option value={uRole} disabled>{`${roleLabel(uRole)} (no longer used)`}</option>
-              )}
-            </select>
-            {editUser?.onboarding_status === 'invitation_pending' && <div className="form-hint">The assigned role is locked until password setup completes.</div>}
-          </div>
-          {(uRole === 'teacher' || uRole === 'faculty') && (
-            <div className="form-row">
-              <label className="form-label" htmlFor="users-department-subject">Department / Subject</label>
-              <input id="users-department-subject" className="form-input" value={uDept} onChange={e => setUDept(e.target.value)} placeholder="e.g. Mathematics" />
-            </div>
-          )}
-          {uRole === 'student' && (
-            <div className="form-row">
-              <label className="form-label" htmlFor="users-lrn">LRN{!editUser && <span className="form-req" aria-hidden="true">*</span>}</label>
-              <input id="users-lrn" className={`form-input${badLrn ? ' is-invalid' : ''}`} value={uLrn} onChange={e => setULrn(lrnInput(e.target.value))} placeholder="12 digits"
-                inputMode="numeric" maxLength={12} autoComplete="off"
-                aria-required={editUser ? undefined : 'true'} aria-invalid={badLrn || undefined} aria-describedby={badLrn ? 'users-lrn-error' : undefined} />
-              {badLrn && <div className="field-error" id="users-lrn-error">{LRN_REQUIRED}</div>}
-            </div>
-          )}
-          {editUser && <div className="form-row">
-            <label className="form-label" htmlFor="users-account-status">Account Status</label>
-            <select id="users-account-status" className="form-input" value={uStatus} onChange={e => setUStatus(e.target.value)} disabled={editUser.onboarding_status === 'invitation_pending'}>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            {editUser.onboarding_status === 'invitation_pending' && <div className="form-hint">This account becomes active after the user creates a password.</div>}
-          </div>}
-          {!editUser && (
-            <div className="form-hint" role="note">
-              The account will remain pending until the user follows the Supabase invitation and creates their own password. No password is shown to or sent by the administrator.
-            </div>
-          )}
-      </Modal>
+      {/* USER MODAL: the shared dialog (U3), the same component as classic. */}
+      <UserFormDialog />
     </>
   );
 };

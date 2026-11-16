@@ -15,9 +15,10 @@ import '../../../styles/form-kit.css';
 
 const NEXT = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
 
-export default function SegmentedChoice({ legend, options = [], value, onChange, disabled = false, help, error, optional = false, name }) {
+export default function SegmentedChoice({ legend, options = [], value, onChange, disabled = false, help, error, optional = false, name, id }) {
   const base = useId().replace(/:/g, '');
-  const legendId = `fk-seg${base}`;
+  // A fixed `id` gives stable ids (legend `${id}-label`, help, error).
+  const legendId = id ? `${id}-label` : `fk-seg${base}`;
   const helpId = `${legendId}-help`;
   const errorId = `${legendId}-error`;
   const buttons = useRef([]);

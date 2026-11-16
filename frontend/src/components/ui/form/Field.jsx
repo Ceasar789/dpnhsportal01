@@ -31,6 +31,7 @@ export default function Field({
   label,
   optional = false,
   help,
+  helpLive = false,
   error,
   validate,
   onValidate,
@@ -86,7 +87,9 @@ export default function Field({
         {optional && <span className="fk-optional">Optional</span>}
       </label>
       {control}
-      {help && <p className="fk-help" id={helpId}>{help}</p>}
+      {/* helpLive: the help text changes as the person types (e.g. the LRN
+          "Digits only" note) and is announced politely. */}
+      {help && <p className="fk-help" id={helpId} aria-live={helpLive ? 'polite' : undefined}>{help}</p>}
       {/* Always in the DOM so a message that appears is announced. */}
       <p className="fk-error" id={errorId} aria-live="polite">{shown || ''}</p>
     </div>

@@ -48,10 +48,9 @@ describe('Users tab roles', () => {
   it('creating a user offers exactly Student, Teacher and Admin', () => {
     h.ctx.modal = 'user';
     render(<UsersTab />);
-    expect(optionsOf(document.getElementById('users-role'))).toEqual([
-      { value: 'student', label: 'Student', disabled: false },
-      { value: 'teacher', label: 'Teacher', disabled: false },
-      { value: 'main_admin', label: 'Admin', disabled: false },
+    const radios = within(screen.getByRole('radiogroup', { name: 'Role' })).getAllByRole('radio');
+    expect(radios.map(r => [r.textContent, r.getAttribute('aria-disabled')])).toEqual([
+      ['Student', null], ['Teacher', null], ['Admin', null],
     ]);
   });
 
@@ -60,10 +59,11 @@ describe('Users tab roles', () => {
     h.ctx.editUser = { ...legacy, role };
     h.ctx.uRole = role;
     render(<UsersTab />);
-    const select = document.getElementById('users-role');
-    expect(select.value).toBe(role);
-    expect(optionsOf(select)).toContainEqual({ value: role, label: `${role} (no longer used)`, disabled: true });
-    expect(optionsOf(select).filter(o => !o.disabled).map(o => o.value)).toEqual(['student', 'teacher', 'main_admin']);
+    const legacyRadio = screen.getByRole('radio', { name: `${role} (no longer used)` });
+    expect(legacyRadio.getAttribute('aria-checked')).toBe('true');
+    expect(legacyRadio.getAttribute('aria-disabled')).toBe('true');
+    expect(within(screen.getByRole('radiogroup', { name: 'Role' })).getAllByRole('radio')
+      .filter(r => r.getAttribute('aria-disabled') !== 'true').map(r => r.textContent)).toEqual(['Student', 'Teacher', 'Admin']);
   });
 });
 

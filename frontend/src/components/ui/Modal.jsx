@@ -67,6 +67,14 @@ const stack = [];
  *                              Pass `() => false` for a dialog that holds
  *                              controls but no unsaved work.
  * @param {function} [footer]   (requestClose) => ReactNode, so Cancel shares the guard
+ * @param {function} [onDiscardRequest]  (proceed) => void. When given, a dirty
+ *                              close asks through the caller's own in-app
+ *                              dialog (components/ui/ConfirmDialog) instead of
+ *                              window.confirm; the caller calls proceed() to
+ *                              close. Without it, nothing changes.
+ * @param {boolean}  [keysSuspended]  true while the caller's confirm dialog is
+ *                              open inside this one: this dialog then leaves
+ *                              Escape and Tab to that dialog.
  */
 export default function Modal({
   open,
@@ -79,6 +87,8 @@ export default function Modal({
   cardStyle,
   titleStyle,
   footerStyle,
+  onDiscardRequest,
+  keysSuspended = false,
 }) {
   const overlay = useRef(null);
   const card = useRef(null);
@@ -95,9 +105,15 @@ export default function Modal({
   }, [isDirty]);
 
   const requestClose = useCallback(() => {
-    if (dirty() && !window.confirm('Discard changes?')) return;
+    if (!dirty()) { onClose(); return; }
+    if (typeof onDiscardRequest === 'function') { onDiscardRequest(onClose); return; }
+    if (!window.confirm('Discard changes?')) return;
     onClose();
-  }, [dirty, onClose]);
+  }, [dirty, onClose, onDiscardRequest]);
+
+  // Read by the keyboard listener below without re-subscribing it.
+  const suspended = useRef(keysSuspended);
+  useEffect(() => { suspended.current = keysSuspended; }, [keysSuspended]);
 
   // Nothing behind the dialog is clickable, focusable or readable while it
   // is up — the keyboard trap below only covers Tab.
@@ -132,8 +148,9 @@ export default function Modal({
     const me = {};
     stack.push(me);
     const onKeyDown = (e) => {
-      // Only the topmost dialog answers the keyboard.
-      if (stack[stack.length - 1] !== me) return;
+      // Only the topmost dialog answers the keyboard, and not while the
+      // caller's own confirm dialog is open inside it.
+      if (stack[stack.length - 1] !== me || suspended.current) return;
       if (e.key === 'Escape') { e.preventDefault(); requestClose(); return; }
       cycleTab(card.current, e);
     };

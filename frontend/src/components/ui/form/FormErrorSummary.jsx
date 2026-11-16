@@ -22,9 +22,10 @@ const focusField = (fieldId) => {
   return false;
 };
 
-export default function FormErrorSummary({ errors = [], attempt = 0, focusTo = 'summary', title }) {
+export default function FormErrorSummary({ errors = [], attempt = 0, focusTo = 'summary', title, id }) {
   const box = useRef(null);
-  const titleId = useId();
+  const generated = useId();
+  const titleId = id ? `${id}-title` : generated;
   const list = errors.filter(e => e && e.fieldId && e.message);
   const count = list.length;
   // Read at focus time. Only a new failed submit (a new `attempt`) moves

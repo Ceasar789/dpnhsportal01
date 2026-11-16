@@ -1119,8 +1119,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         .toggle.on  .toggle-knob { left: 23px; }
         .toggle.off .toggle-knob { left: 3px; }
 
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-overlay.open { display: flex; }
+        :root.dark .modal-overlay { background: rgba(0,0,0,.55); }
         .modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-24); width: 440px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; }
         .modal-title { font-size: var(--font-size-16); font-weight: 700; margin-bottom: var(--space-16); }
         .form-row   { margin-bottom: var(--space-16); }

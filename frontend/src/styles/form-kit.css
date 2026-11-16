@@ -260,8 +260,9 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(10, 12, 24, 0.55);
+  background: rgba(10, 12, 24, 0.4);
 }
+.dark .fk-confirm-back { background: rgba(10, 12, 24, 0.55); }
 .fk-confirm {
   box-sizing: border-box;
   width: 100%;
@@ -309,6 +310,18 @@
     padding: 8px 0;
     background: var(--cl-card, var(--card-bg));
   }
+}
+
+/* ---- Landscape phones (V1): the footer is one row instead of a stack,
+   Cancel, secondary and primary side by side in markup order, so more of
+   the form shows above it. A grid row: one column per button, never a
+   second line; columns start from their labels and share the rest, and a
+   label too long for its column wraps inside its own button (never below
+   its longest word). Full width, because in the admin Modal the footer is
+   a flex item that would otherwise shrink to its content. ---- */
+@media (max-width: 1023.98px) and (max-height: 500px) {
+  .fk-footer { display: grid; grid-auto-flow: column; width: 100%; align-items: stretch; }
+  .fk-footer .fk-btn { width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -18,7 +18,13 @@ import '../../../styles/form-kit.css';
 
 const focusField = (fieldId) => {
   const el = typeof document !== 'undefined' ? document.getElementById(fieldId) : null;
-  if (el && typeof el.focus === 'function') { el.focus(); return true; }
+  if (el && typeof el.focus === 'function') {
+    el.focus();
+    // focus() only brings the field into the scroll area, where a sticky
+    // dialog footer can still cover it (phones, landscape): centre it.
+    if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+    return true;
+  }
   return false;
 };
 

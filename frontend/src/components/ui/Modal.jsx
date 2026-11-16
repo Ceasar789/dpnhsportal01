@@ -23,7 +23,7 @@
 // ============================================
 
 import { useCallback, useEffect, useId, useRef } from 'react';
-import { FOCUSABLE, cycleTab, inertOutside } from '../../lib/focusTrap';
+import { FOCUSABLE, cycleTab, inertOutside, lockScroll } from '../../lib/focusTrap';
 
 // Every field the dialog holds, as one comparable string.
 //
@@ -125,6 +125,14 @@ export default function Modal({
   useEffect(() => {
     if (!open) return undefined;
     return inertOutside(overlay.current);
+  }, [open]);
+
+  // The page behind does not scroll while the dialog is up (the same lock
+  // ClarityModal uses). Before the focus effect, so the scroll position is
+  // back before focus returns.
+  useEffect(() => {
+    if (!open) return undefined;
+    return lockScroll();
   }, [open]);
 
   // Remember the invoking control while it still exists, and move focus in.

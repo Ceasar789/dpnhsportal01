@@ -68,26 +68,49 @@ export function cycleTab(container, event) {
  * what stops iOS scrolling the page behind a drawer, and it also throws
  * the page back to the top, which is worse than the problem.
  */
+//
+// Counted: only the first lock saves and changes the body, only the last
+// release puts it back. A dialog and the confirm on top of it often close in
+// the same commit, outer cleanup first; restoring per call would then put
+// the locked styles back and leave the page frozen.
+let locks = 0;
+let saved = null;
+
 export function lockScroll() {
   const { body } = document;
-  const y = window.scrollY;
-  const previous = {
-    overflow: body.style.overflow,
-    position: body.style.position,
-    top: body.style.top,
-    width: body.style.width,
-  };
-  body.style.overflow = 'hidden';
-  body.style.position = 'fixed';
-  body.style.top = `-${y}px`;
-  body.style.width = '100%';
+  if (locks === 0) {
+    saved = {
+      y: window.scrollY,
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+      paddingRight: body.style.paddingRight,
+    };
+    // The page scrollbar goes away with the lock; pad by its width so nothing
+    // behind the overlay moves sideways.
+    const gap = window.innerWidth - document.documentElement.clientWidth;
+    if (gap > 0) body.style.paddingRight = `${gap}px`;
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${saved.y}px`;
+    body.style.width = '100%';
+  }
+  locks += 1;
 
+  let released = false;
   return () => {
-    body.style.overflow = previous.overflow;
-    body.style.position = previous.position;
-    body.style.top = previous.top;
-    body.style.width = previous.width;
-    window.scrollTo(0, y);
+    if (released) return;
+    released = true;
+    locks -= 1;
+    if (locks > 0) return;
+    body.style.overflow = saved.overflow;
+    body.style.position = saved.position;
+    body.style.top = saved.top;
+    body.style.width = saved.width;
+    body.style.paddingRight = saved.paddingRight;
+    window.scrollTo(0, saved.y);
+    saved = null;
   };
 }
 

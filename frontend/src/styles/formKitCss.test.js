@@ -70,7 +70,7 @@ describe('form-kit.css: scope and safety', () => {
   it('colours come from the tokens (Clarity first, classic fallback); the only literals are the ring and backdrop tints', () => {
     expect(body).not.toMatch(/#[0-9a-f]{3,8}\b|hsla?\(|color-mix/i);
     expect([...new Set(body.match(/rgba\([^)]*\)/g))].sort()).toEqual([
-      'rgba(10, 12, 24, 0.55)', 'rgba(154, 148, 255, 0.7)', 'rgba(61, 52, 224, 0.6)',
+      'rgba(10, 12, 24, 0.4)', 'rgba(10, 12, 24, 0.55)', 'rgba(154, 148, 255, 0.7)', 'rgba(61, 52, 224, 0.6)',
     ]);
     for (const [, name, rest] of body.matchAll(/var\(--(cl-[a-z0-9-]+)(,[^;]*)?/g)) {
       expect(rest, `--${name} needs a classic fallback`).toMatch(/^, var\(--[a-z]/);

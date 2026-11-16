@@ -8,7 +8,7 @@ import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, X } from 'lucide-react';
 import { useTheme } from '../hooks';
-import { cycleTab, focusableWithin, inertOutside } from '../../../../lib/focusTrap';
+import { cycleTab, focusableWithin, inertOutside, lockScroll } from '../../../../lib/focusTrap';
 
 const modalStack = [];
 
@@ -98,6 +98,7 @@ export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible
   const hasFooter = footer !== undefined && footer !== null && footer !== false;
 
   useEffect(() => inertOutside(overlayRef.current, { preserveLiveRegions: true }), []);
+  useEffect(() => lockScroll(), []);
 
   // Written straight to the body node: no state, no re-render, and nothing
   // at all for a dialog without a footer.
@@ -147,7 +148,7 @@ export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible
   }, [dismissible, escapeCloses, onClose]);
 
   return (
-    <div ref={overlayRef} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+    <div ref={overlayRef} className={`fixed inset-0 ${dark ? 'bg-black/55' : 'bg-black/40'} z-50 flex items-center justify-center p-4`}
       onMouseDown={(event) => { if (event.target === event.currentTarget) event.currentTarget.dataset.fromBackdrop = '1'; }}
       onClick={(event) => {
         if (dismissible && event.target === event.currentTarget && event.currentTarget.dataset.fromBackdrop === '1') onClose();

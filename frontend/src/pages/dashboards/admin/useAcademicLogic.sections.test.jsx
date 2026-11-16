@@ -114,7 +114,8 @@ describe('Sections save boundary', () => {
     prepareCreate(result, '40', INACTIVE.id);
     await act(() => result.current.saveSection());
     expect(h.calls.some((call) => call.table === 'sections' && call.operation === 'insert')).toBe(false);
-    expect(showToast).toHaveBeenCalledWith(expect.stringMatching(/active teacher/i), 'error');
+    expect(result.current.secAdviserError).toMatch(/active teacher/i);
+    expect(showToast).not.toHaveBeenCalled();
   });
 
   it('preserves an unchanged inactive adviser during an unrelated edit', async () => {

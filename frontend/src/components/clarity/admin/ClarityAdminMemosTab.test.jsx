@@ -149,14 +149,13 @@ describe('the memo dialog is the classic one', () => {
   });
 
   it('Send calls saveMemo; the discard guard is kept', () => {
-    h.ctx = baseCtx({ modal: 'memo' });
+    h.ctx = baseCtx({ modal: 'memo', mSubj: 'Faculty meeting' });
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send memo' }));
     expect(h.ctx.saveMemo).toHaveBeenCalledTimes(1);
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     screen.getByLabelText('Subject').value = 'Changed';
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
-    expect(confirm).toHaveBeenCalledWith('Discard changes?');
+    expect(screen.getByRole('alertdialog', { name: 'Discard your changes?' })).toBeTruthy();
     expect(h.ctx.closeModal).not.toHaveBeenCalled();
   });
 });

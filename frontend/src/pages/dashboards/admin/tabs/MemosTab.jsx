@@ -6,17 +6,16 @@
 
 import { useRef } from 'react';
 import { useAdminContext } from '../AdminContext';
-import { composeOptions, filterOptions } from '../../../../lib/memoRecipients';
-import Modal from '../../../../components/ui/Modal';
-import Button from '../../../../components/ui/Button';
+import MemoFormDialog from '../shared/MemoFormDialog';
+import { filterOptions } from '../../../../lib/memoRecipients';
 import { formatDate, formatDateTime } from '../../../../lib/formatDate';
 
 const MemosTab = () => {
   const {
-    closeModal, deleteMemo, editMemo, filteredMemos, mBody, mFrom, mSaving, mSubj, mTo, memoFilter, memoSearch, memos,
-    fetchMemos, memosError = '', memosLoading, modal, openCompose, openEditMemo, saveMemo, selMemo,
-    setMBody, setMFrom, setMSubj, setMTo, setMemoFilter, setMemoSearch,
-    setSelMemo, users
+    deleteMemo, filteredMemos, memoFilter, memoSearch, memos,
+    fetchMemos, memosError = '', memosLoading, openCompose, openEditMemo, selMemo,
+    setMemoFilter, setMemoSearch,
+    setSelMemo
   } = useAdminContext();
 
   // 7D. Both of these lists used to be hardcoded, twice over, and the
@@ -24,7 +23,6 @@ const MemosTab = () => {
   // nothing in profiles.department, where the real values are "Science"
   // and "Mathematics". A memo addressed through that form went to a
   // department with no members, and nobody found out.
-  const recipientOptions = composeOptions(users);
   // The filter offers what the memos actually hold, so it can never be
   // set to a group that matches nothing — and an old memo addressed to a
   // department since renamed stays findable.
@@ -115,44 +113,7 @@ const MemosTab = () => {
               </div>
             </div>
 
-      {/* MEMO MODAL */}
-      <Modal
-        open={modal === 'memo'}
-        title={editMemo ? 'Edit Memo' : 'Compose Memo'}
-        onClose={closeModal}
-        footer={(requestClose) => (
-          <>
-            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-            <Button onClick={saveMemo} busy={mSaving} busyLabel={editMemo ? 'Updating…' : 'Sending…'}>
-              {editMemo ? 'Update' : 'Send'}
-            </Button>
-          </>
-        )}
-      >
-          <div className="form-row">
-            <label className="form-label" htmlFor="memos-from-office">From Office</label>
-            <input id="memos-from-office" className="form-input" value={mFrom} onChange={e => setMFrom(e.target.value)} placeholder="e.g. Principal's Office" />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="memos-recipient">Recipient</label>
-            <select id="memos-recipient" className="form-input" value={mTo} onChange={e => setMTo(e.target.value)}>
-              {/* A memo being EDITED may be addressed to something no
-                  longer offered — a renamed department, say. Keep its own
-                  value selectable so opening the form does not silently
-                  re-address it. */}
-              {mTo && !recipientOptions.includes(mTo) && <option>{mTo}</option>}
-              {recipientOptions.map(r => <option key={r}>{r}</option>)}
-            </select>
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="memos-subject">Subject</label>
-            <input id="memos-subject" className="form-input" value={mSubj} onChange={e => setMSubj(e.target.value)} placeholder="Memo subject" aria-required="true" />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="memos-body">Body</label>
-            <textarea id="memos-body" className="form-input" rows={6} value={mBody} onChange={e => setMBody(e.target.value)} placeholder="Write your memo..." />
-          </div>
-      </Modal>
+      <MemoFormDialog />
     </>
   );
 };

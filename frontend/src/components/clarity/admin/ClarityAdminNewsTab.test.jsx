@@ -209,24 +209,23 @@ describe('the post dialog is the classic one', () => {
   });
 
   it('Publish / Update / Save Expiry call the same save handlers', () => {
-    h.ctx = baseCtx({ modal: 'news' });
+    h.ctx = baseCtx({ modal: 'news', nTitle: 'Science Fair' });
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Publish' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save draft' }));
     expect(h.ctx.saveNews).toHaveBeenCalledTimes(1);
     cleanup();
     h.ctx = baseCtx({ modal: 'news', newsReadOnly: true, editNews: POSTS[1] });
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save Expiry' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save expiry' }));
     expect(h.ctx.saveNewsExpiry).toHaveBeenCalledTimes(1);
   });
 
   it('the discard guard is kept', () => {
     h.ctx = baseCtx({ modal: 'news' });
     show();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     screen.getByLabelText('Title').value = 'Changed';
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
-    expect(confirm).toHaveBeenCalledWith('Discard changes?');
+    expect(screen.getByRole('alertdialog', { name: 'Discard your changes?' })).toBeTruthy();
     expect(h.ctx.closeModal).not.toHaveBeenCalled();
   });
 });

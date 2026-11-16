@@ -10,24 +10,22 @@
 // TEMPORARY word-for-word copies from pages/dashboards/admin/tabs/SchedulesTab.jsx
 // (parity-tested in ClarityAdminSchedulesTab.test.jsx); after the defense the
 // classic tab and this one should share them:
-//   - DAYS, :50
 //   - the state, eligibility, validation and helper logic, :69-224
-//   - the Add Schedule dialog with its clash messages, :388-487 (the shared
-//     Modal, unchanged: discard guard, focus return and stacking are the same)
+//   - U4: the Add Schedule dialog with its clash messages is now the shared ScheduleFormDialog
+//     (pages/dashboards/admin/shared), rendered by this tab and the classic one
 // ============================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Trash2, Plus } from 'lucide-react';
-import Modal from '../../ui/Modal';
-import Button from '../../ui/Button';
 import { useDelayedFlag } from '../../../lib/useDelayedFlag';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
+import ScheduleFormDialog from '../../../pages/dashboards/admin/shared/ScheduleFormDialog';
 import SchoolYearNotice from '../../../pages/dashboards/admin/shared/SchoolYearNotice';
 import { coverageText, sortPeriods, subjectCoverage, teacherNamesFor } from '../../../pages/dashboards/admin/shared/classSetup';
 import { GRADE_LEVELS, normalizeGradeLevel, canTeachSection } from '../../../lib/academicRules';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
-// TEMPORARY copy (SchedulesTab.jsx:50).
+// The school days (the U4 ScheduleFormDialog keeps the same list).
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -88,12 +86,12 @@ const ClarityAdminSchedulesTab = () => {
     teachingLoad = [], teachingLoadError, teachingLoadLoading, fetchTeachingLoad,
     schedules = [], schedulesLoading, schedulesError, fetchSchedules,
     scheduleOpenSectionId, setScheduleOpenSectionId,
-    scheduleModal, openCreateSchedule, closeScheduleModal, saveSchedule, deleteSchedule,
-    schedTeacher, setSchedTeacher, schedSubject,
-    schedSection, schedDay, setSchedDay,
-    schedStart, setSchedStart, schedEnd, setSchedEnd,
-    schedRoom, setSchedRoom, schedSaving,
-    scheduleConflicts, scheduleCheckError,
+    openCreateSchedule, deleteSchedule,
+    schedSubject,
+    schedSection, 
+    
+    
+    
   } = useAdminContext();
 
   // ---- TEMPORARY copy (SchedulesTab.jsx:69-224) ----
@@ -117,41 +115,15 @@ const ClarityAdminSchedulesTab = () => {
     setGradeSyncedFor(openSectionId);
     setGrade(gradeOfSection(openSectionId));
   }
-  // Set by pressing Create. Nothing is marked red until then — a form that is
-  // red before it has been touched reads as broken, not incomplete.
-  const [tried, setTried] = useState(false);
   const pageHeadingRef = useRef(null);
   const subjectHeadingRefs = useRef(new Map());
   const addButtonRefs = useRef(new Map());
-  // The clash message renders at the end of the form body. On a phone that
-  // is below the fold, so tapping Create looked like it did nothing. Scroll
-  // it into view when it appears; when and what it says are unchanged.
-  const conflictRef = useRef(null);
-  useEffect(() => {
-    if (scheduleCheckError || scheduleConflicts?.length > 0) {
-      conflictRef.current?.scrollIntoView?.({ block: 'nearest' });
-    }
-  }, [scheduleCheckError, scheduleConflicts]);
 
   const nameOf = (list, id, field = 'name') => list.find(x => x.id === id)?.[field] || '—';
-  const dismiss = () => { setTried(false); closeScheduleModal(); };
 
-  const badTime = schedEnd <= schedStart;
   const eligibilityLoading = teachersLoading || teachingLoadLoading;
   const eligibilityError = teachersError || teachingLoadError;
-  const missingTeacher = tried && !schedTeacher && !eligibilityLoading && !eligibilityError;
-  const missingTime = tried && badTime;
 
-  // The Create button stays enabled while the form is incomplete, on purpose.
-  // A disabled button cannot say what is missing, which was the whole
-  // complaint. saveSchedule re-checks both of these — this is the message,
-  // not the guard.
-  const create = () => {
-    setTried(true);
-    if (eligibilityLoading || eligibilityError || !schedTeacher || badTime) return;
-    saveSchedule();
-    setTried(false);
-  };
 
   // sections.grade_level is an unconstrained VARCHAR, so 'Grade 7', 'grade 7'
   // and '7' can all be in there. Compared through normalizeGradeLevel, the
@@ -456,7 +428,7 @@ const ClarityAdminSchedulesTab = () => {
                               else addButtonRefs.current.delete(key);
                             }}
                             aria-label={`Add ${subjectName} schedule`}
-                            onClick={() => { setTried(false); openCreateSchedule({ sectionId: openSection.id, subjectId: subject.id }); }}>
+                            onClick={() => { openCreateSchedule({ sectionId: openSection.id, subjectId: subject.id }); }}>
                             <Plus size={14} aria-hidden="true" /> Add
                           </button>
                         )}
@@ -471,107 +443,14 @@ const ClarityAdminSchedulesTab = () => {
       </div>
 
       {/* ---- TEMPORARY copy (SchedulesTab.jsx:388-487) ---- */}
-      {scheduleModal && (
-        <Modal
-          open
-          title={`${nameOf(subjects, schedSubject)} — ${nameOf(sections, schedSection)}`}
-          onClose={dismiss}
-          footer={(requestClose) => (
-            <>
-              <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-              <Button onClick={create} busy={schedSaving} busyLabel="Creating…">Create</Button>
-            </>
-          )}
-        >
-            <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="schedules-teacher">Teacher</label>
-              <select id="schedules-teacher" className={`form-input${missingTeacher || eligibilityError ? ' is-invalid' : ''}`}
-                value={schedTeacher} onChange={e => setSchedTeacher(e.target.value)}
-                required
-                aria-invalid={(missingTeacher || eligibilityError) || undefined}
-                aria-describedby={(missingTeacher || eligibilityLoading || eligibilityError || eligibleTeachers.length === 0) ? 'schedules-teacher-help' : undefined}>
-                <option value="">
-                  {eligibilityLoading
-                    ? 'Loading eligible teachers…'
-                    : eligibilityError
-                      ? 'Teacher eligibility unavailable'
-                      : eligibleTeachers.length === 0
-                    ? 'No teacher holds this subject at this grade'
-                    : 'Select teacher…'}
-                </option>
-                {eligibleTeachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
-              </select>
-              {missingTeacher && eligibleTeachers.length > 0 && (
-                <div id="schedules-teacher-help" className="field-error">Select a teacher.</div>
-              )}
-              {eligibilityLoading && (
-                <div id="schedules-teacher-help" className="row-sub" role="status" style={{ marginTop: 'var(--space-8)' }}>
-                  Loading teachers and teaching-load assignments…
-                </div>
-              )}
-              {eligibilityError && (
-                <div id="schedules-teacher-help" className="field-error" role="alert">
-                  Teacher eligibility could not be loaded.
-                  <div style={{ marginTop: 'var(--space-8)' }}>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={retryEligibility}>Retry eligibility</button>
-                  </div>
-                </div>
-              )}
-              {!eligibilityLoading && !eligibilityError && eligibleTeachers.length === 0 && (
-                <div id="schedules-teacher-help" className="row-sub" style={{ marginTop: 'var(--space-8)' }}>
-                  Assign someone this subject for {grade} in Teaching Load first.
-                </div>
-              )}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="schedules-day">Day</label>
-              <select id="schedules-day" className="form-input" value={schedDay} onChange={e => setSchedDay(e.target.value)} required>
-                {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-
-            <div className="form-row" style={{ display: 'flex', gap: 'var(--space-8)' }}>
-              <div style={{ flex: 1 }}>
-                <label className="form-label" htmlFor="schedules-start">Start</label>
-                <input id="schedules-start" className={`form-input${missingTime ? ' is-invalid' : ''}`}
-                  aria-invalid={missingTime || undefined} aria-describedby={missingTime ? 'schedules-time-error' : undefined}
-                  type="time" value={schedStart} onChange={e => setSchedStart(e.target.value)} required />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="form-label" htmlFor="schedules-end">End</label>
-                <input id="schedules-end" className={`form-input${missingTime ? ' is-invalid' : ''}`}
-                  aria-invalid={missingTime || undefined} aria-describedby={missingTime ? 'schedules-time-error' : undefined}
-                  type="time" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required />
-              </div>
-            </div>
-            {missingTime && (
-              <div id="schedules-time-error" className="field-error" role="alert" style={{ marginTop: -8, marginBottom: 'var(--space-12)' }}>
-                End time must be after the start time.
-              </div>
-            )}
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="schedules-room">Room</label>
-              <input id="schedules-room" className="form-input" value={schedRoom} onChange={e => setSchedRoom(e.target.value)} placeholder="e.g. Room 201" />
-            </div>
-            {/* Clash check from the last Create press. Nothing was saved. */}
-            {scheduleCheckError && (
-              <div id="schedules-conflict-error" ref={conflictRef} className="field-error" role="alert">{scheduleCheckError}</div>
-            )}
-            {scheduleConflicts?.length > 0 && (
-              <div id="schedules-conflict-error" ref={conflictRef} className="field-error" role="alert">
-                <p>Not saved. This period clashes with:</p>
-                <ul style={{ paddingLeft: 'var(--space-16)', listStyle: 'disc', margin: 'var(--space-4) 0 0' }}>
-                  {scheduleConflicts.map(message => <li key={message}>{message}</li>)}
-                </ul>
-              </div>
-            )}
-
-        </Modal>
-      )}
+      <ScheduleFormDialog
+        title={`${nameOf(subjects, schedSubject)} — ${nameOf(sections, schedSection)}`}
+        grade={grade}
+        eligibleTeachers={eligibleTeachers}
+        eligibilityLoading={eligibilityLoading}
+        eligibilityError={eligibilityError}
+        onRetryEligibility={retryEligibility}
+      />
     </>
   );
 };

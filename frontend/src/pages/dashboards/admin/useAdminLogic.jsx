@@ -29,8 +29,8 @@ import {
 import { filterAndRankUsers } from './shared/userSearch';
 import { LRN_TAKEN } from './shared/lrn';
 import { resendInviteError, userSaveError, validateUserForm } from './shared/userForm';
+import { FORM_MESSAGES, toastError, validateEventForm, validateMemoForm, validateNewsForm } from './shared/adminForms';
 import {
-  isInvalidCalendarRange,
   philippineDateKey,
   upcomingCalendarEvents as selectUpcomingCalendarEvents,
 } from '../../../lib/calendarRules';
@@ -91,9 +91,11 @@ export const useAdminLogic = (userData) => {
   // Shape: { title?, message?, label, role?, warning?, confirmLabel?, onConfirm } | null
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  const toastTimerRef = useRef(null);
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
   };
   const openModal  = (id) => setModal(id);
   const closeModal = ()   => setModal(null);
@@ -664,14 +666,14 @@ export const useAdminLogic = (userData) => {
     } catch (e) {
       // Don't fail the publish itself — just surface that the fan-out didn't happen.
       console.warn('Notification fan-out failed:', e.message);
-      showToast('Post saved, but notifications could not be sent: ' + e.message, 'error');
+      showToast(FORM_MESSAGES.newsNotifyFailed, 'error');
     }
   }, []);
 
   const saveNews = async () => {
     if (newsReadOnly) return showToast('Published news is locked and cannot be edited.', 'error');
-    if (!nTitle.trim()) return showToast('Title required', 'error');
-    if (nTarget === 'custom' && !nCustomTarget.trim()) return showToast('Custom audience required', 'error');
+    const problems = validateNewsForm({ title: nTitle, target: nTarget, custom: nCustomTarget });
+    if (problems.length) return { ok: false, fieldErrors: problems };
     if (newsSaveOutcomeUncertainRef.current) {
       return showToast('The previous save outcome could not be confirmed. Close and reopen this post before trying again.', 'error');
     }
@@ -802,7 +804,7 @@ export const useAdminLogic = (userData) => {
       await fetchNews(); await fetchStats();
       closeModal();
     } catch (e) {
-      showToast(e.message || 'Error updating expiry', 'error');
+      showToast(toastError(e, FORM_MESSAGES.newsExpiryFailed), 'error');
     } finally { savingNewsRef.current = false; setNSaving(false); }
   };
 
@@ -818,7 +820,7 @@ export const useAdminLogic = (userData) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);
-    if (error) return showToast('Error updating status: ' + error.message, 'error');
+    if (error) return showToast(toastError(error, FORM_MESSAGES.newsStatusFailed), 'error');
 
     await logActivity('Updated news status', `${newsItem?.title} → ${status}`);
     showToast(`Post ${status.toLowerCase()}`);
@@ -901,7 +903,7 @@ export const useAdminLogic = (userData) => {
       return true;
     } catch (err) {
       console.error('Error loading events:', err);
-      showToast('Error loading events: ' + err.message, 'error');
+      showToast(toastError(err, FORM_MESSAGES.eventsLoadFailed), 'error');
       setCalError(true);
       return false;
     } finally {
@@ -921,9 +923,8 @@ export const useAdminLogic = (userData) => {
   };
 
   const saveEvent = async () => {
-    if (!evTitle.trim() || !evDate) return showToast('Title and date required', 'error');
-    if (evType === 'Custom Type' && !evCustomType.trim()) return showToast('Custom event type required', 'error');
-    if (isInvalidCalendarRange(evDate, evEnd)) return false;
+    const problems = validateEventForm({ title: evTitle, start: evDate, end: evEnd, type: evType, custom: evCustomType });
+    if (problems.length) return { ok: false, fieldErrors: problems };
     if (savingEventRef.current) return;   // the second of a double click
     savingEventRef.current = true;
     setEvSaving(true);
@@ -962,7 +963,7 @@ export const useAdminLogic = (userData) => {
       await fetchCalEvents(); await fetchStats();
       closeModal();
     } catch (e) {
-      showToast(e.message || 'Error', 'error');
+      showToast(toastError(e, FORM_MESSAGES.eventSaveFailed), 'error');
     } finally { savingEventRef.current = false; setEvSaving(false); }
   };
 
@@ -986,7 +987,7 @@ export const useAdminLogic = (userData) => {
             throw new Error('The event was not deleted.');
           }
         } catch (error) {
-          showToast(`Could not delete event: ${error.message}`, 'error');
+          showToast(toastError(error, FORM_MESSAGES.eventDeleteFailed), 'error');
           return false;
         }
         await logActivity('Deleted event', eventToDelete?.title);
@@ -1080,7 +1081,8 @@ export const useAdminLogic = (userData) => {
   };
 
   const saveMemo = async () => {
-    if (!mSubj.trim()) return showToast('Subject required', 'error');
+    const problems = validateMemoForm({ subject: mSubj });
+    if (problems.length) return { ok: false, fieldErrors: problems };
     if (savingMemoRef.current) return;   // the second of a double click
     savingMemoRef.current = true;
     setMSaving(true);
@@ -1104,7 +1106,7 @@ export const useAdminLogic = (userData) => {
       await fetchMemos(); await fetchStats();
       closeModal();
     } catch (e) {
-      showToast(e.message || 'Error', 'error');
+      showToast(toastError(e, FORM_MESSAGES.memoSaveFailed), 'error');
     } finally { savingMemoRef.current = false; setMSaving(false); }
   };
 
@@ -1337,8 +1339,9 @@ export const useAdminLogic = (userData) => {
       updatedAt: new Date().toISOString(),
     });
     if (!payload) {
-      showToast(errors.academicYear || errors.quarter || errors.sessionTimeout || 'Correct the invalid settings before saving.', 'error');
-      return;
+      const fieldId = errors.academicYear ? 'settings-academic-year' : errors.quarter ? 'settings-quarter' : errors.sessionTimeout ? 'settings-session-timeout' : null;
+      if (!fieldId) showToast('Correct the invalid settings before saving.', 'error');
+      return { ok: false, fieldId };
     }
     savingSettingsRef.current = true;
     setSS(true);

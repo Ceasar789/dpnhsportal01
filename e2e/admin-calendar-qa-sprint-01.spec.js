@@ -133,13 +133,13 @@ test('Calendar QA fixes preserve the workflow and responsive layout', async ({ p
   let dialog = page.getByRole('dialog', { name: 'Add Calendar Event' });
   await dialog.getByLabel('Title').fill('Invalid range probe');
   await dialog.getByLabel('Start Date').fill('2026-10-20');
-  await dialog.getByLabel('End Date (optional)').fill('2026-10-19');
-  await dialog.getByRole('button', { name: 'Add Event' }).click();
-  const endDate = dialog.getByLabel('End Date (optional)');
+  await dialog.getByLabel(/^End date/).fill('2026-10-19');
+  await dialog.getByRole('button', { name: 'Add event' }).click();
+  const endDate = dialog.getByLabel(/^End date/);
   await expect(endDate).toBeFocused();
   await expect(endDate).toHaveAttribute('aria-invalid', 'true');
   await expect(endDate).toHaveAttribute('aria-describedby', 'calendar-end-date-error');
-  await expect(dialog.getByText('End Date cannot be earlier than Start Date.')).toBeVisible();
+  await expect(dialog.getByText('The end date cannot be before the start date.').first()).toBeVisible();
   expect(state.eventPosts).toBe(0);
   page.once('dialog', prompt => prompt.accept());
   await dialog.getByRole('button', { name: 'Cancel' }).click();

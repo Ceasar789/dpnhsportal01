@@ -24,10 +24,10 @@ test.describe('admin forms', () => {
     // Nothing is claimed before the first press.
     expect(await name.getAttribute('aria-invalid')).toBeNull();
 
-    await page.getByRole('button', { name: /^Create$/ }).click();
+    await page.getByRole('button', { name: /^Add subject$/ }).click();
 
-    await expect(page.getByText('Subject name is required.')).toBeVisible();
-    await expect(page.getByText('Subject code is required.')).toBeVisible();
+    await expect(page.getByText('Enter the subject name.').first()).toBeVisible();
+    await expect(page.getByText('Enter a short code, like MATH.').first()).toBeVisible();
     await expect(name).toHaveAttribute('aria-invalid', 'true');
     await expect(code).toHaveAttribute('aria-invalid', 'true');
     // The error is bound to the field, not merely next to it.
@@ -35,19 +35,19 @@ test.describe('admin forms', () => {
 
     // And it clears on the next press once the field is filled.
     await name.fill('Probe');
-    await page.getByRole('button', { name: /^Create$/ }).click();
-    await expect(page.getByText('Subject name is required.')).toHaveCount(0);
-    await expect(page.getByText('Subject code is required.')).toBeVisible();
+    await page.getByRole('button', { name: /^Add subject$/ }).click();
+    await expect(page.getByText('Enter the subject name.')).toHaveCount(0);
+    await expect(page.getByText('Enter a short code, like MATH.').first()).toBeVisible();
   });
 
   test('Sections · an empty save names the two required fields', async ({ page }) => {
     await loginAsAdmin(page);
     await openAdminTab(page, 'Sections');
     await page.getByRole('button', { name: /Add Section/ }).click();
-    await page.getByRole('button', { name: /^Create$/ }).click();
+    await page.getByRole('button', { name: /^Add section$/ }).click();
 
-    await expect(page.getByText('Section name is required.')).toBeVisible();
-    await expect(page.getByText('Grade level is required.')).toBeVisible();
+    await expect(page.getByText('Enter the section name.').first()).toBeVisible();
+    await expect(page.getByText('Choose a grade level.').first()).toBeVisible();
     // Adviser and Capacity are optional and must not be marked.
     await expect(page.locator('#sections-adviser')).not.toHaveAttribute('aria-required', 'true');
     await expect(page.locator('#sections-capacity')).not.toHaveAttribute('aria-required', 'true');

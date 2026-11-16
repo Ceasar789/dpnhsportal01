@@ -170,16 +170,16 @@ describe('the event dialog is the classic one', () => {
   it('an end date before the start: the same message, focus on End Date, nothing saved', () => {
     h.ctx = baseCtx({ modal: 'event', evDate: '2026-11-12', evEnd: '2026-11-10', evTitle: 'X' });
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Event' }));
-    expect(screen.getByText('End Date cannot be earlier than Start Date.')).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByLabelText('End Date (optional)'));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add event' }));
+    expect(screen.getAllByText('The end date cannot be before the start date.').length).toBeGreaterThan(0);
+    expect(document.activeElement).toBe(screen.getByLabelText(/^End date/));
     expect(h.ctx.saveEvent).not.toHaveBeenCalled();
   });
 
   it('a valid form saves; Delete in edit calls deleteEvent(id)', () => {
     h.ctx = baseCtx({ modal: 'event', editEvent: EVENTS[0], evTitle: 'Science Fair', evDate: '2026-11-10' });
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
     expect(h.ctx.saveEvent).toHaveBeenCalledTimes(1);
     expect(h.ctx.deleteEvent).toHaveBeenCalledWith('e1');

@@ -71,13 +71,14 @@ describe('CalendarTab QA fixes', () => {
     render(<CalendarTab />);
 
     const dialog = screen.getByRole('dialog', { name: 'Add Calendar Event' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Add Event' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add event' }));
 
-    const endDate = within(dialog).getByLabelText('End Date (optional)');
-    const error = within(dialog).getByText('End Date cannot be earlier than Start Date.');
+    const endDate = within(dialog).getByLabelText(/^End date/);
+    const error = document.getElementById('calendar-end-date-optional-error');
+    expect(error.textContent).toBe('The end date cannot be before the start date.');
     expect(h.ctx.saveEvent).not.toHaveBeenCalled();
     expect(endDate.getAttribute('aria-invalid')).toBe('true');
-    expect(endDate.getAttribute('aria-describedby')).toBe(error.id);
+    expect(endDate.getAttribute('aria-describedby').split(' ')).toContain(error.id);
     expect(document.activeElement).toBe(endDate);
   });
 

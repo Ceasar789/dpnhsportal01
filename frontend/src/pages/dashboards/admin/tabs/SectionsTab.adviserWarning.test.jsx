@@ -40,8 +40,8 @@ describe('adviser warning in the Sections form', () => {
     render(<SectionsTab />);
     const warning = screen.getByText(WARNING);
     expect(warning.getAttribute('role')).toBe('status');
-    expect(screen.getByLabelText('Adviser').getAttribute('aria-describedby')).toContain('sections-adviser-warning');
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(screen.getByLabelText(/^Adviser/).getAttribute('aria-describedby')).toContain('sections-adviser-warning');
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
     expect(h.context.saveSection).toHaveBeenCalledTimes(1);
   });
 

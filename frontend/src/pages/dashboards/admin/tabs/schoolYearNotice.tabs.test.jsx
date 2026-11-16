@@ -83,7 +83,7 @@ describe('Sections school year', () => {
     expect(screen.getAllByText(MISMATCH).length).toBeGreaterThanOrEqual(2);
     const form = screen.getByRole('dialog');
     expect(within(form).getByText(MISMATCH)).toBeTruthy();
-    fireEvent.click(within(form).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(form).getByRole('button', { name: 'Add section' }));
     expect(h.ctx.saveSection).toHaveBeenCalledTimes(1);
   });
 

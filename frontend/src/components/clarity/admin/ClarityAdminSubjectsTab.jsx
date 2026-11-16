@@ -9,17 +9,15 @@
 // TEMPORARY word-for-word copies from pages/dashboards/admin/tabs/SubjectsTab.jsx
 // (parity-tested in ClarityAdminSubjectsTab.test.jsx); after the defense the
 // classic tab and this one should share them:
-//   - the validation state (tried / missingName / missingCode), :39-42
 //   - focusAfterDelete, :31-37
-//   - the Add/Edit Subject dialog, :119-158 (the shared Modal, unchanged, so
-//     the discard-changes guard, focus return and stacking are the same)
+//   - U4: the Add/Edit Subject dialog is now the shared SubjectFormDialog
+//     (pages/dashboards/admin/shared), rendered by this tab and the classic one
 // ============================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Pencil, Trash2, Plus } from 'lucide-react';
-import Modal from '../../ui/Modal';
-import Button from '../../ui/Button';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
+import SubjectFormDialog from '../../../pages/dashboards/admin/shared/SubjectFormDialog';
 import { GRADE_LEVELS, isRetiredGradeLevel, normalizeGradeLevel } from '../../../lib/academicRules';
 import { Skeleton, SkeletonTable } from '../../ui/Skeleton';
 
@@ -30,9 +28,9 @@ const shortGrade = grade => `G${grade.replace(/\D/g, '')}`;
 const ClarityAdminSubjectsTab = () => {
   const {
     // Defaults only for a context that has not provided these (the real one always does).
-    subjects = [], subjectsLoading, subjectsError, fetchSubjects, subjectModal, editingSubject,
-    sName = '', setSName, sCode = '', setSCode, sActive, setSActive, sSaving,
-    openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
+    subjects = [], subjectsLoading, subjectsError, fetchSubjects, 
+    
+    openCreateSubject, openEditSubject, deleteSubject,
     teachingLoad = [], teachingLoadLoading = false, teachingLoadError = null,
   } = useAdminContext();
 
@@ -45,14 +43,6 @@ const ClarityAdminSubjectsTab = () => {
     else pageHeadingRef.current?.focus();
   };
 
-  // TEMPORARY copy (SubjectsTab.jsx:39-42).
-  const [tried, setTried] = useState(false);
-  // Kept word-for-word from the classic tab (which has the same lint finding at
-  // SubjectsTab.jsx:40); changing the pattern is a follow-up for both copies.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setTried(false); }, [subjectModal]);
-  const missingName = tried && !sName.trim();
-  const missingCode = tried && !sCode.trim();
 
   // The grade cells and teacher counts, only when the teaching load loaded.
   const loadReady = !teachingLoadLoading && !teachingLoadError && Array.isArray(teachingLoad);
@@ -137,48 +127,7 @@ const ClarityAdminSubjectsTab = () => {
         </div>
       </div>
 
-      {/* TEMPORARY copy (SubjectsTab.jsx:119-158). */}
-      {subjectModal && (
-        <Modal
-          open
-          title={editingSubject ? 'Edit Subject' : 'Add Subject'}
-          onClose={closeSubjectModal}
-          footer={(requestClose) => (
-            <>
-              <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-              <Button onClick={() => { setTried(true); saveSubject(); }} busy={sSaving} busyLabel={editingSubject ? 'Updating…' : 'Creating…'}>
-                {editingSubject ? 'Update' : 'Create'}
-              </Button>
-            </>
-          )}
-        >
-
-            <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="subjects-subject-name">Subject Name<span className="form-req" aria-hidden="true">*</span></label>
-              <input id="subjects-subject-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={sName} onChange={e => setSName(e.target.value)} placeholder="e.g. Mathematics"
-                aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'subjects-subject-name-error' : undefined} />
-              {missingName && <div className="field-error" id="subjects-subject-name-error">Subject name is required.</div>}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="subjects-code">Code<span className="form-req" aria-hidden="true">*</span></label>
-              <input id="subjects-code" className={`form-input${missingCode ? ' is-invalid' : ''}`} value={sCode} onChange={e => setSCode(e.target.value)} placeholder="e.g. MATH"
-                aria-required="true" aria-invalid={missingCode || undefined} aria-describedby={missingCode ? 'subjects-code-error' : undefined} />
-              {missingCode && <div className="field-error" id="subjects-code-error">Subject code is required.</div>}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="subjects-status">Status</label>
-              <select id="subjects-status" className="form-input" value={sActive ? 'active' : 'inactive'} onChange={e => setSActive(e.target.value === 'active')}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-
-        </Modal>
-      )}
+      <SubjectFormDialog />
     </>
   );
 };

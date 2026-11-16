@@ -233,9 +233,9 @@ describe('SchedulesTab — the form', () => {
 
   it('marks the teacher field and refuses to save when it is empty', () => {
     openForm({ schedSubject: ENG.id });
-    fireEvent.click(screen.getByRole('button', { name: /create/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add period/i }));
 
-    expect(screen.getByText('Select a teacher.')).toBeTruthy();
+    expect(screen.getAllByText('Choose a teacher.').length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Teacher').required).toBe(true);
     expect(h.ctx.saveSchedule).not.toHaveBeenCalled();
   });
@@ -245,9 +245,9 @@ describe('SchedulesTab — the form', () => {
     const { container } = openForm({
       schedSubject: ENG.id, schedTeacher: ANA.id, schedStart: '10:00', schedEnd: '09:00',
     });
-    fireEvent.click(screen.getByRole('button', { name: /create/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add period/i }));
 
-    expect(screen.getByText(/end time must be after the start time/i)).toBeTruthy();
+    expect(screen.getAllByText(/end time must be after the start time/i).length).toBeGreaterThan(0);
     expect(container.querySelectorAll('input.is-invalid').length).toBe(2);
     expect(screen.getByLabelText('Start').getAttribute('aria-describedby')).toBe('schedules-time-error');
     expect(screen.getByLabelText('End').getAttribute('aria-invalid')).toBe('true');
@@ -257,7 +257,7 @@ describe('SchedulesTab — the form', () => {
 
   it('saves once everything is valid', () => {
     openForm({ schedSubject: ENG.id, schedTeacher: ANA.id });
-    fireEvent.click(screen.getByRole('button', { name: /create/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add period/i }));
     expect(h.ctx.saveSchedule).toHaveBeenCalledTimes(1);
   });
 });

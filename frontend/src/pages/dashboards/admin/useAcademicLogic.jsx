@@ -11,6 +11,7 @@ import { withRetry } from '../../../lib/supabaseRetry';
 import { canTeachSection, currentSchoolYear, describeScheduleClashes, findScheduleClashes, GRADE_LEVELS, isRetiredGradeLevel, normalizeGradeLevel } from '../../../lib/academicRules';
 import { hasExactDeletedIds } from '../../../lib/deleteVerification';
 import { statusForReason } from './shared/sectionMembership';
+import { FORM_MESSAGES, sectionSaveError, subjectSaveError, toastError, validateScheduleForm, validateSectionForm, validateSubjectForm } from './shared/adminForms';
 import { isLockedLoadRow, lockedSubjectId, LOCKED_REMOVAL_MESSAGE } from './shared/departmentSubject';
 import {
   validateCapacityAgainstEnrollment,
@@ -83,9 +84,9 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   const saveSubject = async () => {
     const name = sName.trim();
     const code = sCode.trim().toUpperCase();
-    if (!name) return showToast('Subject name is required', 'error');
-    if (!code) return showToast('Subject code is required', 'error');
-    if (savingSubjectRef.current) return;   // the second of a double click
+    const problems = validateSubjectForm({ name, code });
+    if (problems.length) return { ok: false, fieldErrors: problems };
+    if (savingSubjectRef.current) return { ok: false };   // the second of a double click
     savingSubjectRef.current = true;
 
     setSSaving(true);
@@ -97,11 +98,17 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
 
     setSSaving(false);
     savingSubjectRef.current = false;
-    if (error) return showToast(`Could not save subject: ${error.message}`, 'error');
+    if (error) {
+      const mapped = subjectSaveError(error);
+      if (mapped.fieldId) return { ok: false, fieldErrors: [{ fieldId: mapped.fieldId, message: mapped.message }] };
+      showToast(mapped.message, 'error');
+      return { ok: false };
+    }
 
     showToast(editingSubject ? 'Subject updated' : 'Subject created');
     setSubjectModal(null);
     fetchSubjects();
+    return { ok: true };
   };
 
   const deleteSubject = (id, focusAfterConfirm) => {
@@ -270,7 +277,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       .select('id');
 
     if (error) {
-      showToast(`Could not add: ${error.message}`, 'error');
+      showToast(toastError(error, FORM_MESSAGES.loadSaveFailed), 'error');
       return null;
     }
 
@@ -334,7 +341,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       () => supabase.from('teacher_subjects').select('teacher_id, subject_id, grade_level').eq('school_year', fromYear),
       { label: 'Teaching load copy read' }
     );
-    if (error) { showToast(`Could not read ${fromYear}: ${error.message}`, 'error'); return 0; }
+    if (error) { showToast(toastError(error, FORM_MESSAGES.loadReadFailed(fromYear)), 'error'); return 0; }
     if (!data || data.length === 0) { showToast(`No teaching load found for ${fromYear}`, 'error'); return 0; }
 
     // Only grades the school still offers are copied; Grade 11/12 rows stay behind.
@@ -364,7 +371,7 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       .from('teacher_subjects')
       .upsert(rows, { onConflict: 'teacher_id,subject_id,grade_level,school_year', ignoreDuplicates: true });
 
-    if (insertError) { showToast(`Could not copy: ${insertError.message}`, 'error'); return 0; }
+    if (insertError) { showToast(toastError(insertError, FORM_MESSAGES.loadCopyFailed(fromYear)), 'error'); return 0; }
 
     showToast(skipped ? `Copied ${rows.length} entries from ${fromYear}.${skippedText}` : `Copied ${rows.length} entries from ${fromYear}`);
     fetchTeachingLoad();
@@ -434,13 +441,16 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
   const saveSection = async () => {
     if (schoolYear === null) { showToast(YEAR_NOT_READY, 'error'); return false; }
     const name = secName.trim();
-    if (!name) return showToast('Section name is required', 'error');
-    if (!secGrade) return showToast('Grade level is required', 'error');
-    if (isRetiredGradeLevel(secGrade)) return showToast('Choose a grade level from Grade 7 to Grade 10.', 'error');
-
+    if (isRetiredGradeLevel(secGrade)) {
+      showToast('Choose a grade level from Grade 7 to Grade 10.', 'error');
+      return false;
+    }
+    // secCapacityError stays the hook's own answer on capacity (pinned by
+    // useAcademicLogic.sections.test.jsx); the dialog shows it on the field.
     const capacityResult = validateSectionCapacity(secCapacity);
     setSecCapacityError(capacityResult.message);
-    if (!capacityResult.valid) return false;
+    const problems = validateSectionForm({ name, grade: secGrade, capacity: secCapacity });
+    if (problems.length) return { ok: false, fieldErrors: problems };
 
     const adviserResult = validateSectionAdviser({
       adviserId: secAdviser,
@@ -448,11 +458,8 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       existingAdviserId: editingSection?.adviser_id || null,
     });
     setSecAdviserError(adviserResult.message);
-    if (!adviserResult.valid) {
-      showToast(adviserResult.message, 'error');
-      return false;
-    }
-    if (savingSectionRef.current) return;   // the second of a double click
+    if (!adviserResult.valid) return false;
+    if (savingSectionRef.current) return false;   // the second of a double click
     savingSectionRef.current = true;
 
     setSecSaving(true);
@@ -467,11 +474,9 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
           .eq('status', 'active');
 
         if (countError || count == null) {
-          const message = 'Could not verify current enrollment. No changes were saved.';
-          setSecCapacityError(message);
+          setSecCapacityError('Could not verify current enrollment. No changes were saved.');
           setSecSaving(false);
           savingSectionRef.current = false;
-          showToast(message, 'error');
           return false;
         }
 
@@ -480,7 +485,6 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
           setSecCapacityError(enrollmentResult.message);
           setSecSaving(false);
           savingSectionRef.current = false;
-          showToast(enrollmentResult.message, 'error');
           return false;
         }
       }
@@ -502,12 +506,10 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
     setSecSaving(false);
     savingSectionRef.current = false;
     if (error) {
-      return showToast(
-        error.code === '23505'
-          ? `A section named "${name}" already exists for ${schoolYear}.`
-          : 'Could not save section. Check your connection and try again.',
-        'error'
-      );
+      const mapped = sectionSaveError(error, { name, schoolYear });
+      if (mapped.fieldId) return { ok: false, fieldErrors: [{ fieldId: mapped.fieldId, message: mapped.message }] };
+      showToast(mapped.message, 'error');
+      return false;
     }
     showToast(editingSection ? 'Section updated' : 'Section created');
     setSectionModal(null);
@@ -878,14 +880,12 @@ export const useAcademicLogic = (showToast, setDeleteConfirm, settingsYear) => {
       showToast('Teacher eligibility is still unavailable. Retry the failed data before creating a schedule.', 'error');
       return false;
     }
-    if (!schedTeacher || !schedSubject || !schedSection) {
+    if (!schedSubject || !schedSection) {
       showToast('Teacher, subject and section are all required', 'error');
       return false;
     }
-    if (schedEnd <= schedStart) {
-      showToast('End time must be after start time', 'error');
-      return false;
-    }
+    const problems = validateScheduleForm({ teacher: schedTeacher, start: schedStart, end: schedEnd, teacherChoosable: true });
+    if (problems.length) return { ok: false, fieldErrors: problems };
 
     const subject = subjects.find(item => item.id === schedSubject);
     if (!subject || subject.is_active === false) {

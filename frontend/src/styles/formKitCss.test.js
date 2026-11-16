@@ -37,7 +37,7 @@ const parse = (text) => {
   return rules;
 };
 const rules = parse(body);
-const PHONE = '@media (max-width: 767.98px)';
+const PHONE = '@media (max-width: 767.98px), (max-width: 1023.98px) and (max-height: 500px)';
 const find = (media, selector) => rules.find(r => r.media === media && r.selectors.includes(selector));
 
 describe('form-kit.css: scope and safety', () => {

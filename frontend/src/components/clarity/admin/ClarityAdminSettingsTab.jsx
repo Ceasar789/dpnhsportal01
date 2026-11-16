@@ -77,7 +77,7 @@ const ClarityAdminSettingsTab = () => {
     setSettings, settings = {}, settingsSaving,
     settingsDirty, settingsChangeCount, discardSettings,
     themePref, setThemePref, settingsStatus, settingsError,
-    settingsValidation = {}, settingsAuthorized, settingsCanEdit, settingsCanSave,
+    settingsValidation = {}, settingsAuthorized, settingsCanEdit,
     fetchSettings, backupHistoryStatus, backupHistoryError, fetchBackupHistory,
     overviewLoading, activeSettingsSub = 'sec-general', scrollToSection,
   } = useAdminContext();
@@ -98,6 +98,13 @@ const ClarityAdminSettingsTab = () => {
     return () => window.removeEventListener('beforeunload', warn);
   }, [settingsDirty]);
   // ---- end of the copy ----
+
+  // U4 (decision 4): Save stays enabled while a value is invalid. The message
+  // is already on the field; pressing Save moves focus there (no toast).
+  const pressSave = async () => {
+    const result = await saveSettings();
+    if (result?.fieldId) document.getElementById(result.fieldId)?.focus();
+  };
 
   return (
     <div className="x-set-page">
@@ -287,7 +294,7 @@ const ClarityAdminSettingsTab = () => {
               <b>{settingsChangeCount} unsaved change{settingsChangeCount === 1 ? '' : 's'}</b>
               <div className="x-set-saveact">
                 <button type="button" className="x-btn gh" onClick={discardSettings} disabled={!settingsReady || !settingsAuthorized || settingsSaving}>Discard</button>
-                <button type="button" className="x-btn pri" aria-busy={settingsSaving || undefined} onClick={saveSettings} disabled={!settingsCanSave}>
+                <button type="button" className="x-btn pri" aria-busy={settingsSaving || undefined} onClick={pressSave} disabled={!settingsReady || !settingsAuthorized}>
                   {settingsSaving ? 'Saving…' : 'Save changes'}
                 </button>
               </div>

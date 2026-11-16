@@ -13,21 +13,22 @@
 // TEMPORARY word-for-word copies from pages/dashboards/admin/tabs/CalendarTab.jsx
 // (parity-tested in ClarityAdminCalendarTab.test.jsx); after the defense the
 // classic tab and this one should share them:
-//   - the range validation and the shared "events on a day" rule, :26-68
+//   - the shared "events on a day" rule, :26-68
 //   - the month view (toolbar, grid, agenda, legend, Upcoming), :79-222
-//   - the event dialog, :226-282 (the shared Modal, unchanged)
+//   - U4: the event dialog (with its end-date rule) is now the shared EventFormDialog
+//     (pages/dashboards/admin/shared), rendered by this tab and the classic one
 // ============================================
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
-import Modal from '../../ui/Modal';
+import EventFormDialog from '../../../pages/dashboards/admin/shared/EventFormDialog';
 import { useDelayedFlag } from '../../../lib/useDelayedFlag';
 import { MONTHS, EVENT_TYPES } from '../../../pages/dashboards/admin/shared/helpers';
 import Button from '../../ui/Button';
 import { formatDateLong, formatDateRange } from '../../../lib/formatDate';
 import { agendaGroups, agendaTimeline } from '../../../lib/agenda';
-import { isInvalidCalendarRange, matchesCalendarFilter } from '../../../lib/calendarRules';
+import { matchesCalendarFilter } from '../../../lib/calendarRules';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 // Local calendar dates, as the classic grid builds them (`${year}-${mm}-${dd}`).
@@ -41,39 +42,18 @@ const hhmm = value => String(value ?? '').slice(0, 5);
 
 const ClarityAdminCalendarTab = () => {
   const {
-    calError, calEvents = [], calFilter, calGrid = [], calLoading, calMonth, calYear, closeModal,
-    deleteEvent, editEvent, evDate, evDesc, evEnd, evSaving, evTitle,
-    evCustomType, evType, modal, nextMonth, openCreateEvent,
-    openEditEvent, prevMonth, saveEvent, setCalFilter, setEvCustomType, setEvDate,
-    setCalYear, setEvDesc, setEvEnd, setEvTitle, setEvType, today = new Date(), typeClass,
+    calError, calEvents = [], calFilter, calGrid = [], calLoading, calMonth, calYear, 
+    
+    nextMonth, openCreateEvent,
+    openEditEvent, prevMonth, setCalFilter, 
+    setCalYear, today = new Date(), typeClass,
     typeColor, upcomingEvents = [], fetchCalEvents
   } = useAdminContext();
 
   // ---- TEMPORARY copy (CalendarTab.jsx:26-68) ----
   const slowCal = useDelayedFlag(calLoading);
-  const endDateRef = useRef(null);
-  const [rangeValidationShown, setRangeValidationShown] = useState(false);
-  const rangeInvalid = isInvalidCalendarRange(evDate, evEnd);
-
-  const beginCreate = () => {
-    setRangeValidationShown(false);
-    openCreateEvent();
-  };
-
-  const beginEdit = (event) => {
-    setRangeValidationShown(false);
-    openEditEvent(event);
-  };
-
-  const submitEvent = () => {
-    if (rangeInvalid) {
-      setRangeValidationShown(true);
-      endDateRef.current?.focus();
-      return;
-    }
-    setRangeValidationShown(false);
-    saveEvent();
-  };
+  const beginCreate = () => openCreateEvent();
+  const beginEdit = (event) => openEditEvent(event);
 
   // CAL4. One rule for "what is on this day", used by both views, so the
   // grid and the agenda can never disagree about a month.
@@ -364,64 +344,7 @@ const ClarityAdminCalendarTab = () => {
         )}
       </div>
 
-      {/* ---- TEMPORARY copy (CalendarTab.jsx:226-282): EVENT MODAL ---- */}
-      <Modal
-        open={modal === 'event'}
-        title={editEvent ? 'Edit Event' : 'Add Calendar Event'}
-        onClose={closeModal}
-        footer={(requestClose) => (
-          <>
-            {editEvent && <Button variant="danger" onClick={() => deleteEvent(editEvent.id)}>Delete</Button>}
-            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-            <Button onClick={submitEvent} busy={evSaving} busyLabel={editEvent ? 'Updating…' : 'Adding…'}>
-              {editEvent ? 'Update' : 'Add Event'}
-            </Button>
-          </>
-        )}
-      >
-          <div className="form-row">
-            <label className="form-label" htmlFor="calendar-title">Title</label>
-            <input id="calendar-title" className="form-input" value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="Event title" aria-required="true" />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="calendar-start-date">Start Date</label>
-            <input id="calendar-start-date" className="form-input" type="date" value={evDate} onChange={e => { setEvDate(e.target.value); setRangeValidationShown(false); }} aria-required="true" />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="calendar-end-date-optional">End Date (optional)</label>
-            <input
-              ref={endDateRef}
-              id="calendar-end-date-optional"
-              className="form-input"
-              type="date"
-              value={evEnd}
-              onChange={e => { setEvEnd(e.target.value); setRangeValidationShown(false); }}
-              aria-invalid={rangeValidationShown && rangeInvalid ? 'true' : undefined}
-              aria-describedby={rangeValidationShown && rangeInvalid ? 'calendar-end-date-error' : undefined}
-            />
-            {rangeValidationShown && rangeInvalid && (
-              <span id="calendar-end-date-error" className="field-error" role="alert">
-                End Date cannot be earlier than Start Date.
-              </span>
-            )}
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="calendar-type">Type</label>
-            <select id="calendar-type" className="form-input" value={evType} onChange={e => setEvType(e.target.value)}>
-              {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          {evType === 'Custom Type' && (
-            <div className="form-row">
-              <label className="form-label" htmlFor="calendar-custom-event-type">Custom Event Type</label>
-              <input id="calendar-custom-event-type" className="form-input" value={evCustomType} onChange={e => setEvCustomType(e.target.value)} placeholder="e.g. Foundation Day or Faculty Meeting" aria-required="true" />
-            </div>
-          )}
-          <div className="form-row">
-            <label className="form-label" htmlFor="calendar-description">Description</label>
-            <textarea id="calendar-description" className="form-input" rows={3} value={evDesc} onChange={e => setEvDesc(e.target.value)} placeholder="Event details..." />
-          </div>
-      </Modal>
+      <EventFormDialog />
 
     </>
   );

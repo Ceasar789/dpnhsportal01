@@ -157,31 +157,30 @@ describe('the section dialog is the classic one', () => {
   it('validation: Create on empty fields shows the same errors and does NOT save', () => {
     h.ctx.sectionModal = true;
     show(SectionsTab);
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add section' }));
     const classic = norm(screen.getByRole('dialog').outerHTML);
     cleanup();
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add section' }));
     expect(norm(screen.getByRole('dialog').outerHTML)).toBe(classic);
-    expect(screen.getByText('Section name is required.')).toBeTruthy();
-    expect(screen.getByText('Grade level is required.')).toBeTruthy();
+    expect(screen.getAllByText('Enter the section name.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Choose a grade level.').length).toBeGreaterThan(0);
     expect(h.ctx.saveSection).not.toHaveBeenCalled();
   });
 
   it('valid fields save through saveSection', () => {
     Object.assign(h.ctx, { sectionModal: true, secName: '7-Rizal', secGrade: 'Grade 7', secCapacity: '40' });
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add section' }));
     expect(h.ctx.saveSection).toHaveBeenCalledTimes(1);
   });
 
   it('the discard guard is kept', () => {
     h.ctx.sectionModal = true;
     show();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    screen.getByLabelText(/Section Name/).value = 'Changed';
+    screen.getByLabelText(/Section name/).value = 'Changed';
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
-    expect(confirm).toHaveBeenCalledWith('Discard changes?');
+    expect(screen.getByRole('alertdialog', { name: 'Discard your changes?' })).toBeTruthy();
     expect(h.ctx.closeSectionModal).not.toHaveBeenCalled();
   });
 });

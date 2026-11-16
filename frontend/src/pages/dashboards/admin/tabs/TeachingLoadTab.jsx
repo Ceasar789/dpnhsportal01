@@ -579,6 +579,7 @@ const TeachingLoadTab = () => {
                 <div className="add-subject-row">
                   <select id="teaching-subject" ref={subjectSelectRef}
                     className={`form-input${missingSubject ? ' is-invalid' : ''}`}
+                    aria-invalid={missingSubject || undefined} aria-describedby={missingSubject ? 'teaching-subject-error' : undefined}
                     disabled={saving}
                     value={selectedSubjectId} onChange={event => setSelectedSubjectId(event.target.value)}>
                     <option value="">Select subject…</option>
@@ -591,7 +592,7 @@ const TeachingLoadTab = () => {
                     Add Subject
                   </button>
                 </div>
-                {missingSubject && <div className="field-error">Choose a subject to add for {grade}.</div>}
+                {missingSubject && <div className="field-error" id="teaching-subject-error">Choose a subject to add for {grade}.</div>}
                 <div className="bulk-hint">
                   Subjects appear above immediately and are saved when you press Save Assignment.
                 </div>

@@ -38,10 +38,11 @@ describe('Settings availability states', () => {
     expect(fetchSettings).toHaveBeenCalledOnce();
   });
 
-  it('exposes the academic-year validation error and disables Save', () => {
+  it('exposes the academic-year validation error; Save stays enabled and moves focus to the field', async () => {
     h.ctx = {
       ...base(), settings: { academic_year: '2026-2028', semester: '2nd Quarter' }, settingsDirty: true,
       settingsChangeCount: 1, settingsCanSave: false,
+      saveSettings: vi.fn(async () => ({ ok: false, fieldId: 'settings-academic-year' })),
       settingsValidation: { academicYear: 'The ending year must be exactly one year after the starting year.', quarter: '', sessionTimeout: '' },
     };
     render(<SettingsTab />);
@@ -49,7 +50,11 @@ describe('Settings availability states', () => {
     expect(year.getAttribute('aria-invalid')).toBe('true');
     expect(year.getAttribute('aria-describedby')).toContain('settings-academic-year-error');
     expect(screen.getByText(/ending year must be exactly one year/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Save Changes' }).disabled).toBe(true);
+    const save = screen.getByRole('button', { name: 'Save Changes' });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    await vi.waitFor(() => expect(document.activeElement).toBe(year));
+    expect(h.ctx.saveSettings).toHaveBeenCalledTimes(1);
   });
 
   it('shows backup failure separately from a genuine empty history and retries', () => {

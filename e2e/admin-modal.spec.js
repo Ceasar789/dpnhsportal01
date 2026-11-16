@@ -348,15 +348,20 @@ test.describe('the dirty check sees prefilled fields', () => {
         await dialog.getByRole('combobox').first().selectOption(newValue);
       }
 
-      let prompts = 0;
-      page.on('dialog', (d) => { prompts++; prompts === 1 ? d.dismiss() : d.accept(); });
+      // U4: the question is the in-app ConfirmDialog, not the browser's.
+      let nativePrompt = false;
+      page.on('dialog', (d) => { nativePrompt = true; d.dismiss(); });
+      const ask = page.getByRole('alertdialog', { name: 'Discard your changes?' });
 
       await page.locator('.modal-overlay:has([role=dialog])').click({ position: { x: 5, y: 5 } });
-      expect(prompts, `${tab} discarded a change to ${what} without asking`).toBe(1);
+      await expect(ask, `${tab} discarded a change to ${what} without asking`).toBeVisible();
+      await ask.getByRole('button', { name: 'Keep editing' }).click();
       await expect(dialog, 'declining the prompt should keep the dialog open').toBeVisible();
 
       await page.locator('.modal-overlay:has([role=dialog])').click({ position: { x: 5, y: 5 } });
+      await ask.getByRole('button', { name: 'Discard changes' }).click();
       await expect(dialog).toHaveCount(0);
+      expect(nativePrompt, `${tab} still opened a browser confirmation`).toBe(false);
     });
   }
 });
@@ -392,7 +397,7 @@ test.describe('the snapshot survives data arriving late', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     // The fields must actually hold the record before this proves anything.
-    await expect(dialog.locator('.form-input').first()).not.toHaveValue('');
+    await expect(dialog.locator('.fk-control').first()).not.toHaveValue('');
     await page.waitForTimeout(1200);
 
     let asked = false;

@@ -71,7 +71,7 @@ describe('the clash message is brought into view when it appears', () => {
     const alert = document.getElementById('schedules-conflict-error');
     const body = alert.closest('.ux-modal-body');
     expect(body.lastElementChild).toBe(alert);
-    expect(body.nextElementSibling.textContent).toMatch(/Cancel\s*Create/);
+    expect(body.nextElementSibling.textContent).toMatch(/Cancel\s*Add period/);
   });
 });
 

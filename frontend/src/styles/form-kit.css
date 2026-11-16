@@ -291,8 +291,10 @@
   }
 }
 
-/* ---- Phones ---- */
-@media (max-width: 767.98px) {
+/* ---- Phones, portrait and landscape (U4: a phone on its side, e.g.
+   844x390, gets the same 16px inputs, 44px targets and stacked footer;
+   the same landscape query the Clarity G10 rules use) ---- */
+@media (max-width: 767.98px), (max-width: 1023.98px) and (max-height: 500px) {
   .fk-field .fk-control { min-height: 44px; font-size: 16px; }
   .fk-pw-toggle { width: 44px; min-height: 44px; margin-top: -22px; right: 0; }
   .fk-field .fk-pw .fk-control { padding-right: 50px; }

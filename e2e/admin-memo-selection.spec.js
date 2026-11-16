@@ -33,7 +33,7 @@ test.describe('memo selection stability', () => {
 
     await page.locator('.memo-preview').getByRole('button', { name: 'Edit' }).click();
     await expect(page.getByRole('dialog', { name: 'Edit Memo' })).toBeVisible();
-    await page.getByRole('button', { name: 'Update', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
 
     await expect(page.getByRole('dialog', { name: 'Edit Memo' })).toHaveCount(0);
     await expect(page.locator('.memo-list-item.active .memo-title-item')).toHaveText(selectedSubject);

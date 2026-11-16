@@ -3,19 +3,19 @@
 // The subject registry every schedule, lesson plan and worksheet refers to.
 // ============================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import RowSheet from '../../../../components/ui/RowSheet';
 import { useIsNarrow } from '../../../../lib/useMediaQuery';
 import { Pencil, Trash2, Plus } from 'lucide-react';
-import Modal from '../../../../components/ui/Modal';
 import { useAdminContext } from '../AdminContext';
+import SubjectFormDialog from '../shared/SubjectFormDialog';
 import Button from '../../../../components/ui/Button';
 
 const SubjectsTab = () => {
   const {
-    subjects, subjectsLoading, subjectsError, fetchSubjects, subjectModal, editingSubject,
-    sName, setSName, sCode, setSCode, sActive, setSActive, sSaving,
-    openCreateSubject, openEditSubject, closeSubjectModal, saveSubject, deleteSubject,
+    subjects, subjectsLoading, subjectsError, fetchSubjects, 
+    
+    openCreateSubject, openEditSubject, deleteSubject,
   } = useAdminContext();
 
 
@@ -36,10 +36,6 @@ const SubjectsTab = () => {
     else pageHeadingRef.current?.focus();
   };
 
-  const [tried, setTried] = useState(false);
-  useEffect(() => { setTried(false); }, [subjectModal]);
-  const missingName = tried && !sName.trim();
-  const missingCode = tried && !sCode.trim();
 
   return (
     <>
@@ -116,47 +112,7 @@ const SubjectsTab = () => {
         onClose={() => setSheetSubject(null)}
       />
 
-      {subjectModal && (
-        <Modal
-          open
-          title={editingSubject ? 'Edit Subject' : 'Add Subject'}
-          onClose={closeSubjectModal}
-          footer={(requestClose) => (
-            <>
-              <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-              <Button onClick={() => { setTried(true); saveSubject(); }} busy={sSaving} busyLabel={editingSubject ? 'Updating…' : 'Creating…'}>
-                {editingSubject ? 'Update' : 'Create'}
-              </Button>
-            </>
-          )}
-        >
-
-            <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="subjects-subject-name">Subject Name<span className="form-req" aria-hidden="true">*</span></label>
-              <input id="subjects-subject-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={sName} onChange={e => setSName(e.target.value)} placeholder="e.g. Mathematics"
-                aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'subjects-subject-name-error' : undefined} />
-              {missingName && <div className="field-error" id="subjects-subject-name-error">Subject name is required.</div>}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="subjects-code">Code<span className="form-req" aria-hidden="true">*</span></label>
-              <input id="subjects-code" className={`form-input${missingCode ? ' is-invalid' : ''}`} value={sCode} onChange={e => setSCode(e.target.value)} placeholder="e.g. MATH"
-                aria-required="true" aria-invalid={missingCode || undefined} aria-describedby={missingCode ? 'subjects-code-error' : undefined} />
-              {missingCode && <div className="field-error" id="subjects-code-error">Subject code is required.</div>}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="subjects-status">Status</label>
-              <select id="subjects-status" className="form-input" value={sActive ? 'active' : 'inactive'} onChange={e => setSActive(e.target.value === 'active')}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-
-        </Modal>
-      )}
+      <SubjectFormDialog />
     </>
   );
 };

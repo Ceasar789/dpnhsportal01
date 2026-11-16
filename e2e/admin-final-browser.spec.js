@@ -192,7 +192,7 @@ test('News confirmed create rejection removes only the new image and supports a 
   const harness = await installAdminFinalMocks(page, { writeOutcomes: { news: 'error' } });
   await openAdminPage(page, 'News Management', 'News Management');
   await fillNewsWithImage(page);
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
 
   await expect(page.getByRole('dialog', { name: 'New Post' })).toBeVisible();
   await expect(page.locator('.toast.error')).toContainText('newly uploaded image was removed');
@@ -202,7 +202,7 @@ test('News confirmed create rejection removes only the new image and supports a 
   expect(harness.state.activityWrites).toHaveLength(0);
 
   harness.state.writeOutcomes.news = 'success';
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'New Post' })).toHaveCount(0);
   expect(harness.state.storageUploads).toHaveLength(2);
   expect(harness.state.storageUploads[1]).not.toBe(harness.state.storageUploads[0]);
@@ -221,7 +221,7 @@ test('News failed replacement preserves the old image and reports cleanup failur
   await page.getByLabel('Attach Image').setInputFiles({
     name: 'replacement.png', mimeType: 'image/png', buffer: Buffer.from('replacement'),
   });
-  await page.getByRole('button', { name: 'Update' }).click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
 
   await expect(page.getByRole('dialog', { name: 'Edit Post' })).toBeVisible();
   await expect(page.locator('.toast.error')).toContainText('could not be removed automatically');

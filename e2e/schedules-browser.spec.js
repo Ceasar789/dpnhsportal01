@@ -38,14 +38,14 @@ test('creates one valid period, blocks invalid time, and preserves the approved 
   await dialog.getByLabel('Teacher').selectOption({ label: 'Synthetic Math Teacher' });
   await dialog.getByLabel('Start').fill('10:00');
   await dialog.getByLabel('End').fill('09:00');
-  await dialog.getByRole('button', { name: 'Create' }).click();
-  await expect(dialog.getByText(/End time must be after/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Add period' }).click();
+  await expect(dialog.getByText(/End time must be after/).first()).toBeVisible();
   await expect(dialog.getByLabel('Start')).toHaveAttribute('aria-invalid', 'true');
   expect(harness.state.scheduleWrites).toHaveLength(0);
 
   await dialog.getByLabel('End').fill('11:00');
   await dialog.getByLabel('Room').fill('Room 301');
-  await dialog.getByRole('button', { name: 'Create' }).dblclick();
+  await dialog.getByRole('button', { name: 'Add period' }).dblclick();
   await expect(page.getByText('Schedule created')).toBeVisible();
   expect(harness.state.scheduleWrites).toHaveLength(1);
   expect(harness.state.scheduleWrites[0][0]).toMatchObject({
@@ -61,7 +61,7 @@ test('shows safe create errors and keeps the form available', async ({ page }) =
   await dialog.getByLabel('Teacher').selectOption({ label: 'Synthetic Math Teacher' });
   await dialog.getByLabel('Start').fill('10:00');
   await dialog.getByLabel('End').fill('11:00');
-  await dialog.getByRole('button', { name: 'Create' }).click();
+  await dialog.getByRole('button', { name: 'Add period' }).click();
   await expect(page.getByText(/Could not create the schedule/)).toBeVisible();
   await expect(dialog).toBeVisible();
   await expect(page.getByText(/synthetic private create failure/)).toHaveCount(0);

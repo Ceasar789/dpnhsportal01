@@ -54,7 +54,7 @@ const SettingsTab = () => {
     setSettings, settings, settingsSaving,
     settingsDirty, settingsChangeCount, discardSettings,
     themePref, setThemePref, settingsStatus, settingsError,
-    settingsValidation, settingsAuthorized, settingsCanEdit, settingsCanSave,
+    settingsValidation, settingsAuthorized, settingsCanEdit,
     fetchSettings, backupHistoryStatus, backupHistoryError, fetchBackupHistory,
     overviewLoading,
   } = useAdminContext();
@@ -73,6 +73,13 @@ const SettingsTab = () => {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [settingsDirty]);
+
+  // U4 (decision 4): Save stays enabled while a value is invalid. The message
+  // is already on the field; pressing Save moves focus there (no toast).
+  const pressSave = async () => {
+    const result = await saveSettings();
+    if (result?.fieldId) document.getElementById(result.fieldId)?.focus();
+  };
 
   return (
     <div>
@@ -162,7 +169,7 @@ const SettingsTab = () => {
               <div className="settings-label">Session Timeout</div>
               <div className="settings-hint">After this setting is saved, each browser applies it on its next portal load and signs the user out after this long without mouse, keyboard, scroll or touch activity.</div>
             </div>
-            <select value={settingsReady ? sessionTimeout : ''} onChange={e => setSessionTimeout(e.target.value)} aria-label="Session Timeout" disabled={!settingsCanEdit}>
+            <select id="settings-session-timeout" value={settingsReady ? sessionTimeout : ''} onChange={e => setSessionTimeout(e.target.value)} aria-label="Session Timeout" disabled={!settingsCanEdit}>
               {!settingsReady && <option value="">Unavailable</option>}
               <option>15 min</option><option>30 min</option><option>1 hour</option><option>2 hours</option>
             </select>
@@ -314,7 +321,7 @@ const SettingsTab = () => {
           </span>
           <div className="settings-savebar-actions">
             <Button variant="ghost" onClick={discardSettings} disabled={!settingsReady || !settingsAuthorized || settingsSaving}>Discard</Button>
-            <Button onClick={saveSettings} busy={settingsSaving} disabled={!settingsCanSave}>Save Changes</Button>
+            <Button onClick={pressSave} busy={settingsSaving} disabled={!settingsReady || !settingsAuthorized}>Save Changes</Button>
           </div>
         </div>
       )}

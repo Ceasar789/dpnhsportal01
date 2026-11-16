@@ -82,7 +82,7 @@ test.describe('a double click saves once', () => {
     await page.getByRole('button', { name: /Add Subject/ }).click();
     await page.locator('#subjects-subject-name').fill('Double Click Probe');
     await page.locator('#subjects-code').fill('DBLCLK');
-    await doubleClick(page.getByRole('button', { name: /^Create$/ }));
+    await doubleClick(page.getByRole('button', { name: /^Add subject$/ }));
     await expectExactlyOneInsert(seen);
   });
 
@@ -93,7 +93,7 @@ test.describe('a double click saves once', () => {
     await page.getByRole('button', { name: /Add Section/ }).click();
     await page.locator('#sections-section-name').fill('Double Click Probe');
     await page.locator('#sections-grade-level').selectOption({ index: 1 });
-    await doubleClick(page.getByRole('button', { name: /^Create$/ }));
+    await doubleClick(page.getByRole('button', { name: /^Add section$/ }));
     await expectExactlyOneInsert(seen);
   });
 
@@ -104,7 +104,7 @@ test.describe('a double click saves once', () => {
     await page.getByRole('button', { name: /Add Event/ }).click();
     await page.locator('#calendar-title').fill('Double Click Probe');
     await page.locator('#calendar-start-date').fill('2026-12-01');
-    await doubleClick(page.getByRole('button', { name: /^Add Event$/ }).last());
+    await doubleClick(page.getByRole('button', { name: /^Add event$/ }).last());
     await expectExactlyOneInsert(seen);
   });
 
@@ -115,7 +115,7 @@ test.describe('a double click saves once', () => {
     await page.getByRole('button', { name: /Compose/ }).click();
     await page.locator('#memos-subject').fill('Double Click Probe');
     await page.locator('#memos-body').fill('Body.');
-    await doubleClick(page.getByRole('button', { name: /^Send$/ }));
+    await doubleClick(page.getByRole('button', { name: /^Send memo$/ }));
     await expectExactlyOneInsert(seen);
   });
 
@@ -126,7 +126,7 @@ test.describe('a double click saves once', () => {
     await page.getByRole('button', { name: /New Post/ }).click();
     await page.locator('#news-title').fill('Double Click Probe');
     await page.locator('#news-content').fill('Body.');
-    await doubleClick(page.getByRole('button', { name: /^Publish$/ }));
+    await doubleClick(page.getByRole('button', { name: /^Save draft$/ }));
     await expectExactlyOneInsert(seen);
   });
   // Save Assignment writes the working subject chips once even when the
@@ -180,7 +180,7 @@ test.describe('a double click saves once', () => {
     await page.locator('#schedules-start').fill('07:00');
     await page.locator('#schedules-end').fill('08:00');
 
-    await doubleClick(page.getByRole('button', { name: /^Create$/ }));
+    await doubleClick(page.getByRole('button', { name: /^Add period$/ }));
     await expectExactlyOneInsert(seen);
   });
 });

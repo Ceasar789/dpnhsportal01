@@ -7,8 +7,8 @@ const openCreate = async (page) => {
 };
 
 const fillRequiredCreateFields = async (dialog, capacity) => {
-  await dialog.getByLabel(/Section Name/).fill('8-Synthetic');
-  await dialog.getByLabel(/Grade Level/).selectOption('Grade 8');
+  await dialog.getByLabel(/Section name/i).fill('8-Synthetic');
+  await dialog.getByLabel(/Grade level/i).selectOption('Grade 8');
   await dialog.getByLabel(/Capacity/).fill(String(capacity));
 };
 
@@ -16,13 +16,13 @@ test('create validation rejects blank and out-of-range capacities without a writ
   const harness = await installSectionsMocks(page);
   await openSections(page);
   const dialog = await openCreate(page);
-  await dialog.getByLabel(/Section Name/).fill('8-Synthetic');
-  await dialog.getByLabel(/Grade Level/).selectOption('Grade 8');
+  await dialog.getByLabel(/Section name/i).fill('8-Synthetic');
+  await dialog.getByLabel(/Grade level/i).selectOption('Grade 8');
 
   for (const [value, message] of [['', 'Capacity is required.'], ['-1', /whole number from 1 to 60/], ['1.5', /whole number from 1 to 60/], ['61', /whole number from 1 to 60/]]) {
     await dialog.getByLabel(/Capacity/).fill(value);
-    await dialog.getByRole('button', { name: 'Create' }).click();
-    await expect(dialog.getByText(message)).toBeVisible();
+    await dialog.getByRole('button', { name: 'Add section' }).click();
+    await expect(dialog.getByText(message).first()).toBeVisible();
     expect(harness.state.sectionWrites).toHaveLength(0);
   }
   harness.assertHealthy();
@@ -35,7 +35,7 @@ for (const capacity of [1, 60]) {
     const dialog = await openCreate(page);
     await fillRequiredCreateFields(dialog, capacity);
     await dialog.getByLabel('Adviser').selectOption({ label: 'Synthetic Active Teacher' });
-    await dialog.getByRole('button', { name: 'Create' }).click();
+    await dialog.getByRole('button', { name: 'Add section' }).click();
     await expect(page.getByText('Section created')).toBeVisible();
     expect(harness.state.sectionWrites).toHaveLength(1);
     expect(harness.state.sectionWrites[0].payload[0]).toMatchObject({
@@ -60,8 +60,8 @@ test('new assignments expose only active advisers; an existing inactive adviser 
   await expect(legacy).toBeAttached();
   await expect(legacy).toBeDisabled();
   await expect(dialog.getByText(/existing assignment will be preserved/i)).toBeVisible();
-  await dialog.getByLabel(/Section Name/).fill('7-Synthetic Updated');
-  await dialog.getByRole('button', { name: 'Update' }).click();
+  await dialog.getByLabel(/Section name/i).fill('7-Synthetic Updated');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('Section updated')).toBeVisible();
   expect(harness.state.sectionWrites[0].payload).toMatchObject({ adviser_id: harness.state.teachers[1].id, capacity: 40 });
   harness.assertHealthy();
@@ -73,7 +73,7 @@ test('changed capacity fails closed below enrollment', async ({ page }) => {
   await page.getByRole('button', { name: 'Edit 7-Synthetic' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit Section' });
   await dialog.getByLabel(/Capacity/).fill('30');
-  await dialog.getByRole('button', { name: 'Update' }).click();
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog.getByText(/current enrollment of 35/)).toBeVisible();
   expect(harness.state.sectionWrites).toHaveLength(0);
   harness.assertHealthy();
@@ -85,7 +85,7 @@ test('changed capacity fails closed when the count is unavailable', async ({ pag
   await page.getByRole('button', { name: 'Edit 7-Synthetic' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit Section' });
   await dialog.getByLabel(/Capacity/).fill('35');
-  await dialog.getByRole('button', { name: 'Update' }).click();
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog.getByText(/Could not verify current enrollment/)).toBeVisible();
   expect(failed.state.sectionWrites).toHaveLength(0);
   failed.assertHealthy();
@@ -96,7 +96,7 @@ test('duplicate create remains open and reports the per-year conflict', async ({
   await openSections(page);
   const dialog = await openCreate(page);
   await fillRequiredCreateFields(dialog, 40);
-  await dialog.getByRole('button', { name: 'Create' }).click();
+  await dialog.getByRole('button', { name: 'Add section' }).click();
   await expect(page.getByText(/already exists for 2026-2027/)).toBeVisible();
   await expect(dialog).toBeVisible();
   harness.assertHealthy();

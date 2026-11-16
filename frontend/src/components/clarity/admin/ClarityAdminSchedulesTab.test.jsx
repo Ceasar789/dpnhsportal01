@@ -214,7 +214,7 @@ describe('the dialog is the classic one', () => {
     const run = (Tab) => {
       h.ctx = dialogCtx({ schedStart: '10:00', schedEnd: '09:00' });
       show(Tab);
-      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' }));
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add period' }));
       const html = norm(screen.getByRole('dialog').outerHTML);
       const saved = h.ctx.saveSchedule.mock.calls.length;
       cleanup();
@@ -223,15 +223,15 @@ describe('the dialog is the classic one', () => {
     const classic = run(SchedulesTab);
     const clarity = run(ClarityAdminSchedulesTab);
     expect(clarity).toEqual(classic);
-    expect(classic[0]).toContain('Select a teacher.');
-    expect(classic[0]).toContain('End time must be after the start time.');
+    expect(classic[0]).toContain('Choose a teacher.');
+    expect(classic[0]).toContain('The end time must be after the start time.');
     expect(classic[1]).toBe(0);
   });
 
   it('a valid form saves through saveSchedule', () => {
     h.ctx = dialogCtx({ schedTeacher: 't1' });
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add period' }));
     expect(h.ctx.saveSchedule).toHaveBeenCalledTimes(1);
   });
 });

@@ -9,21 +9,20 @@
 // TEMPORARY word-for-word copies from pages/dashboards/admin/tabs/NewsTab.jsx
 // (parity-tested in ClarityAdminNewsTab.test.jsx); after the defense the
 // classic tab and this one should share them:
-//   - the staged-image handling, isExpired, the status-change state and
+//   - isExpired, the status-change state and
 //     focusAfterDelete, :23-64 (focusAfterDelete looks for this tab's Delete
 //     button class instead of the classic one)
 //   - the audience label, :94-96
-//   - the post dialog, :143-256 (the shared Modal, unchanged), with ONE
-//     wording change: the staged image's alt text no longer uses the word
-//     "preview" (owner rule: that word is never shown)
+//   - U4: the post dialog with the staged-image handling is now the shared NewsFormDialog
+//     (pages/dashboards/admin/shared), rendered by this tab and the classic one
+//     (its staged-image alt text keeps this tab's wording, without "preview")
 // ============================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Archive, ArchiveRestore, Plus, Search } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
-import Modal from '../../ui/Modal';
+import NewsFormDialog from '../../../pages/dashboards/admin/shared/NewsFormDialog';
 import { TARGET_ROLES } from '../../../pages/dashboards/admin/shared/helpers';
-import Button from '../../ui/Button';
 import { formatDate } from '../../../lib/formatDate';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
@@ -34,36 +33,13 @@ const postTime = n => new Date(n.published_at || n.created_at || 0).getTime();
 
 const ClarityAdminNewsTab = () => {
   const {
-    closeModal, deleteNewsItem, editNews, filteredNews = [], modal, nAuthor, nCat, nContent, nCustomTarget, nExpiresDate, nImageFile, nImageUrl, nSaving, nStatus, nTarget, nTitle, newsReadOnly,
+    deleteNewsItem, filteredNews = [], 
     fetchNews, newsCatF, newsError = '', newsItems = [], newsLoading, newsSearch, newsStatF, openEditNews,
-    openNewPost, saveNews, saveNewsExpiry, setNAuthor, setNCat, setNContent, setNExpiresDate, setNStatus,
-    setNCustomTarget, setNImageFile, setNTarget, setNTitle, setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
+    openNewPost, 
+    setNewsCatF, setNewsSearch, setNewsStatF, updateNewsStatus
   } = useAdminContext();
 
   // ---- TEMPORARY copy (NewsTab.jsx:23-64) ----
-  // 7C. Until now the preview rendered nImageUrl — the image ALREADY
-  // SAVED on the post — so choosing a replacement left the old one on
-  // screen and the only sign anything had happened was the browser's own
-  // filename text. On a new post there was no preview at all.
-  //
-  // The blob belongs to the visible preview, not to a render. Creating it
-  // in an effect pairs every allocation with cleanup, including StrictMode
-  // replay, replacement, and closing the modal while this tab stays mounted.
-  const previewImageRef = useRef(null);
-  useEffect(() => {
-    if (modal !== 'news' || !nImageFile || !previewImageRef.current) return;
-    const url = URL.createObjectURL(nImageFile);
-    previewImageRef.current.src = url;
-    return () => URL.revokeObjectURL(url);
-  }, [modal, nImageFile]);
-
-  // The file input is uncontrolled, so clearing the state is not enough:
-  // the element keeps showing the filename until its own value is reset.
-  const imageInputRef = useRef(null);
-  const clearStagedImage = () => {
-    setNImageFile(null);
-    if (imageInputRef.current) imageInputRef.current.value = '';
-  };
 
   const isExpired = (n) => !!n.expires_at && new Date(n.expires_at) < new Date();
 
@@ -248,121 +224,7 @@ const ClarityAdminNewsTab = () => {
         )}
       </div>
 
-      {/* ---- TEMPORARY copy (NewsTab.jsx:143-256): NEWS MODAL ---- */}
-      <Modal
-        open={modal === 'news'}
-        title={newsReadOnly ? 'View Published Post' : editNews ? 'Edit Post' : 'New Post'}
-        onClose={closeModal}
-        footer={(requestClose) => (
-          <>
-            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-            <Button onClick={newsReadOnly ? saveNewsExpiry : saveNews} busy={nSaving}>
-              {newsReadOnly ? 'Save Expiry' : editNews ? 'Update' : 'Publish'}
-            </Button>
-          </>
-        )}
-      >
-          {newsReadOnly && (
-            <div className="form-row" style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>
-              A published post's content is locked so it can't be quietly rewritten. You can still change or clear its expiry date below.
-            </div>
-          )}
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-title">Title</label>
-            <input id="news-title" className="form-input" value={nTitle} onChange={e => setNTitle(e.target.value)} placeholder="Post title" disabled={newsReadOnly} aria-required={newsReadOnly ? undefined : 'true'} />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-category">Category</label>
-            <select id="news-category" className="form-input" value={nCat} onChange={e => setNCat(e.target.value)} disabled={newsReadOnly}>
-              {['Academics','Events','Scholarships','Announcements','Sports'].map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-target-audience">Target Audience</label>
-            <select id="news-target-audience" className="form-input" value={nTarget} onChange={e => setNTarget(e.target.value)} disabled={newsReadOnly}>
-              {TARGET_ROLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              {/* An old post's audience the app no longer offers stays selected
-                  (and is saved unchanged) instead of reading as the first
-                  option. It cannot be chosen for a new post. */}
-              {nTarget && !TARGET_ROLES.some(t => t.value === nTarget) && (
-                <option value={nTarget} disabled>{`${nTarget} (no longer offered)`}</option>
-              )}
-            </select>
-          </div>
-          {nTarget === 'custom' && (
-            <div className="form-row">
-              <label className="form-label" htmlFor="news-custom-audience">Custom Audience</label>
-              <input
-                id="news-custom-audience" className="form-input"
-                value={nCustomTarget}
-                onChange={e => setNCustomTarget(e.target.value)}
-                placeholder="e.g. Grade 10 students or Science Department"
-                disabled={newsReadOnly}
-                aria-required={newsReadOnly ? undefined : 'true'}
-              />
-            </div>
-          )}
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-author">Author</label>
-            <input id="news-author" className="form-input" value={nAuthor} onChange={e => setNAuthor(e.target.value)} placeholder="Your name" disabled={newsReadOnly} />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-content">Content</label>
-            <textarea id="news-content" className="form-input" rows={5} value={nContent} onChange={e => setNContent(e.target.value)} placeholder="Write your announcement..." disabled={newsReadOnly} />
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-attach-image">Attach Image</label>
-            <input
-              id="news-attach-image"
-              ref={imageInputRef}
-              className="form-input"
-              type="file"
-              accept="image/*"
-              onChange={e => setNImageFile(e.target.files?.[0] || null)}
-              disabled={newsReadOnly}
-            />
-            {(nImageFile || nImageUrl) && (
-              <div className="news-image-preview">
-                <img
-                  ref={previewImageRef}
-                  src={nImageFile ? undefined : nImageUrl}
-                  alt={nImageFile ? `Chosen image: ${nImageFile.name || 'the chosen image'}` : 'The image currently on this post'}
-                />
-                <div className="news-image-preview-bar">
-                  {/* Which image this is, said plainly: the old version
-                      showed the saved one and called it the attachment. */}
-                  <span className="news-image-preview-label">
-                    {nImageFile
-                      ? `${nImageFile?.name || 'New image'} — not saved yet`
-                      : 'Current image'}
-                  </span>
-                  {nImageFile && !newsReadOnly && (
-                    <button type="button" className="news-action" onClick={clearStagedImage}>
-                      {nImageUrl ? 'Keep current' : 'Remove'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-status">Status</label>
-            <select id="news-status" className="form-input" value={nStatus} onChange={e => setNStatus(e.target.value)} disabled={newsReadOnly}>
-              <option>Draft</option><option>Published</option>
-            </select>
-          </div>
-          <div className="form-row">
-            <label className="form-label" htmlFor="news-expires-on-optional">Expires on (optional)</label>
-            {/* Expiry is a visibility control, not content — it stays
-                editable even on a locked, already-published post. */}
-            <input
-              id="news-expires-on-optional" className="form-input"
-              type="date"
-              value={nExpiresDate}
-              onChange={e => setNExpiresDate(e.target.value)}
-            />
-          </div>
-      </Modal>
+      <NewsFormDialog />
 
     </>
   );

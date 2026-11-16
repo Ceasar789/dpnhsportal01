@@ -159,20 +159,19 @@ describe('the dialog is the classic one', () => {
   it('validation: Create on empty fields shows the same messages and still calls saveSubject', () => {
     h.ctx.subjectModal = true;
     show();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' }));
-    expect(screen.getByText('Subject name is required.')).toBeTruthy();
-    expect(screen.getByText('Subject code is required.')).toBeTruthy();
-    expect(h.ctx.saveSubject).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add subject' }));
+    expect(screen.getAllByText('Enter the subject name.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Enter a short code, like MATH.').length).toBeGreaterThan(0);
+    expect(h.ctx.saveSubject).not.toHaveBeenCalled();
   });
 
   it('the discard guard is kept: edited fields ask before Cancel closes', () => {
     h.ctx.subjectModal = true;
     show();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const input = screen.getByLabelText(/Subject Name/);
+    const input = screen.getByLabelText(/Subject name/);
     input.value = 'Changed';
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
-    expect(confirm).toHaveBeenCalledWith('Discard changes?');
+    expect(screen.getByRole('alertdialog', { name: 'Discard your changes?' })).toBeTruthy();
     expect(h.ctx.closeSubjectModal).not.toHaveBeenCalled();
   });
 });

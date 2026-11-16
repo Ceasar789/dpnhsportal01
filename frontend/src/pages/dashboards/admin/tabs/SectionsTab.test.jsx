@@ -40,8 +40,8 @@ describe('Sections capacity form', () => {
   ])('shows an accessible error for %j and does not call save', (capacity, message) => {
     h.context = baseContext({ secCapacity: capacity });
     render(<SectionsTab />);
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-    expect(screen.getByText(message)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
+    expect(screen.getAllByText(message)[0]).toBeTruthy();
     expect(screen.getByLabelText(/Capacity/).getAttribute('aria-invalid')).toBe('true');
     expect(h.context.saveSection).not.toHaveBeenCalled();
   });
@@ -49,7 +49,7 @@ describe('Sections capacity form', () => {
   it.each(['1', '40', '60'])('allows valid capacity %s to reach the write boundary', (capacity) => {
     h.context = baseContext({ secCapacity: capacity });
     render(<SectionsTab />);
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
     expect(h.context.saveSection).toHaveBeenCalledTimes(1);
   });
 
@@ -66,7 +66,7 @@ describe('Sections capacity form', () => {
 describe('Sections adviser choices', () => {
   it('offers only active teachers for a new section', () => {
     render(<SectionsTab />);
-    const adviser = screen.getByLabelText('Adviser');
+    const adviser = screen.getByLabelText(/^Adviser/);
     expect(within(adviser).getByRole('option', { name: 'Active Teacher' })).toBeTruthy();
     expect(within(adviser).queryByRole('option', { name: /Inactive Teacher/ })).toBeNull();
     expect(within(adviser).queryByRole('option', { name: /Suspended Teacher/ })).toBeNull();
@@ -79,7 +79,7 @@ describe('Sections adviser choices', () => {
       secAdviser: INACTIVE.id,
     });
     render(<SectionsTab />);
-    const adviser = screen.getByLabelText('Adviser');
+    const adviser = screen.getByLabelText(/^Adviser/);
     const legacy = within(adviser).getByRole('option', { name: /Inactive Teacher.*existing adviser/ });
     expect(legacy.disabled).toBe(true);
     expect(legacy.selected).toBe(true);

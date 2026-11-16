@@ -12,21 +12,21 @@ import StudentProfileSheet from '../shared/StudentProfileSheet';
 import Modal from '../../../../components/ui/Modal';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import { useAdminContext } from '../AdminContext';
+import SectionFormDialog from '../shared/SectionFormDialog';
 import SchoolYearNotice from '../shared/SchoolYearNotice';
 import { coverageText, subjectCoverage } from '../shared/classSetup';
 import { formatEnrollmentDate, membershipStatusLabel, REMOVAL_REASONS } from '../shared/sectionMembership';
-import { GRADE_LEVELS } from '../../../../lib/academicRules';
 import Button from '../../../../components/ui/Button';
-import { isActiveSectionAdviser, otherAdvisedSections, validateSectionCapacity } from '../shared/sectionsValidation';
+import { validateSectionCapacity } from '../shared/sectionsValidation';
 
 const SectionsTab = () => {
   const {
     schoolYear, settingsSchoolYear, schoolYearSource, teachers, sections, sectionsLoading, sectionsError, fetchSections,
-    sectionModal, editingSection,
-    secName, setSecName, secGrade, setSecGrade, secAdviser, setSecAdviser,
-    secCapacity, setSecCapacity, secCapacityError, setSecCapacityError,
-    secAdviserError, setSecAdviserError, secSaving,
-    openCreateSection, openEditSection, closeSectionModal, saveSection, deleteSection,
+    
+    
+    
+    
+    openCreateSection, openEditSection, deleteSection,
     activeSection, classList, classListLoading, classListError, unassignedStudents, previousMembers,
     openClassList, closeClassList, addStudentToSection, removeStudentFromSection,
     showToast,
@@ -84,22 +84,9 @@ const SectionsTab = () => {
     }
   };
 
-  // UX-062: two of these four fields are required and nothing said which.
-  // The rules are unchanged and still live in saveSection; this is where
-  // the answer is shown.
-  const [tried, setTried] = useState(false);
-  const beginCreate = () => { setTried(false); openCreateSection(); };
-  const beginEdit = (section) => { setTried(false); openEditSection(section); };
-  const missingName = tried && !secName.trim();
-  const missingGrade = tried && !secGrade;
-  const localCapacityError = tried ? validateSectionCapacity(secCapacity).message : '';
-  const capacityError = secCapacityError || localCapacityError;
+  const beginCreate = () => openCreateSection();
+  const beginEdit = (section) => openEditSection(section);
   const adviserName = (id) => teachers.find(t => t.id === id)?.name || '—';
-  const eligibleTeachers = teachers.filter(isActiveSectionAdviser);
-  const existingAdviser = editingSection?.adviser_id
-    ? teachers.find((teacher) => teacher.id === editingSection.adviser_id)
-    : null;
-  const existingAdviserIsIneligible = existingAdviser && !isActiveSectionAdviser(existingAdviser);
   // Class setup line: the adviser and subject coverage, from the schedules and
   // subjects already loaded for the year. A failed read never reads as "0 of".
   const classSetupReady = Array.isArray(schedules) && Array.isArray(subjects);
@@ -117,13 +104,6 @@ const SectionsTab = () => {
     setScheduleOpenSectionId(section.id);
     setPage('schedules');
   };
-  // Uses the sections already loaded for this year; never blocks saving.
-  const alsoAdvises = otherAdvisedSections({
-    adviserId: secAdviser, sections, editingSectionId: editingSection?.id, schoolYear,
-  });
-  const adviserWarning = alsoAdvises.length > 0
-    ? `${adviserName(secAdviser)} already advises ${alsoAdvises.map(s => s.name).join(', ')} this school year. A teacher normally advises one section.`
-    : '';
 
   return (
     <>
@@ -215,84 +195,7 @@ const SectionsTab = () => {
         onClose={() => setSheetSection(null)}
       />
 
-      {sectionModal && (
-        <Modal
-          open
-          title={editingSection ? 'Edit Section' : 'Add Section'}
-          onClose={closeSectionModal}
-          footer={(requestClose) => (
-            <>
-              <Button variant="ghost" onClick={requestClose}>Cancel</Button>
-              <Button onClick={() => {
-                setTried(true);
-                if (!secName.trim() || !secGrade || !validateSectionCapacity(secCapacity).valid) return;
-                saveSection();
-              }} busy={secSaving} busyLabel={editingSection ? 'Updating…' : 'Creating…'}>
-                {editingSection ? 'Update' : 'Create'}
-              </Button>
-            </>
-          )}
-        >
-
-            <SchoolYearNotice schoolYear={schoolYear} settingsSchoolYear={settingsSchoolYear} schoolYearSource={schoolYearSource} />
-            <div className="form-legend"><span className="form-req" aria-hidden="true">*</span> Required</div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="sections-section-name">Section Name<span className="form-req" aria-hidden="true">*</span></label>
-              <input id="sections-section-name" className={`form-input${missingName ? ' is-invalid' : ''}`} value={secName} onChange={e => setSecName(e.target.value)} placeholder="e.g. 7-Rizal"
-                aria-required="true" aria-invalid={missingName || undefined} aria-describedby={missingName ? 'sections-section-name-error' : undefined} />
-              {missingName && <div className="field-error" id="sections-section-name-error">Section name is required.</div>}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="sections-grade-level">Grade Level<span className="form-req" aria-hidden="true">*</span></label>
-              <select id="sections-grade-level" className={`form-input${missingGrade ? ' is-invalid' : ''}`} value={secGrade} onChange={e => setSecGrade(e.target.value)}
-                aria-required="true" aria-invalid={missingGrade || undefined} aria-describedby={missingGrade ? 'sections-grade-level-error' : undefined}>
-                <option value="">Select…</option>
-                {GRADE_LEVELS.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-              {missingGrade && <div className="field-error" id="sections-grade-level-error">Grade level is required.</div>}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="sections-adviser">Adviser</label>
-              <select id="sections-adviser" className={`form-input${secAdviserError ? ' is-invalid' : ''}`} value={secAdviser}
-                onChange={e => { setSecAdviser(e.target.value); setSecAdviserError(''); }}
-                aria-invalid={Boolean(secAdviserError) || undefined}
-                aria-describedby={[secAdviserError && 'sections-adviser-error', adviserWarning && 'sections-adviser-warning'].filter(Boolean).join(' ') || undefined}>
-                <option value="">No adviser yet</option>
-                {existingAdviserIsIneligible && (
-                  <option value={existingAdviser.id} disabled>
-                    {existingAdviser.name || existingAdviser.email} ({existingAdviser.status || 'inactive'} — existing adviser)
-                  </option>
-                )}
-                {eligibleTeachers.map(t => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
-              </select>
-              {secAdviserError && <div className="field-error" id="sections-adviser-error">{secAdviserError}</div>}
-              {adviserWarning && (
-                <div className="form-hint" id="sections-adviser-warning" role="status"
-                  style={{ color: 'var(--badge-yellow-fg)', background: 'var(--badge-yellow-bg)', border: '1px solid var(--badge-yellow-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-8)' }}>
-                  {adviserWarning}
-                </div>
-              )}
-              {existingAdviserIsIneligible && secAdviser === existingAdviser.id && (
-                <div className="field-help">This adviser is no longer active. The existing assignment will be preserved unless you choose a replacement.</div>
-              )}
-              {eligibleTeachers.length === 0 && <div className="field-help">No active teachers are currently available.</div>}
-            </div>
-
-            <div className="form-row">
-              <label className="form-label" htmlFor="sections-capacity">Capacity<span className="form-req" aria-hidden="true">*</span></label>
-              <input id="sections-capacity" className={`form-input${capacityError ? ' is-invalid' : ''}`} type="number" min="1" max="60" step="1" required value={secCapacity}
-                onChange={e => { setSecCapacity(e.target.value); setSecCapacityError(''); }}
-                aria-required="true" aria-invalid={Boolean(capacityError) || undefined} aria-describedby={capacityError ? 'sections-capacity-error' : 'sections-capacity-help'} />
-              {capacityError
-                ? <div className="field-error" id="sections-capacity-error">{capacityError}</div>
-                : <div className="field-help" id="sections-capacity-help">Enter a whole number from 1 to 60.</div>}
-            </div>
-
-        </Modal>
-      )}
+      <SectionFormDialog />
 
       {activeSection && (
         <Modal
@@ -310,7 +213,7 @@ const SectionsTab = () => {
               if (!capacity.valid) return <div className="field-error" role="alert">This section has an invalid capacity. Correct it before adding students.</div>;
               const full = classList.length >= capacity.value;
               return (
-                <div role="status" aria-live="polite" className={full ? 'field-error' : 'field-help'}>
+                <div role="status" aria-live="polite" className={full ? 'field-error' : 'form-hint'}>
                   Enrollment: {classList.length} of {capacity.value}.
                   {full ? ` This section is ${classList.length > capacity.value ? 'over capacity' : 'full'}; additional enrollment is blocked.` : ''}
                 </div>

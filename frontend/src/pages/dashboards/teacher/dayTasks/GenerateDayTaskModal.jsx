@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Badge, Btn, Input, Modal } from '../shared/ui';
 import WorksheetDraftDocument from '../worksheets/WorksheetDraftDocument';
 import { isCancelError, requestDayTask } from './dayTaskClient';
+import { appErrorMessage } from '../../../../lib/appErrorMessage';
 import { ASSIGNMENT_DEFAULT, ASSIGNMENT_MAX, ASSIGNMENT_MIN, DAY_TASK_TYPE_LABELS, DAY_TASK_TYPES, defaultQuizSplit,
   ITEM_TYPE_LABELS, QUIZ_DEFAULT, QUIZ_ITEM_TYPES, QUIZ_MAX, QUIZ_MIN, toStoredTaskType, validateOptions } from './dayTaskOptions';
 
@@ -99,7 +100,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
     } catch (failure) {
       if (controllerRef.current !== controller) return;
       controllerRef.current = null;
-      if (!isCancelError(failure)) setError(failure?.message || 'The task could not be generated. Nothing was saved.');
+      if (!isCancelError(failure)) setError(appErrorMessage(failure, 'The task could not be generated. Nothing was saved.'));
       setStep(returnStepRef.current);
     }
   };
@@ -111,7 +112,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
     try {
       await onUseDraft(preview.result, { day, taskType, storedTaskType: toStoredTaskType(taskType) });
     } catch (failure) {
-      setError(failure?.message || 'The draft could not be saved. Try again.');
+      setError(appErrorMessage(failure, 'The draft could not be saved. Try again.'));
     } finally {
       setSaving(false);
     }

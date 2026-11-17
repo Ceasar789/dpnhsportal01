@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../../../../config/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { friendlyError } from '../../../../lib/friendlyError';
 import { isRetiredGradeLevel } from '../../../../lib/academicRules';
 import { normalizePoints, round2 } from '../../../../lib/worksheetChecking';
 import { TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
@@ -273,7 +274,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
   const setCheckingMode = useCallback(async (worksheetId, mode) => {
     const { error } = await supabase.from('worksheets').update({ checking_mode: mode }).eq('id', worksheetId);
     if (error) {
-      showToast(`Could not change checking mode: ${error.message}`, 'error');
+      showToast(friendlyError(error, { fallback: 'The checking mode could not be changed. Please try again.' }), 'error');
       return false;
     }
     showToast(mode === 'auto' ? 'Auto-checking on' : 'Manual checking only');

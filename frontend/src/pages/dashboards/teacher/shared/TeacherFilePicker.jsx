@@ -5,7 +5,8 @@ const fileSize = bytes => bytes < 1024 ? `${bytes} B`
   : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB`
     : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
-const TeacherFilePicker = ({ id, accept, guidance, file, onSelect, onRemove, disabled = false }) => {
+// `error` (optional, U5): a message for this field; the input is then marked invalid and described by it.
+const TeacherFilePicker = ({ id, accept, guidance, file, onSelect, onRemove, disabled = false, error }) => {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
 
@@ -30,7 +31,7 @@ const TeacherFilePicker = ({ id, accept, guidance, file, onSelect, onRemove, dis
         outlineColor: 'var(--accent)',
       }}>
       <input ref={inputRef} id={id} type="file" accept={accept} disabled={disabled}
-        aria-describedby={`${id}-guidance ${id}-selection`} className="sr-only"
+        aria-describedby={`${error ? `${id}-error ` : ''}${id}-guidance ${id}-selection`} aria-invalid={error ? 'true' : undefined} className="sr-only"
         onChange={event => selectFile(event.target.files?.[0])} />
       <div className="flex flex-wrap items-center gap-3">
         <label htmlFor={id} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${disabled ? 'opacity-60' : 'cursor-pointer'}`}
@@ -40,6 +41,7 @@ const TeacherFilePicker = ({ id, accept, guidance, file, onSelect, onRemove, dis
         <span className="text-sm" style={{ color: 'var(--text-muted)' }} aria-hidden="true">or drag and drop here</span>
       </div>
       <p id={`${id}-guidance`} className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{guidance}</p>
+      {error && <p id={`${id}-error`} className="fk-error mt-2">{error}</p>}
       <div id={`${id}-selection`} role="status" className="mt-3 flex flex-wrap items-center gap-2 min-w-0">
         {file ? <>
           <span className="text-sm font-medium break-all" style={{ color: 'var(--text)' }}>{file.name}</span>

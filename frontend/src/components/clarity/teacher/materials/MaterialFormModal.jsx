@@ -12,10 +12,11 @@ import TeacherFilePicker from '../../../../pages/dashboards/teacher/shared/Teach
 import useDialogSafety from '../../../../pages/dashboards/teacher/worksheets/useDialogSafety';
 import {
   DESCRIPTION_MAX, MATERIAL_ACCEPT, MATERIAL_FILE_GUIDANCE, TITLE_MAX,
-  draftFromRow, draftIsDirty, draftProblem, emptyDraft, formatBytes, rowFields, typeLabel,
+  descriptionProblem, draftFromRow, draftIsDirty, emptyDraft, fileProblem, formatBytes, linkProblem, rowFields, titleProblem, typeLabel,
 } from './materialRules';
 import { createFileMaterial, createLinkMaterial, deleteMaterial, updateMaterial } from './materialsApi';
-import { NO_TEACHING_LOAD_MESSAGE } from '../../../../lib/academicRules';
+import { NO_TEACHING_LOAD_MESSAGE, isRetiredGradeLevel } from '../../../../lib/academicRules';
+import FormErrorSummary from '../../../ui/form/FormErrorSummary';
 
 const BUSY_LABEL = { uploading: 'Uploading…', saving: 'Saving…', deleting: 'Deleting…' };
 
@@ -31,6 +32,16 @@ const choicesFor = (subjects, row) => {
   return list;
 };
 
+// U5: every problem with a draft, each on its field, in the order the fields appear
+// (the same rules as materialRules.draftProblem, which is unchanged).
+const materialProblems = (draft, { editing = false, ids }) => [
+  [ids.url, draft.kind === 'link' ? linkProblem(draft.url) : null],
+  ['material-file', draft.kind === 'file' && !editing ? fileProblem(draft.file) : null],
+  [ids.title, titleProblem(draft.title)],
+  [ids.description, descriptionProblem(draft.description)],
+  [ids.grade, draft.subjectId && isRetiredGradeLevel(draft.gradeLevel) ? 'Choose a grade level from Grade 7 to Grade 10.' : null],
+].filter(([, message]) => message).map(([fieldId, message]) => ({ fieldId, message }));
+
 const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsState, onRetrySubjects, onSaved, onDeleted, onClose }) => {
   const editing = mode === 'edit';
   const [baseline] = useState(() => (editing ? draftFromRow(row) : emptyDraft()));
@@ -38,6 +49,7 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const busyRef = useRef(false);
   const formId = useId();
   const ids = { title: useId(), description: useId(), subject: useId(), grade: useId(), url: useId(), error: useId() };
@@ -49,6 +61,11 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
   const choices = useMemo(() => choicesFor(subjects, editing ? row : null), [subjects, editing, row]);
   const grades = choices.find(s => s.id === draft.subjectId)?.grades ?? [];
   const update = changes => setDraft(current => ({ ...current, ...changes }));
+  // After a failed save the problems are re-checked on every change, so a fixed field clears at once.
+  const problems = attempt ? materialProblems(draft, { editing, ids }) : [];
+  const problemFor = id => problems.find(p => p.fieldId === id)?.message;
+  const errorProps = id => (problemFor(id) ? { 'aria-invalid': 'true', 'aria-describedby': `${id}-error` } : {});
+  const errorLine = id => (problemFor(id) ? <p className="fk-error" id={`${id}-error`}>{problemFor(id)}</p> : null);
 
   const run = async (kind, action) => {
     if (busyRef.current) return null;
@@ -66,8 +83,7 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
   const save = async (event) => {
     event?.preventDefault();
     if (busyRef.current) return;
-    const problem = draftProblem(draft, { editing });
-    if (problem) { setError(problem); return; }
+    if (materialProblems(draft, { editing, ids }).length) { setAttempt(a => a + 1); return; }
     const fields = rowFields(draft);
     const result = await run(!editing && draft.kind === 'file' ? 'uploading' : 'saving', () => (editing
       ? updateMaterial({ row, fields, url: draft.url })
@@ -102,7 +118,7 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
               <button type="button" className="x-btn dng x-tlm-del" disabled={Boolean(busy)} onClick={() => setConfirmDelete(true)}>Delete</button>
             )}
             <button type="button" className="x-btn" disabled={Boolean(busy)} onClick={() => requestClose()}>Cancel</button>
-            <button type="submit" form={formId} className="x-btn pri" disabled={Boolean(busy)} aria-busy={busy ? 'true' : undefined}>
+            <button type="submit" form={formId} className="x-btn pri" aria-busy={busy ? 'true' : undefined} aria-disabled={busy ? 'true' : undefined}>
               {BUSY_LABEL[busy] || (editing ? 'Save changes' : 'Add material')}
             </button>
           </div>
@@ -111,6 +127,7 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
         <form id={formId} noValidate onSubmit={save} aria-describedby={error ? ids.error : undefined}>
           {error && <p id={ids.error} role="alert" className="x-tlm-err">{error}</p>}
           {busyNotice && <p role="status" className="x-cs">{busyNotice}</p>}
+          <FormErrorSummary id="material-form-summary" errors={problems} attempt={attempt} focusTo="first-field" />
 
           {!editing && (
             <div className="x-seg x-tlm-kind" role="group" aria-label="Material type">
@@ -124,7 +141,7 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
           {draft.kind === 'file' && !editing && (
             <div className="x-field x-tlm-file">
               <TeacherFilePicker id="material-file" accept={MATERIAL_ACCEPT} guidance={MATERIAL_FILE_GUIDANCE} file={draft.file}
-                disabled={Boolean(busy)} onSelect={file => update({ file })} onRemove={() => update({ file: null })} />
+                disabled={Boolean(busy)} onSelect={file => update({ file })} onRemove={() => update({ file: null })} error={problemFor('material-file')} />
             </div>
           )}
           {draft.kind === 'file' && editing && (
@@ -137,20 +154,23 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
             <div className="x-field">
               <label className="x-label" htmlFor={ids.url}>Link</label>
               <input id={ids.url} className="x-input" type="url" inputMode="url" autoComplete="off" placeholder="https://"
-                value={draft.url} disabled={Boolean(busy)} onChange={e => update({ url: e.target.value })} />
+                value={draft.url} disabled={Boolean(busy)} onChange={e => update({ url: e.target.value })} {...errorProps(ids.url)} />
               <p className="x-hint">Starts with http:// or https://</p>
+              {errorLine(ids.url)}
             </div>
           )}
 
           <div className="x-field">
             <label className="x-label" htmlFor={ids.title}>Title</label>
             <input id={ids.title} className="x-input" value={draft.title} maxLength={TITLE_MAX} autoComplete="off" required
-              disabled={Boolean(busy)} onChange={e => update({ title: e.target.value })} />
+              disabled={Boolean(busy)} onChange={e => update({ title: e.target.value })} {...errorProps(ids.title)} />
+            {errorLine(ids.title)}
           </div>
           <div className="x-field">
             <label className="x-label" htmlFor={ids.description}>Description <span className="x-tlm-opt">(optional)</span></label>
             <textarea id={ids.description} className="x-input x-tlm-desc-input" rows={4} value={draft.description} maxLength={DESCRIPTION_MAX}
-              disabled={Boolean(busy)} onChange={e => update({ description: e.target.value })} />
+              disabled={Boolean(busy)} onChange={e => update({ description: e.target.value })} {...errorProps(ids.description)} />
+            {errorLine(ids.description)}
           </div>
 
           <div className="x-tlm-row">
@@ -165,10 +185,11 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
             <div className="x-field">
               <label className="x-label" htmlFor={ids.grade}>Grade <span className="x-tlm-opt">(optional)</span></label>
               <select id={ids.grade} className="x-select" value={draft.gradeLevel} disabled={Boolean(busy) || !draft.subjectId || grades.length === 0}
-                onChange={e => update({ gradeLevel: e.target.value })}>
+                onChange={e => update({ gradeLevel: e.target.value })} {...errorProps(ids.grade)}>
                 <option value="">No grade</option>
                 {grades.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
+              {errorLine(ids.grade)}
             </div>
           </div>
           {subjectHint && (

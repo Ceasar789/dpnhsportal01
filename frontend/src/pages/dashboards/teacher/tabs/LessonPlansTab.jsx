@@ -11,6 +11,8 @@ import AiPlanSaveAction from '../persistence/AiPlanSaveAction';
 import { aiLessonPlanSaveFlagEnabled, saveAiLessonPlan } from '../persistence/aiLessonPlanSaveClient';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
+import { friendlyError } from '../../../../lib/friendlyError';
+import { appErrorMessage } from '../../../../lib/appErrorMessage';
 import {
   Search, Trash2, Upload, Printer, FileEdit,
   FileText, Loader2, Eye, Save, FileUp, AlertTriangle, Sparkles, Download
@@ -1032,8 +1034,8 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
         showToast('Changes saved.', 'success');
       }
     } catch (err) {
-      setSaveError('Could not save the lesson plan. Your edits are still here. ' + err.message);
-      showToast('Error saving: ' + err.message, 'error');
+      setSaveError('Could not save the lesson plan. Your edits are still here. ' + appErrorMessage(err, 'Please try again.'));
+      showToast(appErrorMessage(err, 'The lesson plan could not be saved. Please try again.'), 'error');
     }
     saveInFlightRef.current = false;
     setSaving(false);
@@ -1046,7 +1048,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       html: editorRef.current?.innerHTML ?? ilawOutput,
       filename,
       aiGenerated: Boolean(currentPlanMeta?.ai_generated),
-    }).catch(error => showToast(error.message, 'error'));
+    }).catch(error => showToast(appErrorMessage(error, 'The lesson plan could not be printed. Please try again.'), 'error'));
   };
 
   // Load saved plan into editor
@@ -1088,7 +1090,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   // ── Delete plan ────────────────────────────────────────────
   const deletePlan = async (id) => {
     const { error } = await supabase.from('lesson_plans').delete().eq('id', id);
-    if (error) showToast('Error: ' + error.message, 'error');
+    if (error) showToast(friendlyError(error, { fallback: 'The lesson plan could not be deleted. Please try again.' }), 'error');
     else {
       const key = lessonPlanFilenamePreferenceKey(userData?.uid, id);
       if (key) filenameDraftsRef.current.delete(key);

@@ -76,8 +76,8 @@ describe('Worksheet Test 4 — no teaching load', () => {
     expect(within(dialog).getByText(/No subject is assigned for this school year/)).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Blocked task' } });
     fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: 'Read the story.' } });
-    expect(within(dialog).getByRole('button', { name: 'Create' }).disabled).toBe(true);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    expect(within(dialog).getAllByText('Choose the subject and grade from your teaching load.').length).toBeGreaterThan(0);
     expect(screen.getByText('Previously saved worksheet')).toBeTruthy();
     expect(insert).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();

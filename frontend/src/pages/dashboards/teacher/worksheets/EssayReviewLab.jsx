@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Btn, Card } from '../shared/ui';
+import { appErrorMessage } from '../../../../lib/appErrorMessage';
 import useDialogSafety from './useDialogSafety';
 import {
   ESSAY_FIXTURE, evaluateSyntheticEssay, reviewFingerprint, sumPoints, validateMarks, validateRubric,
@@ -107,7 +108,7 @@ export default function EssayReviewLab() {
       } catch (failure) {
         setSuggestion(null);
         setState('failed');
-        setError(failure instanceof Error ? failure.message : 'The local evaluation could not be prepared.');
+        setError(appErrorMessage(failure, 'The local evaluation could not be prepared.'));
       }
     }, 300);
   };

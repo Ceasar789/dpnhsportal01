@@ -539,7 +539,7 @@ const ProfileTab = ({ teacherView = false }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               <div>
                 <label className="block text-xs font-semibold tracking-widest mb-2" style={labelStyle} htmlFor="profile-full-name">FULL NAME</label>
-                <input id="profile-full-name" value={name} onChange={(e) => setName(e.target.value)} required disabled={isSaving}
+                <input id="profile-full-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required disabled={isSaving}
                   className="w-full h-11 px-4 rounded-md text-sm outline-none focus:ring-2"
                   style={inputStyle} />
               </div>
@@ -550,13 +550,13 @@ const ProfileTab = ({ teacherView = false }) => {
               {!teacherView && <>
               <div>
                 <label className="block text-xs font-semibold tracking-widest mb-2" style={labelStyle} htmlFor="profile-phone">PHONE NUMBER</label>
-                <input id="profile-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving}
+                <input id="profile-phone" autoComplete="tel" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving}
                   className="w-full h-11 px-4 rounded-md text-sm outline-none focus:ring-2"
                   style={inputStyle} />
               </div>
               <div>
                 <label className="block text-xs font-semibold tracking-widest mb-2" style={labelStyle} htmlFor="profile-date-of-birth">DATE OF BIRTH</label>
-                <input id="profile-date-of-birth" type="date" value={dateOfBirth || ''} onChange={(e) => setDateOfBirth(e.target.value)} disabled={isSaving}
+                <input id="profile-date-of-birth" autoComplete="bday" type="date" value={dateOfBirth || ''} onChange={(e) => setDateOfBirth(e.target.value)} disabled={isSaving}
                   className="w-full h-11 px-4 rounded-md text-sm outline-none focus:ring-2"
                   style={inputStyle} />
               </div>
@@ -566,7 +566,7 @@ const ProfileTab = ({ teacherView = false }) => {
             {!teacherView && <>
             <div>
               <label className="block text-xs font-semibold tracking-widest mb-2" style={labelStyle} htmlFor="profile-address">ADDRESS</label>
-              <input id="profile-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, Barangay, City" disabled={isSaving}
+              <input id="profile-address" autoComplete="street-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, Barangay, City" disabled={isSaving}
                 className="w-full h-11 px-4 rounded-md text-sm outline-none focus:ring-2"
                 style={inputStyle} />
             </div>

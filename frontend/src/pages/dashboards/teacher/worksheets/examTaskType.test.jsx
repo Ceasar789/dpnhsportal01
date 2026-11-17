@@ -51,7 +51,7 @@ describe('Create Worksheet dialog and Exam', () => {
   it('an Exam has the Quiz fields: optional directions and Auto-check by default, changeable', async () => {
     const onSave = show();
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'exam' } });
-    expect(screen.getByText(/Optional\./)).toBeTruthy();
+    expect(screen.getByText('Optional')).toBeTruthy();
     expect(radio('Auto-check').checked).toBe(true);
     expect(radio('Auto-check').disabled).toBe(false);
     expect(screen.queryByText('Assignments are answered in writing and checked by you.')).toBeNull();

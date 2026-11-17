@@ -36,7 +36,9 @@ describe('Create Worksheet keeps its buttons, now in the pinned footer', () => {
   it('same disabled state and handlers as before', async () => {
     const { onSave, onClose } = show();
     const create = screen.getByRole('button', { name: 'Create' });
-    expect(create.disabled).toBe(true);
+    expect(create.disabled).toBe(false);
+    await act(async () => { fireEvent.click(create); });
+    expect(onSave).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Map the conflict' } });
     fireEvent.change(screen.getByLabelText('Directions'), { target: { value: 'Work in pairs.' } });
     expect(create.disabled).toBe(false);

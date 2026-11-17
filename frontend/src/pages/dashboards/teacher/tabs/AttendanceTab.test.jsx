@@ -235,7 +235,7 @@ describe('saving', () => {
     fireEvent.click(btn('Ben Reyes', 'Absent'));
     await save();
     expect(alertText()).toBe(message);
-    expect(toast).toHaveBeenCalledWith(message, 'error');
+    expect(toast).not.toHaveBeenCalledWith(message, 'error');
     expect(within(rowOf('Ben Reyes')).getByText('Unsaved')).toBeTruthy();
     expect(pressed('Ben Reyes', 'Absent')).toBe(true);
     expect(document.body.textContent).not.toMatch(/permission denied/);

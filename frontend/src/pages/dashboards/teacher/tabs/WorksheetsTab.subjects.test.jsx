@@ -169,7 +169,7 @@ describe('Worksheet manual authoring entry', () => {
     ['zero assignments', [], false, false, /No subject is assigned for this school year/],
     ['failed read', [], false, true, /Could not load your teaching load/],
     ['loading', [], true, false, /Loading your teaching load/],
-  ])('shows %s in the create dialog with Create disabled and no write', (_label, subjects, loading, error, message) => {
+  ])('shows %s in the create dialog, Create blocked and no write', (_label, subjects, loading, error, message) => {
     Object.assign(state, { mySubjects: subjects, subjectLoading: loading, subjectError: error });
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'Create Worksheet' }));
@@ -177,7 +177,8 @@ describe('Worksheet manual authoring entry', () => {
     expect(within(dialog).getByText(message)).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Blocked task' } });
     fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: 'Read the story.' } });
-    expect(within(dialog).getByRole('button', { name: 'Create' }).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    expect(within(dialog).getAllByText('Choose the subject and grade from your teaching load.').length).toBeGreaterThan(0);
     expect(writes).toEqual([]);
   });
   it('keeps existing saved records and adds no local draft card', async () => {

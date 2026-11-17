@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../config/supabase';
+import { friendlyError } from '../lib/friendlyError';
 
 export const useSupabaseQuery = (queryFn, deps = []) => {
   const [data, setData]       = useState(null);
@@ -13,7 +14,7 @@ export const useSupabaseQuery = (queryFn, deps = []) => {
       if (err) throw err;
       setData(result);
     } catch (err) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }

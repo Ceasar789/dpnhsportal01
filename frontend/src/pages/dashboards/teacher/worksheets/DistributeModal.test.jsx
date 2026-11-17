@@ -163,7 +163,8 @@ describe('student list', () => {
   it('blocks more than 200 students', async () => {
     await selectEveryone(201);
     expect(screen.getByText(/at most 200 students/)).toBeTruthy();
-    expect(screen.getByText('Review').disabled).toBe(true);
+    fireEvent.click(screen.getByText('Review'));
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
   }, 30000);
 
   it('allows exactly 200 students', async () => {
@@ -238,7 +239,8 @@ describe('due date', () => {
     await open();
     fireEvent.click(student('Ana'));
     expect(screen.getByText('Choose a due date.')).toBeTruthy();
-    expect(reviewButton().disabled).toBe(true);
+    fireEvent.click(reviewButton());
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
   });
 
   it('refuses a past date with a clear message', async () => {
@@ -246,7 +248,8 @@ describe('due date', () => {
     fireEvent.click(student('Ana'));
     setDue(PAST);
     expect(screen.getByRole('alert').textContent).toBe('The due date and time must be in the future (Manila time).');
-    expect(reviewButton().disabled).toBe(true);
+    fireEvent.click(reviewButton());
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
   });
 
   it('accepts a future date and sends the existing format', async () => {
@@ -263,7 +266,8 @@ describe('due date', () => {
   it('needs at least one student before Review', async () => {
     await open();
     setDue(FUTURE);
-    expect(reviewButton().disabled).toBe(true);
+    fireEvent.click(reviewButton());
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
   });
 });
 
@@ -405,6 +409,7 @@ describe('safety and existing behavior', () => {
         loadSubmissions={vi.fn(async () => [])} distributeTask={vi.fn()} onClose={vi.fn()} showToast={vi.fn()} />
     </ThemeContext.Provider>);
     expect((await screen.findByText(/Could not load this section's class list/)).textContent).toContain('failed read');
-    expect(reviewButton().disabled).toBe(true);
+    fireEvent.click(reviewButton());
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
   });
 });

@@ -71,27 +71,33 @@ describe('the create form', () => {
     }
   });
 
-  it('file or link: Points required (above 0, at most 9999.99, 2 decimals), directions required, Checking hidden', () => {
-    showForm();
+  it('file or link: Points required (above 0, at most 9999.99, 2 decimals), directions required, Checking hidden', async () => {
+    const onSave = showForm();
+    const press = async () => { await act(async () => { fireEvent.click(createBtn()); }); };
     set('Type', 'assignment');
     set('How students hand in', 'attachment');
     expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.queryByText('After creating, add the questions and their points.')).toBeNull();
     expect(screen.getByText(/Required for a file or link task\./)).toBeTruthy();
     set('Title', 'Poster');
-    expect(createBtn().disabled).toBe(true);
+    await press();
+    expect(onSave).not.toHaveBeenCalled();
     set('Directions', 'Draw the water cycle.');
-    expect(createBtn().disabled).toBe(true);
+    await press();
+    expect(onSave).not.toHaveBeenCalled();
     for (const bad of ['0', '-1', '10000', '1.234', 'ten']) {
       set('Points', bad);
-      const alert = screen.getByRole('alert');
-      expect(alert.textContent).toBe('Enter points above 0, up to 9999.99, with at most 2 decimals.');
-      expect(screen.getByLabelText('Points').getAttribute('aria-describedby')).toBe(alert.id);
-      expect(createBtn().disabled).toBe(true);
+      const error = document.getElementById('create-task-points-error');
+      expect(error.textContent).toBe('Enter points above 0, up to 9999.99, with at most 2 decimals.');
+      expect(screen.getByLabelText('Points').getAttribute('aria-describedby').split(' ')).toContain(error.id);
+      await press();
+      expect(onSave).not.toHaveBeenCalled();
     }
     set('Points', '25.5');
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(createBtn().disabled).toBe(false);
+    expect(document.getElementById('create-task-points-error').textContent).toBe('');
+    await press();
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 
   it('sends handIn and points only when a file or link was chosen', async () => {

@@ -6,6 +6,7 @@ import { parseManualIlawDraft, serializeManualIlawDraft, validateManualIlawDocum
 import { suggestLessonPlanFilename } from '../lessonPlanFilename';
 import { downloadManualIlawPdf } from './downloadManualIlawPdf';
 import { ConfirmDialog } from '../shared/ui';
+import { appErrorMessage } from '../../../../lib/appErrorMessage';
 import './FullManualIlawEditor.css';
 
 // The active dashboard uses the same editor without synthetic plan or assignment fixtures.
@@ -122,7 +123,7 @@ export default function FullManualIlawEditor({ fixtures, mode = 'preview', onDir
       updateDraft(parsed.document);
       setMessage('Supported mock payload reopened. No database request was made.');
     } catch (error) {
-      setMessage(error.message);
+      setMessage(appErrorMessage(error, 'This draft could not be reopened. The current draft was kept.'));
     }
   };
 

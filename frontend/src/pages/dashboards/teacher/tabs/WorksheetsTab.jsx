@@ -8,6 +8,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, laz
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { friendlyError } from '../../../../lib/friendlyError';
 import { permanentSaveUnavailable } from '../persistence/editorPersistence';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
 import {
@@ -249,6 +250,11 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     : subject?.grades.includes(selectedGradeLevel) ? selectedGradeLevel : '';
   const subjectReady = Boolean(subject && gradeLevel && userData?.uid && !assessment.subjectLoading && !assessment.subjectError);
 
+  // U5: where a "choose the subject" problem points: the subject picker, or the grade
+  // picker when the subject picker is hidden (one subject); otherwise the dialog's
+  // own area around the loading or empty message.
+  const subjectFieldId = prefix => (eligibleSubjects.length > 1 && !subject ? `${prefix}-subject`
+    : subject && subject.grades.length > 1 && !gradeLevel ? `${prefix}-grade` : undefined);
   const subjectFields = (prefix) => <div className="min-w-0 space-y-2">
     {assessment.subjectLoading ? <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading your teaching load…</p>
       : assessment.subjectError ? <div role="alert" className="text-sm" style={{ color: 'var(--red)' }}>
@@ -307,7 +313,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
 
     if (error) {
       if (!quiet) setListError('Worksheets could not be loaded. Check your connection and try again.');
-      else showToast('Error: ' + error.message, 'error');
+      else showToast(friendlyError(error, { fallback: 'Worksheets could not be refreshed. Please try again.' }), 'error');
     } else {
       setWorksheets(data || []);
       setListError('');
@@ -391,7 +397,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         created_at: new Date().toISOString()
       }]);
 
-      if (error) showToast('Error: ' + error.message, 'error');
+      if (error) showToast(friendlyError(error, { fallback: 'The worksheet could not be created. Please try again.' }), 'error');
       else {
         showToast('Worksheet created');
         setFormData(EMPTY_WORKSHEET);
@@ -399,7 +405,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         fetchWorksheets();
       }
     } catch (error) {
-      showToast('Error: ' + error.message, 'error');
+      showToast(friendlyError(error, { fallback: 'The worksheet could not be created. Please try again.' }), 'error');
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -412,13 +418,13 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     setDeletingId(id);
     try {
       const { error } = await supabase.from('worksheets').delete().eq('id', id);
-      if (error) showToast('Error: ' + error.message, 'error');
+      if (error) showToast(friendlyError(error, { fallback: 'The worksheet could not be deleted. Please try again.' }), 'error');
       else {
         showToast('Worksheet deleted');
         fetchWorksheets();
       }
     } catch (error) {
-      showToast('Error: ' + (error?.message || 'Could not delete worksheet.'), 'error');
+      showToast(friendlyError(error, { fallback: 'The worksheet could not be deleted. Please try again.' }), 'error');
     } finally {
       deletingRef.current = false;
       setDeletingId(null);
@@ -1126,6 +1132,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       )}
 
       {creatingTask && <CreateTaskModal subjectPicker={subjectFields('create-task')} subjectReady={subjectReady}
+        subjectFieldId={subjectFieldId('create-task')}
         saving={saving} onSave={createTask} onClose={() => setCreatingTask(false)} />}
 
       {buildingWorksheet && worksheetSource(buildingWorksheet) === MANUAL && (

@@ -332,7 +332,7 @@ const ClarityTeacherAttendanceTab = () => {
     if (!result.ok) {
       setSaving(false);
       setSaveError(result.message);
-      showToast(result.message, 'error');
+      // The message shows on the page (saveError): no second toast (U5).
       return;
     }
     const verified = await fetchData({ silent: true });

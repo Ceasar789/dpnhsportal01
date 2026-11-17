@@ -631,7 +631,7 @@ const StudentTasksTab = () => {
               </h2>
             {paperGroup.items.map((it, index) => (
               <div key={it.id} className="border-b py-4 last:border-b-0" style={{ borderColor: '#e2d9cc' }}>
-                <p className="text-sm font-medium mb-2 [overflow-wrap:anywhere]" style={{ color: '#1f1f1f' }}>
+                <p id={`question-${it.id}`} className="text-sm font-medium mb-2 [overflow-wrap:anywhere]" style={{ color: '#1f1f1f' }}>
                   {paperGroup.start + index}. {it.question} <span className="text-xs" style={{ color: '#5b5147' }}>({it.points} pts)</span>
                 </p>
                 {it.item_type === 'essay' && essayRuleText({ minSentences: it.essay_min_sentences ?? null, minWords: it.essay_min_words ?? null })
@@ -643,50 +643,50 @@ const StudentTasksTab = () => {
                     and an answer changed during that window would otherwise
                     fire a write that races the status UPDATE exactly like
                     the bug this flush was built to fix. */}
-                {it.item_type === 'multiple_choice' && (it.options || []).map(opt => (
+                {it.item_type === 'multiple_choice' && <div role="radiogroup" aria-labelledby={`question-${it.id}`}>{(it.options || []).map(opt => (
                   <label key={opt} className="flex items-center gap-2 text-sm py-1 min-w-0 [overflow-wrap:anywhere]" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
                       onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF', ...FIELD_SELECT }} />
                     {opt}
                   </label>
-                ))}
+                ))}</div>}
 
                 {/* Submitted as exactly "True"/"False" — TRUE_FALSE_VALUES,
                     not retyped — because that is what the teacher's key
                     stores those two options as. */}
-                {it.item_type === 'true_false' && TRUE_FALSE_VALUES.map(opt => (
+                {it.item_type === 'true_false' && <div role="radiogroup" aria-labelledby={`question-${it.id}`}>{TRUE_FALSE_VALUES.map(opt => (
                   <label key={opt} className="flex items-center gap-2 text-sm py-1 min-w-0 [overflow-wrap:anywhere]" style={{ color: '#1f1f1f' }}>
                     <input type="radio" name={it.id} disabled={done || busy} checked={answers[it.id] === opt}
                       onChange={() => saveAnswer(it.id, opt)} style={{ accentColor: '#1908DF', ...FIELD_SELECT }} />
                     {opt}
                   </label>
-                ))}
+                ))}</div>}
 
                 {it.item_type === 'identification' && (
-                  <input type="text" disabled={done || busy} defaultValue={answers[it.id] || ''}
+                  <input type="text" aria-labelledby={`question-${it.id}`} autoComplete="off" disabled={done || busy} defaultValue={answers[it.id] || ''}
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg text-sm outline-none"
+                    className="w-full min-h-11 px-3 rounded-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]"
                     style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
                              color: '#1f1f1f', ...FIELD_SELECT }} />
                 )}
 
                 {it.item_type === 'enumeration' && (
-                  <textarea disabled={done || busy} rows={3}
+                  <textarea aria-labelledby={`question-${it.id}`} disabled={done || busy} rows={3}
                     defaultValue={Array.isArray(answers[it.id]) ? answers[it.id].join('\n') : ''}
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
                     onBlur={e => saveAnswer(it.id, e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
                     placeholder="One answer per line"
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    className="w-full px-3 py-2 rounded-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]"
                     style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
                              color: '#1f1f1f', ...FIELD_SELECT }} />
                 )}
 
                 {it.item_type === 'essay' && (
-                  <textarea disabled={done || busy} rows={5} defaultValue={answers[it.id] || ''}
+                  <textarea aria-labelledby={`question-${it.id}`} disabled={done || busy} rows={5} defaultValue={answers[it.id] || ''}
                     onChange={e => debouncedSaveAnswer(it.id, e.target.value)}
                     onBlur={e => saveAnswer(it.id, e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    className="w-full px-3 py-2 rounded-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]"
                     style={{ backgroundColor: '#ffffff', border: '1px solid #9b948a',
                              color: '#1f1f1f', ...FIELD_SELECT }} />
                 )}

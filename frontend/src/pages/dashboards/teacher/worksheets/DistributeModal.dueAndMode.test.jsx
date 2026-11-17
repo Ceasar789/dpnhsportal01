@@ -89,7 +89,8 @@ describe('the due time must be later than now', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Ana/ }));
     pick('2030-03-09', '11', '59', 'PM');
     expect(screen.getByRole('alert').textContent).toBe(PAST_MESSAGE);
-    expect(review().disabled).toBe(true);
+    fireEvent.click(review());
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
   });
 
   it.each([['an earlier time today', '9', '59'], ['the current minute', '10', '00']])('%s is refused', async (_name, hour, minute) => {
@@ -97,8 +98,9 @@ describe('the due time must be later than now', () => {
     await open();
     fireEvent.click(screen.getByRole('checkbox', { name: /Ana/ }));
     pick('2030-03-10', hour, minute, 'AM');
-    expect(review().disabled).toBe(true);
     expect(screen.getByRole('alert').textContent).toBe(PAST_MESSAGE);
+    fireEvent.click(review());
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
   });
 
   it('the next minute passes', async () => {
@@ -163,13 +165,15 @@ describe('Auto-check from the real items', () => {
     expect(distributeTask.mock.calls[0][4]).toBe('auto');
   });
 
-  it('while the items load, Review is disabled and it says so', async () => {
+  it('while the items load, Review waits and it says so', async () => {
     let finish;
     await open({ loadItems: vi.fn(() => new Promise(resolve => { finish = resolve; })) });
     fireEvent.click(screen.getByRole('checkbox', { name: /Ana/ }));
     pick(FUTURE);
     expect(screen.getByText('Checking questions...')).toBeTruthy();
-    expect(review().disabled).toBe(true);
+    expect(review().disabled).toBe(false);
+    fireEvent.click(review());
+    expect(screen.queryByRole('dialog', { name: 'Confirm distribution' })).toBeNull();
     await act(async () => { finish(objective); });
     expect(review().disabled).toBe(false);
     expect(screen.queryByText('Checking questions...')).toBeNull();

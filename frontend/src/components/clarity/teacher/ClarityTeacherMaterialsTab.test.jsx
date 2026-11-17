@@ -193,7 +193,7 @@ describe('add, edit and delete', () => {
     expect(call.fields).toEqual({ title: 'Cells notes', description: null, subject_id: 'sci', grade_level: null });
   });
 
-  it('no double submit: while saving, Save is busy and disabled, and a second click sends nothing', async () => {
+  it('no double submit: while saving, Save is busy (not disabled), and a second click sends nothing', async () => {
     await show();
     let resolve;
     api.createLinkMaterial.mockReturnValue(new Promise((r) => { resolve = r; }));
@@ -204,7 +204,9 @@ describe('add, edit and delete', () => {
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'E' } });
     const save = within(d).getByRole('button', { name: 'Add material' });
     fireEvent.click(save);
-    await waitFor(() => expect(within(d).getByRole('button', { name: 'Saving…' }).disabled).toBe(true));
+    await waitFor(() => expect(within(d).getByRole('button', { name: 'Saving…' }).getAttribute('aria-busy')).toBe('true'));
+    expect(within(d).getByRole('button', { name: 'Saving…' }).disabled).toBe(false);
+    fireEvent.click(within(d).getByRole('button', { name: 'Saving…' }));
     fireEvent.submit(d.querySelector('form'));
     expect(api.createLinkMaterial).toHaveBeenCalledTimes(1);
     expect(within(d).getByRole('button', { name: 'Cancel' }).disabled).toBe(true);

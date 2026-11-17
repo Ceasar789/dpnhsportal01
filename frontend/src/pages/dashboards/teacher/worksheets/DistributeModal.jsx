@@ -22,6 +22,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
+import FormErrorSummary from '../../../../components/ui/form/FormErrorSummary';
 import { useTheme } from '../hooks';
 import { combineDateAndTime, DEFAULT_DUE_TIME, formatClockTime, isFutureManila, joinClockTime, manilaDateToday,
   splitClockTime } from '../../../../lib/taskFormatting';
@@ -201,7 +202,20 @@ const DistributeModal = ({
 
   // Checked again with a fresh clock at Review and at Confirm: the form can sit open past the due time.
   const dueStillLater = () => Boolean(dueAt) && isFutureManila(dueAt, new Date());
+  const [reviewAttempt, setReviewAttempt] = useState(0);
+  // Still loading or a read failed: Review does nothing yet (the dialog says why).
+  const reviewWaiting = rosterLoading || readFailed || metaLoading || itemCheck === 'loading';
+  // U5: Review is never disabled. Every problem is listed and linked to its field,
+  // re-checked as the teacher fixes things (the list only appears after a press).
+  const reviewProblems = () => [
+    !sectionId && { fieldId: 'teacher-distribute-section', message: 'Choose a section.' },
+    !dueInFuture && { fieldId: 'teacher-distribute-date', message: dueMessage || LATER_THAN_NOW },
+    selectedIds.length === 0 && { fieldId: 'teacher-distribute-students', message: 'Tick at least one student.' },
+    tooMany && { fieldId: 'teacher-distribute-students', message: `Tick at most ${MAX_STUDENTS} students.` },
+  ].filter(Boolean);
   const startReview = () => {
+    if (reviewWaiting) return;
+    if (reviewProblems().length) { setReviewAttempt(a => a + 1); return; }
     if (!dueStillLater()) { setTimeError(LATER_THAN_NOW); return; }
     setTimeError('');
     setReviewing(true);
@@ -251,8 +265,9 @@ const DistributeModal = ({
     setResult({ tone: 'error', text: res.message });
   };
 
-  const disableReview = rosterLoading || readFailed || metaLoading || itemCheck === 'loading'
-    || !sectionId || !dueInFuture || selectedIds.length === 0 || tooMany;
+  const shownProblems = reviewAttempt && !reviewWaiting ? reviewProblems() : [];
+  const dueInvalid = dueDate !== '' && Boolean(timeError || dueMessage);
+  const dueProps = dueInvalid ? { 'aria-invalid': 'true', 'aria-describedby': 'teacher-distribute-due-error' } : {};
   const closeReview = () => { if (!sendingRef.current) setReviewing(false); };
   const sectionOption = s => <option key={s.id} value={s.id}>{s.name} ({s.grade_level})</option>;
   const advisorySections = sections.filter(s => s.isAdviser);
@@ -271,11 +286,12 @@ const DistributeModal = ({
           </span>
         )}
         <Btn variant="outline" onClick={requestClose}>Cancel</Btn>
-        <Btn variant="primary" onClick={startReview} disabled={disableReview}>Review</Btn>
+        <Btn variant="primary" onClick={startReview}>Review</Btn>
       </div>
       ) : null}>
       <div className="flex flex-col gap-4">
         {busyNotice && <p role="status" className="text-sm">{busyNotice}</p>}
+        <FormErrorSummary id="teacher-distribute-summary" errors={shownProblems} attempt={reviewAttempt} focusTo="first-field" />
         {sectionsError ? (
           <p className="text-sm" style={{ color: '#dc2626' }}>
             Could not load your sections.
@@ -294,7 +310,7 @@ const DistributeModal = ({
                 <label htmlFor="teacher-distribute-section" className="text-xs font-semibold" style={muted}>Section</label>
                 <select id="teacher-distribute-section" value={sectionId} disabled={saving}
                   onChange={e => { setSectionId(e.target.value); setTicked(new Set()); }}
-                  className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle}>
+                  className="w-full h-10 px-3 rounded-lg text-sm mt-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]" style={fieldStyle}>
                   {advisorySections.length > 0 && <optgroup label="Advisory section">{advisorySections.map(sectionOption)}</optgroup>}
                   {handledSections.length > 0 && <optgroup label="Handled sections">{handledSections.map(sectionOption)}</optgroup>}
                 </select>
@@ -304,22 +320,22 @@ const DistributeModal = ({
                 <div className="flex-1 basis-40 min-w-0">
                   <label htmlFor="teacher-distribute-date" className="text-xs font-semibold" style={muted}>Due date</label>
                   <input id="teacher-distribute-date" type="date" value={dueDate} disabled={saving} min={manilaDateToday()}
-                    onChange={e => { setDueDate(e.target.value); setTimeError(''); }}
-                    className="w-full h-10 px-3 rounded-lg text-sm outline-none mt-1" style={fieldStyle} />
+                    onChange={e => { setDueDate(e.target.value); setTimeError(''); }} {...dueProps}
+                    className="w-full h-10 px-3 rounded-lg text-sm mt-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]" style={fieldStyle} />
                 </div>
                 <div role="group" aria-labelledby="teacher-distribute-time-label" className="flex-1 basis-48 min-w-0">
                   <span id="teacher-distribute-time-label" className="text-xs font-semibold" style={muted}>Due time</span>
                   <div data-due-time className="flex flex-wrap gap-2 mt-1">
                     <select aria-label="Due hour" value={clock.hour} disabled={saving} onChange={e => setClock({ hour: e.target.value })}
-                      className="h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                      {...dueProps} className="h-10 px-3 rounded-lg text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]" style={fieldStyle}>
                       {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
                     </select>
                     <select aria-label="Due minute" value={clock.minute} disabled={saving} onChange={e => setClock({ minute: e.target.value })}
-                      className="h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                      {...dueProps} className="h-10 px-3 rounded-lg text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]" style={fieldStyle}>
                       {MINUTES.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                     <select aria-label="AM or PM" value={clock.period} disabled={saving} onChange={e => setClock({ period: e.target.value })}
-                      className="h-10 px-3 rounded-lg text-sm outline-none" style={fieldStyle}>
+                      {...dueProps} className="h-10 px-3 rounded-lg text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]" style={fieldStyle}>
                       <option value="AM">AM</option><option value="PM">PM</option>
                     </select>
                   </div>
@@ -327,7 +343,7 @@ const DistributeModal = ({
               </div>
             </div>
 
-            {dueDate !== '' && (timeError || dueMessage) && <p role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{timeError || dueMessage}</p>}
+            {dueInvalid && <p id="teacher-distribute-due-error" role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{timeError || dueMessage}</p>}
             {dueDate === '' && <p className="text-xs" style={muted}>{dueMessage}</p>}
 
             <fieldset>
@@ -379,7 +395,7 @@ const DistributeModal = ({
             ) : (
               <div className="flex flex-col gap-1 max-h-64 overflow-y-auto pr-1">
                 <label className="flex items-center gap-3 py-1.5 text-sm font-semibold" style={bodyText}>
-                  <input type="checkbox" checked={allSelected} disabled={saving || selectable.length === 0}
+                  <input id="teacher-distribute-students" type="checkbox" checked={allSelected} disabled={saving || selectable.length === 0}
                     ref={element => { if (element) element.indeterminate = selectedIds.length > 0 && !allSelected; }}
                     onChange={toggleAll} />
                   Select all

@@ -586,23 +586,23 @@ const ClarityStudentProfileTab = () => {
               <div className="x-sprof-grid">
                 <div className="x-field">
                   <label className="x-label" htmlFor="profile-full-name">Full name</label>
-                  <input id="profile-full-name" className="x-input" value={name} onChange={(e) => setName(e.target.value)} required disabled={isSaving} />
+                  <input id="profile-full-name" autoComplete="name" className="x-input" value={name} onChange={(e) => setName(e.target.value)} required disabled={isSaving} />
                 </div>
                 <div className="x-field">
                   <label className="x-label" htmlFor="profile-date-of-birth">Date of birth</label>
-                  <input id="profile-date-of-birth" className="x-input" type="date" value={dateOfBirth || ''} onChange={(e) => setDateOfBirth(e.target.value)} disabled={isSaving} />
+                  <input id="profile-date-of-birth" autoComplete="bday" className="x-input" type="date" value={dateOfBirth || ''} onChange={(e) => setDateOfBirth(e.target.value)} disabled={isSaving} />
                 </div>
                 <div className="x-field">
                   <label className="x-label" htmlFor="profile-phone">Phone</label>
-                  <input id="profile-phone" className="x-input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving} />
+                  <input id="profile-phone" autoComplete="tel" className="x-input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving} />
                 </div>
                 <div className="x-field">
                   <label className="x-label" htmlFor="profile-email">Email <span className="x-sprof-note">managed by school</span></label>
-                  <input id="profile-email" className="x-input" value={email} readOnly aria-readonly="true" />
+                  <input id="profile-email" autoComplete="email" className="x-input" value={email} readOnly aria-readonly="true" />
                 </div>
                 <div className="x-field x-sprof-wide">
                   <label className="x-label" htmlFor="profile-address">Address</label>
-                  <input id="profile-address" className="x-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, Barangay, City" disabled={isSaving} />
+                  <input id="profile-address" autoComplete="street-address" className="x-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, Barangay, City" disabled={isSaving} />
                 </div>
                 <div className="x-field x-sprof-wide">
                   <label className="x-label" htmlFor="profile-bio">About me</label>
@@ -617,7 +617,7 @@ const ClarityStudentProfileTab = () => {
             <div className="x-sprof-grid x-sprof-emgrid">
               <div className="x-field x-sprof-wide">
                 <label className="x-label" htmlFor="profile-emergency-name">Contact person&apos;s name</label>
-                <input id="profile-emergency-name" className="x-input" value={emName} maxLength={80} onChange={(e) => setEmName(e.target.value)} disabled={isSaving}
+                <input id="profile-emergency-name" autoComplete="off" className="x-input" value={emName} maxLength={80} onChange={(e) => setEmName(e.target.value)} disabled={isSaving}
                   aria-invalid={(emTried && emNameMissing) || undefined} aria-describedby={emTried && emNameMissing ? 'profile-emergency-name-error' : undefined} />
                 {emTried && emNameMissing && <p className="x-sprof-err" id="profile-emergency-name-error">Enter the contact person&apos;s name.</p>}
               </div>
@@ -627,7 +627,7 @@ const ClarityStudentProfileTab = () => {
               </div>
               <div className="x-field">
                 <label className="x-label" htmlFor="profile-emergency-phone">Contact number</label>
-                <input id="profile-emergency-phone" className="x-input" type="tel" value={emPhone} onChange={(e) => setEmPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving}
+                <input id="profile-emergency-phone" autoComplete="off" className="x-input" type="tel" value={emPhone} onChange={(e) => setEmPhone(e.target.value)} placeholder="09XX XXX XXXX" disabled={isSaving}
                   aria-invalid={(emTried && emPhoneMissing) || undefined} aria-describedby={emTried && emPhoneMissing ? 'profile-emergency-phone-error' : undefined} />
                 {emTried && emPhoneMissing && <p className="x-sprof-err" id="profile-emergency-phone-error">Enter a contact number.</p>}
               </div>

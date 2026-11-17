@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Modal, Btn } from '../shared/ui';
 import { currentSchoolYear } from '../../../../lib/academicRules';
+import { appErrorMessage } from '../../../../lib/appErrorMessage';
 import { localDistributionOptions, simulateLocalDistribution } from './localDistributionModel';
 
 // Loaded only by the isolated profile-e2e development build. No Supabase
@@ -26,7 +27,7 @@ export default function LocalDistributionModal({ draft, fixture, teacherId, prev
       const result = simulateLocalDistribution(draft, current, dueDate, previous);
       onConfirm(result);
     } catch (cause) {
-      setError(cause.message || 'The local simulation could not be completed.');
+      setError(appErrorMessage(cause, 'The local simulation could not be completed.'));
       setReviewing(false);
       confirming.current = false;
     }
@@ -86,7 +87,7 @@ export default function LocalDistributionModal({ draft, fixture, teacherId, prev
           : <Btn onClick={() => {
             setError('');
             try { simulateLocalDistribution(draft, selected, dueDate, previous); setReviewing(true); }
-            catch (cause) { setError(cause.message); }
+            catch (cause) { setError(appErrorMessage(cause, 'The local simulation could not be completed.')); }
           }} disabled={!selected || duplicate || !selected.recipientIds.length}>Review simulation</Btn>}
       </div>
     </div>

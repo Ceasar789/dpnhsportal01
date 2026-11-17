@@ -50,7 +50,10 @@ describe('top-title.css: one-line page title in the phone top bar', () => {
   it.each(LAYOUTS)('%s imports it and renders the title between the menu button and the spacer', (file) => {
     const src = read(file);
     expect(src).toContain("import '../../../styles/top-title.css';");
-    const top = src.slice(src.indexOf('<header ref={headerRef} className="x-top">'), src.indexOf('</header>'));
+    // SHELL: the header is the shared ClarityTopBar (one component for the three shells).
+    expect(src).toMatch(/<ClarityTopBar[\s\S]*?pageTitle=\{pageTitle\}[\s\S]*?\/>/);
+    const bar = read('components/clarity/ClarityTopBar.jsx');
+    const top = bar.slice(bar.indexOf('<header ref={headerRef} className="x-top">'), bar.indexOf('</header>'));
     const menu = top.indexOf('x-menubtn');
     const title = top.indexOf('className="x-top-title" title={pageTitle} aria-hidden="true"');
     expect(menu).toBeGreaterThan(-1);

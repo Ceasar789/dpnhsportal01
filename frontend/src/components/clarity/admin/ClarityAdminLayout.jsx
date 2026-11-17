@@ -11,10 +11,11 @@
 // shell uses a div with role="navigation" for its menu, never a nav element.
 // ============================================
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
 import {
-  Sun, Moon, LogOut, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings,
-  ChevronLeft, ChevronRight, Menu, X, BookMarked, GraduationCap, Columns, Clock, UserRound,
+  LogOut, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings,
+  ChevronLeft, ChevronRight, X, BookMarked, GraduationCap, Columns, Clock, UserRound,
 } from 'lucide-react';
 import NotificationBell from '../../NotificationBell';
 import Avatar from '../../Avatar';
@@ -33,9 +34,13 @@ import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import { useMediaQuery } from '../../../lib/useMediaQuery';
 import ClarityModal from '../ui/ClarityModal';
+import ConfirmDialog from '../../ui/ConfirmDialog';
+import ClarityTopBar from '../ClarityTopBar';
+import { PHONE_QUERY, PhoneBottomNav, PhoneMenuSheet } from '../phone/PhoneNav';
 import { useHtmlClass } from '../useHtmlClass';
 import ClassicAdminStyles from './ClassicAdminStyles';
 import { useAdminShellBehavior } from './useAdminShellBehavior';
+import { useAdminPageUrl } from './useAdminPageUrl';
 import '../../../styles/classic-contrast.css';
 import '../../../styles/top-title.css';
 
@@ -59,6 +64,10 @@ const NAV_GROUPS = [
   ] },
   { heading: 'System', items: [['settings', 'Settings', Settings]] },
 ];
+
+// SHELL: the phone tab bar (the final design's four, then Menu); every other
+// page is in the Menu sheet, grouped as above.
+const PHONE_BAR = [['overview', 'Overview'], ['users', 'Users'], ['news', 'News'], ['calendar', 'Calendar']];
 
 const SETTINGS_SECTIONS = [
   ['sec-general', 'General'],
@@ -130,6 +139,17 @@ const DeleteConfirm = ({ confirm, busy, onCancel, onConfirm }) => {
   );
 };
 
+// V2b-2: Back/Forward while Settings is open and unsaved. Mounted ONLY then:
+// react-router uses the last registered blocker alone, so a shell-wide one
+// would switch off the Teaching Load and Profile blockers.
+const SettingsRouteBlocker = ({ onBlocked }) => {
+  const blocker = useBlocker(({ historyAction }) => historyAction === 'POP');
+  useEffect(() => {
+    if (blocker.state === 'blocked') onBlocked(blocker);
+  }, [blocker, onBlocked]);
+  return null;
+};
+
 const ClarityAdminLayout = ({ navigate, logout, userData }) => {
   useHtmlClass('theme-clarity');
   const shell = useAdminShellBehavior({ navigate, logout, userData });
@@ -137,7 +157,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
     sidebarCollapsed, setSidebarCollapsed, sidebarOpen, setSidebarOpen, sidebarRef, menuButtonRef,
     deleteConfirmBusy, profileOpen, setProfileOpen, logoutConfirmOpen, setLogoutConfirmOpen,
     darkMode, page, setDarkMode, setPage, toast, activeSettingsSub, deleteConfirm,
-    requestSidebarNavigation, openSettingsSection, photoUrl,
+    requestSidebarNavigation, openSettingsSection, photoUrl, settingsLeave,
   } = shell;
   const desktop = useMediaQuery('(min-width: 1024px)');
   // The stored collapse preference only applies on desktop (as in the classic shell).
@@ -150,7 +170,10 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
   const roleText = userData?.role === 'main_admin' ? 'Administrator' : roleLabel(userData?.role) || '';
   // The News badge: the same published-news count as the Overview's
   // "Published News" tile; hidden when unknown, failed or 0.
-  const { stats, statsErrors } = useAdminContext();
+  const { stats, statsErrors, settingsDirty } = useAdminContext();
+  // V2b-2: the page in the URL (only under the app's /admin-dashboard/* route).
+  useAdminPageUrl({ page, setPage });
+  const dataRouter = useContext(UNSAFE_DataRouterContext);
   const publishedNews = !statsErrors?.news && Number(stats?.news) > 0 ? Number(stats.news) : 0;
 
   // While the drawer is open, the page behind it is inert (as in the
@@ -175,6 +198,23 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
   const onProfile = page === 'profile';
   const pageTitle = onProfile ? 'Profile Settings'
     : NAV_GROUPS.flatMap(group => group.items).find(([key]) => key === page)?.[1] || '';
+  // SHELL: on phones the bottom tab bar and the Menu sheet replace the drawer.
+  const phone = useMediaQuery(PHONE_QUERY) && !desktop;
+  const [phoneMenuOpen, setPhoneMenuOpen] = useState(false);
+  const phoneMenuRef = useRef(null);
+  const navTo = (key, label) => () => requestSidebarNavigation(() => setPage(key), label);
+  const allItems = NAV_GROUPS.flatMap(group => group.items);
+  const phoneBar = PHONE_BAR.map(([key, short]) => {
+    const [, label, icon] = allItems.find(([k]) => k === key);
+    return { key, label: short, icon, current: page === key, onSelect: navTo(key, label),
+      badge: key === 'news' ? publishedNews : 0, badgeText: 'published' };
+  });
+  const phoneGroups = NAV_GROUPS.map(({ heading, items }) => ({
+    heading,
+    items: items.filter(([key]) => !PHONE_BAR.some(([k]) => k === key))
+      .map(([key, label, icon]) => ({ key, label, icon, current: page === key, onSelect: navTo(key, label) })),
+  })).filter(group => group.items.length > 0);
+  const phoneMenuCurrent = !PHONE_BAR.some(([key]) => key === page);
 
   return (
     <div className="x-app">
@@ -304,23 +344,10 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
       </aside>
 
       <div className="x-main">
-        <header ref={headerRef} className="x-top">
-          <button ref={menuButtonRef} type="button" className="x-iconbtn x-menubtn" onClick={() => setSidebarOpen(true)}
-            aria-label="Open navigation" aria-expanded={sidebarOpen} aria-controls="admin-sidebar">
-            <Menu size={20} aria-hidden="true" />
-          </button>
-          {pageTitle && <span className="x-top-title" title={pageTitle} aria-hidden="true">{pageTitle}</span>}
-          <span className="x-sp" />
-          {/* The shared bell keeps its real unread count; .x-bell restyles its
-              button as a plain icon (scoped CSS, NotificationBell unchanged). */}
-          <span className="x-bell">
-            <NotificationBell className="admin-notification-bell" />
-          </span>
-          <button type="button" className="x-iconbtn" onClick={() => setDarkMode(d => !d)}
-            aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            {darkMode ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
-          </button>
-        </header>
+        <ClarityTopBar headerRef={headerRef} phone={phone} menuButtonRef={menuButtonRef}
+          menuLabel="Open navigation" menuOpen={sidebarOpen} menuControls="admin-sidebar" onOpenMenu={() => setSidebarOpen(true)}
+          pageTitle={pageTitle} dark={darkMode} onToggleDark={() => setDarkMode(d => !d)}
+          bell={<span className="x-bell"><NotificationBell className="admin-notification-bell" /></span>} />
 
         <main ref={mainRef} id="x-main" tabIndex={-1} className="x-content">
           <div key={page} className="x-pagein">
@@ -339,6 +366,17 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
         </main>
       </div>
 
+      {phone && (
+        <>
+          <PhoneBottomNav items={phoneBar} menuOpen={phoneMenuOpen} menuCurrent={phoneMenuCurrent}
+            onMenu={() => setPhoneMenuOpen(true)} menuButtonRef={phoneMenuRef} sheetId="admin-phone-menu" />
+          <PhoneMenuSheet id="admin-phone-menu" open={phoneMenuOpen} onClose={() => setPhoneMenuOpen(false)}
+            groups={phoneGroups} returnFocusRef={phoneMenuRef} closeKey={page}
+            profile={{ key: 'profile', label: 'Profile & password', current: onProfile, onSelect: navTo('profile', 'Profile Settings') }}
+            onSignOut={() => requestSidebarNavigation(() => setLogoutConfirmOpen(true), 'Logout')} />
+        </>
+      )}
+
       {deleteConfirm && (
         <DeleteConfirm confirm={deleteConfirm} busy={deleteConfirmBusy}
           onCancel={shell.cancelDeleteConfirm} onConfirm={shell.confirmDelete} />
@@ -356,6 +394,11 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
             </>
           )}
         />
+      )}
+      {dataRouter && page === 'settings' && settingsDirty && <SettingsRouteBlocker onBlocked={shell.blockSettingsLeave} />}
+      {settingsLeave && (
+        <ConfirmDialog title="Leave Settings?" message="You have unsaved settings. Discard them?"
+          confirmLabel="Discard changes" cancelLabel="Keep editing" onConfirm={shell.confirmSettingsLeave} onCancel={shell.cancelSettingsLeave} />
       )}
     </div>
   );

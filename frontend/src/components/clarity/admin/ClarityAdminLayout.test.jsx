@@ -217,20 +217,32 @@ describe('parity with the classic shell (same mocks)', () => {
     expect(results[0].scrolled).toBe('sec-security');
   });
 
-  it('unsaved Settings: the same confirm text; Cancel stays, OK leaves', async () => {
+  it('unsaved Settings: the same text, asked in the app; Keep editing and Escape stay (focus back), Discard changes leaves', async () => {
     Object.assign(h, { page: 'settings', dirty: true });
     const results = await both(async () => {
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-      fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' })); fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
+      const native = vi.spyOn(window, 'confirm');
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }));
+      const item = screen.getByRole('button', { name: 'Profile Settings' });
+      item.focus();
+      fireEvent.click(item);
+      const ask = screen.getByRole('alertdialog', { name: 'Leave Settings?' });
+      const text = ask.querySelector('p').textContent;
+      const firstFocus = document.activeElement.textContent;
+      fireEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }));
       const stayed = within(sidebar()).getByRole('button', { name: /^(System )?Settings$/ }).getAttribute('aria-current');
-      confirm.mockReturnValue(true);
-      fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
-      const text = confirm.mock.calls[0][0];
-      confirm.mockRestore();
-      return { stayed, left: screen.getByRole('heading', { level: 1 }).textContent, text };
+      const focusBack = document.activeElement === item;
+      fireEvent.click(item);
+      fireEvent.keyDown(screen.getByRole('alertdialog', { name: 'Leave Settings?' }), { key: 'Escape' });
+      const escStayed = screen.queryByRole('alertdialog') === null
+        && within(sidebar()).getByRole('button', { name: /^(System )?Settings$/ }).getAttribute('aria-current');
+      fireEvent.click(item);
+      fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Leave Settings?' })).getByRole('button', { name: 'Discard changes' }));
+      const nativeCalls = native.mock.calls.length;
+      native.mockRestore();
+      return { stayed, focusBack, escStayed, firstFocus, left: screen.getByRole('heading', { level: 1 }).textContent, text, nativeCalls };
     });
     expect(results[1]).toEqual(results[0]);
-    expect(results[0]).toEqual({ stayed: 'page', left: 'Profile content', text: 'You have unsaved settings. Discard them?' });
+    expect(results[0]).toEqual({ stayed: 'page', focusBack: true, escStayed: 'page', firstFocus: 'Keep editing', left: 'Profile content', text: 'You have unsaved settings. Discard them?', nativeCalls: 0 });
   });
 
   it('every page change goes through the Teaching Load and Profile guards, with the destination', async () => {

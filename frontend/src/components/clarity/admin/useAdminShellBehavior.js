@@ -95,10 +95,24 @@ export function useAdminShellBehavior({ navigate, logout, userData }) {
   // UX-028 — leaving System Settings with the save bar up throws the work
   // away, and a sidebar click is one keystroke. Same prompt the dialogs
   // use, for the same reason: an untouched page never sees it.
+  // V2b: asked in the app (ConfirmDialog), never with the browser confirm().
+  const [settingsLeave, setSettingsLeave] = useState(null);
+  const leavePage = (go, destination) => requestTeachingLoadNavigation(() => requestProfileNavigation(go), destination);
   const requestPageChange = (go, destination = '') => {
-    if (page === 'settings' && settingsDirty
-      && !window.confirm('You have unsaved settings. Discard them?')) return;
-    requestTeachingLoadNavigation(() => requestProfileNavigation(go), destination);
+    if (page === 'settings' && settingsDirty) { setSettingsLeave({ go, destination }); return; }
+    leavePage(go, destination);
+  };
+  // V2b-2: Back/Forward on unsaved Settings (a route blocker) asks the same question.
+  const blockSettingsLeave = blocker => setSettingsLeave(current => current || { go: blocker.proceed, cancel: blocker.reset, destination: '' });
+  const cancelSettingsLeave = () => {
+    const next = settingsLeave;
+    setSettingsLeave(null);
+    next?.cancel?.();
+  };
+  const confirmSettingsLeave = () => {
+    const next = settingsLeave;
+    setSettingsLeave(null);
+    if (next) leavePage(next.go, next.destination);
   };
   const requestSidebarNavigation = (go, destination) => {
     if (!sidebarOpen) {
@@ -164,6 +178,7 @@ export function useAdminShellBehavior({ navigate, logout, userData }) {
     deleteConfirmBusy, profileOpen, setProfileOpen, logoutConfirmOpen, setLogoutConfirmOpen,
     darkMode, page, setDarkMode, setPage, toast, activeSettingsSub, deleteConfirm,
     requestPageChange, requestSidebarNavigation, openSettingsSection, photoUrl,
+    settingsLeave, cancelSettingsLeave, confirmSettingsLeave, blockSettingsLeave,
     cancelDeleteConfirm, confirmDelete, cancelLogout, confirmLogout,
   };
 }

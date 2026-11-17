@@ -295,7 +295,7 @@ const ClarityAdminTeachingLoadTab = () => {
     setPendingLeave(current => current || {
       proceed: blocker.proceed,
       cancel: blocker.reset,
-      destination: blocker.location?.pathname || 'the requested page',
+      destination: ({ '/admin-dashboard': 'Overview', '/admin-dashboard/users': 'User Management', '/admin-dashboard/subjects': 'Subjects', '/admin-dashboard/sections': 'Sections', '/admin-dashboard/schedules': 'Schedules', '/admin-dashboard/news': 'News', '/admin-dashboard/calendar': 'Calendar', '/admin-dashboard/memos': 'Memos', '/admin-dashboard/settings': 'Settings', '/admin-dashboard/profile': 'Profile Settings' })[blocker.location?.pathname] || blocker.location?.pathname || 'the requested page',
       saveInProgress: savingRef.current,
     });
   }, []);
@@ -402,7 +402,7 @@ const ClarityAdminTeachingLoadTab = () => {
       <div className="x-head x-ov-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1" tabIndex={-1}>Teaching Load</h1>
-          <p className="x-sub">Assign subjects with the teacher and grade always in view.</p>
+          <p className="x-sub">Choose which subjects each teacher teaches, grade by grade.</p>
         </div>
         {/* The school year and its tools sit top right, as in the final design. */}
         <div className="x-tld-headact">

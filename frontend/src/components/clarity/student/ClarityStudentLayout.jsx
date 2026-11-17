@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BarChart3, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Menu, Moon, Settings, Sun, UserRound, X,
+  BarChart3, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Settings, UserRound, X,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -27,6 +27,8 @@ import { normalizeGradeLevel } from '../../../lib/academicRules';
 import Avatar from '../../Avatar';
 import NotificationBell from '../../NotificationBell';
 import ClarityModal from '../ui/ClarityModal';
+import ClarityTopBar from '../ClarityTopBar';
+import { PHONE_QUERY, PhoneBottomNav, PhoneMenuSheet } from '../phone/PhoneNav';
 import { useHtmlClass } from '../useHtmlClass';
 import { overviewSummary } from './overviewSummary';
 import ClarityStudentProfileTab from './ClarityStudentProfileTab';
@@ -50,6 +52,10 @@ const RESTYLED_CLASSIC = {
 };
 
 // The same items, paths and order as the classic StudentLayout.
+// SHELL: the phone tab bar (the final design's four, then Menu); the rest
+// of STUDENT_NAV and Profile & password are in the Menu sheet.
+const PHONE_BAR = ['/student-dashboard', '/student-dashboard/tasks', '/student-dashboard/scores', '/student-dashboard/attendance'];
+
 const STUDENT_NAV = [
   { path: '/student-dashboard', icon: LayoutDashboard, label: 'Overview' },
   { path: '/student-dashboard/tasks', icon: ClipboardCheck, label: 'Tasks' },
@@ -105,6 +111,19 @@ const ClarityStudentLayout = ({ children }) => {
     // no badge rather than let the whole shell fail.
     try { return overviewSummary(graph, name).pendingCount; } catch { return 0; }
   }, [graph, loading, name]);
+  // SHELL: on phones the bottom tab bar and the Menu sheet replace the drawer.
+  const phone = useMediaQuery(PHONE_QUERY) && !desktop;
+  const [phoneMenuOpen, setPhoneMenuOpen] = useState(false);
+  const phoneMenuRef = useRef(null);
+  const currentPath = STUDENT_NAV
+    .filter(item => trimmedPath === item.path || trimmedPath.startsWith(`${item.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0]?.path || '';
+  const phoneItem = item => ({ key: item.path, label: item.label, icon: item.icon, href: item.path,
+    current: !onProfile && currentPath === item.path, onSelect: () => navigate(item.path),
+    badge: item.label === 'Tasks' ? pendingCount : 0, badgeText: 'pending' });
+  const phoneBar = PHONE_BAR.map(path => phoneItem(STUDENT_NAV.find(item => item.path === path)));
+  const phoneGroups = [{ heading: null, items: STUDENT_NAV.filter(item => !PHONE_BAR.includes(item.path)).map(phoneItem) }];
+  const phoneMenuCurrent = onProfile || !PHONE_BAR.includes(currentPath);
 
   // Reaching the desktop width closes the drawer, as in the classic shell.
   useEffect(() => {
@@ -256,28 +275,26 @@ const ClarityStudentLayout = ({ children }) => {
       </aside>
 
       <div className="x-main">
-        <header ref={headerRef} className="x-top">
-          <button ref={menuButtonRef} type="button" className="x-iconbtn x-menubtn" onClick={() => setSidebarOpen(true)}
-            aria-label="Open navigation menu" aria-expanded={sidebarOpen} aria-controls="student-sidebar">
-            <Menu size={20} aria-hidden="true" />
-          </button>
-          {pageTitle && <span className="x-top-title" title={pageTitle} aria-hidden="true">{pageTitle}</span>}
-          <span className="x-sp" />
-          {/* The shared bell keeps its real unread count; .x-bell restyles its
-              button as a plain icon (scoped CSS, NotificationBell unchanged). */}
-          <span className="x-bell" data-shared="bell">
-            <NotificationBell followLinks />
-          </span>
-          <button type="button" className="x-iconbtn" onClick={toggleDark}
-            aria-label={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            {dark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
-          </button>
-        </header>
+        <ClarityTopBar headerRef={headerRef} phone={phone} menuButtonRef={menuButtonRef}
+          menuLabel="Open navigation menu" menuOpen={sidebarOpen} menuControls="student-sidebar" onOpenMenu={() => setSidebarOpen(true)}
+          pageTitle={pageTitle} dark={dark} onToggleDark={toggleDark}
+          bell={<span className="x-bell" data-shared="bell"><NotificationBell followLinks /></span>} />
 
         <main ref={mainRef} id="x-main" tabIndex={-1} className="x-content">
           {ClarityPage ? <ClarityPage /> : restyled ? <div className={restyled}>{children}</div> : children}
         </main>
       </div>
+
+      {phone && (
+        <>
+          <PhoneBottomNav items={phoneBar} menuOpen={phoneMenuOpen} menuCurrent={phoneMenuCurrent}
+            onMenu={() => setPhoneMenuOpen(true)} menuButtonRef={phoneMenuRef} sheetId="student-phone-menu" />
+          <PhoneMenuSheet id="student-phone-menu" open={phoneMenuOpen} onClose={() => setPhoneMenuOpen(false)}
+            groups={phoneGroups} returnFocusRef={phoneMenuRef} closeKey={location.pathname}
+            profile={{ key: 'profile', label: 'Profile & password', href: '/student-dashboard/profile', current: onProfile, onSelect: () => navigate('/student-dashboard/profile') }}
+            onSignOut={handleLogout} />
+        </>
+      )}
 
       {logoutConfirmOpen && (
         <ClarityModal

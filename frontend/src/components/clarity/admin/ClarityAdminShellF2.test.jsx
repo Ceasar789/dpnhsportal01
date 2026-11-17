@@ -199,14 +199,17 @@ describe('shell behaviours still hold under the new labels', () => {
     expect(h.profile).toHaveBeenCalled();
   });
 
-  it('unsaved Settings still asks before leaving', async () => {
+  it('unsaved Settings still asks before leaving (in the app, never the browser confirm)', async () => {
     Object.assign(h, { page: 'settings', dirty: true });
     await showClarity();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const native = vi.spyOn(window, 'confirm');
     fireEvent.click(navButton('Calendar'));
-    expect(confirm).toHaveBeenCalledWith('You have unsaved settings. Discard them?');
+    const ask = screen.getByRole('alertdialog', { name: 'Leave Settings?' });
+    expect(ask.textContent).toContain('You have unsaved settings. Discard them?');
+    fireEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('System Settings');
-    confirm.mockRestore();
+    expect(native).not.toHaveBeenCalled();
+    native.mockRestore();
   });
 
   it('the header keeps the theme toggle, the bell and the menu button', async () => {

@@ -150,7 +150,7 @@ test('Teaching Load guards logout and resumes the existing sign-out workflow', a
 
   await page.getByRole('button', { name: 'Logout' }).click();
   await page.getByRole('button', { name: 'Stay on Teaching Load' }).click();
-  await expect(page).toHaveURL(/\/admin-dashboard$/);
+  await expect(page).toHaveURL(/\/admin-dashboard\/teaching-load$/);
   await expect(page.getByText('Unsaved changes', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Logout' }).click();
@@ -179,7 +179,7 @@ test('Teaching Load route Forward is blocked and a successful Save clears the gu
   await page.evaluate(() => window.history.forward());
   await expect(page.getByRole('dialog', { name: 'Leave Teaching Load?' })).toBeVisible();
   await page.getByRole('button', { name: 'Stay on Teaching Load' }).click();
-  await expect(page).toHaveURL(/\/admin-dashboard$/);
+  await expect(page).toHaveURL(/\/admin-dashboard\/teaching-load$/);
   await page.getByRole('button', { name: 'Save Assignment' }).click();
   await expect(page.getByText('All changes saved')).toBeVisible();
   await page.getByRole('button', { name: 'Overview', exact: true }).click();

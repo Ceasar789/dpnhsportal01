@@ -235,18 +235,28 @@ test.describe('admin settings', () => {
     await year.fill(`${loadedYear}-edited`);
     await expect(bar(page)).toBeVisible();
 
-    // Dismissed: the admin stays where they are and keeps the edit.
-    let asked = 0;
-    page.on('dialog', async (d) => { asked += 1; await d.dismiss(); });
-    await page.locator('.sidebar-item', { hasText: 'Overview' }).first().click({ force: true });
-    await expect.poll(() => asked).toBe(1);
+    // Asked in the app (never the browser dialog). Keep editing and Escape:
+    // the admin stays where they are, keeps the edit, and focus comes back.
+    let browserDialogs = 0;
+    page.on('dialog', async (d) => { browserDialogs += 1; await d.dismiss(); });
+    const overview = page.locator('.sidebar-item', { hasText: 'Overview' }).first();
+    const ask = page.getByRole('alertdialog', { name: 'Leave Settings?' });
+    await overview.click({ force: true });
+    await expect(ask).toContainText('You have unsaved settings. Discard them?');
+    await expect(ask.getByRole('button', { name: 'Keep editing' })).toBeFocused();
+    await ask.getByRole('button', { name: 'Keep editing' }).click();
+    await expect(ask).toHaveCount(0);
+    await expect(year).toHaveValue(`${loadedYear}-edited`);
+    await overview.click({ force: true });
+    await page.keyboard.press('Escape');
+    await expect(ask).toHaveCount(0);
     await expect(year).toHaveValue(`${loadedYear}-edited`);
 
-    // Accepted: the edit goes, and so does the admin.
-    page.removeAllListeners('dialog');
-    page.on('dialog', (d) => d.accept());
-    await page.locator('.sidebar-item', { hasText: 'Overview' }).first().click({ force: true });
+    // Discard changes: the edit goes, and so does the admin.
+    await overview.click({ force: true });
+    await ask.getByRole('button', { name: 'Discard changes' }).click();
     await expect(page.locator('#settings-academic-year')).toHaveCount(0);
+    expect(browserDialogs).toBe(0);
   });
 
   // The header button and the Settings dropdown are one state, so there is

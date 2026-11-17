@@ -221,7 +221,10 @@ const ClarityAdminOverviewTab = () => {
               <p className="x-cs">Daily sign-ins, this week</p>
             </div>
           </div>
-          <p className="x-empty">No sign-in data yet</p>
+          <div className="x-empty">
+            <p>No sign-in data yet</p>
+            <p className="x-cs">This chart is not switched on yet.</p>
+          </div>
         </section>
 
         <section className="x-card x-pad" aria-labelledby="ov-roles">

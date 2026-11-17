@@ -37,7 +37,7 @@ describe('layout from real data', () => {
   it('header and New memo', () => {
     show();
     expect(screen.getByRole('heading', { level: 1, name: 'Memos' })).toBeTruthy();
-    expect(screen.getByText('See where every memo stands at a glance.')).toBeTruthy();
+    expect(screen.getByText('Short notes from the office to teachers, students or everyone.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'New memo' })).toBeTruthy();
   });
 

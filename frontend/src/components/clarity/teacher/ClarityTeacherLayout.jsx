@@ -27,7 +27,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation, useNavigationType } from 'react-router-dom';
 import {
   Users, BookOpen, GraduationCap,
-  CalendarCheck, Megaphone, Moon, Sun, LogOut, Menu,
+  CalendarCheck, Megaphone, LogOut,
   LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Settings, X, FolderOpen, UserRound,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
@@ -39,6 +39,8 @@ import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import Avatar from '../../Avatar';
 import NotificationBell from '../../NotificationBell';
 import ClarityModal from '../ui/ClarityModal';
+import ClarityTopBar from '../ClarityTopBar';
+import { PHONE_QUERY, PhoneBottomNav, PhoneMenuSheet } from '../phone/PhoneNav';
 import { useHtmlClass } from '../useHtmlClass';
 import ClarityTeacherOverviewTab from './ClarityTeacherOverviewTab';
 import ClarityTeacherStudentsTab from './ClarityTeacherStudentsTab';
@@ -76,6 +78,11 @@ const GROUPS = [
     '/teacher-dashboard/grades', '/teacher-dashboard/attendance']],
   ['School', ['/teacher-dashboard/announcements']],
 ];
+
+// SHELL: the phone tab bar (the final design's four, then Menu, with the
+// final design's short names); every other page is in the Menu sheet.
+const PHONE_BAR = [['/teacher-dashboard', 'Overview'], ['/teacher-dashboard/lesson-plans', 'Plans'],
+  ['/teacher-dashboard/grades', 'Grading'], ['/teacher-dashboard/attendance', 'Attendance']];
 
 const ClarityTeacherLayout = ({ children }) => {
   useHtmlClass('theme-clarity');
@@ -235,6 +242,21 @@ const ClarityTeacherLayout = ({ children }) => {
   const pageTitle = onProfile ? 'Profile Settings' : [...byPath.values()]
     .filter(item => trimmedPath === item.path || trimmedPath.startsWith(`${item.path}/`))
     .sort((a, b) => b.path.length - a.path.length)[0]?.label || '';
+  // SHELL: on phones the bottom tab bar and the Menu sheet replace the drawer.
+  const phone = useMediaQuery(PHONE_QUERY) && !desktop;
+  const [phoneMenuOpen, setPhoneMenuOpen] = useState(false);
+  const phoneMenuRef = useRef(null);
+  const currentPath = onProfile ? '/teacher-dashboard/profile' : [...byPath.values()]
+    .filter(item => trimmedPath === item.path || trimmedPath.startsWith(`${item.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0]?.path || '';
+  const phoneItem = (item, label) => ({ key: item.path, label, icon: item.icon, href: item.path,
+    current: currentPath === item.path, onSelect: () => navigate(item.path) });
+  const phoneBar = PHONE_BAR.map(([path, short]) => phoneItem(byPath.get(path), short));
+  const phoneGroups = GROUPS.map(([heading, paths]) => ({
+    heading,
+    items: paths.filter(path => !PHONE_BAR.some(([p]) => p === path)).map(path => phoneItem(byPath.get(path), byPath.get(path).label)),
+  })).filter(group => group.items.length > 0);
+  const phoneMenuCurrent = !PHONE_BAR.some(([path]) => path === currentPath);
 
   return (
     <div className="x-app x-tch">
@@ -340,23 +362,10 @@ const ClarityTeacherLayout = ({ children }) => {
       </aside>
 
       <div className="x-main">
-        <header ref={headerRef} className="x-top">
-          <button ref={menuButtonRef} type="button" className="x-iconbtn x-menubtn" onClick={() => setSidebarOpen(true)}
-            aria-label="Open navigation menu" aria-expanded={sidebarOpen} aria-controls="teacher-sidebar">
-            <Menu size={20} aria-hidden="true" />
-          </button>
-          {pageTitle && <span className="x-top-title" title={pageTitle} aria-hidden="true">{pageTitle}</span>}
-          <span className="x-sp" />
-          {/* The shared bell keeps its real unread count; .x-bell restyles its
-              button as a plain icon (scoped CSS, NotificationBell unchanged). */}
-          <span className="x-bell">
-            <NotificationBell className="teacher-notification-bell" />
-          </span>
-          <button type="button" className="x-iconbtn" onClick={toggleDark}
-            aria-label={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'} title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            {dark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
-          </button>
-        </header>
+        <ClarityTopBar headerRef={headerRef} phone={phone} menuButtonRef={menuButtonRef}
+          menuLabel="Open navigation menu" menuOpen={sidebarOpen} menuControls="teacher-sidebar" onOpenMenu={() => setSidebarOpen(true)}
+          pageTitle={pageTitle} dark={dark} onToggleDark={toggleDark}
+          bell={<span className="x-bell"><NotificationBell className="teacher-notification-bell" /></span>} />
 
         <main ref={mainRef} id="x-main" tabIndex={-1} className="x-content">
           {location.pathname.endsWith('/profile') && <h1 className="sr-only">Profile Settings</h1>}
@@ -369,6 +378,17 @@ const ClarityTeacherLayout = ({ children }) => {
           )}
         </main>
       </div>
+
+      {phone && (
+        <>
+          <PhoneBottomNav items={phoneBar} menuOpen={phoneMenuOpen} menuCurrent={phoneMenuCurrent}
+            onMenu={() => setPhoneMenuOpen(true)} menuButtonRef={phoneMenuRef} sheetId="teacher-phone-menu" />
+          <PhoneMenuSheet id="teacher-phone-menu" open={phoneMenuOpen} onClose={() => setPhoneMenuOpen(false)}
+            groups={phoneGroups} returnFocusRef={phoneMenuRef} closeKey={location.pathname}
+            profile={{ key: 'profile', label: 'Profile & password', href: '/teacher-dashboard/profile', current: onProfile, onSelect: () => navigate('/teacher-dashboard/profile') }}
+            onSignOut={handleLogout} />
+        </>
+      )}
 
       {logoutConfirmOpen && (
         <ClarityModal

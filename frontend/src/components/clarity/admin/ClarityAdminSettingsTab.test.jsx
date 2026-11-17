@@ -48,7 +48,7 @@ describe('layout from real settings', () => {
   it('header, the section list with the shell ids, and one card per section', () => {
     render(<ClarityAdminSettingsTab />);
     expect(screen.getByRole('heading', { level: 1, name: 'System Settings' })).toBeTruthy();
-    expect(screen.getByText('Manage academic display, session behavior, appearance, and operational information')).toBeTruthy();
+    expect(screen.getByText('School year, sign-in timeout, appearance and backups.')).toBeTruthy();
     const nav = screen.getByRole('navigation', { name: 'Settings sections' });
     expect(within(nav).getAllByRole('button').map(b => b.textContent)).toEqual(['General', 'Security', 'Notifications', 'Backup & Logs', 'Appearance']);
     expect(within(nav).getByRole('button', { name: 'General' }).getAttribute('aria-current')).toBe('true');

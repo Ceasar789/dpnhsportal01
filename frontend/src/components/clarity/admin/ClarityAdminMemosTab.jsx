@@ -61,7 +61,7 @@ const ClarityAdminMemosTab = () => {
         <div className="x-head x-ov-head">
           <div style={{ minWidth: 0 }}>
             <h1 className="x-h1" ref={pageHeadingRef} tabIndex={-1}>Memos</h1>
-            <p className="x-sub">See where every memo stands at a glance.</p>
+            <p className="x-sub">Short notes from the office to teachers, students or everyone.</p>
           </div>
           <div className="x-act">
             <button type="button" className="x-btn pri" onClick={openCompose}>
@@ -110,7 +110,12 @@ const ClarityAdminMemosTab = () => {
                 </SkeletonGroup>
               </>
             ) : filteredMemos.length === 0 && !memosError ? (
-              <p className="x-card x-empty">No memos found</p>
+              <div className="x-card x-empty">
+                <p>No memos found</p>
+                {memos.length === 0 ? (
+                  <button type="button" className="x-btn pri" style={{ marginTop: 12 }} onClick={openCompose}>Write the first memo</button>
+                ) : <p className="x-cs">Try another search or recipient.</p>}
+              </div>
             ) : filteredMemos.map(m => (
               <button key={m.id} type="button" className={`x-card x-memo-card${selMemo?.id === m.id ? ' on' : ''}`}
                 aria-current={selMemo?.id === m.id ? 'true' : undefined} onClick={() => setSelMemo(m)}>

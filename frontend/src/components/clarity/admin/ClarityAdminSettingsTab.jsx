@@ -116,7 +116,7 @@ const ClarityAdminSettingsTab = () => {
       <div className="x-head x-ov-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1" tabIndex={-1}>System Settings</h1>
-          <p className="x-sub">Manage academic display, session behavior, appearance, and operational information</p>
+          <p className="x-sub">School year, sign-in timeout, appearance and backups.</p>
         </div>
       </div>
 

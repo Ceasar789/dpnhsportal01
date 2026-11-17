@@ -81,6 +81,20 @@ const ClarityAdminUsersTab = () => {
   useEffect(() => { centerSelectedInRow(roleTabsRef.current); }, [roleFilter]);
 
   const [selId, setSelId] = useState(null);
+  // V2b: on one-column layouts the profile is below the list; bring it into
+  // view and put focus on its name, so a tap visibly opens it.
+  const detailRef = useRef(null);
+  const [reveal, setReveal] = useState(0);
+  const pick = (id) => {
+    setSelId(id);
+    if (window.matchMedia?.('(max-width: 1099.98px)')?.matches) setReveal(n => n + 1);
+  };
+  // After the chosen user is on screen (also when the same name is tapped again).
+  useEffect(() => {
+    if (!reveal) return;
+    detailRef.current?.scrollIntoView?.({ block: 'start' });
+    detailRef.current?.querySelector('h2')?.focus({ preventScroll: true });
+  }, [reveal]);
   // Selection only: nothing shows until a row is picked. Nothing is called.
   const sel = filteredUsers.find(u => u.id === selId) || null;
 
@@ -100,7 +114,7 @@ const ClarityAdminUsersTab = () => {
         <div className="x-head x-ov-head">
           <div style={{ minWidth: 0 }}>
             <h1 className="x-h1" tabIndex={-1}>User Management</h1>
-            <p className="x-sub">Create accounts and assign roles across the portal</p>
+            <p className="x-sub">Add teachers, students and admins, and manage their accounts.</p>
           </div>
           <div className="x-act">
             <button type="button" className="x-btn pri" onClick={openCreateUser}>
@@ -162,7 +176,7 @@ const ClarityAdminUsersTab = () => {
                   <thead><tr><th scope="col">Name</th><th scope="col">Role</th><th scope="col">Email</th><th scope="col">Status</th></tr></thead>
                   <tbody>
                     {filteredUsers.map(u => (
-                      <tr key={u.id} className={sel?.id === u.id ? 'o-sel' : undefined} onClick={() => setSelId(u.id)}>
+                      <tr key={u.id} className={sel?.id === u.id ? 'o-sel' : undefined} onClick={() => pick(u.id)}>
                         <td>
                           <button type="button" className="x-usr-pick nm" data-user-id={u.id}
                             aria-pressed={sel?.id === u.id}>
@@ -176,7 +190,15 @@ const ClarityAdminUsersTab = () => {
                       </tr>
                     ))}
                     {filteredUsers.length === 0 && (
-                      <tr><td colSpan={4} className="x-empty">No users found</td></tr>
+                      <tr><td colSpan={4} className="x-empty">
+                        <p>No users found</p>
+                        {users.length === 0 && !showArchived ? (
+                          <>
+                            <p className="x-cs">Add the first teacher, student or admin.</p>
+                            <button type="button" className="x-btn pri" style={{ marginTop: 12 }} onClick={openCreateUser}>Create the first user</button>
+                          </>
+                        ) : <p className="x-cs">Try another search, role or status.</p>}
+                      </td></tr>
                     )}
                   </tbody>
                 </table>
@@ -185,11 +207,11 @@ const ClarityAdminUsersTab = () => {
             <p className="x-cs x-usr-foot">Showing {filteredUsers.length} of {users.length} users</p>
           </div>
 
-          <section className="x-card x-pad x-usr-detail" aria-label="Selected user">
+          <section ref={detailRef} className="x-card x-pad x-usr-detail" aria-label="Selected user">
             {sel ? (
               <>
                 <UserPhoto user={sel} size={96} big />
-                <h2 className="x-ct x-usr-dname">{sel.name || '—'}</h2>
+                <h2 className="x-ct x-usr-dname" tabIndex={-1}>{sel.name || '—'}</h2>
                 <p className="x-cs x-usr-demail">{sel.email}</p>
                 <div className="x-news-pills x-usr-dpills"><RolePill role={sel.role} /><StatusPill user={sel} showArchived={showArchived} /></div>
                 <dl className="x-usr-info">

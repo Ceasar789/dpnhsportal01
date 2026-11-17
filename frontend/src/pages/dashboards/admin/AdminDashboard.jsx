@@ -14,6 +14,7 @@ import { AdminProvider, useAdminContext } from './AdminContext';
 import PageTransition from '../../../components/PageTransition';
 import NotificationBell from '../../../components/NotificationBell';
 import ConfirmationDialog from './shared/ConfirmationDialog';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import Avatar from '../../../components/Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { cycleTab, focusableWithin, lockScroll } from '../../../lib/focusTrap';
@@ -185,10 +186,18 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
   // UX-028 — leaving System Settings with the save bar up throws the work
   // away, and a sidebar click is one keystroke. Same prompt the dialogs
   // use, for the same reason: an untouched page never sees it.
+  // V2b: asked in the app (ConfirmDialog), never with the browser confirm().
+  const [settingsLeave, setSettingsLeave] = useState(null);
+  const leavePage = (go, destination) => requestTeachingLoadNavigation(() => requestProfileNavigation(go), destination);
   const requestPageChange = (go, destination = '') => {
-    if (page === 'settings' && settingsDirty
-      && !window.confirm('You have unsaved settings. Discard them?')) return;
-    requestTeachingLoadNavigation(() => requestProfileNavigation(go), destination);
+    if (page === 'settings' && settingsDirty) { setSettingsLeave({ go, destination }); return; }
+    leavePage(go, destination);
+  };
+  const cancelSettingsLeave = () => setSettingsLeave(null);
+  const confirmSettingsLeave = () => {
+    const next = settingsLeave;
+    setSettingsLeave(null);
+    if (next) leavePage(next.go, next.destination);
   };
   const requestSidebarNavigation = (go, destination) => {
     if (!sidebarOpen) {
@@ -872,6 +881,9 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           display: inline-flex; align-items: center; justify-content: center; }
         .news-action:hover { color: var(--text); }
         .news-action.red   { color: var(--red); }
+        /* V2b: red and green action text at 4.5:1 (dark red text, light green text). */
+        .dark .btn-danger, .dark .news-action.red { color: #f87171; }
+        :root:not(.dark) .news-action.green { color: #15803d; }
         .news-action.green { color: var(--green); }
         .news-action.blue  { color: var(--accent); }
         .news-footer { font-size: var(--font-size-12); color: var(--text-muted); margin-top: var(--space-16); }
@@ -1135,10 +1147,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
         /* Phones: the toast sits at the top, full width with 16px margins, so it
            never covers a dialog footer button pinned at the bottom (Publish,
            Save). Same z-index, colours and timing. The profile toggle in the
-           header gets a 40px tap height. 768px and up are unchanged. */
+           header gets a 44px tap height. 768px and up are unchanged. */
         @media(max-width:767px) {
           .toast { top: calc(env(safe-area-inset-top, 0px) + 12px); bottom: auto; left: 16px; right: 16px; }
-          .admin-profile-row > button { min-height: 40px; }
+          .admin-profile-row > button { min-height: 44px; }
           .toast { pointer-events: none; } /* taps pass through to the header under it */
         }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -1178,6 +1190,8 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           select { min-height: 44px; }
           .sidebar-item, .sidebar-sub { min-height: 44px; }
           .btn, .nav-logout-btn { min-height: 44px; }
+          /* V2b: the remaining fields and tabs on phones and tablets. */
+          .toolbar input, .picker-search input, .settings-input-row input, .grade-tab, .admin-profile-row > button { min-height: 44px; }
           .stat-grid { grid-template-columns: 1fr 1fr; }
           .overview-grid { grid-template-columns: 1fr; }
           .news-grid { grid-template-columns: 1fr; }
@@ -1478,6 +1492,10 @@ const AdminDashboardShell = ({ navigate, logout, userData }) => {
           navigate('/login');
         }}
       />
+      {settingsLeave && (
+        <ConfirmDialog title="Leave Settings?" message="You have unsaved settings. Discard them?"
+          confirmLabel="Discard changes" cancelLabel="Keep editing" onConfirm={confirmSettingsLeave} onCancel={cancelSettingsLeave} />
+      )}
 
     </div>
   );

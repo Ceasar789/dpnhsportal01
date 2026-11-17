@@ -269,7 +269,7 @@ const TeachingLoadTab = () => {
     setPendingLeave(current => current || {
       proceed: blocker.proceed,
       cancel: blocker.reset,
-      destination: blocker.location?.pathname || 'the requested page',
+      destination: ({ '/admin-dashboard': 'Overview', '/admin-dashboard/users': 'User Management', '/admin-dashboard/subjects': 'Subjects', '/admin-dashboard/sections': 'Sections', '/admin-dashboard/schedules': 'Schedules', '/admin-dashboard/news': 'News', '/admin-dashboard/calendar': 'Calendar', '/admin-dashboard/memos': 'Memos', '/admin-dashboard/settings': 'Settings', '/admin-dashboard/profile': 'Profile Settings' })[blocker.location?.pathname] || blocker.location?.pathname || 'the requested page',
       saveInProgress: savingRef.current,
     });
   }, []);

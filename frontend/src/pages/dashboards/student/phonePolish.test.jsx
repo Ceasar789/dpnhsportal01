@@ -65,6 +65,7 @@ describe('phone tap targets (40px on phones only)', () => {
   it('teacher Announcements chips, the student profile toggle and the admin profile toggle reach 40px on phones', () => {
     expect(read('pages/dashboards/teacher/tabs/AnnouncementsTab.jsx')).toContain('className="px-4 py-1.5 rounded-lg text-sm font-medium max-md:min-h-10"');
     expect(read('pages/dashboards/student/StudentDashboard.jsx')).toContain('className={`w-full flex items-center gap-3 text-left max-md:min-h-10 ');
-    expect(read('pages/dashboards/admin/AdminDashboard.jsx')).toMatch(/@media\(max-width:767px\) \{[^}]*\}\s*\.admin-profile-row > button \{ min-height: 40px; \}/);
+    // V2b: the admin profile toggle is a full 44px target on phones.
+    expect(read('pages/dashboards/admin/AdminDashboard.jsx')).toMatch(/@media\(max-width:767px\) \{[^}]*\}\s*\.admin-profile-row > button \{ min-height: 44px; \}/);
   });
 });

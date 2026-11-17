@@ -214,7 +214,14 @@ const ClarityAdminNewsTab = () => {
               </div>
             )}
 
-            {filteredNews.length === 0 && !newsError && <p className="x-empty">No posts found</p>}
+            {filteredNews.length === 0 && !newsError && (
+              <div className="x-empty">
+                <p>No posts found</p>
+                {newsItems.length === 0 ? (
+                  <button type="button" className="x-btn pri" style={{ marginTop: 12 }} onClick={openNewPost}>Write the first post</button>
+                ) : <p className="x-cs">Try another search, category or status.</p>}
+              </div>
+            )}
           </>
         )}
         {(!newsError || newsItems.length > 0) && (

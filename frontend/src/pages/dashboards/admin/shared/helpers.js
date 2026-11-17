@@ -8,7 +8,8 @@ export const initials = (name = '') =>
   name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
 export const avatarColor = (str = '') => {
-  const colors = ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#ef4444','#2dd4bf','#f472b6','#fb923c'];
+  // V2b: the 700 shades, so white initials reach 4.5:1 on every colour.
+  const colors = ['#1d4ed8','#15803d','#b45309','#6d28d9','#b91c1c','#0f766e','#be185d','#c2410c'];
   let h = 0; for (const c of str) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
   return colors[Math.abs(h) % colors.length];
 };

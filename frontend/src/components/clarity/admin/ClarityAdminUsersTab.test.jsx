@@ -46,7 +46,7 @@ describe('layout from real data', () => {
   it('header, Create user, and a table with Name | Role | Email | Status column headers', () => {
     show();
     expect(screen.getByRole('heading', { level: 1, name: 'User Management' })).toBeTruthy();
-    expect(screen.getByText('Create accounts and assign roles across the portal')).toBeTruthy();
+    expect(screen.getByText('Add teachers, students and admins, and manage their accounts.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create user' })).toBeTruthy();
     const ths = within(table()).getAllByRole('columnheader');
     expect(ths.map(th => th.textContent)).toEqual(['Name', 'Role', 'Email', 'Status']);

@@ -183,7 +183,11 @@ const ClarityAdminSectionsTab = () => {
             <button type="button" className="x-btn" style={{ marginTop: 12 }} onClick={() => fetchSections()}>Retry</button>
           </div>
         ) : sections.length === 0 ? (
-          <p className="x-card x-empty">No sections for {schoolYear} yet.</p>
+          <div className="x-card x-empty">
+            <p>No sections for {schoolYear} yet.</p>
+            <p className="x-cs">Sections are the class groups, such as 7-Rizal.</p>
+            <button type="button" className="x-btn pri" style={{ marginTop: 12 }} onClick={beginCreate}>Create the first section</button>
+          </div>
         ) : (
           <div className="x-sec-board">
             {groupByGrade(sections).map(([grade, list]) => (

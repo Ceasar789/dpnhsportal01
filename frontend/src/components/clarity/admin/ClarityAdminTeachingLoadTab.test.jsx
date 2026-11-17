@@ -80,7 +80,7 @@ describe('layout from real data', () => {
     h.ctx = baseCtx({ teachingLoad: [load('l1', ANA, ENG), load('l2', ANA, SCI), load('l3', RAMON, MATH, 'Grade 9')] });
     render(<ClarityAdminTeachingLoadTab />);
     expect(screen.getByRole('heading', { level: 1, name: 'Teaching Load' })).toBeTruthy();
-    expect(screen.getByText('Assign subjects with the teacher and grade always in view.')).toBeTruthy();
+    expect(screen.getByText('Choose which subjects each teacher teaches, grade by grade.')).toBeTruthy();
     expect(screen.getByLabelText('School year').value).toBe('2026-2027');
     const grades = within(screen.getByRole('group', { name: 'Grade level' })).getAllByRole('button');
     expect(grades.map(b => b.getAttribute('aria-label'))).toEqual([

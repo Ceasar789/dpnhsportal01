@@ -31,12 +31,12 @@ html.theme-clarity .x-brand { display: flex; align-items: center; gap: 10px; pad
 html.theme-clarity .x-brand img { width: 36px; height: 36px; border-radius: 9999px; object-fit: contain; background: #fff; }
 html.theme-clarity .x-brand b { display: block; font-family: var(--cl-font); font-size: 16px; font-weight: 700; letter-spacing: -.01em; color: var(--cl-side-head); line-height: 1.1; }
 html.theme-clarity .x-brand span { font-size: 12px; color: var(--cl-side-tx); }
-html.theme-clarity .x-grp { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--cl-dim); padding: 14px 10px 6px; }
+html.theme-clarity .x-grp { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--cl-dim); padding: 14px 10px 6px; }
 html.theme-clarity .x-nav { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: none; font: inherit; font-weight: 500; color: var(--cl-side-head); text-align: left; cursor: pointer; transition: background-color .2s, color .2s, transform .2s var(--cl-ease); }
 html.theme-clarity .x-nav:hover { background: var(--cl-side-hov); color: var(--cl-side-head); }
 html.theme-clarity .x-nav:active { transform: scale(.98); }
 html.theme-clarity .x-nav.on { background: var(--cl-side-on); color: var(--cl-side-on-tx); font-weight: 600; }
-html.theme-clarity .x-nav .cnt { margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9999px; background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-nav .cnt { margin-left: auto; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 9999px; background: var(--cl-ac-s); color: var(--cl-ac); }
 html.theme-clarity .x-side-foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--cl-side-bd); display: flex; align-items: center; gap: 10px; min-width: 0; }
 html.theme-clarity .x-side-foot b { display: block; font-size: 13px; color: var(--cl-side-head); line-height: 1.2; overflow-wrap: anywhere; }
 html.theme-clarity .x-side-foot span { font-size: 12px; color: var(--cl-side-tx); overflow-wrap: anywhere; }
@@ -91,7 +91,7 @@ html.theme-clarity .x-sub-dot { width: 8px; height: 8px; border-radius: 9999px; 
 html.theme-clarity .x-sub-msg { text-align: center; padding: 24px; }
 /* A3: Admin Schedules (weekly timetable for one section) and Calendar (week
    view of all-day event blocks; the month view is the classic one). */
-html.theme-clarity .x-sch-pick { min-width: 220px; max-width: 100%; }
+html.theme-clarity .x-sch-pick { min-width: min(220px, 100%); max-width: 100%; }
 html.theme-clarity .x-sch-setup { margin-bottom: 16px; }
 html.theme-clarity .x-sch-setup p { margin: 4px 0 0; }
 html.theme-clarity .x-sch-card { padding: 16px; margin-bottom: 16px; }
@@ -425,6 +425,7 @@ html.theme-clarity .x-head { display: flex; flex-wrap: wrap; align-items: flex-e
 html.theme-clarity .x-h1 { margin: 0; font-family: var(--cl-font); font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; overflow-wrap: anywhere; }
 html.theme-clarity .x-sub { margin: 4px 0 0; color: var(--cl-mu); }
 html.theme-clarity .x-act { display: flex; flex-wrap: wrap; gap: 8px; }
+html.theme-clarity .x-head > .x-act { min-width: 0; max-width: 100%; }
 
 /* ---------- Cards ---------- */
 html.theme-clarity .x-card { background: var(--cl-card); border: 1px solid var(--cl-bd); border-radius: var(--cl-r); box-shadow: var(--cl-sh); min-width: 0; transition: transform .3s var(--cl-ease), box-shadow .3s var(--cl-ease), border-color .3s; }
@@ -507,7 +508,7 @@ html.theme-clarity .x-cols { display: grid; grid-template-columns: minmax(0, 1.6
 html.theme-clarity .x-cols.even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 html.theme-clarity .x-kpi { padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
 html.theme-clarity .x-kl { font-size: 13px; font-weight: 500; color: var(--cl-mu); display: flex; align-items: center; gap: 8px; }
-html.theme-clarity .x-kv { font-family: var(--cl-font); font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; }
+html.theme-clarity .x-kv { font-family: var(--cl-font); font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.25; font-variant-numeric: tabular-nums; }
 html.theme-clarity .x-kd { font-size: 12px; color: var(--cl-dim); display: flex; align-items: center; gap: 6px; }
 html.theme-clarity .x-krow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 html.theme-clarity .x-ico { width: 32px; height: 32px; border-radius: 9px; background: var(--cl-ac-s); color: var(--cl-ac); display: flex; align-items: center; justify-content: center; flex: none; }
@@ -1001,6 +1002,14 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
       linear-gradient(90deg, var(--cl-bd2), transparent) left / 10px 100% no-repeat scroll,
       linear-gradient(270deg, var(--cl-bd2), transparent) right / 10px 100% no-repeat scroll;
   }
+  /* V2b: the Users table reads as cards on phones (name; role and status; e-mail). */
+  html.theme-clarity .x-table.x-usr-table { min-width: 0; }
+  html.theme-clarity .x-usr-table thead th { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }
+  html.theme-clarity .x-usr-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 8px; padding: 12px 16px; border-bottom: 1px solid var(--cl-bd); }
+  html.theme-clarity .x-usr-table tbody td { display: block; min-width: 0; padding: 0; border: 0; overflow-wrap: anywhere; }
+  html.theme-clarity .x-usr-table tbody td:first-child { grid-column: 1 / -1; }
+  html.theme-clarity .x-usr-table tbody td:nth-child(3) { grid-column: 1 / -1; order: 1; }
+  html.theme-clarity .x-usr-pick { min-height: 44px; }
 }
 
 /* G10: phones in landscape (e.g. 844x390) get the drawer layout but not the
@@ -1020,6 +1029,7 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-link { min-height: 44px; }
   html.theme-clarity .x-nav { min-height: 44px; }
   html.theme-clarity .x-search { min-height: 44px; }
+  html.theme-clarity .x-input, html.theme-clarity .x-usr-pick { min-height: 44px; }
   html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] > button { min-height: 44px; }
   html.theme-clarity .x-tlp button, html.theme-clarity .x-tlp select, html.theme-clarity .x-tws button, html.theme-clarity .x-tws select { min-height: 44px; }
   html.theme-clarity .x-content [aria-label="Change profile photo"] { min-width: 44px; min-height: 44px; }
@@ -1074,6 +1084,7 @@ html.theme-clarity .x-tlp .border-dashed:focus-within label[for] { outline: 2px 
 html.theme-clarity .x-skip { position: fixed; left: 12px; top: 12px; z-index: 200; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 10px; background: var(--cl-card); color: var(--cl-tx); font-weight: 600; text-decoration: none; box-shadow: var(--cl-shh); transform: translateY(-200%); }
 html.theme-clarity .x-skip:focus { transform: none; outline: 2px solid var(--cl-ac); outline-offset: 2px; }
 html.theme-clarity .x-content:focus { outline: none; }
+html.theme-clarity.dark .ux-modal .btn-ghost { color: var(--cl-ac); }
 
 /* G9a: the admin Profile is the shared classic ProfileTab, whose "Change
    Password" text button is 20px tall. The teacher Profile already reaches

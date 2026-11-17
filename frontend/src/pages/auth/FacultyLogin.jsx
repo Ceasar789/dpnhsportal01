@@ -207,7 +207,7 @@ const FacultyLogin = () => {
               <label htmlFor="faculty-email" className="block text-xs font-semibold tracking-widest mb-2" style={{ color: '#6B7280' }}>EMAIL ADDRESS</label>
               <div className="relative">
                 <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} aria-hidden="true" />
-                <input id="faculty-email" name="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@dpnhs.edu.ph" className="w-full h-12 pl-12 pr-4 rounded-md text-sm outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
+                <input id="faculty-email" name="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@dpnhs.edu.ph" className="w-full h-12 pl-12 pr-4 rounded-md text-base outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
               </div>
             </div>
 
@@ -215,15 +215,15 @@ const FacultyLogin = () => {
               <label htmlFor="faculty-password" className="block text-xs font-semibold tracking-widest mb-2" style={{ color: '#6B7280' }}>PASSWORD</label>
               <div className="relative">
                 <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} aria-hidden="true" />
-                <input id="faculty-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full h-12 pl-12 pr-12 rounded-md text-sm outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded max-md:right-1 max-md:inline-flex max-md:items-center max-md:justify-center max-md:min-w-10 max-md:min-h-10">
+                <input id="faculty-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full h-12 pl-12 pr-12 rounded-md text-base outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center min-w-11 min-h-11 rounded">
                   {showPassword ? <EyeOff size={20} style={{ color: '#64748b' }} aria-hidden="true" /> : <Eye size={20} style={{ color: '#64748b' }} aria-hidden="true" />}
                 </button>
               </div>
             </div>
 
             <div className="flex justify-end">
-              <Link to="/forgot-password" className="text-sm font-semibold py-1.5 px-1 -mr-1 rounded" style={{ color: '#7E5700' }}>Forgot password?</Link>
+              <Link to="/forgot-password" className="inline-flex items-center min-h-11 text-sm font-semibold px-1 -mr-1 rounded" style={{ color: '#7E5700' }}>Forgot password?</Link>
             </div>
 
             <ConsentCheckbox id="faculty-consent" inputRef={consentRef} checked={agreed} error={consentError}
@@ -235,7 +235,7 @@ const FacultyLogin = () => {
           </form>
 
           <div className="flex justify-center mt-5">
-            <Link to="/login" className="text-sm py-1.5 px-2 rounded" style={{ color: '#6c757d' }}>← Back to role selection</Link>
+            <Link to="/login" className="inline-flex items-center min-h-11 text-sm px-2 rounded" style={{ color: '#6c757d' }}>← Back to role selection</Link>
           </div>
         </div>
       </div>

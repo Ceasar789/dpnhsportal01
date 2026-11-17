@@ -31,7 +31,7 @@ describe('/login panel icons', () => {
     expect(link.hasAttribute('target')).toBe(false);
   });
 
-  it('the panel row has exactly the two links, 40x40 tiles, a focus ring, and is not aria-hidden', () => {
+  it('the panel row has exactly the two links, 44x44 tiles, a focus ring, and is not aria-hidden', () => {
     render(<MemoryRouter><Login /></MemoryRouter>);
     const feedback = screen.getByRole('link', { name: 'Send feedback by email' });
     const row = feedback.parentElement;
@@ -40,8 +40,8 @@ describe('/login panel icons', () => {
       'Dela Paz NHS on Facebook (opens in a new tab)', 'Send feedback by email',
     ]);
     for (const tile of row.children) {
-      expect(tile.className).toMatch(/\bh-10\b/);
-      expect(tile.className).toMatch(/\bw-10\b/);
+      expect(tile.className).toMatch(/\bh-11\b/);
+      expect(tile.className).toMatch(/\bw-11\b/);
       expect(tile.className).toContain('focus-visible:ring-2');
       expect(tile.querySelector('svg').getAttribute('aria-hidden')).toBe('true');
     }

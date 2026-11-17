@@ -66,7 +66,7 @@ const ForgotPassword = () => {
                 <input id="forgot-email" name="email" type="email" autoComplete="email"
                   value={email} onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@dpnhs.edu.ph"
-                  className="w-full h-12 pl-12 pr-4 rounded-md text-sm outline-none focus:ring-2 placeholder:text-[#64748b]"
+                  className="w-full h-12 pl-12 pr-4 rounded-md text-base outline-none focus:ring-2 placeholder:text-[#64748b]"
                   style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
               </div>
             </div>
@@ -81,7 +81,7 @@ const ForgotPassword = () => {
           </form>
 
           <div className="flex flex-col items-center gap-2 mt-5">
-            <Link to="/login" className="text-sm py-1.5 px-2 rounded" style={{ color: '#6c757d' }}>
+            <Link to="/login" className="inline-flex items-center min-h-11 text-sm px-2 rounded" style={{ color: '#6c757d' }}>
               ← Back to login
             </Link>
           </div>

@@ -40,7 +40,9 @@ describe('Change Password presentation and behavior', () => {
 
   it('CP-02 preserves accessible labels and password descriptions', () => {
     renderPage();
-    expect(screen.getByLabelText('NEW PASSWORD').getAttribute('aria-describedby')).toBe('change-password-rule');
+    // U6: the description is now the live checklist of the same policy rules (was the one-line hint).
+    expect(screen.getByLabelText('NEW PASSWORD').getAttribute('aria-describedby').split(' '))
+      .toContain(screen.getByRole('list', { name: 'Password rules' }).id);
     expect(screen.getByLabelText('CONFIRM NEW PASSWORD')).toBeTruthy();
   });
 

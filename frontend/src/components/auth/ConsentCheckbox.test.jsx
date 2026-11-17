@@ -61,10 +61,10 @@ describe('ConsentCheckbox', () => {
     expect(box().hasAttribute('aria-describedby')).toBe(false);
   });
 
-  it('a 40px tap height, 16px text on phones, and a visible focus ring', () => {
+  it('a 44px tap height, 16px text on phones, and a visible focus ring', () => {
     render(<Harness />);
     const label = box().closest('label');
-    expect(label.className).toMatch(/\bmin-h-10\b/);
+    expect(label.className).toMatch(/\bmin-h-11\b/);
     expect(label.className).toMatch(/\btext-base\b/);
     expect(box().className).toContain('focus-visible:ring-2');
   });

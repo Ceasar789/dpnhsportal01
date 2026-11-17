@@ -16,7 +16,7 @@ const ConsentCheckbox = ({ checked, onChange, error = false, id, inputRef }) => 
   const errorId = `${id}-error`;
   return (
     <div>
-      <label htmlFor={id} className="flex min-h-10 cursor-pointer items-center gap-3 text-base md:text-sm" style={{ color: '#374151' }}>
+      <label htmlFor={id} className="flex min-h-11 cursor-pointer items-center gap-3 text-base md:text-sm" style={{ color: '#374151' }}>
         <input
           id={id}
           ref={inputRef}

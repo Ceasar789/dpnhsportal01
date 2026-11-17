@@ -155,12 +155,13 @@ test.describe('change password', () => {
   });
 
   test('the password rule is readable, and attached to the field', async ({ page }) => {
-    const rule = page.locator('#change-password-rule');
+    // U6: the rule is the live checklist of the same policy (was the one-line hint #change-password-rule).
+    const rule = page.getByRole('list', { name: 'Password rules' });
     await expect(rule).toBeVisible();
     // 2.54:1 before. This is the line that says what will be accepted.
     expect(await ratioOf(rule), `the password rule reads too faintly`).toBeGreaterThanOrEqual(4.5);
-    await expect(page.locator('#change-new-password'))
-      .toHaveAttribute('aria-describedby', 'change-password-rule');
+    const ruleId = await rule.getAttribute('id');
+    expect((await page.locator('#change-new-password').getAttribute('aria-describedby')).split(' ')).toContain(ruleId);
   });
 
   test('the show/hide toggle is named and big enough', async ({ page }) => {

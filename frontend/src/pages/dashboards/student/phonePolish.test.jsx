@@ -57,9 +57,10 @@ describe('phone tap targets (40px on phones only)', () => {
     expect(home).toContain("className=\"ml-2 grid h-6 w-6 max-md:relative max-md:before:absolute max-md:before:-inset-2 max-md:before:content-[''] place-items-center");
   });
 
-  it.each(['pages/auth/StudentLogin.jsx', 'pages/auth/FacultyLogin.jsx'])('%s: the password eye is 40x40 on phones, icon size unchanged', (file) => {
+  it.each(['pages/auth/StudentLogin.jsx', 'pages/auth/FacultyLogin.jsx'])('%s: the password eye is 44x44 at every size (U6), icon size unchanged', (file) => {
     const src = read(file);
-    expect(src).toContain('className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded max-md:right-1 max-md:inline-flex max-md:items-center max-md:justify-center max-md:min-w-10 max-md:min-h-10"');
+    expect(src).toContain('className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center min-w-11 min-h-11 rounded"');
+    expect(src).toContain('<Eye size={20}');
   });
 
   it('teacher Announcements chips, the student profile toggle and the admin profile toggle reach 40px on phones', () => {

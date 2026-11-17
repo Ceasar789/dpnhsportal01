@@ -44,7 +44,7 @@ const Login = () => {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-lg px-4 py-2 font-work text-sm font-bold transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/40 ${className}`}
+      className={`flex-1 min-h-11 rounded-lg px-4 py-2 font-work text-sm font-bold transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/40 ${className}`}
       style={style}
     >
       {label}
@@ -113,7 +113,7 @@ const Login = () => {
               Access your academic progress, resources and campus news through the unified student portal.
             </p>
 
-            <p className="mt-6 max-w-sm text-xs leading-relaxed text-white/85">
+            <p className="mt-6 max-w-sm text-sm leading-relaxed text-white/85">
               By signing in you agree to the Dela Paz Online Services{' '}
               <a href="/terms" className="whitespace-nowrap font-semibold text-white underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">Terms of Use</a> and{' '}
               <a href="/privacy" className="whitespace-nowrap font-semibold text-white underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">Privacy Statement</a>.
@@ -128,7 +128,7 @@ const Login = () => {
             ].map(({ Icon, href, label, external }) => (
               <a key={href} href={href} aria-label={label}
                 {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="flex h-10 w-10 items-center justify-center rounded-md bg-white/20 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">
+                className="flex h-11 w-11 items-center justify-center rounded-md bg-white/20 hover:bg-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]">
                 <Icon size={16} color="white" aria-hidden="true" />
               </a>
             ))}

@@ -89,7 +89,7 @@ const WorksheetActions = ({ worksheet, onDistribute, onCheck, onEncode, onDownlo
             requestAnimationFrame(() => focusItem(event.key === 'ArrowDown' ? 0 : actions.length - 1));
           }
         }}
-        className="h-10 min-w-10 px-2 rounded-lg flex items-center justify-center"
+        className="h-10 min-w-10 max-lg:h-11 max-lg:min-w-11 px-2 rounded-lg flex items-center justify-center"
         style={{ color: 'var(--text)', border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>
         <MoreHorizontal size={20} aria-hidden="true" />
       </button>
@@ -612,7 +612,10 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       {scoreSavedMessage && <p role="status" className="mb-4 rounded-lg border px-4 py-3 text-sm font-medium" style={{ color: 'var(--green)', borderColor: 'var(--border)', backgroundColor: 'var(--card-bg)' }}>{scoreSavedMessage}</p>}
       
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h1 ref={worksheetsHeadingRef} tabIndex={-1} className="text-xl font-bold" style={{ color: 'var(--text)' }}>Worksheets</h1>
+        <div>
+          <h1 ref={worksheetsHeadingRef} tabIndex={-1} className="text-xl font-bold" style={{ color: 'var(--text)' }}>Worksheets</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Create tasks here and send them to your classes.</p>
+        </div>
         <div className="flex flex-wrap gap-3">
           <Btn disabled={!userData?.uid || !assessment.schoolYear} onClick={() => setCreatingTask(true)}><Plus size={16} /> Create Worksheet</Btn>
         </div>
@@ -627,18 +630,18 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             // makes the exact same false claim finding 4 existed to remove,
             // just from a different window (first paint, or a slow retry).
             value: loading || listError ? '—' : assessment.assigneeCountsLoading ? '…' : assessment.assigneeCountsError ? '—' : stats.distributed,
-            color: assessment.assigneeCountsLoading ? (dark ? '#64748b' : '#94a3b8')
+            color: assessment.assigneeCountsLoading ? (dark ? '#94a3b8' : '#64748b')
               : assessment.assigneeCountsError ? '#dc2626' : '#16a34a',
           },
           {
             label: 'Not distributed',
             value: loading || listError ? '—' : assessment.assigneeCountsLoading ? '…' : assessment.assigneeCountsError ? '—' : (stats.total - stats.distributed),
-            color: assessment.assigneeCountsLoading ? (dark ? '#64748b' : '#94a3b8')
+            color: assessment.assigneeCountsLoading ? (dark ? '#94a3b8' : '#64748b')
               : assessment.assigneeCountsError ? '#dc2626' : '#d97706',
           },
         ].map((stat, idx) => (
           <Card key={idx} className="p-4" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
-            <p className="text-xs mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>{stat.label}</p>
+            <p className="text-xs mb-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>{stat.label}</p>
             <p className="text-2xl font-bold" style={{ color: stat.color || (dark ? '#f1f5f9' : '#1a2b4a') }}>{stat.value}</p>
             {assessment.assigneeCountsError && !assessment.assigneeCountsLoading && idx > 0 && (
               <button onClick={() => assessment.fetchAssigneeCounts()}
@@ -661,7 +664,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             style={{
               backgroundColor: activeFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
               border: '1px solid var(--border)',
-              color: activeFilter === f ? '#ffffff' : 'var(--text)'
+              color: activeFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'
             }}>
             {f}
           </button>
@@ -675,7 +678,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             style={{
               backgroundColor: sourceFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
               border: '1px solid var(--border)',
-              color: sourceFilter === f ? '#ffffff' : 'var(--text)'
+              color: sourceFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'
             }}>
             {f}
           </button>
@@ -881,7 +884,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             <div className="flex flex-wrap gap-2 mt-auto">
               <button ref={generatedEntryButtonRef} type="button" onClick={() => setShowGeneratedEditor(true)}
                 className="min-h-10 px-3 rounded-lg text-sm font-semibold"
-                style={{ color: '#fff', backgroundColor: 'var(--banner-accent)' }}>{generatedDraft.saved ? 'View/Edit worksheet' : 'View/Edit draft'}</button>
+                style={{ color: dark ? '#0f172a' : '#fff', backgroundColor: 'var(--banner-accent)' }}>{generatedDraft.saved ? 'View/Edit worksheet' : 'View/Edit draft'}</button>
               <Btn variant="danger" onClick={() => setConfirmDraftDelete(true)}>Delete Draft</Btn>
               {canSimulateDistribution && <Btn variant="outline" onClick={() => setShowLocalDistribution(true)}>
                 Distribute Worksheet <span className="sr-only">(local simulation)</span>
@@ -952,7 +955,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                   </button>
                 </span>
               ) : (
-                <Badge color={distributedCount > 0 ? '#16a34a' : '#d97706'}
+                <Badge color={distributedCount > 0 ? (dark ? '#4ade80' : '#15803d') : (dark ? '#fbbf24' : '#b45309')}
                   bg={distributedCount > 0 ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
                   {distributedCount > 0 ? `Distributed · ${distributedCount}` : 'Not distributed'}
                 </Badge>
@@ -966,7 +969,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             )}
             <div className="flex gap-2 mt-auto">
               <button onClick={() => handlePreview(ws)} className="flex-1 min-w-0 h-10 rounded-lg text-sm font-semibold"
-                style={{ backgroundColor: 'var(--banner-accent)', color: '#ffffff' }}>
+                style={{ backgroundColor: 'var(--banner-accent)', color: dark ? '#0f172a' : '#ffffff' }}>
                 {ws.file_url ? 'View' : 'Preview'}
               </button>
               <WorksheetActions worksheet={ws} busy={deletingId === ws.id}
@@ -987,7 +990,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 </button>
               </p>
             ) : assessment.postings.filter(p => p.worksheet_id === ws.id).length > 0 && (
-              <p className="text-[11px] mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+              <p className="text-[11px] mt-2" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
                 Posted to {assessment.postings.filter(p => p.worksheet_id === ws.id).length} section(s)
               </p>
             )}
@@ -1039,18 +1042,18 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)} dismissible>
           <div className="flex flex-col gap-4">
             <div>
-              <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>File Information</p>
+              <p className="text-xs uppercase mb-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>File Information</p>
               <div className="grid grid-cols-2 gap-3" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', padding: '12px', borderRadius: '8px' }}>
                 <div>
-                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>File Name</p>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>File Name</p>
                   <p className="text-sm font-medium" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{previewingWorksheet.file_name || previewingWorksheet.title}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Subject</p>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>Subject</p>
                   <p className="text-sm" style={{ color: dark ? '#cbd5e1' : '#475569' }}>{previewingWorksheet.subject}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Status</p>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>Status</p>
                   {assessment.assigneeCountsLoading ? (
                     <Badge color={dark ? '#94a3b8' : '#64748b'} bg={dark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.12)'}>
                       Checking…
@@ -1068,7 +1071,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                   })()}
                 </div>
                 <div>
-                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Created</p>
+                  <p className="text-xs uppercase mb-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>Created</p>
                   <p className="text-sm" style={{ color: dark ? '#cbd5e1' : '#475569' }}>{new Date(previewingWorksheet.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
@@ -1078,14 +1081,14 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 <div className="text-center">
                   <FileText size={48} style={{ color: '#3b82f6' }} className="mx-auto mb-2" />
                   <p style={{ color: dark ? '#cbd5e1' : '#475569' }}>File link available</p>
-                  <p className="text-xs mt-2" style={{ color: dark ? '#64748b' : '#94a3b8' }}>Open the file in a new tab to check access.</p>
+                  <p className="text-xs mt-2" style={{ color: dark ? '#94a3b8' : '#64748b' }}>Open the file in a new tab to check access.</p>
                 </div>
               </div>
             ) : (
               <div className="h-48 rounded-lg flex items-center justify-center" style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `2px dashed ${dark ? '#334155' : '#cbd5e1'}` }}>
                 <div className="text-center">
                   <FileText size={48} style={{ color: '#64748b' }} className="mx-auto mb-2" />
-                  <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>No file attached</p>
+                  <p style={{ color: dark ? '#94a3b8' : '#64748b' }}>No file attached</p>
                 </div>
               </div>
             )}

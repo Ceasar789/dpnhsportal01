@@ -25,7 +25,7 @@ export const Card = ({ children, className = '', style = {} }) => {
 export const Input = ({ className = '', ...props }) => {
   const { dark } = useTheme();
   return (
-    <input className={`w-full h-10 px-3 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+    <input className={`w-full h-10 max-lg:h-11 px-3 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
       style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#cbd5e1'}`, color: dark ? '#f1f5f9' : '#1a2b4a' }}
       {...props}
     />
@@ -41,7 +41,7 @@ export const Table = ({ headers, children }) => {
           <tr style={{ backgroundColor: dark ? '#0f172a' : '#f8fafc' }}>
             {headers.map(h => (
               <th key={h} className="px-5 py-3 text-left text-xs font-semibold tracking-wider uppercase"
-                style={{ color: dark ? '#64748b' : '#94a3b8' }}>{h}</th>
+                style={{ color: dark ? '#94a3b8' : '#64748b' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -220,7 +220,7 @@ export const StatCard = ({ label, value, sub, subColor, icon: Icon, loading, col
       <div className="flex-1 flex flex-col justify-center px-4 py-2" style={{ backgroundColor: cardBg }}>
         <p className="text-2xl font-bold leading-tight" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{loading ? '—' : value}</p>
         <p className="text-xs font-bold mt-1" style={{ color: dark ? '#e2e8f0' : '#1a2b4a' }}>{label}</p>
-        {sub && <p className="text-[11px] mt-0.5" style={{ color: subColor || (dark ? '#64748b' : '#94a3b8') }}>{sub}</p>}
+        {sub && <p className="text-[11px] mt-0.5" style={{ color: subColor || (dark ? '#94a3b8' : '#64748b') }}>{sub}</p>}
       </div>
     </>
   );

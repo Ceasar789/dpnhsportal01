@@ -92,7 +92,7 @@ const Login = () => {
               Welcome Back.
             </h1>
 
-            <div className="mt-5 flex w-full max-w-[280px] gap-3">
+            <div className="mt-5 flex flex-wrap w-full max-w-[280px] gap-3">
               <RoleButton
                 label="Student"
                 onClick={() => navigate('/student-login')}

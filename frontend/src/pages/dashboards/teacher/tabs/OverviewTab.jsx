@@ -265,7 +265,7 @@ const OverviewTab = () => {
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Recent Lesson Plans</h2>
               <button type="button" onClick={() => navigate('/teacher-dashboard/lesson-plans')}
-                className="text-sm font-semibold hover:underline" style={{ color: 'var(--banner-accent)' }}>View all lesson plans →</button>
+                className="text-sm font-semibold hover:underline max-lg:inline-flex max-lg:items-center max-lg:min-h-11" style={{ color: 'var(--banner-accent)' }}>View all lesson plans →</button>
             </div>
             {loading ? (
               <p className="py-6 text-sm" style={{ color: 'var(--text-muted)' }}>Loading lesson plans…</p>

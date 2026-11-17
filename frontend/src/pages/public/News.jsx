@@ -96,7 +96,7 @@ const News = () => {
   const LatestNewsSection = () => (
     <div className="w-full py-8 lg:py-[60px] px-5 lg:px-[100px] max-w-[1280px] mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-end mb-6 lg:mb-10">
+      <div className="flex flex-wrap justify-between items-end gap-3 mb-6 lg:mb-10">
         <div>
           <div className="w-10 h-1 mb-4" style={{ backgroundColor: '#FEB300' }} />
           <h3 className="font-work font-extrabold text-3xl tracking-tight" style={{ color: '#1E3A8A' }}>
@@ -229,7 +229,7 @@ const News = () => {
             {/* L2: the same section, header and card grid as the loaded page, in bars. */}
             <p role="status" className="sr-only">Loading news…</p>
             <SkeletonGroup className="w-full py-8 lg:py-[60px] px-5 lg:px-[100px] max-w-[1280px] mx-auto">
-              <div className="flex justify-between items-end mb-6 lg:mb-10">
+              <div className="flex flex-wrap justify-between items-end gap-3 mb-6 lg:mb-10">
                 <div>
                   <div className="w-10 h-1 mb-4" style={{ backgroundColor: '#FEB300' }} />
                   {/* Two word-long bars, so the heading wraps where "Latest News" does. */}

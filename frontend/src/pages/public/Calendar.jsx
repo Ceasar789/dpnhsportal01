@@ -221,15 +221,15 @@ const CalendarPage = () => {
             {/* Calendar Grid */}
             <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={prevMonth} aria-label="Previous month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 max-w-full">
+                <button type="button" onClick={prevMonth} aria-label="Previous month" className="p-2 min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
                   <ChevronLeft size={20} className="text-gray-600" aria-hidden="true" />
                 </button>
                 <h2 className="text-lg md:text-xl font-bold text-[#1a2b4a] whitespace-nowrap">{monthNames[month]} {year}</h2>
                 <select value={year} onChange={e => setCurrentDate(new Date(Number(e.target.value), month, 1))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" aria-label="Calendar year">
                   {[...Array(11)].map((_, i) => { const optionYear = new Date().getFullYear() - 5 + i; return <option key={optionYear} value={optionYear}>{optionYear}</option>; })}
                 </select>
-                <button type="button" onClick={nextMonth} aria-label="Next month" className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
+                <button type="button" onClick={nextMonth} aria-label="Next month" className="p-2 min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]">
                   <ChevronRight size={20} className="text-gray-600" aria-hidden="true" />
                 </button>
               </div>

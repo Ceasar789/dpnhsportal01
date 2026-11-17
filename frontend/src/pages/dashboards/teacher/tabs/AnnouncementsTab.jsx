@@ -128,7 +128,7 @@ const AnnouncementsTab = () => {
                   )}
                 </div>
                 <p className="text-sm mb-3 line-clamp-3" style={{ color: dark ? '#cbd5e1' : '#475569' }}>{item.content}</p>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: dark ? '#64748b' : '#94a3b8' }}>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
                   <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString()}</span>
                   <span className="flex items-center gap-1"><Clock size={12} /> {new Date(item.created_at).toLocaleTimeString()}</span>
                   <span>By {item.author_name || 'Admin'}</span>
@@ -145,7 +145,7 @@ const AnnouncementsTab = () => {
             <p className="text-base font-semibold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>
               {news.length === 0 ? 'No announcements have been published yet.' : 'No announcements match your search or filter.'}
             </p>
-            {news.length === 0 && <p style={{ color: dark ? '#64748b' : '#94a3b8' }}>Use the admin portal or news tools to post academic notices, reminders, and event updates.</p>}
+            {news.length === 0 && <p style={{ color: dark ? '#94a3b8' : '#64748b' }}>Use the admin portal or news tools to post academic notices, reminders, and event updates.</p>}
           </Card>
         )}
       </div>

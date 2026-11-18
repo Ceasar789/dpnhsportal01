@@ -105,7 +105,9 @@ textarea.arv-input { resize: vertical; }
 .arv .arv-pri { border: 0; background: #1908DF; color: #ffffff; }
 .arv .arv-sec { border: 1px solid var(--border); background: transparent; color: var(--text); }
 .arv .arv-pri:disabled,
-.arv .arv-sec:disabled { opacity: .5; cursor: default; }
+.arv .arv-sec:disabled,
+.arv .arv-pri[aria-disabled="true"],
+.arv .arv-sec[aria-disabled="true"] { opacity: .5; cursor: default; }
 
 .arv-fallback { margin: 8px 0 0; font-size: 14px; }
 .arv-fallback a { display: inline-flex; align-items: center; min-height: 44px; color: var(--banner-accent); font-weight: 600; text-decoration: underline; }

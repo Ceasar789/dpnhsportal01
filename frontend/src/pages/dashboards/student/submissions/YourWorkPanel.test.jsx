@@ -86,7 +86,11 @@ describe('A. no attachment yet', () => {
     const add = screen.getByRole('button', { name: 'Add link' });
     fireEvent.click(add); fireEvent.click(add); fireEvent.click(add);
     await waitFor(() => expect(api.addAttachment).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('button', { name: 'Adding…' }).disabled).toBe(true);
+    const busy = screen.getByRole('button', { name: 'Adding…' });
+    expect(busy.getAttribute('aria-disabled')).toBe('true');
+    expect(busy.disabled).toBe(false);
+    fireEvent.click(busy);
+    expect(api.addAttachment).toHaveBeenCalledTimes(1);
     await act(async () => { finish({ ok: true, attachment: linkRow }); });
     expect(api.ensureSubmission).toHaveBeenCalledTimes(1);
   });

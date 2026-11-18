@@ -93,6 +93,7 @@ const DistributeModal = ({
   const [result, setResult] = useState(null); // { tone, text }
   const [chosenMode, setChosenMode] = useState(task.checking_mode === 'auto' ? 'auto' : 'manual');
   const [reviewing, setReviewing] = useState(false);
+  const [loadingPressed, setLoadingPressed] = useState(false); // Review pressed while still loading
   const sendingRef = useRef(false);
 
   const aliveRef = useRef(true);
@@ -162,7 +163,7 @@ const DistributeModal = ({
   };
 
   const readFailed = rosterError || assigneesError || submissionsError;
-  const retryAll = () => { loadRoster(); loadMeta(); };
+  const retryAll = () => { setLoadingPressed(false); loadRoster(); loadMeta(); };
 
   // Only ticked new students are sent. Anyone who already holds or has started
   // this task is shown ticked so the roster reads honestly, but is never counted
@@ -204,8 +205,10 @@ const DistributeModal = ({
   // Checked again with a fresh clock at Review and at Confirm: the form can sit open past the due time.
   const dueStillLater = () => Boolean(dueAt) && isFutureManila(dueAt, new Date());
   const [reviewAttempt, setReviewAttempt] = useState(0);
-  // Still loading or a read failed: Review does nothing yet (the dialog says why).
-  const reviewWaiting = rosterLoading || readFailed || metaLoading || itemCheck === 'loading';
+  // A read failed: Review does nothing yet (the dialog shows the error and Retry).
+  // Still loading: Review says so next to the button (the line goes when loading ends).
+  const stillLoading = rosterLoading || metaLoading || itemCheck === 'loading';
+  const reviewWaiting = stillLoading || readFailed;
   // U5: Review is never disabled. Every problem is listed and linked to its field,
   // re-checked as the teacher fixes things (the list only appears after a press).
   const reviewProblems = () => [
@@ -215,6 +218,7 @@ const DistributeModal = ({
     tooMany && { fieldId: 'teacher-distribute-students', message: `Tick at most ${MAX_STUDENTS} students.` },
   ].filter(Boolean);
   const startReview = () => {
+    setLoadingPressed(stillLoading);
     if (reviewWaiting) return;
     if (reviewProblems().length) { setReviewAttempt(a => a + 1); return; }
     if (!dueStillLater()) { setTimeError(LATER_THAN_NOW); return; }
@@ -286,6 +290,9 @@ const DistributeModal = ({
             {alreadyTicked > 0 && ` · ${alreadyTicked} already have it`}
           </span>
         )}
+        {loadingPressed && stillLoading && (
+          <p role="status" className="text-xs mr-auto min-w-0" style={muted}>Still loading, try again in a moment.</p>
+        )}
         <Btn variant="outline" onClick={requestClose}>Cancel</Btn>
         <Btn variant="primary" onClick={startReview}>Review</Btn>
       </div>
@@ -310,7 +317,7 @@ const DistributeModal = ({
               <div data-row="section" className="min-w-0">
                 <label htmlFor="teacher-distribute-section" className="text-xs font-semibold" style={muted}>Section</label>
                 <select id="teacher-distribute-section" value={sectionId} disabled={saving}
-                  onChange={e => { setSectionId(e.target.value); setTicked(new Set()); }}
+                  onChange={e => { setSectionId(e.target.value); setTicked(new Set()); setLoadingPressed(false); }}
                   className="w-full h-10 px-3 rounded-lg text-sm mt-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF]" style={fieldStyle}>
                   {advisorySections.length > 0 && <optgroup label="Advisory section">{advisorySections.map(sectionOption)}</optgroup>}
                   {handledSections.length > 0 && <optgroup label="Handled sections">{handledSections.map(sectionOption)}</optgroup>}

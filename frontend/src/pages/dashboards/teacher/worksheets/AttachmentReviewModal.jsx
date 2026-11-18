@@ -107,6 +107,8 @@ export default function AttachmentReviewModal({ worksheet, onClose }) {
       setScore(scoreText(updated));
       setFeedback(updated.remarks || '');
       setStatus(updated.released ? (release ? `Returned to ${selected.name}.` : 'Saved. Still returned to the student.') : 'Saved.');
+      // S5: Return to student disappears once returned: keep focus in the detail.
+      if (release) headingRef.current?.focus();
     } finally {
       busyRef.current = false;
       setBusy(null);
@@ -234,10 +236,10 @@ export default function AttachmentReviewModal({ worksheet, onClose }) {
                       {errorFor('feedback') && <p id={id('feedback-error')} className="arv-error" role="alert">{errorFor('feedback')}</p>}
                     </div>
                     <div className="arv-actions">
-                      <button type="submit" className="arv-btn arv-sec" disabled={isBusy} aria-busy={busy === 'save' || undefined}>
+                      <button type="submit" className="arv-btn arv-sec" aria-disabled={isBusy || undefined} aria-busy={busy === 'save' || undefined}>
                         {busy === 'save' ? 'Saving…' : returned ? 'Save changes' : 'Save'}
                       </button>
-                      {!returned && <button type="button" className="arv-btn arv-pri" disabled={isBusy} aria-busy={busy === 'return' || undefined}
+                      {!returned && <button type="button" className="arv-btn arv-pri" aria-disabled={isBusy || undefined} aria-busy={busy === 'return' || undefined}
                         onClick={() => save(true)}>{busy === 'return' ? 'Returning…' : 'Return to student'}</button>}
                     </div>
                     <p className="arv-muted">{returned ? 'This work is returned. Saving changes keeps it returned.'

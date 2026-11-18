@@ -57,6 +57,11 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
   const [confirm, setConfirm] = useState(null); // 'turnIn' | 'unsubmit' | 'remove'
   const { openFile, openLink, fallbackRef, fallbackShown } = useOpenWork();
   const [now] = useState(() => Date.now());
+  // S5: after an action finishes, the button that was pressed is often gone (Turn in,
+  // Add, Remove...), so focus goes to the panel heading instead of the page body.
+  const titleRef = useRef(null);
+  const focusTitle = useRef(false);
+  useEffect(() => { if (focusTitle.current) { focusTitle.current = false; titleRef.current?.focus(); } });
 
   const submissionId = row.submission?.id;
   const released = row.submission?.released === true;
@@ -107,6 +112,7 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
   const resetDraft = () => { setFile(null); setLink(''); setDraftNote(''); setEditing(false); };
   const done = (message, orphan) => {
     showToast?.(orphan ? `${message} The old file could not be removed automatically.` : message);
+    focusTitle.current = true;
     onChanged?.();
   };
 
@@ -209,7 +215,7 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
     <TeacherThemeContext.Provider value={{ dark }}>
       <section className="yw" aria-labelledby={id('title')} aria-busy={load === 'loading' || undefined}>
         <div className="yw-head">
-          <h2 id={id('title')} className="yw-title">Your work</h2>
+          <h2 id={id('title')} ref={titleRef} tabIndex={-1} className="yw-title">Your work</h2>
           <div className="yw-badges">
             <Badge color={badge.tone.color} bg={badge.tone.bg}>{badge.label}</Badge>
             {submission?.is_late === true && state !== 'none' && state !== 'attached'
@@ -260,7 +266,7 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
             )}
             {formError && <p id={id('form-error')} className="yw-error" role="alert">{formError}</p>}
             <div className="yw-actions">
-              <button type="submit" className="yw-btn yw-pri" disabled={isBusy} aria-busy={busy === 'add' || busy === 'replace' || undefined}>
+              <button type="submit" className="yw-btn yw-pri" aria-disabled={isBusy || undefined} aria-busy={busy === 'add' || busy === 'replace' || undefined}>
                 {editing ? label('replace', kind === 'link' ? 'Replace with link' : 'Replace with file')
                   : label('add', kind === 'link' ? 'Add link' : 'Add file')}
               </button>

@@ -117,7 +117,8 @@ textarea.yw-input { resize: vertical; }
   cursor: pointer;
 }
 
-.yw .yw-pri:disabled { opacity: .5; cursor: default; }
+.yw .yw-pri:disabled,
+.yw .yw-pri[aria-disabled="true"] { opacity: .5; cursor: default; }
 .yw button:focus-visible { outline: 2px solid var(--cl-ac, var(--banner-accent)); outline-offset: 2px; }
 
 .yw-note { margin: 4px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }

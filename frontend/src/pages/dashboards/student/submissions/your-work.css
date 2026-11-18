@@ -83,26 +83,6 @@
   color: var(--cl-tx, var(--text));
 }
 
-.yw-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
-.yw-kinds legend { width: 100%; }
-
-.yw-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--cl-bd2, var(--border));
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.yw-kind.on { border: 2px solid var(--cl-ac, var(--banner-accent)); padding: 0 15px; }
-.yw-kind input { width: 18px; height: 18px; margin: 0; accent-color: var(--cl-ac, var(--banner-accent)); }
-.yw-kind:focus-within { outline: 2px solid var(--cl-ac, var(--banner-accent)); outline-offset: 2px; }
-
 .yw-input {
   display: block;
   box-sizing: border-box;

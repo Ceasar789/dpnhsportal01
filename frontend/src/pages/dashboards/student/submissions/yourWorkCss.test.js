@@ -35,7 +35,6 @@ describe('your-work.css', () => {
   });
 
   it('phone targets: every control at least 44px, inputs at 16px', () => {
-    expect(rule('.yw-kind')).toMatch(/min-height: 44px;/);
     expect(rule('.yw-input')).toMatch(/min-height: 44px;[\s\S]*font-size: 16px;/);
     expect(rule('.yw .yw-btn')).toMatch(/min-height: 44px;/);
     expect(rule('.yw-fallback a')).toMatch(/min-height: 44px;/);
@@ -45,7 +44,6 @@ describe('your-work.css', () => {
   it('visible focus on every control, and reduced motion removes the hover transition', () => {
     expect(body).toContain('.yw-input:focus-visible { outline: 2px solid');
     expect(body).toContain('.yw button:focus-visible { outline: 2px solid');
-    expect(body).toContain('.yw-kind:focus-within { outline: 2px solid');
     expect(body).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.yw \.yw-btn,\s*\.yw button \{ transition: none; \}\s*\}/);
     expect(body).not.toMatch(/animation|@keyframes/);
   });

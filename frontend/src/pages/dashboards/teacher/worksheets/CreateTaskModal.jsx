@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Btn } from '../shared/ui';
 import Field from '../../../../components/ui/form/Field';
 import FormErrorSummary from '../../../../components/ui/form/FormErrorSummary';
+import ToggleChoice from '../../../../components/ui/form/ToggleChoice';
 import useDialogSafety from './useDialogSafety';
 import './create-task.css';
 import { HAND_IN_TYPES, MAX_DIRECTIONS, MAX_TITLE, checkingModeFor, pointsProblem } from './manualTaskSave';
@@ -121,15 +122,9 @@ const CreateTaskModal = ({ subjectPicker, subjectReady, subjectFieldId, saving, 
         <textarea value={directions} maxLength={MAX_DIRECTIONS} rows={4} disabled={saving}
           onChange={event => { setDirections(event.target.value); setError(''); }} />
       </Field>
-      {taskType !== 'activity' && !attachment && <fieldset className="grid gap-2 mb-4">
-        <legend className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Checking</legend>
-        {MODES.map(mode => <label key={mode.value} className="flex items-start gap-2 text-sm" style={{ color: 'var(--text)' }}>
-          <input type="radio" name="create-task-checking" value={mode.value} checked={checkingMode === mode.value}
-            disabled={saving || taskType === 'assignment'} onChange={() => setQuizMode(mode.value)} className="mt-1" />
-          <span><span className="font-medium">{mode.label}</span><span className="block text-xs" style={muted}>{mode.help}</span></span>
-        </label>)}
-        {taskType === 'assignment' && <p className="text-xs" style={muted}>Assignments are answered in writing and checked by you.</p>}
-      </fieldset>}
+      {taskType !== 'activity' && !attachment && <ToggleChoice legend="Checking" name="create-task-checking" options={MODES}
+        value={checkingMode} disabled={saving || taskType === 'assignment'} onChange={setQuizMode}
+        note={taskType === 'assignment' && <p className="text-xs" style={muted}>Assignments are answered in writing and checked by you.</p>} />}
       {taskType !== 'activity' && !attachment && <p className="text-xs" style={muted}>After creating, add the questions and their points.</p>}
       {error && <p role="alert" className="text-sm" style={{ color: 'var(--red)' }}>{error}</p>}
     </div>

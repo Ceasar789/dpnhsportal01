@@ -191,6 +191,64 @@
 .fk-seg-opt:disabled, .fk-seg-opt[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; }
 .fk-choice .fk-help, .fk-choice .fk-error { margin-top: 6px; }
 
+/* ---- T1 toggle (ToggleChoice.jsx): 2 to 4 equal columns over native
+   radios. The thumb slides under the chosen option with a transform only,
+   so nothing reflows (two classes: index.css .dashboard-shell * sets a
+   colour-only transition at one class and loads later); a long label wraps inside its column and the row
+   grows with the tallest. The chosen option's help sentence shows below;
+   all of them share one grid cell, so the height never jumps. ---- */
+.fk-tg {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--fk-n, 2), minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--cl-bd2, var(--border));
+  border-radius: 10px;
+  background: var(--cl-bg, var(--bg));
+}
+.fk-tg .fk-tg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px - (var(--fk-n, 2) - 1) * 4px) / var(--fk-n, 2));
+  border: 1px solid var(--cl-ac, var(--banner-accent));
+  border-radius: 8px;
+  background: var(--cl-card, var(--card-bg));
+  transform: translateX(calc(var(--fk-i, 0) * (100% + 4px)));
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
+}
+.fk-tg[data-empty="true"] .fk-tg-thumb { opacity: 0; }
+.fk-tg-opt { position: relative; display: flex; min-width: 0; }
+.fk-tg-input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.fk-tg-text {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: var(--cl-mu, var(--text-muted));
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+  transition: color 0.15s ease;
+}
+.fk-tg-input:checked + .fk-tg-text, .fk-tg-input:enabled:hover + .fk-tg-text { color: var(--cl-tx, var(--text)); }
+.fk-tg-input:focus-visible + .fk-tg-text { outline: 2px solid var(--fk-ring); outline-offset: 1px; }
+.fk-tg-input:disabled { cursor: not-allowed; }
+.fk-tg-input:disabled:not(:checked) + .fk-tg-text { opacity: 0.55; }
+.fk-tg-field:disabled .fk-tg-thumb { border-color: var(--cl-dim, var(--text-dim)); }
+.fk-tg-helps { display: grid; }
+.fk-tg-helps > .fk-help { grid-area: 1 / 1; }
+.fk-tg-helps > .fk-help:not([data-on]) { visibility: hidden; }
+.fk-tg-note { margin-top: 6px; }
+
 /* ---- Error summary ---- */
 .fk-summary {
   margin: 0 0 16px;
@@ -300,6 +358,7 @@
   .fk-pw-toggle { width: 44px; min-height: 44px; margin-top: -22px; right: 0; }
   .fk-field .fk-pw .fk-control { padding-right: 50px; }
   .fk-seg-opt { min-height: 44px; padding: 6px 8px; font-size: 16px; }
+  .fk-tg-text { min-height: 44px; padding: 6px 8px; font-size: 16px; }
   .fk-btn { min-height: 44px; font-size: 16px; }
   .fk-summary-list a { min-height: 44px; display: inline-flex; align-items: center; }
   .fk-footer { flex-direction: column-reverse; align-items: stretch; }
@@ -325,5 +384,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fk-field .fk-control, .fk-seg-opt, .fk-btn { transition: none; }
+  .fk-field .fk-control, .fk-seg-opt, .fk-btn, .fk-tg .fk-tg-thumb, .fk-tg-text { transition: none; }
 }

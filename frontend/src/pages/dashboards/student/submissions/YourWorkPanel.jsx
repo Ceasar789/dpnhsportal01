@@ -27,8 +27,11 @@ import {
 } from './attachmentApi';
 import useOpenWork from './useOpenWork';
 import './your-work.css';
+import ToggleChoice from '../../../../components/ui/form/ToggleChoice';
 
 const BUSY_LABELS = { add: 'Adding…', replace: 'Replacing…', remove: 'Removing…', note: 'Saving…', turnIn: 'Turning in…', unsubmit: 'Unsubmitting…', open: 'Opening…' };
+
+const KINDS = [{ value: 'file', label: 'File' }, { value: 'link', label: 'Link' }];
 
 export default function YourWorkPanel({ row, onChanged, showToast, registerLeaveGuard }) {
   const { userData } = useAuth();
@@ -233,16 +236,8 @@ export default function YourWorkPanel({ row, onChanged, showToast, registerLeave
           <form className="yw-form" noValidate onSubmit={(e) => { e.preventDefault(); submitDraft(); }}
             aria-describedby={formError ? id('form-error') : undefined}>
             {state === 'none' && <p className="yw-muted">Add one file or one link, then turn it in.</p>}
-            <fieldset className="yw-kinds" disabled={isBusy}>
-              <legend className="yw-label">{editing ? 'Replace with' : 'Add your work as'}</legend>
-              {[['file', 'File'], ['link', 'Link']].map(([value, text]) => (
-                <label key={value} className={`yw-kind${kind === value ? ' on' : ''}`}>
-                  <input type="radio" name={id('kind')} value={value} checked={kind === value}
-                    onChange={() => { setKind(value); setError(null); }} />
-                  {text}
-                </label>
-              ))}
-            </fieldset>
+            <ToggleChoice legend={editing ? 'Replace with' : 'Add your work as'} name={id('kind')} disabled={isBusy}
+              options={KINDS} value={kind} onChange={(value) => { setKind(value); setError(null); }} />
             {kind === 'file' ? (
               <TeacherFilePicker id={id('file')} accept={MATERIAL_ACCEPT} guidance={MATERIAL_FILE_GUIDANCE}
                 file={file} onSelect={(f) => { setFile(f); setError(null); }} onRemove={() => setFile(null)} disabled={isBusy} />

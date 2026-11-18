@@ -153,3 +153,38 @@ describe('saving', () => {
     expect(screen.getByLabelText('Title').value).toBe('Quiz');
   });
 });
+
+// T1: Checking is the kit toggle (native radios under a sliding thumb).
+describe('T1: the Checking toggle', () => {
+  const describedText = el => (el.getAttribute('aria-describedby') || '').split(' ').filter(Boolean)
+    .map(id => document.getElementById(id)?.textContent);
+
+  it('Quiz: the Checking group is the toggle, each radio inside its option, Auto-check chosen', () => {
+    show();
+    type('quiz');
+    const group = screen.getByRole('group', { name: 'Checking' });
+    expect(group.querySelector('.fk-tg')).toBeTruthy();
+    for (const name of ['Auto-check', 'Manual check']) expect(radio(name).closest('.fk-tg-opt')).toBeTruthy();
+    expect(radio('Auto-check').checked).toBe(true);
+    expect(describedText(radio('Auto-check'))).toEqual(['Answers are marked for you when you open Check submissions.']);
+  });
+
+  it('Assignment: the reason is read with each disabled option', () => {
+    show();
+    type('assignment');
+    for (const name of ['Auto-check', 'Manual check']) {
+      expect(radio(name).disabled).toBe(true);
+      expect(describedText(radio(name))).toContain('Assignments are answered in writing and checked by you.');
+    }
+  });
+
+  it('Manual then back to Auto-check saves auto', async () => {
+    const onSave = show();
+    type('quiz');
+    fireEvent.click(radio('Manual check'));
+    fireEvent.click(radio('Auto-check'));
+    title('Quiz');
+    await act(async () => { fireEvent.click(create()); });
+    expect(onSave.mock.calls[0][0].checkingMode).toBe('auto');
+  });
+});

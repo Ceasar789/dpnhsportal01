@@ -51,6 +51,7 @@ describe('form-kit.css: scope and safety', () => {
     expect(importers).toEqual([
       'components/ui/ConfirmDialog.jsx', 'components/ui/form/Field.jsx',
       'components/ui/form/FormErrorSummary.jsx', 'components/ui/form/SegmentedChoice.jsx',
+      'components/ui/form/ToggleChoice.jsx',
     ]);
     for (const shared of ['styles/index.css', 'styles/clarity.css', 'styles/clarity-components.css', 'styles/phone-tap.css', 'styles/classic-contrast.css']) {
       expect(read(shared), shared).not.toMatch(/\.fk-/);
@@ -76,7 +77,7 @@ describe('form-kit.css: scope and safety', () => {
       expect(rest, `--${name} needs a classic fallback`).toMatch(/^, var\(--[a-z]/);
     }
     for (const [, name] of body.matchAll(/var\(--(?!cl-|fk-)([a-z0-9-]+)\)/g)) {
-      expect(['text', 'text-muted', 'text-dim', 'border', 'card-bg', 'bg', 'accent', 'on-accent', 'red', 'green'], name).toContain(name);
+      expect(['text', 'text-muted', 'text-dim', 'border', 'card-bg', 'bg', 'accent', 'banner-accent', 'on-accent', 'red', 'green'], name).toContain(name);
     }
   });
 
@@ -156,5 +157,48 @@ describe('form-kit.css: behaviour the kit promises', () => {
     const reduced = rules.find(r => r.media === '@media (prefers-reduced-motion: reduce)');
     expect(reduced.decls.transition).toBe('none');
     for (const s of moving) expect(reduced.selectors, s).toContain(s);
+  });
+});
+
+// T1: the toggle (ToggleChoice.jsx).
+describe('form-kit.css: the T1 toggle', () => {
+  it('the thumb slides with a transform only (0.22s, ease-out); no rule animates layout', () => {
+    const thumb = find(null, '.fk-tg .fk-tg-thumb').decls;
+    expect(thumb.transform).toBe('translateX(calc(var(--fk-i, 0) * (100% + 4px)))');
+    expect(thumb.transition).toBe('transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease');
+    for (const { selectors, decls } of rules) {
+      if (decls.transition) expect(decls.transition, selectors.join(', ')).not.toMatch(/\b(all|width|height|left|right|top|bottom|margin|padding|inset)\b/);
+    }
+  });
+
+  it('reduced motion: the thumb and the labels do not move, and the help swap has no transition', () => {
+    const reduced = rules.find(r => r.media === '@media (prefers-reduced-motion: reduce)');
+    for (const s of ['.fk-tg .fk-tg-thumb', '.fk-tg-text']) expect(reduced.selectors, s).toContain(s);
+    expect(find(null, '.fk-tg-helps > .fk-help').decls.transition).toBeUndefined();
+  });
+
+  it('options: 40px and 14px on desktop, 44px and 16px on phones, labels wrap', () => {
+    expect(find(null, '.fk-tg-text').decls).toMatchObject({ 'min-height': '40px', 'font-size': '14px', 'overflow-wrap': 'anywhere' });
+    expect(find(PHONE, '.fk-tg-text').decls).toMatchObject({ 'min-height': '44px', 'font-size': '16px' });
+  });
+
+  it('the calm kit focus ring on the focused option', () => {
+    expect(find(null, '.fk-tg-input:focus-visible + .fk-tg-text').decls.outline).toBe('2px solid var(--fk-ring)');
+  });
+
+  it('equal columns, and each native radio covers its option but is never seen', () => {
+    expect(find(null, '.fk-tg').decls['grid-template-columns']).toBe('repeat(var(--fk-n, 2), minmax(0, 1fr))');
+    expect(find(null, '.fk-tg-input').decls).toMatchObject({ position: 'absolute', inset: '0', opacity: '0' });
+  });
+
+  it('the thumb rule has two classes, so the later index.css .dashboard-shell * colour transition (one class) cannot replace it', () => {
+    const shell = read('styles/index.css');
+    expect(shell).toContain('.dashboard-shell * {\n  transition-property: background-color');
+    expect(rules.filter(r => r.selectors.includes('.fk-tg-thumb'))).toEqual([]);
+    expect(find(null, '.fk-tg .fk-tg-thumb').decls.transition).toMatch(/^transform /);
+  });
+
+  it('the thumb edge is the accent, with the classic banner accent as fallback (3:1 in classic dark)', () => {
+    expect(find(null, '.fk-tg .fk-tg-thumb').decls.border).toBe('1px solid var(--cl-ac, var(--banner-accent))');
   });
 });

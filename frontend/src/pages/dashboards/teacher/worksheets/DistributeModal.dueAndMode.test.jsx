@@ -210,3 +210,25 @@ describe('Auto-check from the real items', () => {
     expect(document.querySelector('img')).toBeNull();
   });
 });
+
+// T1: Checking mode is the kit toggle; a forced mode is read with its reason.
+describe('T1: the Checking mode toggle', () => {
+  const describedText = el => (el.getAttribute('aria-describedby') || '').split(' ').filter(Boolean)
+    .map(id => document.getElementById(id)?.textContent);
+
+  it('is the toggle, and a locked task reads "Locked after the first distribution." with each disabled option', async () => {
+    await open({ assignees: [{ student_id: 'x', section_id: 'advised' }], loadItems: vi.fn(async () => objective) });
+    await act(async () => {});
+    expect(screen.getByRole('group', { name: 'Checking mode' }).querySelector('.fk-tg')).toBeTruthy();
+    for (const name of ['Auto-check', 'Manual check']) {
+      expect(radio(name).disabled).toBe(true);
+      expect(describedText(radio(name)).join(' ')).toContain('Locked after the first distribution.');
+    }
+  });
+
+  it('a failed question check reads its reason with the forced Manual check', async () => {
+    await open({ loadItems: vi.fn(async () => null) });
+    await screen.findByText('Could not check the questions, so Manual check will be used.');
+    expect(describedText(radio('Manual check')).join(' ')).toContain('Could not check the questions, so Manual check will be used.');
+  });
+});

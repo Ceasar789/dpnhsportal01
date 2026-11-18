@@ -328,3 +328,20 @@ describe('the unsaved-changes guard', () => {
     expect(screen.getByRole('dialog', { name: 'Unsaved changes' })).toBeTruthy();
   });
 });
+
+// T1: File / Link is the kit toggle, disabled while the work is being added.
+describe('T1: the File / Link toggle', () => {
+  it('is the kit toggle and both options are disabled while a link is being added', async () => {
+    let finish;
+    api.ensureSubmission.mockResolvedValue({ ok: true, submission: sub() });
+    api.addAttachment.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    show(rowWith(null));
+    expect(screen.getByRole('group', { name: 'Add your work as' }).querySelector('.fk-tg')).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Link' }));
+    fireEvent.change(screen.getByLabelText('Link address'), { target: { value: 'https://docs.example.org/poster' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add link' }));
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Link' }).disabled).toBe(true));
+    expect(screen.getByRole('radio', { name: 'File' }).disabled).toBe(true);
+    await act(async () => { finish({ ok: true, attachment: linkRow }); });
+  });
+});

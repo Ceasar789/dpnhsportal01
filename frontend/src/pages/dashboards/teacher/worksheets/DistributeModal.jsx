@@ -27,6 +27,7 @@ import { useTheme } from '../hooks';
 import { combineDateAndTime, DEFAULT_DUE_TIME, formatClockTime, isFutureManila, joinClockTime, manilaDateToday,
   splitClockTime } from '../../../../lib/taskFormatting';
 import useDialogSafety from './useDialogSafety';
+import ToggleChoice from '../../../../components/ui/form/ToggleChoice';
 
 const MAX_STUDENTS = 200;
 const CHECKING_MODES = [
@@ -346,22 +347,15 @@ const DistributeModal = ({
             {dueInvalid && <p id="teacher-distribute-due-error" role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{timeError || dueMessage}</p>}
             {dueDate === '' && <p className="text-xs" style={muted}>{dueMessage}</p>}
 
-            <fieldset>
-              <legend className="text-xs font-semibold" style={muted}>Checking mode</legend>
-              {CHECKING_MODES.map(option => (
-                <label key={option.value} className="flex items-start gap-2 mt-1 text-sm" style={bodyText}>
-                  <input type="radio" name="teacher-distribute-mode" className="mt-1" value={option.value}
-                    checked={checkingMode === option.value} disabled={saving || modeLocked || autoBlocked || itemCheck === 'loading'}
-                    onChange={() => setChosenMode(option.value)} />
-                  <span>{option.label}<span className="block text-xs" style={muted}>{option.help}</span></span>
-                </label>
-              ))}
-              {modeLocked ? <p className="text-xs mt-1" style={muted}>Locked after the first distribution.</p>
-                : itemCheck === 'loading' && !manualOnly ? <p role="status" className="text-xs mt-1" style={muted}>Checking questions...</p>
-                  : modeReason && <p className="text-xs mt-1" style={muted}>{modeReason}</p>}
-              {checkingMode === 'auto' && itemCheck === 'essay' && <p role="note" className="text-xs mt-1" style={muted}>
-                Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.</p>}
-            </fieldset>
+            <ToggleChoice legend="Checking mode" name="teacher-distribute-mode" options={CHECKING_MODES} value={checkingMode}
+              disabled={saving || modeLocked || autoBlocked || itemCheck === 'loading'} onChange={setChosenMode}
+              note={(modeLocked || (itemCheck === 'loading' && !manualOnly) || modeReason || (checkingMode === 'auto' && itemCheck === 'essay')) && <>
+                {modeLocked ? <p className="text-xs" style={muted}>Locked after the first distribution.</p>
+                  : itemCheck === 'loading' && !manualOnly ? <p role="status" className="text-xs" style={muted}>Checking questions...</p>
+                    : modeReason && <p className="text-xs" style={muted}>{modeReason}</p>}
+                {checkingMode === 'auto' && itemCheck === 'essay' && <p role="note" className="text-xs mt-1" style={muted}>
+                  Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.</p>}
+              </>} />
 
             {result && (
               <p role={result.tone === 'error' ? 'alert' : 'status'} className="text-xs font-semibold" style={{

@@ -151,8 +151,8 @@ describe('add, edit and delete', () => {
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'Add material' }));
     const d = dialog('Add material');
-    fireEvent.click(within(d).getByRole('button', { name: 'Link' }));
-    fireEvent.change(within(d).getByLabelText('Link'), { target: { value: 'javascript:alert(1)' } });
+    fireEvent.click(within(d).getByRole('radio', { name: 'Link' }));
+    fireEvent.change(within(d).getByLabelText('Link address'), { target: { value: 'javascript:alert(1)' } });
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'Unsafe' } });
     fireEvent.click(within(d).getByRole('button', { name: 'Add material' }));
     expect(within(d).getByRole('alert').textContent).toMatch(/http:\/\/ or https:\/\//);
@@ -160,7 +160,7 @@ describe('add, edit and delete', () => {
 
     const saved = { ...ROWS[1], id: 'new', title: 'Phet sims', link_url: 'https://phet.colorado.edu' };
     api.createLinkMaterial.mockResolvedValue({ ok: true, row: saved });
-    fireEvent.change(within(d).getByLabelText('Link'), { target: { value: 'https://phet.colorado.edu' } });
+    fireEvent.change(within(d).getByLabelText('Link address'), { target: { value: 'https://phet.colorado.edu' } });
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: ' Phet sims ' } });
     fireEvent.change(within(d).getByLabelText(/^Subject/), { target: { value: 'sci' } });
     fireEvent.change(within(d).getByLabelText(/^Grade/), { target: { value: 'Grade 7' } });
@@ -199,8 +199,8 @@ describe('add, edit and delete', () => {
     api.createLinkMaterial.mockReturnValue(new Promise((r) => { resolve = r; }));
     fireEvent.click(screen.getByRole('button', { name: 'Add material' }));
     const d = dialog('Add material');
-    fireEvent.click(within(d).getByRole('button', { name: 'Link' }));
-    fireEvent.change(within(d).getByLabelText('Link'), { target: { value: 'https://e.org' } });
+    fireEvent.click(within(d).getByRole('radio', { name: 'Link' }));
+    fireEvent.change(within(d).getByLabelText('Link address'), { target: { value: 'https://e.org' } });
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'E' } });
     const save = within(d).getByRole('button', { name: 'Add material' });
     fireEvent.click(save);
@@ -262,5 +262,62 @@ describe('add, edit and delete', () => {
     expect(within(d).getByText(/Your subjects could not be loaded/)).toBeTruthy();
     fireEvent.click(within(d).getByRole('button', { name: 'Retry' }));
     expect(h.assign.retry).toHaveBeenCalled();
+  });
+});
+
+// T1-3: Material type is the kit toggle (native radios under a sliding thumb), and the
+// link field is labelled "Link address" so it is never confused with the "Link" option.
+describe('T1-3: the Material type toggle and the Link address field', () => {
+  const openAdd = async () => {
+    await show();
+    fireEvent.click(screen.getByRole('button', { name: 'Add material' }));
+    return dialog('Add material');
+  };
+
+  it('Add: Material type is the toggle with File chosen first; no File/Link buttons are left', async () => {
+    const d = await openAdd();
+    const group = within(d).getByRole('group', { name: 'Material type' });
+    expect(group.querySelector('.fk-tg')).toBeTruthy();
+    expect(within(group).getAllByRole('radio').map(r => [r.value, r.checked])).toEqual([['file', true], ['link', false]]);
+    expect(within(d).queryByRole('button', { name: 'File' })).toBeNull();
+    expect(within(d).queryByRole('button', { name: 'Link' })).toBeNull();
+    expect(within(d).queryByLabelText('Link address')).toBeNull();
+  });
+
+  it('choosing Link shows the "Link address" field and saves a link, never a file', async () => {
+    const d = await openAdd();
+    fireEvent.click(within(d).getByRole('radio', { name: 'Link' }));
+    expect(within(d).getByRole('radio', { name: 'Link' }).checked).toBe(true);
+    const field = within(d).getByLabelText('Link address');
+    expect(field.getAttribute('type')).toBe('url');
+    api.createLinkMaterial.mockResolvedValue({ ok: true, row: { ...ROWS[1], id: 'new', title: 'E', link_url: 'https://e.org' } });
+    fireEvent.change(field, { target: { value: 'https://e.org' } });
+    fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'E' } });
+    fireEvent.click(within(d).getByRole('button', { name: 'Add material' }));
+    await waitFor(() => expect(api.createLinkMaterial).toHaveBeenCalledTimes(1));
+    expect(api.createLinkMaterial.mock.calls[0][0].url).toBe('https://e.org');
+    expect(api.createFileMaterial).not.toHaveBeenCalled();
+  });
+
+  it('while saving, both Material type options are disabled', async () => {
+    const d = await openAdd();
+    fireEvent.click(within(d).getByRole('radio', { name: 'Link' }));
+    let resolve;
+    api.createLinkMaterial.mockReturnValue(new Promise((r) => { resolve = r; }));
+    fireEvent.change(within(d).getByLabelText('Link address'), { target: { value: 'https://e.org' } });
+    fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'E' } });
+    fireEvent.click(within(d).getByRole('button', { name: 'Add material' }));
+    await within(d).findByRole('button', { name: 'Saving…' });
+    for (const name of ['File', 'Link']) expect(within(d).getByRole('radio', { name }).disabled).toBe(true);
+    await act(async () => resolve({ ok: false, error: 'The material could not be saved. Check your connection and try again.' }));
+  });
+
+  it('Edit: the type cannot change (no toggle); a link shows its address under "Link address"', async () => {
+    await show();
+    fireEvent.click(within(card('DepEd K to 12')).getByRole('button', { name: 'Edit DepEd K to 12' }));
+    const d = dialog('Edit material');
+    expect(within(d).queryByRole('group', { name: 'Material type' })).toBeNull();
+    expect(within(d).queryByRole('radio')).toBeNull();
+    expect(within(d).getByLabelText('Link address').value).toBe('https://www.deped.gov.ph/k-to-12/');
   });
 });

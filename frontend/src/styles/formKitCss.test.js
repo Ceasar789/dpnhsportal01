@@ -202,3 +202,36 @@ describe('form-kit.css: the T1 toggle', () => {
     expect(find(null, '.fk-tg .fk-tg-thumb').decls.border).toBe('1px solid var(--cl-ac, var(--banner-accent))');
   });
 });
+
+// T1-3: very narrow layouts (200% zoom on phones: 390 -> 195px, 320 -> 160px wide).
+describe('form-kit.css: T1-3 very narrow layouts', () => {
+  const NARROW = '@media (max-width: 299.98px)';
+
+  it('the toggle stacks: one full-width column and equal rows', () => {
+    expect(find(NARROW, '.fk-tg').decls).toMatchObject({ 'grid-template-columns': 'minmax(0, 1fr)', 'grid-auto-rows': '1fr' });
+  });
+
+  it('the thumb is one row high and slides down with a transform; it adds no transition of its own', () => {
+    const thumb = find(NARROW, '.fk-tg .fk-tg-thumb').decls;
+    expect(thumb).toMatchObject({
+      right: '3px', bottom: 'auto', width: 'auto',
+      height: 'calc((100% - 6px - (var(--fk-n, 2) - 1) * 4px) / var(--fk-n, 2))',
+      transform: 'translateY(calc(var(--fk-i, 0) * (100% + 4px)))',
+    });
+    expect(thumb.transition).toBeUndefined();
+    expect(find(null, '.fk-tg .fk-tg-thumb').decls.transition).toMatch(/^transform /);
+    const reduced = rules.find(r => r.media === '@media (prefers-reduced-motion: reduce)');
+    expect(reduced.selectors).toContain('.fk-tg .fk-tg-thumb');
+  });
+
+  it('a dialog footer stacks its buttons full width, primary on top, instead of the landscape row', () => {
+    expect(find(NARROW, '.fk-footer').decls).toMatchObject({ display: 'flex', 'flex-direction': 'column-reverse', 'align-items': 'stretch' });
+    expect(find(NARROW, '.fk-footer .fk-btn').decls.width).toBe('100%');
+  });
+
+  it('comes after the landscape footer rule, so it wins when both match (200% zoom: narrow and short)', () => {
+    const landscape = body.indexOf('@media (max-width: 1023.98px) and (max-height: 500px) {');
+    expect(landscape).toBeGreaterThan(-1);
+    expect(body.indexOf(NARROW)).toBeGreaterThan(landscape);
+  });
+});

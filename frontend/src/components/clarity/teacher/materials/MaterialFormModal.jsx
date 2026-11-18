@@ -17,8 +17,10 @@ import {
 import { createFileMaterial, createLinkMaterial, deleteMaterial, updateMaterial } from './materialsApi';
 import { NO_TEACHING_LOAD_MESSAGE, isRetiredGradeLevel } from '../../../../lib/academicRules';
 import FormErrorSummary from '../../../ui/form/FormErrorSummary';
+import ToggleChoice from '../../../ui/form/ToggleChoice';
 
 const BUSY_LABEL = { uploading: 'Uploading…', saving: 'Saving…', deleting: 'Deleting…' };
+const KINDS = [{ value: 'file', label: 'File' }, { value: 'link', label: 'Link' }];
 
 // The teacher's subjects, plus the row's own subject and grade when they are
 // no longer in this year's load (so an edit never drops them silently).
@@ -130,12 +132,8 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
           <FormErrorSummary id="material-form-summary" errors={problems} attempt={attempt} focusTo="first-field" />
 
           {!editing && (
-            <div className="x-seg x-tlm-kind" role="group" aria-label="Material type">
-              {[['file', 'File'], ['link', 'Link']].map(([kind, label]) => (
-                <button key={kind} type="button" className={draft.kind === kind ? 'on' : undefined} aria-pressed={draft.kind === kind}
-                  disabled={Boolean(busy)} onClick={() => update({ kind })}>{label}</button>
-              ))}
-            </div>
+            <ToggleChoice legend="Material type" name="material-kind" options={KINDS} value={draft.kind}
+              disabled={Boolean(busy)} onChange={kind => update({ kind })} />
           )}
 
           {draft.kind === 'file' && !editing && (
@@ -152,7 +150,7 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
           )}
           {draft.kind === 'link' && (
             <div className="x-field">
-              <label className="x-label" htmlFor={ids.url}>Link</label>
+              <label className="x-label" htmlFor={ids.url}>Link address</label>
               <input id={ids.url} className="x-input" type="url" inputMode="url" autoComplete="off" placeholder="https://"
                 value={draft.url} disabled={Boolean(busy)} onChange={e => update({ url: e.target.value })} {...errorProps(ids.url)} />
               <p className="x-hint">Starts with http:// or https://</p>

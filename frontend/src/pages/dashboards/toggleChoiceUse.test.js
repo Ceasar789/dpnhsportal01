@@ -27,3 +27,14 @@ describe('T1: converted choices use ToggleChoice', () => {
     expect(tasks).not.toContain('ToggleChoice');
   });
 });
+
+// T1-3: Learning Materials uses the same toggle; its link field is "Link address".
+describe('T1-3: Learning Materials uses ToggleChoice', () => {
+  it('components/clarity/teacher/materials/MaterialFormModal.jsx', () => {
+    const text = read('components/clarity/teacher/materials/MaterialFormModal.jsx');
+    expect(text).toMatch(/import ToggleChoice from '(\.\.\/)+ui\/form\/ToggleChoice';/);
+    expect(text).toContain('<ToggleChoice legend="Material type" name="material-kind"');
+    expect(text).not.toContain('aria-pressed');
+    expect(text).toContain('htmlFor={ids.url}>Link address</label>');
+  });
+});

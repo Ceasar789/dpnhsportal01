@@ -55,14 +55,14 @@ describe('U5 Learning Materials: errors on the fields, Save not disabled while b
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'Add material' }));
     const d = dialog('Add material');
-    fireEvent.click(within(d).getByRole('button', { name: 'Link' }));
+    fireEvent.click(within(d).getByRole('radio', { name: 'Link' }));
     return d;
   };
 
   it('a press on an empty link form marks Link and Title, links each message, and saves nothing', async () => {
     const d = await openLink();
     fireEvent.click(within(d).getByRole('button', { name: 'Add material' }));
-    for (const label of ['Link', 'Title']) {
+    for (const label of ['Link address', 'Title']) {
       const input = within(d).getByLabelText(label);
       expect(input.getAttribute('aria-invalid')).toBe('true');
       const message = document.getElementById(input.getAttribute('aria-describedby'));
@@ -70,11 +70,11 @@ describe('U5 Learning Materials: errors on the fields, Save not disabled while b
     }
     expect(within(d).getByLabelText('Title').getAttribute('aria-describedby')).toMatch(/-error$/);
     expect(document.getElementById(within(d).getByLabelText('Title').getAttribute('aria-describedby')).textContent).toBe('Enter a title.');
-    expect(document.activeElement).toBe(within(d).getByLabelText('Link'));
+    expect(document.activeElement).toBe(within(d).getByLabelText('Link address'));
     expect(api.createLinkMaterial).not.toHaveBeenCalled();
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'Phet sims' } });
     expect(within(d).getByLabelText('Title').getAttribute('aria-invalid')).toBeNull();
-    expect(within(d).getByLabelText('Link').getAttribute('aria-invalid')).toBe('true');
+    expect(within(d).getByLabelText('Link address').getAttribute('aria-invalid')).toBe('true');
   });
 
   it('a file material with no file: the file input is marked and described by the message', async () => {
@@ -94,7 +94,7 @@ describe('U5 Learning Materials: errors on the fields, Save not disabled while b
     const d = await openLink();
     let resolve;
     api.createLinkMaterial.mockReturnValue(new Promise((r) => { resolve = r; }));
-    fireEvent.change(within(d).getByLabelText('Link'), { target: { value: 'https://e.org' } });
+    fireEvent.change(within(d).getByLabelText('Link address'), { target: { value: 'https://e.org' } });
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'E' } });
     fireEvent.click(within(d).getByRole('button', { name: 'Add material' }));
     const busy = await within(d).findByRole('button', { name: 'Saving…' });

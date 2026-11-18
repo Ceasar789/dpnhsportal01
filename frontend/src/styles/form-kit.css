@@ -383,6 +383,27 @@
   .fk-footer .fk-btn { width: auto; }
 }
 
+/* ---- T1-3: very narrow layouts, i.e. 200% zoom on a phone (390 -> 195px,
+   320 -> 160px wide). A toggle stacks its options one above the other,
+   full width, and the thumb slides down one row instead of across, so a
+   label never breaks inside a word. A dialog footer stacks its buttons
+   like on a portrait phone: the landscape row above also matches (the
+   zoomed height is under 500px) and was wider than the dialog, which cut
+   off Cancel. No transition is added here: the thumb's transform
+   transition and its reduced-motion rule still apply. ---- */
+@media (max-width: 299.98px) {
+  .fk-tg { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
+  .fk-tg .fk-tg-thumb {
+    right: 3px;
+    bottom: auto;
+    width: auto;
+    height: calc((100% - 6px - (var(--fk-n, 2) - 1) * 4px) / var(--fk-n, 2));
+    transform: translateY(calc(var(--fk-i, 0) * (100% + 4px)));
+  }
+  .fk-footer { display: flex; flex-direction: column-reverse; align-items: stretch; }
+  .fk-footer .fk-btn { width: 100%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fk-field .fk-control, .fk-seg-opt, .fk-btn, .fk-tg .fk-tg-thumb, .fk-tg-text { transition: none; }
 }

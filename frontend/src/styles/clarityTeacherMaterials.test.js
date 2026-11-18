@@ -58,13 +58,12 @@ describe('layout', () => {
   it('40px controls on desktop', () => {
     expect(block).toContain(`${P}.x-tlm-chips .x-chip { min-height: 40px;`);
     expect(block).toContain(`${P}.x-tlm-act .x-btn { flex: 1 1 110px; min-height: 40px;`);
-    expect(block).toContain(`${P}.x-tlm-kind button { min-height: 40px;`);
   });
 });
 
 describe('phones', () => {
   it('44px targets on phones and landscape phones', () => {
-    const rule = `${P}.x-tlm-chips .x-chip, ${P}.x-tlm-act .x-btn, ${P}.x-tlm-kind button, ${P}.x-tlm-retry { min-height: 44px; }`;
+    const rule = `${P}.x-tlm-chips .x-chip, ${P}.x-tlm-act .x-btn, ${P}.x-tlm-retry { min-height: 44px; }`;
     expect(PHONE).toContain(rule);
     expect(LANDSCAPE).toContain(rule);
     // The shared file picker's "Choose / Replace file" label and Remove button, inside this dialog only.

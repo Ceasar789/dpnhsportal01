@@ -189,7 +189,7 @@ describe('Overview', () => {
     expect(rows[1].textContent).toContain('· Updated');
     expect(rows[2].textContent).toContain('Subject unavailable');
     expect(within(recent).queryAllByText(/^(Published|Archived|Draft)$/).map(e => e.textContent)).toEqual(classicStatuses);
-    expect(rows.map(li => li.querySelector('.x-news-pills .x-badge').textContent)).toEqual(['AI-Generated', 'Other saved plan', 'AI-Generated']);
+    expect(rows.map(li => li.querySelector('.x-news-pills .x-badge').textContent)).toEqual(['Powered by Gemini', 'Other saved plan', 'Powered by Gemini']);
   });
 
   it('lesson planning activity: the classic figures (no chart without monthly data)', async () => {

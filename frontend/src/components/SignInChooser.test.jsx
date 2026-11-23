@@ -110,7 +110,7 @@ describe('SignInChooser', () => {
     button.getBoundingClientRect = () => ({ top: inner - 80, bottom: inner - 22, left: 0, right: 250, width: 250, height: 58 });
     fireEvent.click(button);
     expect(panelOf(button).dataset.placement).toBe('up');
-    expect(panelOf(button).className).toContain('bottom-full');
+    expect(parseFloat(panelOf(button).style.top)).toBeLessThan(inner - 80);
   });
 
   it('does not open upward under the fixed public header', () => {
@@ -134,6 +134,104 @@ describe('SignInChooser', () => {
     button.getBoundingClientRect = () => ({ top: 100, bottom: 158, left: 0, right: 250, width: 250, height: 58 });
     fireEvent.click(button);
     expect(panelOf(button).dataset.placement).toBe('down');
-    expect(panelOf(button).className).toContain('top-full');
+    expect(panelOf(button).style.top).toBe('166px');
+  });
+
+  it('Space on a focused option opens it, like Enter', () => {
+    fireEvent.click(setup());
+    fireEvent.keyDown(option('Student'), { key: ' ' });
+    expect(screen.getByRole('heading', { name: 'Student login page' })).toBeTruthy();
+  });
+
+  it('Space on Faculty opens the Faculty login', () => {
+    fireEvent.click(setup());
+    fireEvent.keyDown(option('Student'), { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(option('Faculty'));
+    fireEvent.keyDown(option('Faculty'), { key: ' ' });
+    expect(screen.getByRole('heading', { name: 'Faculty login page' })).toBeTruthy();
+  });
+
+  it('renders the panel in <body>, fixed, above the public header (z-50)', () => {
+    const button = setup();
+    fireEvent.click(button);
+    const panel = panelOf(button);
+    expect(panel.parentElement).toBe(document.body);
+    expect(panel.style.position).toBe('fixed');
+    expect(Number(panel.style.zIndex)).toBeGreaterThan(50);
+  });
+
+  it('never places the panel under the fixed public header', () => {
+    const nav = document.createElement('nav'); nav.className = 'fixed';
+    nav.getBoundingClientRect = () => ({ top: 0, bottom: 118, left: 0, right: 390, width: 390, height: 118 });
+    document.body.appendChild(nav);
+    try {
+      const button = setup();
+      // The button scrolled up against the header, little room above it.
+      button.getBoundingClientRect = () => ({ top: 120, bottom: 178, left: 0, right: 250, width: 250, height: 58 });
+      fireEvent.click(button);
+      expect(parseFloat(panelOf(button).style.top)).toBeGreaterThanOrEqual(126);
+      fireEvent.click(button);
+      // Opening upward with less room above than the panel needs: it stops at the header.
+      const innerH = window.innerHeight;
+      window.innerHeight = 390;
+      button.getBoundingClientRect = () => ({ top: 300, bottom: 358, left: 0, right: 250, width: 250, height: 58 });
+      fireEvent.click(button);
+      window.innerHeight = innerH;
+      expect(panelOf(button).dataset.placement).toBe('up');
+      expect(panelOf(button).style.top).toBe('126px');
+      expect(panelOf(button).style.maxHeight).toBe('166px');
+      fireEvent.click(button);
+      // Opened while the button is half under the header: still below it.
+      button.getBoundingClientRect = () => ({ top: 60, bottom: 110, left: 0, right: 250, width: 250, height: 58 });
+      fireEvent.click(button);
+      expect(panelOf(button).style.top).toBe('126px');
+    } finally { nav.remove(); }
+  });
+
+  it('stays inside a 320px screen with a 16px gutter', () => {
+    const innerW = window.innerWidth;
+    window.innerWidth = 320;
+    try {
+      const button = setup();
+      button.getBoundingClientRect = () => ({ top: 100, bottom: 158, left: 10, right: 310, width: 300, height: 58 });
+      fireEvent.click(button);
+      const { style } = panelOf(button);
+      expect(parseFloat(style.width)).toBeLessThanOrEqual(288);
+      expect(parseFloat(style.left)).toBeGreaterThanOrEqual(16);
+      expect(parseFloat(style.left) + parseFloat(style.width)).toBeLessThanOrEqual(304);
+    } finally { window.innerWidth = innerW; }
+  });
+
+  it('a mousedown in the panel is cancelled, so nothing blurs and closes it before the click', () => {
+    const button = setup();
+    fireEvent.click(button);
+    expect(fireEvent.mouseDown(option('Faculty'))).toBe(false);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(option('Faculty'));
+    expect(screen.getByRole('heading', { name: 'Faculty login page' })).toBeTruthy();
+  });
+
+  it('Tab from the last option closes it and continues from the Sign In button', () => {
+    const button = setup();
+    fireEvent.click(button);
+    expect(fireEvent.keyDown(option('Faculty'), { key: 'Tab' })).toBe(true);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('Shift+Tab from Student closes it and lands on the Sign In button', () => {
+    const button = setup();
+    fireEvent.click(button);
+    expect(fireEvent.keyDown(option('Student'), { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('closes once the button has scrolled out of view', () => {
+    const button = setup();
+    fireEvent.click(button);
+    button.getBoundingClientRect = () => ({ top: -100, bottom: -42, left: 0, right: 250, width: 250, height: 58 });
+    act(() => { window.dispatchEvent(new Event('scroll')); });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
   });
 });

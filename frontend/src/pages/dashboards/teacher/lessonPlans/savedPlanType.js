@@ -18,7 +18,7 @@ export function savedPlanType(plan) {
 }
 
 export const SAVED_PLAN_TYPE_LABEL = {
-  ai: 'AI-Generated',
+  ai: 'Powered by Gemini',
   manual: 'Manual ILAW',
   other: 'Other saved plan',
 };

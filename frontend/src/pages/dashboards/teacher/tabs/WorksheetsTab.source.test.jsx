@@ -109,12 +109,12 @@ describe('Source filter', () => {
 });
 
 describe('Source badge', () => {
-  it('shows AI-generated or Manual on each card', async () => {
+  it('shows Powered by Gemini or Manual on each card', async () => {
     await show();
-    expect(badgeOf('AI worksheet')).toContain('AI-generated');
-    expect(badgeOf('Day quiz')).toContain('AI-generated');
+    expect(badgeOf('AI worksheet')).toContain('Powered by Gemini');
+    expect(badgeOf('Day quiz')).toContain('Powered by Gemini');
     expect(badgeOf('Hand quiz')).toContain('Manual');
-    expect(badgeOf('Hand quiz')).not.toContain('AI-generated');
+    expect(badgeOf('Hand quiz')).not.toContain('Powered by Gemini');
   });
 
   it('keeps the existing distribution badge', async () => {

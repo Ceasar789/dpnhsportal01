@@ -22,7 +22,7 @@ import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import DistributeModal from '../worksheets/DistributeModal';
 import CreateTaskModal from '../worksheets/CreateTaskModal';
 import { saveManualTask } from '../worksheets/manualTaskSave';
-import { MANUAL, SOURCE_FILTERS, worksheetSource } from './worksheetSource';
+import { AI_GENERATED, MANUAL, SOURCE_FILTERS, worksheetSource } from './worksheetSource';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
@@ -967,7 +967,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 </Badge>
               )}
             </div>
-            <div className="mb-1"><Badge color="var(--banner-accent)" bg="var(--card2)">{worksheetSource(ws)}</Badge></div>
+            <div className="mb-1"><Badge color="var(--banner-accent)" bg="var(--card2)">{worksheetSource(ws) === AI_GENERATED ? 'Powered by Gemini' : MANUAL}</Badge></div>
             <h3 className="text-sm font-semibold mb-1 break-words" style={{ color: 'var(--text)' }}>{ws.title}</h3>
             <p className="text-xs mb-3 break-words" style={{ color: 'var(--text-muted)' }}>{ws.subject || 'Subject unavailable'} · {ws.pages || '—'} pages · {ws.submission_mode === 'attachment' ? `File or link · ${ws.max_points} pts` : !Number(ws.items) && ws.instructions?.trim() ? 'Activity · text only' : `${ws.items || '—'} items`}</p>
             {countKnown && distributedCount > 0 && Number.isFinite(firstAssigned) && (

@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { createBlankIlawDocument } from '../ilaw/ilawTemplateModel';
 import { serializeManualIlawDraft } from '../ilaw/fullManualIlawModel';
 import { serializeManualIlawV2 } from '../ilaw/manualIlawV2';
-import { savedPlanType } from './savedPlanType';
+import { SAVED_PLAN_TYPE_LABEL, savedPlanType } from './savedPlanType';
 
 describe('saved lesson plan type', () => {
+  it('labels AI plans "Powered by Gemini" and keeps the other labels', () => {
+    expect(SAVED_PLAN_TYPE_LABEL).toEqual({ ai: 'Powered by Gemini', manual: 'Manual ILAW', other: 'Other saved plan' });
+  });
+
   it('identifies known AI records, including legacy HTML content', () => {
     expect(savedPlanType({ ai_generated: true, objectives: '<p>Generated lesson</p>' })).toBe('ai');
   });

@@ -2724,7 +2724,7 @@ test.describe('isolated Teacher Lesson Plans', () => {
         await expect(page.getByRole('heading', { name: 'Structured ILAW example' })).toBeVisible();
         await expect(page.getByText('3 of 3 plans')).toBeVisible();
         const savedRows = page.locator('section[aria-labelledby="saved-plans-heading"] ul');
-        await expect(savedRows.getByText('AI-Generated', { exact: true })).toBeVisible();
+        await expect(savedRows.getByText('Powered by Gemini', { exact: true })).toBeVisible();
         await expect(savedRows.getByText('Manual ILAW', { exact: true })).toBeVisible();
         await expect(savedRows.getByText('Other saved plan', { exact: true })).toBeVisible();
         const type = page.getByRole('combobox', { name: 'Filter by plan type' });

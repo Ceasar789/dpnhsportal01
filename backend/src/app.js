@@ -14,6 +14,7 @@ import express from 'express';
 import cors from 'cors';
 import aiRoutes from './routes/ai.js';
 import { createAiLessonPlanSaveRouter } from './routes/aiLessonPlanSave.js';
+import { createManualLessonPlanSaveRouter, manualSaveProductionEnabled } from './routes/manualLessonPlanSave.js';
 import { createWeeklyWorksheetProductionSaveRouter } from './routes/weeklyWorksheetProductionSave.js';
 import { createAiWeeklyWorksheetSaveRouter } from './routes/aiWeeklyWorksheetSave.js';
 import { createAiWeeklyWorksheetManageRouter } from './routes/aiWeeklyWorksheetManage.js';
@@ -108,6 +109,8 @@ export function createApp({ env = process.env, loadDraftRouters = loadWeeklyDraf
 
   app.use('/api/ai', aiRoutes);
   app.use('/api/lesson-plans/ai-save', createAiLessonPlanSaveRouter());
+  // P4b: absent (404, as before) unless every production condition holds.
+  if (manualSaveProductionEnabled(env)) app.use('/api/lesson-plans/manual', createManualLessonPlanSaveRouter({ env }));
   app.use('/api/weekly-worksheets/ai-save', createAiWeeklyWorksheetSaveRouter());
   app.use('/api/weekly-worksheets/production-save', createWeeklyWorksheetProductionSaveRouter({ env }));
   app.use('/api/weekly-worksheets/manage', createAiWeeklyWorksheetManageRouter());

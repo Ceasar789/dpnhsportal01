@@ -51,7 +51,7 @@
   .teacher-manual-ilaw-active, .teacher-quick-draft-active { padding: 0; }
   .teacher-manual-ilaw-active > :not([data-manual-print]),
   .teacher-quick-draft-active > :not([data-quick-draft-print]) { display: none; }
-  [data-manual-discard], [data-manual-print] > [role="alert"],
+  [data-manual-discard], [data-manual-screen-only], [data-manual-print] > [role="alert"],
   .teacher-manual-ilaw-active [aria-label="Local Manual ILAW save actions"] { display: none; }
   [data-quick-draft-print] > button { display: none; }
   .full-manual-ilaw-controls { display: none; }

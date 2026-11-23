@@ -9,6 +9,8 @@ import { useNavigate } from 'react-router-dom';
 import { permanentSaveUnavailable } from '../persistence/editorPersistence';
 import AiPlanSaveAction from '../persistence/AiPlanSaveAction';
 import { aiLessonPlanSaveFlagEnabled, saveAiLessonPlan } from '../persistence/aiLessonPlanSaveClient';
+import { createManualLessonPlanPersistence, manualLessonPlanSaveFlagEnabled, MANUAL_SAVE_MESSAGES } from '../persistence/manualLessonPlanSaveClient';
+import ManualAssignmentField from '../lessonPlans/ManualAssignmentField';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
 import { friendlyError } from '../../../../lib/friendlyError';
@@ -601,6 +603,12 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   const [manualErrors, setManualErrors] = useState({});
   const [manualSaveError, setManualSaveError] = useState('');
   const [manualSaving, setManualSaving] = useState(false);
+  // P4b live Manual save. OFF unless the flag is set; then the local QA mock is not used.
+  const manualSaveLive = manualLessonPlanSaveFlagEnabled();
+  const manualPersistence = useMemo(() => createManualLessonPlanPersistence(API_BASE), []);
+  const [manualRecord, setManualRecord] = useState(null);
+  const [manualAssignment, setManualAssignment] = useState(null);
+  const manualRequestRef = useRef(null);
   const [mockPlans, setMockPlans] = useState([]);
   const [printingManual, setPrintingManual] = useState(null);
   const [manualCardError, setManualCardError] = useState('');
@@ -1119,6 +1127,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       setTemporaryPlan(draft);
       setManualBaseline(structuredClone(draft));
       setManualMockIdentity(null);
+      setManualRecord(null);
+      setManualAssignment(null);
+      manualRequestRef.current = null;
       setManualErrors({});
       setManualSaveError('');
       setView('manual');
@@ -1170,6 +1181,116 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       manualSaveRef.current = false;
       setManualSaving(false);
     }
+  };
+  const gradeFits = (section, grade) => section === grade || [' ', ',', ';', '/'].some(mark => section.startsWith(grade + mark));
+  const focusManualError = errors => {
+    const first = Object.keys(errors)[0];
+    const target = ({ objectives: 'learningObjectives', activities: 'flow.Monday', assessment: 'formativeAssessment.Monday' })[first] || first;
+    requestAnimationFrame(() => (first === 'assignment' ? document.getElementById('manual-assignment')
+      : document.querySelector(`[data-ilaw-field="${target}"]`))?.focus());
+  };
+  const chooseManualAssignment = assignment => {
+    setManualAssignment(assignment);
+    setManualErrors({});
+    setManualSaveError('');
+    if (!assignment || !activeTemporaryPlan) return;
+    const info = activeTemporaryPlan.document.info;
+    // Fill only blank fields; typed text is never replaced.
+    setTemporaryPlan({ ...activeTemporaryPlan, document: { ...activeTemporaryPlan.document, info: { ...info,
+      learningArea: info.learningArea.trim() ? info.learningArea : assignment.subjectName,
+      gradeSection: info.gradeSection.trim() ? info.gradeSection : assignment.gradeLevel } } });
+  };
+  const manualLiveErrors = (plan, assignment, intent) => {
+    const errors = {};
+    if (!assignment) errors.assignment = 'Choose a subject and grade from your teaching load.';
+    else {
+      const area = plan.document.info.learningArea.trim();
+      const section = plan.document.info.gradeSection.trim();
+      if (area && area !== assignment.subjectName) errors.learningArea = `Learning Area/s must be ${assignment.subjectName}, the chosen subject.`;
+      if (section && !gradeFits(section, assignment.gradeLevel)) errors.gradeSection = `Grade/Section must start with ${assignment.gradeLevel}.`;
+    }
+    return intent === 'saved' ? { ...errors, ...validateManualIlawCompletion(plan.document, plan.sourceDetails) } : errors;
+  };
+  // Draft -> Draft, Draft -> Saved, Saved -> Saved. A Saved plan never goes back to Draft.
+  const saveManualLive = async intent => {
+    if (!manualSaveLive || !activeTemporaryPlan || manualSaveRef.current) return;
+    if (intent === 'draft' && manualRecord?.workflowState === 'saved') return;
+    const errors = manualLiveErrors(activeTemporaryPlan, manualAssignment, intent);
+    if (Object.keys(errors).length) {
+      setManualErrors(errors);
+      setManualSaveError(intent === 'saved' ? 'Complete the required information before saving this lesson plan.'
+        : 'Check the highlighted fields before saving the draft.');
+      focusManualError(errors);
+      return;
+    }
+    manualSaveRef.current = true;
+    setManualSaving(true);
+    setManualErrors({});
+    setManualSaveError('');
+    const teacherId = userData.uid;
+    const draft = activeTemporaryPlan;
+    // One request id per attempt; reused only when the last outcome was unknown.
+    const send = async (state, record) => {
+      const args = { draft, selection: manualAssignment, id: record?.id ?? null, expectedRevision: record?.revision ?? null,
+        intent: state, previousState: record?.workflowState ?? 'draft' };
+      const fingerprint = JSON.stringify(args);
+      if (manualRequestRef.current?.fingerprint !== fingerprint) manualRequestRef.current = { fingerprint, requestId: crypto.randomUUID() };
+      const result = await manualPersistence.saveManual({ ...args, requestId: manualRequestRef.current.requestId });
+      if (result?.code !== 'outcome_unknown') manualRequestRef.current = null;
+      if (!result?.ok) throw result;
+      return { id: result.record.id, revision: result.record.revision, workflowState: state };
+    };
+    try {
+      let record = manualRecord;
+      if (!record) {
+        record = await send('draft', null);
+        if (teacherId === currentManualTeacherRef.current) setManualRecord(record);
+      }
+      if (intent === 'saved' || manualRecord) {
+        record = await send(intent, record);
+        if (teacherId === currentManualTeacherRef.current) setManualRecord(record);
+      }
+      if (teacherId !== currentManualTeacherRef.current) return;
+      setManualBaseline(structuredClone(draft));
+      setTemporaryPlan(null);
+      setView('list');
+      fetchPlans();
+      showToast(intent === 'saved' ? 'Lesson plan saved.'
+        : 'Draft saved. Complete the required fields when you are ready to save the lesson plan.', 'success');
+    } catch (failure) {
+      if (failure?.code === 'incomplete_lesson_plan') setManualErrors(validateManualIlawCompletion(draft.document, draft.sourceDetails));
+      setManualSaveError(friendlyError(failure, { overrides: MANUAL_SAVE_MESSAGES,
+        fallback: "The lesson plan couldn't be saved. Your work is still open." }));
+    } finally {
+      manualSaveRef.current = false;
+      setManualSaving(false);
+    }
+  };
+  const manualStateOf = plan => {
+    if (!manualSaveLive || plan.localMock || savedPlanType(plan) !== 'manual') return null;
+    try { return parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState; }
+    catch { return null; }
+  };
+  const openSavedManual = plan => {
+    const open = () => { try {
+      const payload = parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id });
+      const revision = Number(plan.authoring_revision);
+      if (!Number.isSafeInteger(revision) || revision < 1) throw new Error('not editable');
+      const draft = { ...createTemporaryManualIlawDraft(userData.uid, userData.profile),
+        document: payload.document, sourceDetails: payload.sourceDetails };
+      setTemporaryPlan(draft);
+      setManualBaseline(structuredClone(draft));
+      setManualRecord({ id: plan.id, revision, workflowState: payload.workflowState });
+      setManualAssignment(payload.assignment);
+      manualRequestRef.current = null;
+      setManualMockIdentity(null);
+      setManualErrors({});
+      setManualSaveError('');
+      setManualCardError('');
+      setView('manual');
+    } catch { setManualCardError("This lesson plan can't be opened for editing."); } };
+    if (manualDirty) requestConfirmation('Discard unsaved Manual ILAW changes and open this plan?', open);
+    else open();
   };
   const openManualMock = plan => {
     const open = () => { try {
@@ -1251,7 +1372,10 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   })), [plans]);
   const visiblePlans = allPlans.filter(plan => {
     const mockState = plan.localMock ? parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState : null;
-    const matchesStatus = statusFilter === 'all' || (plan.localMock ? mockState === statusFilter : (plan.status || 'draft') === statusFilter);
+    // P4b: a saved plan is never filed under Draft (AI rows are stored as status draft).
+    const liveState = manualSaveLive && !plan.localMock ? manualStateOf(plan)
+      ?? (savedPlanType(plan) === 'ai' && (plan.status || 'draft') === 'draft' ? 'saved' : null) : null;
+    const matchesStatus = statusFilter === 'all' || (plan.localMock ? mockState === statusFilter : (liveState || plan.status || 'draft') === statusFilter);
     const matchesType = typeFilter === 'all' || savedPlanType(plan) === typeFilter;
     const query = search.trim().toLocaleLowerCase();
     return matchesStatus && matchesType && (!query || `${plan.title || ''} ${plan.subject || ''}`.toLocaleLowerCase().includes(query));
@@ -1305,7 +1429,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
           </div>
         </div>
 
-        {view === 'manual' && <span role="status" className="rounded-lg px-3 py-2 text-sm font-medium" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--card2)', border: '1px solid var(--border)' }}>Local QA only · Not saved to EduScribe · Use synthetic content</span>}
+        {view === 'manual' && !manualSaveLive && <span role="status" className="rounded-lg px-3 py-2 text-sm font-medium" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--card2)', border: '1px solid var(--border)' }}>Local QA only · Not saved to EduScribe · Use synthetic content</span>}
 
         {view === 'editor' && savedPlanId != null && (
           <div className="max-w-xl w-full">
@@ -1490,7 +1614,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                 <select id="lesson-plan-status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                   className="h-10 px-3 rounded-lg text-sm" style={{ color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
                   <option value="all">All statuses</option><option value="draft">Draft</option>
-                  {import.meta.env.DEV && <option value="saved">Saved</option>}
+                  {(import.meta.env.DEV || manualSaveLive) && <option value="saved">Saved</option>}
                   <option value="published">Published</option><option value="archived">Archived</option>
                 </select>
                 <label className="sr-only" htmlFor="lesson-plan-type">Filter by plan type</label>
@@ -1520,7 +1644,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                     const status = PLAN_STATUS[plan.status || 'draft'] || PLAN_STATUS.draft;
                     const planType = savedPlanType(plan);
                     const mockSaved = plan.localMock && parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState === 'saved';
+                    const liveManualState = manualStateOf(plan);
                     const dayTaskEligible = !plan.localMock && plan.teacher_id === userData?.uid
+                      && (!manualSaveLive || planType !== 'manual' || liveManualState === 'saved')
                       && ['draft', 'published'].includes(plan.status?.toLowerCase())
                       && ['ai', 'manual'].includes(planType);
                     const worksheetPreview = (planType === 'ai' || (import.meta.env.DEV && planType === 'manual')) && (!plan.localMock || mockSaved)
@@ -1536,12 +1662,16 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                             {planType === 'ai' && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                               Subject: {savedAiMetadata(plan).subjectName || 'Unknown'} · Grade: {savedAiMetadata(plan).gradeLevel || 'Unknown'} · Academic Year: {savedAiMetadata(plan).schoolYear || 'Unknown'}
                             </p>}
+                            {liveManualState && <p className="text-xs mt-1 break-words" style={{ color: 'var(--text-muted)' }}>
+                              Grade: {plan.grade_level || 'Unknown'} · Academic Year: {plan.academic_year || 'Unknown'}
+                            </p>}
                             {plan.updated_at && plan.updated_at !== plan.created_at && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Updated {planDate(plan.updated_at)}</p>}
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{planType === 'ai' && <Sparkles size={12} className="inline mr-1" aria-hidden="true" />}{SAVED_PLAN_TYPE_LABEL[planType]}</span>
                             {plan.localMock && <><Badge color="var(--text)" bg="var(--card2)">Local test only</Badge><Badge color="var(--banner-accent)" bg="var(--card2)">{mockState === 'saved' ? 'Saved' : 'Draft'}</Badge></>}
                             {plan.localMock && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Not saved to EduScribe · This browser session only</span>}
+                            {liveManualState && <Badge color="var(--banner-accent)" bg="var(--card2)">{liveManualState === 'saved' ? 'Saved' : 'Draft'}</Badge>}
                             {plan.status?.toLowerCase() !== 'draft' && plan.status && (
                               <Badge color={status.color} bg={status.bg}>{plan.status}</Badge>
                             )}
@@ -1549,7 +1679,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                         </div>
                         {plan.file_name && <p className="text-xs mt-2 break-all" style={{ color: 'var(--text-muted)' }}><FileText size={14} className="inline mr-1" aria-hidden="true" />{plan.file_name}</p>}
                         <div className="flex flex-wrap items-center gap-2 mt-3">
-                          <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
+                          <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : liveManualState ? openSavedManual(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
                           {dayTaskEligible &&
                             <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
                               aria-label={`Generate Task for ${plan.title || 'lesson plan'}`}
@@ -1569,7 +1699,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                             <Download size={14} aria-hidden="true" />{aiPdfBusyId === plan.id ? 'Preparing PDF…' : 'Download PDF'}
                             <span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
                           </Btn>}
-                          {plan.localMock && <>
+                          {(plan.localMock || liveManualState) && <>
                             <Btn variant="outline" onClick={() => printManualMock(plan)}><Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
                             <Btn variant="outline" onClick={() => downloadManualMock(plan)}>Download PDF<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
                           </>}
@@ -1656,12 +1786,23 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       </Modal>}
 
       {view === 'manual' && activeTemporaryPlan && <div data-manual-print>
+        {manualSaveLive && <div data-manual-screen-only>{manualRecord && manualAssignment
+          ? <p className="mb-4 text-sm break-words" style={{ color: 'var(--text-muted)' }}>
+            Subject and grade: {manualAssignment.subjectName} · {manualAssignment.gradeLevel} · S.Y. {manualAssignment.schoolYear}</p>
+          : <ManualAssignmentField teacherId={userData?.uid} value={manualAssignment} error={manualErrors.assignment}
+            onChange={chooseManualAssignment} />}</div>}
         <FullManualIlawEditor mode="active" manualDraft={activeTemporaryPlan} onManualDraftChange={next => {
           setTemporaryPlan(next); setManualErrors({}); setManualSaveError('');
         }} baselineDraft={manualBaseline} validationErrors={manualErrors}
           onFocusHeading={() => manualHeadingRef.current?.focus({ preventScroll: true })} />
         {manualSaveError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--badge-red-fg)' }}>{manualSaveError}</p>}
-        {import.meta.env.DEV ? <div role="group" aria-label="Local Manual ILAW save actions" className="mt-5 pt-4 flex flex-wrap gap-3" style={{ borderTop: '1px solid var(--border)' }}>
+        {manualSaveLive ? <div data-manual-screen-only role="group" aria-label="Manual ILAW save actions" className="mt-5 pt-4 flex flex-wrap items-center gap-3" style={{ borderTop: '1px solid var(--border)' }}>
+          {manualRecord?.workflowState !== 'saved' && <Btn variant="outline" className="min-h-[44px]" onClick={() => saveManualLive('draft')} busy={manualSaving}
+            disabled={manualSaving}>Save as draft</Btn>}
+          <Btn variant="primary" className="min-h-[44px]" onClick={() => saveManualLive('saved')} busy={manualSaving} disabled={manualSaving}>Save lesson plan</Btn>
+          {manualRecord && <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Status: {manualRecord.workflowState === 'saved' ? 'Saved' : 'Draft'}</span>}
+          {manualSaving && <span role="status" className="text-sm">Saving…</span>}
+        </div> : import.meta.env.DEV ? <div role="group" aria-label="Local Manual ILAW save actions" className="mt-5 pt-4 flex flex-wrap gap-3" style={{ borderTop: '1px solid var(--border)' }}>
           <Btn variant="outline" onClick={() => saveManualMock('draft')} busy={manualSaving}
             disabled={manualSaving || manualMockIdentity?.workflowState === 'saved'}>Save Incomplete Draft (local)</Btn>
           <Btn variant="primary" onClick={() => saveManualMock('saved')} busy={manualSaving} disabled={manualSaving}>Save Lesson Plan</Btn>
@@ -1671,8 +1812,10 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
           <button type="button" className="min-h-[44px] px-3 rounded-lg text-sm font-medium" style={{ color: 'var(--badge-red-fg)', border: '1px solid var(--border)' }}
           onClick={() => {
             const discard = () => { setTemporaryPlan(null); setManualMockIdentity(null); setView('list'); };
-            requestConfirmation('Discard this temporary Manual ILAW draft? Any changes in this editor will be lost.', discard);
-          }}>Discard temporary draft</button>
+            requestConfirmation(!manualSaveLive ? 'Discard this temporary Manual ILAW draft? Any changes in this editor will be lost.'
+              : manualRecord ? 'Discard your unsaved changes? The last saved version is kept.'
+                : 'Discard this lesson plan? Nothing has been saved yet.', discard);
+          }}>{!manualSaveLive ? 'Discard temporary draft' : manualRecord ? 'Discard changes' : 'Discard lesson plan'}</button>
         </div>
       </div>}
       {printingManual && <div className="teacher-manual-saved-print"><IlawTemplate value={printingManual.document}

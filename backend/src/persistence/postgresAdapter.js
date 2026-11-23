@@ -142,6 +142,24 @@ export function createPostgresPersistence({ invokeRpc } = {}) {
   return buildAdapter(POSTGRES_ADAPTER_ENABLED, invokeRpc);
 }
 
+// P4b: Manual ILAW writes only, through eduscribe_manual_write_v1. Off unless
+// the caller passes enabled: true; the route does so only behind its env gate.
+// Worksheet and read operations are refused: their RPCs are not migrated.
+const MANUAL_WRITES = new Set(['CreateIncompleteDraft', 'UpdateIncompleteDraft',
+  'SaveCompleteLessonPlan', 'UpdateSavedLessonPlan']);
+export function createManualLessonPlanPersistence({ enabled = false, invokeRpc } = {}) {
+  const adapter = buildAdapter(enabled === true, invokeRpc);
+  return Object.freeze({
+    enabled: adapter.enabled,
+    durable: false,
+    async execute(operation, credential, rawCommand) {
+      if (!adapter.enabled) return { ...UNAVAILABLE };
+      if (!MANUAL_WRITES.has(operation)) return fail('unsupported_operation');
+      return adapter.execute(operation, credential, rawCommand);
+    },
+  });
+}
+
 // Test-only composition seam. Production code must use the disabled factory
 // above; the isolated harness may call this only after independent target and
 // marker checks. A fake invokeRpc does not establish database durability.

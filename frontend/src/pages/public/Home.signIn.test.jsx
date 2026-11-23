@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // L1: the home hero offers one Sign In chooser instead of "Student Portal",
-// and About us is a link to the About page. The vision card stays.
+// and About us is a link to the About page. P3a: the vision card is gone.
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -25,9 +25,10 @@ describe('Home hero', () => {
     expect(document.querySelector('footer')).toBeTruthy();
   });
 
-  it('keeps the vision card', () => {
+  it('has no vision card (P3a)', () => {
     show();
-    expect(document.getElementById('vision')).toBeTruthy();
+    expect(document.getElementById('vision')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/our vision|We dream of Filipinos/i);
   });
 
   it('the chooser stays open while the slideshow advances (the hero is not remounted)', () => {

@@ -62,11 +62,11 @@ describe('routes and links', () => {
     expect(routes).toContain('<Route path="/privacy"  element={<PageTransition><Privacy /></PageTransition>} />');
   });
 
-  it('the footer links Privacy Policy and Terms of Service; Alumni stays text; Faculty Portal unchanged', () => {
+  it('the footer links Privacy Policy and Terms of Service; no Alumni item (P3a); Faculty Portal unchanged', () => {
     show(<PublicFooter />);
     expect(screen.getByRole('link', { name: 'Privacy Policy' }).getAttribute('href')).toBe('/privacy');
     expect(screen.getByRole('link', { name: 'Terms of Service' }).getAttribute('href')).toBe('/terms');
-    expect(screen.getByText('Alumni').closest('a')).toBeNull();
+    expect(screen.queryByText('Alumni')).toBeNull();
     expect(screen.getByRole('link', { name: 'Faculty Portal' }).getAttribute('href')).toBe('/faculty-login');
   });
 

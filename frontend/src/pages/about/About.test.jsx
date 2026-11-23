@@ -37,7 +37,7 @@ describe('About page content', () => {
   it('with only the repo content: hero, the portal line, the vision, contact and sign in - nothing else', () => {
     show(EMPTY);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Dela Paz National High School');
-    expect(within(document.querySelector('main')).getByText(aboutContent.tagline)).toBeTruthy();
+    expect(document.querySelector('main').textContent).not.toContain('Inspiring excellence'); // P3a: no tagline
     expect(h2s()).toEqual(['EduScribe', 'Our Vision', 'Contact and Location', 'Sign in to EduScribe']);
     expect(screen.getByText(aboutContent.portalSummary)).toBeTruthy();
     for (const p of aboutContent.vision) expect(screen.getByText(p)).toBeTruthy();

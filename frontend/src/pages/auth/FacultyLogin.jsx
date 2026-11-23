@@ -207,7 +207,7 @@ const FacultyLogin = () => {
               <label htmlFor="faculty-email" className="block text-xs font-semibold tracking-widest mb-2" style={{ color: '#6B7280' }}>EMAIL ADDRESS</label>
               <div className="relative">
                 <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} aria-hidden="true" />
-                <input id="faculty-email" name="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@dpnhs.edu.ph" className="w-full h-12 pl-12 pr-4 rounded-md text-base outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
+                <input id="faculty-email" name="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="JuanDelacruz@gmail.com" className="w-full h-12 pl-12 pr-4 rounded-md text-base outline-none focus:ring-2 placeholder:text-[#64748b]" style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 // ============================================
 // FILE: src/pages/public/Home.jsx
 // PURPOSE: Home/Landing page - EXACT match to Flutter HomePage
-// DESIGN: Hero carousel, vision card, auto-slide, footer
+// DESIGN: Hero carousel, auto-slide, footer (P3a: the vision card is gone)
 // ============================================
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -133,7 +133,8 @@ const Home = () => {
       {/* Carousel Indicators */}
       <div 
         className="absolute bottom-30 z-20 flex items-center gap-1"
-        style={{ left: isMobile ? '20px' : '60px', bottom: '120px' }}
+        // P3a: with the vision card gone the phone hero ends here, so the dots sit low and clear the buttons.
+        style={{ left: isMobile ? '20px' : '60px', bottom: isMobile ? '48px' : '120px' }}
         role="group"
         aria-label="Carousel controls"
       >
@@ -171,37 +172,6 @@ const Home = () => {
           </button>
         )}
       </div>
-
-      {/* Vision Card (Desktop only) */}
-      {!isMobile && <VisionCard floating />}
-    </div>
-  );
-
-  // ============================================
-  // VISION CARD (Desktop only)
-  // ============================================
-  const VisionCard = ({ floating = false }) => (
-    <div
-      id="vision"
-      className={floating
-        ? 'absolute right-0 bottom-0 bg-white p-10'
-        : 'relative bg-white p-8 mx-5 my-10 rounded-lg shadow-sm'}
-      style={floating ? { width: '447px', minHeight: '438px' } : undefined}
-    >
-      <h3 className="font-work font-bold text-xs tracking-widest mb-8" style={{ color: '#7E5700' }}>
-        OUR VISION
-      </h3>
-
-      <div className="flex gap-2.5">
-        <span className="font-work font-black text-4xl leading-none" style={{ color: '#001D4E' }} aria-hidden="true">“</span>
-        <p className="font-public text-lg leading-relaxed" style={{ color: '#505050' }}>
-          We dream of Filipinos who passionately love their country and whose values and competencies enable them to realize their full potential and contribute meaningfully to building the nation.
-          <br /><br />
-          As a learner-centered public institution, the Department of Education continuously improves itself to better serve its stakeholders.
-        </p>
-      </div>
-
-      <div className="absolute bottom-10 left-10 w-12 h-1" style={{ backgroundColor: '#FEB300' }} />
     </div>
   );
 
@@ -218,7 +188,6 @@ const Home = () => {
 
       <main style={{ paddingTop: navHeight }}>
         {HeroSection()}
-        {isMobile && <VisionCard />}
       </main>
       <PublicFooter />
     </div>

@@ -9,12 +9,11 @@
 const aboutContent = {
   // From the header and the footer.
   schoolName: 'Dela Paz National High School',
-  tagline: 'Inspiring excellence and shaping futures through quality secondary education in a nurturing environment.',
 
   // From the README.
   portalSummary: 'An AI-assisted, web-based lesson planning and learning resources management system for Dela Paz National High School.',
 
-  // From the home page's "Our Vision" card.
+  // From the home page's former "Our Vision" card (removed in P3a; the vision now lives only here).
   vision: [
     'We dream of Filipinos who passionately love their country and whose values and competencies enable them to realize their full potential and contribute meaningfully to building the nation.',
     'As a learner-centered public institution, the Department of Education continuously improves itself to better serve its stakeholders.',

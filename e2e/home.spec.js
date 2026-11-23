@@ -26,7 +26,8 @@ test.describe('home page', () => {
     }
   });
 
-  test('the hero text never runs under the vision card', async ({ page }) => {
+  // P3a: the vision card is gone; the same check now guards the carousel controls.
+  test('the hero text never runs into the carousel controls', async ({ page }) => {
     for (const [w, h] of [[1200, 700], [1366, 768], [1920, 1080]]) {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');
@@ -39,12 +40,12 @@ test.describe('home page', () => {
         r.selectNodeContents(el);
         return [...r.getClientRects()].map(b => ({ x: b.x, y: b.y, w: b.width, h: b.height }));
       });
-      const card = await page.locator('#vision').boundingBox();
-      if (!card) continue;
+      const card = await page.locator('[aria-label="Carousel controls"]').boundingBox();
+      expect(card, 'carousel controls should render').not.toBeNull();
 
       const hit = rects.some(t => t.x < card.x + card.width && card.x < t.x + t.w
                                && t.y < card.y + card.height && card.y < t.y + t.h);
-      expect(hit, `hero text collides with the vision card at ${w}x${h}`).toBe(false);
+      expect(hit, `hero text collides with the carousel controls at ${w}x${h}`).toBe(false);
     }
   });
 
@@ -73,14 +74,14 @@ const PHONES = [[360, 740, 'small Android'], [390, 844, 'iPhone 14'], [768, 1024
 
 test.describe('home page on small screens', () => {
   for (const [w, h, label] of PHONES) {
-    test(`${label} ${w}x${h}: no sideways scroll, and Our Vision is there`, async ({ page }) => {
+    test(`${label} ${w}x${h}: no sideways scroll, and no Our Vision card`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');
       await appReady(page);
 
       const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(scrollW, `${label} scrolls sideways`).toBeLessThanOrEqual(w + 1);
-      await expect(page.locator('#vision')).toHaveCount(1);
+      await expect(page.locator('#vision')).toHaveCount(0); // P3a: the vision card is gone
     });
   }
 

@@ -143,7 +143,6 @@ const About = ({ content = aboutContent }) => {
               <h1 className="mt-3 font-work text-[32px] font-bold leading-tight tracking-tight sm:text-[44px] lg:text-[56px]" style={{ letterSpacing: '-0.02em' }}>
                 {c.schoolName}
               </h1>
-              {has(c.tagline) && <p className="mt-5 max-w-2xl font-public text-lg leading-relaxed text-white/90">{c.tagline}</p>}
               <div className="mt-6 h-1 w-12" style={{ backgroundColor: '#FEB300' }} aria-hidden="true" />
             </div>
           </div>

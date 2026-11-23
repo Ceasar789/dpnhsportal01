@@ -51,12 +51,10 @@ describe('public footer links', () => {
     }
   });
 
-  it('Resources are unchanged: Faculty Portal links to /faculty-login; Alumni, Privacy Policy, Terms of Service stay text', () => {
-    renderFooter();
+  it('Resources: Faculty Portal links to /faculty-login; Privacy Policy and Terms of Service are links; Alumni is gone (P3a)', () => {
+    const { container } = renderFooter();
     expect(screen.getByRole('link', { name: 'Faculty Portal' }).getAttribute('href')).toBe('/faculty-login');
-    for (const label of ['Alumni']) {
-      expect(screen.getByText(label).closest('a')).toBeNull();
-    }
+    expect(container.textContent).not.toMatch(/alumni/i);
     expect(screen.getByRole('link', { name: 'Privacy Policy' }).getAttribute('href')).toBe('/privacy');
     expect(screen.getByRole('link', { name: 'Terms of Service' }).getAttribute('href')).toBe('/terms');
   });

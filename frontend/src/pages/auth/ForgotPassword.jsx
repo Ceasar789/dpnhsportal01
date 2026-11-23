@@ -65,7 +65,7 @@ const ForgotPassword = () => {
                 <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} aria-hidden="true" />
                 <input id="forgot-email" name="email" type="email" autoComplete="email"
                   value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@dpnhs.edu.ph"
+                  placeholder="JuanDelacruz@gmail.com"
                   className="w-full h-12 pl-12 pr-4 rounded-md text-base outline-none focus:ring-2 placeholder:text-[#64748b]"
                   style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
               </div>

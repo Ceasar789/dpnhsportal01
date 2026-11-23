@@ -12,8 +12,9 @@ const footerText = read('components/PublicFooter.jsx');
 describe('aboutContent', () => {
   it('the filled fields match text the site already shows', () => {
     expect(aboutContent.schoolName).toBe('Dela Paz National High School');
-    expect(footerText).toContain(aboutContent.tagline);
-    for (const p of aboutContent.vision) expect(homeText).toContain(p);
+    // P3a: the tagline is gone everywhere; the vision text left the home page and lives only here.
+    expect(aboutContent).not.toHaveProperty('tagline');
+    for (const p of aboutContent.vision) expect(homeText).not.toContain(p);
     expect(aboutContent.portalSummary).toBe('An AI-assisted, web-based lesson planning and learning resources management system for Dela Paz National High School.');
     expect(footerText).toContain(`'${aboutContent.email}'`);
     expect(footerText).toContain(`'${aboutContent.mapUrl}'`);

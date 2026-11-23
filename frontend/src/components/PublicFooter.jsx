@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { School, Facebook, MapPin, Mail, Phone } from 'lucide-react';
+import { Facebook, MapPin, Mail, Phone } from 'lucide-react';
 import '../styles/phone-tap.css';
 
 const LINK = 'block mb-3 py-1 font-public text-sm text-left hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300]';
@@ -31,17 +31,8 @@ const PublicFooter = () => {
         padding: '48px 24px 32px',
       }}
     >
-      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 mb-12 max-w-[1280px] mx-auto">
-        <div>
-          <School size={40} color="#b6c2d1" aria-hidden="true" />
-          <h4 className="font-work font-bold text-lg mt-4 mb-4" style={{ color: '#FFFFFF' }}>
-            DELA PAZ NHS
-          </h4>
-          <p className="font-public text-sm leading-relaxed" style={{ color: '#cbd5e1' }}>
-            Inspiring excellence and shaping futures through quality secondary education in a nurturing environment.
-          </p>
-        </div>
-
+      {/* P3a: the school name and tagline column is gone; two columns share the row. */}
+      <div className="grid gap-10 sm:grid-cols-2 mb-12 max-w-[1280px] mx-auto">
         <div>
           <h5 className="font-work font-bold text-xs tracking-widest mb-5" style={{ color: '#FEB300' }}>
             RESOURCES
@@ -53,11 +44,6 @@ const PublicFooter = () => {
           <Link to="/faculty-login" className={LINK} style={{ color: '#cbd5e1' }}>
             Faculty Portal
           </Link>
-          {/* Alumni has no page yet, so it stays text rather than pretending
-              to be a link that goes nowhere. */}
-          <p className="font-public text-sm mb-3" style={{ color: '#cbd5e1' }}>
-            Alumni
-          </p>
           <Link to="/privacy" className={LINK} style={{ color: '#cbd5e1' }}>
             Privacy Policy
           </Link>

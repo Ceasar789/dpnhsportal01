@@ -73,7 +73,7 @@ describe('saveUser: field problems', () => {
     const result = await save(hook);
     expect(result).toEqual({ ok: false, fieldErrors: [
       { fieldId: 'users-full-name', message: 'Enter the full name.' },
-      { fieldId: 'users-email', message: 'Enter an email address like name@school.edu.ph.' },
+      { fieldId: 'users-email', message: 'Enter a valid email address, for example JuanDelacruz@gmail.com.' },
       { fieldId: 'users-lrn', message: "The LRN must be 12 digits. You've entered 2." },
     ] });
     expect(invites()).toEqual([]);

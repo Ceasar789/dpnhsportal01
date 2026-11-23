@@ -53,7 +53,7 @@ describe('field validators', () => {
 
   it('email', () => {
     expect(validateEmail('')).toBe('Enter the email address.');
-    for (const v of ['ana', 'ana@', 'ana@school', 'ana @school.edu']) expect(validateEmail(v), v).toBe('Enter an email address like name@school.edu.ph.');
+    for (const v of ['ana', 'ana@', 'ana@school', 'ana @school.edu']) expect(validateEmail(v), v).toBe('Enter a valid email address, for example JuanDelacruz@gmail.com.');
     expect(validateEmail(' ana@school.edu.ph ')).toBeNull();
   });
 

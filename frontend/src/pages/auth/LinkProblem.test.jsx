@@ -30,7 +30,7 @@ describe('request a new link', () => {
     expect(screen.getByRole('alert').textContent).toContain('Enter your email address.');
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ana@' } });
     await submit();
-    expect(screen.getByRole('alert').textContent).toContain('Enter an email address like name@school.edu.ph.');
+    expect(screen.getByRole('alert').textContent).toContain('Enter a valid email address, for example JuanDelacruz@gmail.com.');
     expect(h.requestNewLink).not.toHaveBeenCalled();
   });
 

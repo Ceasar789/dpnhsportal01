@@ -30,7 +30,7 @@ export const compose = (...validators) => value => {
 // One @, something before it, a dot in the part after it, no spaces. Not the
 // full RFC: the server and the invitation email are the real check.
 const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
-export const EMAIL_MESSAGE = 'Enter an email address like name@school.edu.ph.';
+export const EMAIL_MESSAGE = 'Enter a valid email address, for example JuanDelacruz@gmail.com.';
 export const email = (message = EMAIL_MESSAGE) => value => (
   blank(value) || EMAIL.test(text(value).trim()) ? null : message
 );

@@ -104,7 +104,7 @@ describe('validation on blur (D1)', () => {
     type('Email', 'ana@');
     fireEvent.blur(field('Email'));
     expect(field('Email').getAttribute('aria-invalid')).toBe('true');
-    expect(document.getElementById(`${USER_FIELDS.email}-error`).textContent).toBe('Enter an email address like name@school.edu.ph.');
+    expect(document.getElementById(`${USER_FIELDS.email}-error`).textContent).toBe('Enter a valid email address, for example JuanDelacruz@gmail.com.');
     type('Email', 'ana@school.edu.ph');
     expect(field('Email').getAttribute('aria-invalid')).toBeNull();
   });

@@ -47,7 +47,7 @@ const PublicHeader = ({ isMobile, active }) => {
       aria-label="EduScribe home"
       className="flex shrink-0 items-center rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FEB300] focus-visible:ring-offset-2 focus-visible:ring-offset-[#003b7a]"
     >
-      <img src="/capstonelogo.png" alt="" style={{ height: logo, borderRadius: '50%' }} />
+      <img src="/EduScribeLogoIcon.png" alt="EduScribe" style={{ height: logo, borderRadius: '50%' }} />
       <span className="ml-2 flex flex-col justify-center sm:ml-3">
         <span className={`font-work font-bold tracking-tight leading-none ${title}`}>
           <span style={{ color: '#FEB300' }}>Edu</span>

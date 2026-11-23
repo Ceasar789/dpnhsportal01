@@ -93,8 +93,8 @@ describe('validation on blur (D1)', () => {
     expect(input.getAttribute('aria-invalid')).toBeNull();
     fireEvent.blur(input);
     expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(document.getElementById('em-error').textContent).toBe('Enter an email address like name@school.edu.ph.');
-    expect(onValidate).toHaveBeenLastCalledWith('Enter an email address like name@school.edu.ph.');
+    expect(document.getElementById('em-error').textContent).toBe('Enter a valid email address, for example JuanDelacruz@gmail.com.');
+    expect(onValidate).toHaveBeenLastCalledWith('Enter a valid email address, for example JuanDelacruz@gmail.com.');
     fireEvent.change(input, { target: { value: 'ana@school.edu' } });
     expect(input.getAttribute('aria-invalid')).toBeNull();
     expect(onValidate).toHaveBeenLastCalledWith(null);

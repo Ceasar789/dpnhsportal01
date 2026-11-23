@@ -9,6 +9,7 @@ import Terms from './Terms';
 import Privacy from './Privacy';
 import Login from './Login';
 import PublicFooter from '../../components/PublicFooter';
+import { LEGAL_LAST_UPDATED, PRIVACY, TERMS } from './legalContent';
 
 const read = rel => readFileSync([`src/${rel}`, `frontend/src/${rel}`].find(existsSync), 'utf8');
 const show = (el) => render(<MemoryRouter>{el}</MemoryRouter>);
@@ -16,20 +17,15 @@ const headings = (level) => screen.getAllByRole('heading', { level }).map(h => h
 
 afterEach(cleanup);
 
-describe('Privacy Statement page', () => {
-  it('one h1, the date line, and the agreed section headings in order', () => {
+describe('Privacy Policy page', () => {
+  it('one h1, the date line, and the content file headings in order', () => {
     show(<Privacy />);
-    expect(headings(1)).toEqual(['Privacy Statement']);
-    expect(screen.getByText('Last updated: November 11, 2026')).toBeTruthy();
+    expect(headings(1)).toEqual([PRIVACY.title]);
+    expect(screen.getByText(`Last updated: ${LEGAL_LAST_UPDATED}`)).toBeTruthy();
     const main = within(document.querySelector('main'));
-    expect(main.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual([
-      'What we collect', 'Why we use it', 'Who can see it', 'AI features', 'Cookies and storage',
-      'How long we keep records', 'Your rights and how to contact us',
-    ]);
-    expect(screen.getByText(/Data Privacy Act of 2012 \(Republic Act No\. 10173\)/)).toBeTruthy();
-    expect(screen.getByText(/We do not send student names, answers or scores to these services\./)).toBeTruthy();
+    expect(main.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(PRIVACY.sections.map(s => s.heading));
+    expect(screen.getByText(/Data Privacy Act of 2012 \(RA 10173\)/, { selector: 'p > strong' })).toBeTruthy();
     expect(main.getByRole('link', { name: '307915@deped.gov.ph' }).getAttribute('href')).toBe('mailto:307915@deped.gov.ph');
-    expect(screen.getByText('This statement may be updated; the date above shows the latest version.')).toBeTruthy();
   });
 
   it('uses the public header and footer, with 16px body text', () => {
@@ -40,17 +36,13 @@ describe('Privacy Statement page', () => {
   });
 });
 
-describe('Terms of Use page', () => {
-  it('one h1, the date line, and the nine numbered sections in order', () => {
+describe('Terms & Conditions page', () => {
+  it('one h1, the date line, and the eleven numbered sections in order', () => {
     show(<Terms />);
-    expect(headings(1)).toEqual(['Terms of Use']);
-    expect(screen.getByText('Last updated: November 11, 2026')).toBeTruthy();
+    expect(headings(1)).toEqual([TERMS.title]);
+    expect(screen.getByText(`Last updated: ${LEGAL_LAST_UPDATED}`)).toBeTruthy();
     const main = within(document.querySelector('main'));
-    expect(main.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual([
-      '1. Who may use the portal', '2. Your account', '3. Acceptable use', '4. Schoolwork and results',
-      '5. Content you add', "6. The school's rights", '7. Availability', '8. Changes', '9. Contact',
-    ]);
-    expect(screen.getByText('These terms apply to everyone who uses the Dela Paz National High School student portal.')).toBeTruthy();
+    expect(main.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(TERMS.sections.map(s => s.heading));
     expect(main.getByRole('link', { name: '307915@deped.gov.ph' }).getAttribute('href')).toBe('mailto:307915@deped.gov.ph');
   });
 });

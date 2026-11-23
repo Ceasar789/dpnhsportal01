@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeader';
 import PublicFooter from '../../components/PublicFooter';
-import { Facebook, School, MessageCircle } from 'lucide-react';
+import { Facebook, MessageCircle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
 import { viewportHeight } from '../../lib/viewportHeight';
 
@@ -73,19 +73,9 @@ const Login = () => {
             aria-hidden="true"
           />
 
-          {/* Top: who this belongs to */}
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white">
-              <School size={26} color="#1a5276" aria-hidden="true" />
-            </div>
-            <div className="leading-tight">
-              <p className="font-semibold text-base">Dela Paz</p>
-              <p className="text-sm text-white/90">National High School</p>
-            </div>
-          </div>
-
-          {/* Centre: the welcome and the choice */}
-          <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center py-8 text-center">
+          {/* Centre: the welcome and the choice. Q2: the school badge that sat
+              above it is gone; my-auto keeps this block centred above the icon row. */}
+          <div className="relative z-10 mx-auto my-auto flex w-full max-w-lg flex-col items-center py-8 text-center">
             <FlippingLogo size={isMobile ? 200 : 360} className="mb-6" />
 
             <h1 className="font-work text-3xl sm:text-4xl font-bold leading-tight">

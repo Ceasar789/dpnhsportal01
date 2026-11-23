@@ -12,10 +12,10 @@ const footerText = read('components/PublicFooter.jsx');
 describe('aboutContent', () => {
   it('the filled fields match text the site already shows', () => {
     expect(aboutContent.schoolName).toBe('Dela Paz National High School');
-    // P3a: the tagline is gone everywhere; the vision text left the home page and lives only here.
+    // P3a: the tagline is gone everywhere. Q2: no vision statement (about-content.md); the text is the md's.
     expect(aboutContent).not.toHaveProperty('tagline');
-    for (const p of aboutContent.vision) expect(homeText).not.toContain(p);
-    expect(aboutContent.portalSummary).toBe('An AI-assisted, web-based lesson planning and learning resources management system for Dela Paz National High School.');
+    expect(aboutContent.vision).toEqual([]);
+    expect(aboutContent.portalSummary).toBe('EduScribe is an AI-assisted, web-based lesson planning and learning resource management platform for Dela Paz National High School.');
     expect(footerText).toContain(`'${aboutContent.email}'`);
     expect(footerText).toContain(`'${aboutContent.mapUrl}'`);
     expect(footerText).toContain(`'${aboutContent.facebookUrl}'`);
@@ -23,7 +23,7 @@ describe('aboutContent', () => {
 
   it('every field still waiting for the school is empty', () => {
     for (const key of ['mission', 'phone', 'address', 'officeHours']) expect(aboutContent[key], key).toBe('');
-    for (const key of ['story', 'timeline', 'values', 'stats']) expect(aboutContent[key], key).toEqual([]);
+    for (const key of ['vision', 'story', 'timeline', 'values', 'stats']) expect(aboutContent[key], key).toEqual([]);
   });
 
   it('no placeholder copy', () => {

@@ -14,6 +14,7 @@ import PublicHeader, { PUBLIC_HEADER_HEIGHT } from '../../components/PublicHeade
 import PublicFooter from '../../components/PublicFooter';
 import SignInChooser from '../../components/SignInChooser';
 import { useMediaQuery } from '../../lib/useMediaQuery';
+import { Rich } from '../public/Privacy';
 import aboutContent from './aboutContent';
 import useReveal, { canReveal } from './useReveal';
 
@@ -122,7 +123,13 @@ const About = ({ content = aboutContent }) => {
   const showMissionVision = has(c.mission) || vision.length > 0;
   const showStory = has(c.story) || has(c.timeline);
   const showContact = [c.email, c.mapUrl, c.facebookUrl, c.phone, c.address, c.officeHours].some(has);
-  const nothingYet = !showMissionVision && !showStory && !has(c.values) && !has(c.stats);
+  const photos = c.campus?.photos || [];
+  const showCampus = has(c.campus?.paragraphs) || photos.length > 0;
+  const nothingYet = !has(c.portalSummary) && !has(c.features) && !has(c.whoCanUse) && !showCampus
+    && !showMissionVision && !showStory && !has(c.values) && !has(c.stats);
+  // The contact sentence names the email; that part of it is the mailto link.
+  const [contactBefore, contactAfter] = has(c.contactLine) && has(c.email) && c.contactLine.includes(c.email)
+    ? c.contactLine.split(c.email) : [c.contactLine, null];
 
   return (
     <div ref={rootRef} className="public-shell min-h-viewport flex flex-col" style={{ backgroundColor: '#F8FAFC' }}>
@@ -149,7 +156,7 @@ const About = ({ content = aboutContent }) => {
         </section>
 
         {has(c.portalSummary) && (
-          <Section id="about-portal" eyebrow="THE PORTAL" title="EduScribe" tone="white">
+          <Section id="about-portal" title="About EduScribe" tone="white">
             <p data-reveal className="max-w-3xl font-public text-lg leading-relaxed" style={{ ...stagger(1), color: TEXT }}>{c.portalSummary}</p>
           </Section>
         )}
@@ -171,6 +178,29 @@ const About = ({ content = aboutContent }) => {
                 </Card>
               )}
             </div>
+          </Section>
+        )}
+
+        {has(c.features) && (
+          <Section id="about-features" title="What EduScribe does">
+            <ul className="grid gap-6 md:grid-cols-3">
+              {c.features.map((group, i) => (
+                <li key={group.who} className="flex min-w-0">
+                  <Card i={i + 1} className="w-full">
+                    <h3 className="font-work text-lg font-bold" style={{ color: NAVY }}>{group.who}</h3>
+                    <ul className="mt-3 list-disc space-y-2 pl-5 font-public text-base leading-relaxed" style={{ color: TEXT }}>
+                      {group.items.map(item => <li key={item}>{item}</li>)}
+                    </ul>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {has(c.whoCanUse) && (
+          <Section id="about-who" title="Who can use it" tone="white">
+            <p data-reveal className="max-w-3xl font-public text-lg leading-relaxed" style={{ ...stagger(1), color: TEXT }}><Rich text={c.whoCanUse} /></p>
           </Section>
         )}
 
@@ -224,6 +254,38 @@ const About = ({ content = aboutContent }) => {
           </Section>
         )}
 
+        {showCampus && (
+          <Section id="about-campus" title={c.campus.title}>
+            {has(c.campus.paragraphs) && (
+              <div className="max-w-3xl space-y-4">
+                {c.campus.paragraphs.map((p, i) => <p key={p} data-reveal className="font-public text-lg leading-relaxed break-words" style={{ ...stagger(i + 1), color: TEXT }}>{p}</p>)}
+              </div>
+            )}
+            {photos.length > 0 && (
+              <>
+                {/* One column on a phone, two from 640px, three from 1024px. width and
+                    height hold each photo's space while it loads; max-w-full and h-auto
+                    shrink it but never stretch it past the file's own size. */}
+                <ul className={`grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 ${has(c.campus.paragraphs) ? 'mt-10' : ''}`}>
+                  {photos.map(photo => (
+                    <li key={photo.src} className="min-w-0">
+                      <figure className="h-full rounded-lg bg-white p-3 shadow-sm ring-1 ring-black/5">
+                        <img src={photo.src} width={photo.width} height={photo.height} alt={photo.caption}
+                          loading="lazy" decoding="async" className="mx-auto block h-auto max-w-full rounded" />
+                        <figcaption className="mt-3 font-public text-base leading-relaxed break-words" style={{ color: TEXT }}>
+                          {photo.caption}
+                          {has(photo.source) && <span className="mt-1 block text-sm" style={{ color: '#475569' }}>Source: {photo.source}</span>}
+                        </figcaption>
+                      </figure>
+                    </li>
+                  ))}
+                </ul>
+                {has(c.campus.credit) && <p className="mt-6 font-public text-sm break-words" style={{ color: '#475569' }}>{c.campus.credit}</p>}
+              </>
+            )}
+          </Section>
+        )}
+
         {nothingYet && (
           <section className="mx-auto max-w-[1180px] px-4 py-14 sm:px-6">
             <p data-reveal className="font-public text-lg" style={{ color: TEXT }}>More information coming soon.</p>
@@ -231,7 +293,15 @@ const About = ({ content = aboutContent }) => {
         )}
 
         {showContact && (
-          <Section id="about-contact" eyebrow="GET IN TOUCH" title="Contact and Location" tone="white">
+          <Section id="about-contact" title="Contact" tone="white">
+            {has(c.contactLine) && (
+              <p data-reveal className="mb-8 max-w-3xl font-public text-lg leading-relaxed break-words" style={{ ...stagger(1), color: TEXT }}>
+                {contactBefore}
+                {contactAfter !== null && (
+                  <><a href={`mailto:${c.email}`} className={`font-semibold underline break-all ${FOCUS}`} style={{ color: '#0062cc' }}>{c.email}</a>{contactAfter}</>
+                )}
+              </p>
+            )}
             <ul data-reveal style={stagger(1)} className="grid max-w-4xl gap-6 sm:grid-cols-2">
               {has(c.address) && <ContactItem icon={MapPin} label="ADDRESS">{c.address}</ContactItem>}
               {has(c.mapUrl) && (
@@ -241,7 +311,7 @@ const About = ({ content = aboutContent }) => {
                   </a>
                 </ContactItem>
               )}
-              {has(c.email) && (
+              {has(c.email) && contactAfter === null && (
                 <ContactItem icon={Mail} label="EMAIL">
                   <a href={`mailto:${c.email}`} className={`${LINK_TEXT} break-all`} style={{ color: '#0062cc' }}>{c.email}</a>
                 </ContactItem>

@@ -34,13 +34,14 @@ afterEach(() => {
 });
 
 describe('About page content', () => {
-  it('with only the repo content: hero, the portal line, the vision, contact and sign in - nothing else', () => {
+  it('with only the repo content: hero, the about-content.md sections, contact and sign in - nothing else', () => {
     show(EMPTY);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Dela Paz National High School');
     expect(document.querySelector('main').textContent).not.toContain('Inspiring excellence'); // P3a: no tagline
-    expect(h2s()).toEqual(['EduScribe', 'Our Vision', 'Contact and Location', 'Sign in to EduScribe']);
+    expect(h2s()).toEqual(['About EduScribe', 'What EduScribe does', 'Who can use it',
+      'From the campus: turnover of the new perimeter fence and landscaping', 'Contact', 'Sign in to EduScribe']);
     expect(screen.getByText(aboutContent.portalSummary)).toBeTruthy();
-    for (const p of aboutContent.vision) expect(screen.getByText(p)).toBeTruthy();
+    expect(screen.queryByText(/OUR VISION/)).toBeNull();
     expect(screen.queryByText(/OUR MISSION/)).toBeNull();
     expect(screen.queryByText('More information coming soon.')).toBeNull();
     // Contact shows only the filled items; no phone, address or hours.
@@ -61,7 +62,8 @@ describe('About page content', () => {
 
   it('with every field filled, every section renders', () => {
     show(FILLED);
-    expect(h2s()).toEqual(['EduScribe', 'Mission and Vision', 'Our Story', 'Core Values', 'Key Numbers', 'Contact and Location', 'Sign in to EduScribe']);
+    expect(h2s()).toEqual(['About EduScribe', 'Our Mission', 'What EduScribe does', 'Who can use it', 'Our Story', 'Core Values', 'Key Numbers',
+      'From the campus: turnover of the new perimeter fence and landscaping', 'Contact', 'Sign in to EduScribe']);
     for (const text of ['Test mission sentence.', 'Test story paragraph two.', 'Test milestone', '2001', 'Test value B', 'Test learners', 'Test address line', 'Test hours']) {
       expect(screen.getByText(text)).toBeTruthy();
     }
@@ -69,9 +71,9 @@ describe('About page content', () => {
   });
 
   it('"More information coming soon." shows only when there is nothing but the hero and contact', () => {
-    show({ ...EMPTY, vision: [], portalSummary: '' });
+    show({ ...EMPTY, portalSummary: '', features: [], whoCanUse: '', campus: null });
     expect(screen.getByText('More information coming soon.')).toBeTruthy();
-    expect(h2s()).toEqual(['Contact and Location', 'Sign in to EduScribe']);
+    expect(h2s()).toEqual(['Contact', 'Sign in to EduScribe']);
   });
 
   it('the numbers carry their final value in the markup; the animated copy is aria-hidden', () => {

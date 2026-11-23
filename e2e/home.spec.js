@@ -56,7 +56,7 @@ test.describe('home page', () => {
     await expect(page.getByRole('button', { name: 'Apply for Admission' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Sign In' }).click();
     await page.getByRole('link', { name: /^Student/ }).click();
-    await expect(page).toHaveURL(/\/student-login/);
+    await expect(page).toHaveURL(/\/login$/);
   });
 
   test('the brand is spelled the same as the logo', async ({ page }) => {

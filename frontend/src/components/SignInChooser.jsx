@@ -1,7 +1,8 @@
 // ============================================
 // FILE: src/components/SignInChooser.jsx
-// L1: one "Sign In" button that opens a small chooser - Student or Faculty -
-// each a real link to its existing login page. A non-modal disclosure (the
+// L1: one "Sign In" button that opens a small chooser - Student or Faculty.
+// Q3: both are real links to /login ("Welcome Back."), whose own Student and
+// Faculty buttons open the two sign-in forms. A non-modal disclosure (the
 // page stays usable, so there is no focus trap): aria-expanded and
 // aria-controls on the button, focus moves to Student on open, arrows and
 // Home/End move between the two, Enter or Space opens the focused one, Escape
@@ -23,8 +24,8 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 
 const SIGN_IN_OPTIONS = [
-  { label: 'Student', to: '/student-login' },
-  { label: 'Faculty', hint: 'Teacher or Admin', to: '/faculty-login' },
+  { label: 'Student', to: '/login' },
+  { label: 'Faculty', hint: 'Teacher or Admin', to: '/login' },
 ];
 
 // The open panel's height (heading + two 48px options + padding), with a
@@ -167,7 +168,7 @@ const SignInChooser = ({ width = '250px', onOpenChange }) => {
           </p>
           {SIGN_IN_OPTIONS.map((option, i) => (
             <Link
-              key={option.to}
+              key={option.label}
               ref={(el) => { linkRefs.current[i] = el; }}
               to={option.to}
               onClick={() => setOpenState(false)}

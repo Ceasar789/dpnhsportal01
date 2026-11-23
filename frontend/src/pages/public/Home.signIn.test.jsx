@@ -39,7 +39,7 @@ describe('Home hero', () => {
     act(() => { vi.advanceTimersByTime(4100); });
     expect(screen.getByRole('button', { name: 'Sign In' })).toBe(button);
     expect(button.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('link', { name: /^Student/ }).getAttribute('href')).toBe('/student-login');
+    expect(screen.getByRole('link', { name: /^Student/ }).getAttribute('href')).toBe('/login');
   });
 
   it('raises the hero content above the slideshow controls only while the chooser is open', () => {

@@ -45,12 +45,12 @@ test('the hero chooser works by keyboard: focus to Student, arrows, Escape back 
   await expect(button).toBeFocused();
 });
 
-test('the hero chooser: Faculty goes to /faculty-login', async ({ page }) => {
+test('the hero chooser: Faculty goes to /login', async ({ page }) => {
   await page.goto('/');
   await appReady(page);
   await page.getByRole('button', { name: 'Sign In' }).click();
   await page.getByRole('link', { name: /^Faculty/ }).click();
-  await expect(page).toHaveURL(/\/faculty-login$/);
+  await expect(page).toHaveURL(/\/login$/);
 });
 
 test('reduced motion: every About section is visible at once', async ({ page }) => {

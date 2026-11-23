@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // L1: the Sign In chooser - a non-modal disclosure with two real links.
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import SignInChooser from './SignInChooser';
@@ -14,6 +14,7 @@ const setup = (props = {}) => {
         <Route path="/" element={<><SignInChooser {...props} /><button type="button">Elsewhere</button></>} />
         <Route path="/student-login" element={<h1>Student login page</h1>} />
         <Route path="/faculty-login" element={<h1>Faculty login page</h1>} />
+        <Route path="/login" element={<h1>Welcome Back.</h1>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -42,12 +43,19 @@ describe('SignInChooser', () => {
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
   });
 
-  it('Student goes to /student-login; Faculty, hinted "Teacher or Admin", goes to /faculty-login', () => {
+  it('Student and Faculty (hinted "Teacher or Admin") both go to /login', () => {
     fireEvent.click(setup());
-    expect(option('Student').getAttribute('href')).toBe('/student-login');
-    expect(option('Faculty').getAttribute('href')).toBe('/faculty-login');
+    expect(option('Student').getAttribute('href')).toBe('/login');
+    expect(option('Faculty').getAttribute('href')).toBe('/login');
     expect(option('Faculty').textContent).toBe('FacultyTeacher or Admin');
     expect(option('Faculty').className).toContain('min-h-12');
+  });
+
+  it('Q3: every "Sign in as" option points to /login and nowhere else', () => {
+    fireEvent.click(setup());
+    const links = within(screen.getByRole('group', { name: 'SIGN IN AS' })).getAllByRole('link');
+    expect(links.map(l => l.textContent)).toEqual(['Student', 'FacultyTeacher or Admin']);
+    for (const l of links) expect(l.getAttribute('href')).toBe('/login');
   });
 
   it('arrow keys, Home and End move between the two options and wrap', () => {
@@ -101,7 +109,7 @@ describe('SignInChooser', () => {
   it('choosing an option navigates and closes the chooser', () => {
     fireEvent.click(setup());
     fireEvent.click(option('Faculty'));
-    expect(screen.getByRole('heading', { name: 'Faculty login page' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Welcome Back.' })).toBeTruthy();
   });
 
   it('opens upward when the room below is too small', () => {
@@ -140,7 +148,7 @@ describe('SignInChooser', () => {
   it('Space on a focused option opens it, like Enter', () => {
     fireEvent.click(setup());
     fireEvent.keyDown(option('Student'), { key: ' ' });
-    expect(screen.getByRole('heading', { name: 'Student login page' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Welcome Back.' })).toBeTruthy();
   });
 
   it('Space on Faculty opens the Faculty login', () => {
@@ -148,7 +156,7 @@ describe('SignInChooser', () => {
     fireEvent.keyDown(option('Student'), { key: 'ArrowDown' });
     expect(document.activeElement).toBe(option('Faculty'));
     fireEvent.keyDown(option('Faculty'), { key: ' ' });
-    expect(screen.getByRole('heading', { name: 'Faculty login page' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Welcome Back.' })).toBeTruthy();
   });
 
   it('renders the panel in <body>, fixed, above the public header (z-50)', () => {
@@ -208,7 +216,7 @@ describe('SignInChooser', () => {
     expect(fireEvent.mouseDown(option('Faculty'))).toBe(false);
     expect(button.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(option('Faculty'));
-    expect(screen.getByRole('heading', { name: 'Faculty login page' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Welcome Back.' })).toBeTruthy();
   });
 
   it('Tab from the last option closes it and continues from the Sign In button', () => {

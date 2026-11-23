@@ -36,7 +36,13 @@ export const USER_MESSAGES = Object.freeze({
   inviteUnconfirmed: "We couldn't confirm the invitation was sent. Check the user list before trying again.",
   resendFailed: 'The invitation could not be resent. Please try again.',
   userGone: "We couldn't find that user. Refresh the list and try again.",
+  invitePending: 'This person was already invited. Use Resend instead.',
 });
+
+// P1: the Users list status chip for an account that has not set its first
+// password yet (server field invite_link_state, from shared/inviteState.js).
+export const INVITE_CHIP = Object.freeze({ invited: 'Invited', stale: 'Link expired or used' });
+export const inviteChipLabel = (u) => (u?.invite_link_state === 'link_stale' ? INVITE_CHIP.stale : INVITE_CHIP.invited);
 
 export const validateName = required(USER_MESSAGES.nameRequired);
 export const validateEmail = compose(required(USER_MESSAGES.emailRequired), email());
@@ -63,6 +69,8 @@ export const INVITE_SERVER_MESSAGES = Object.freeze({
   invalid: 'A valid name, email, and role are required.',
   emailTaken: 'An account already uses this email address.',
   authEmailTaken: 'An authentication account already uses this email address.',
+  invitePending: 'This person was already invited. Use Resend instead.',
+  resendCooldown: 'A link was sent less than a minute ago. Wait a minute, then try again.',
   inviteFailed: 'The invitation could not be completed. No account was added.',
   rateLimited: 'Too many invitation requests. Try again later.',
   resendFailed: 'The invitation could not be resent. Try again.',
@@ -79,6 +87,8 @@ export function userSaveError(error) {
   const text = typeof error?.message === 'string' ? error.message : '';
   if (text === LRN_TAKEN || error?.code === '23505') return { fieldId: USER_FIELDS.lrn, message: LRN_TAKEN };
   if (text === LRN_REQUIRED) return { fieldId: USER_FIELDS.lrn, message: LRN_MESSAGES.empty };
+  // P1: a pending invite gets its own words; the dialog offers Resend next to it.
+  if (text === INVITE_SERVER_MESSAGES.invitePending) return { fieldId: USER_FIELDS.email, message: USER_MESSAGES.invitePending };
   if (text === INVITE_SERVER_MESSAGES.emailTaken || text === INVITE_SERVER_MESSAGES.authEmailTaken) {
     return { fieldId: USER_FIELDS.email, message: USER_MESSAGES.emailTaken };
   }
@@ -95,7 +105,8 @@ export function userSaveError(error) {
 /** The resend-invitation row action: the same rule, its own sentences. */
 export function resendInviteError(error) {
   const text = typeof error?.message === 'string' ? error.message : '';
-  if (text === INVITE_SERVER_MESSAGES.resendNotPending || text === INVITE_SERVER_MESSAGES.resendArchived) return text;
+  if (text === INVITE_SERVER_MESSAGES.resendNotPending || text === INVITE_SERVER_MESSAGES.resendArchived
+    || text === INVITE_SERVER_MESSAGES.resendCooldown) return text;
   if (text === INVITE_SERVER_MESSAGES.notFound) return USER_MESSAGES.userGone;
   if (text === INVITE_SERVER_MESSAGES.resendFailed) return USER_MESSAGES.resendFailed;
   if (error?.name === 'BackendRequestError' && error.kind === 'session') return friendlyError({ status: 401 });

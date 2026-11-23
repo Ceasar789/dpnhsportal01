@@ -57,7 +57,7 @@ describe('layout from real data', () => {
     show();
     expect(rows().map(r => [...r.cells].map(c => c.textContent))).toEqual([
       ['ASAna Santos', 'Teacher', 'ana@school.test', 'Active'],
-      ['BCBen Cruz', 'Student', 'ben@school.test', 'Invitation pending'],
+      ['BCBen Cruz', 'Student', 'ben@school.test', 'Invited'],
       ['CLCora Lim', 'Admin', 'cora@school.test', 'Active'],
       ['DUDan Uy', 'registrar', 'dan@school.test', 'Inactive'],
     ]);

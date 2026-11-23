@@ -29,6 +29,7 @@ import { Archive, ArchiveRestore, Plus, Search } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import { roleLabel } from '../../../pages/dashboards/admin/shared/helpers';
 import UserFormDialog from '../../../pages/dashboards/admin/shared/UserFormDialog';
+import { inviteChipLabel } from '../../../pages/dashboards/admin/shared/userForm';
 import Avatar from '../../Avatar';
 import { useSignedPhotoUrl } from '../../../hooks/useSignedPhotoUrl';
 import { focusAfterRemoval } from '../../../lib/focusAfterRemoval';
@@ -49,7 +50,7 @@ const dayOf = value => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` 
 // Only what the record holds. The archive view lists archived accounts.
 const statusOf = (u, showArchived) => {
   if (showArchived || (u.status || '').toLowerCase() === 'archived') return ['Archived', ''];
-  if (u.onboarding_status === 'invitation_pending') return ['Invitation pending', 'wa'];
+  if (u.onboarding_status === 'invitation_pending') return [inviteChipLabel(u), u.invite_link_state === 'link_stale' ? 'er' : 'wa'];
   if ((u.status || 'active').toLowerCase() === 'inactive') return ['Inactive', ''];
   return ['Active', 'ok'];
 };

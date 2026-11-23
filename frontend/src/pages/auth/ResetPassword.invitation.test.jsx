@@ -50,7 +50,7 @@ describe('invitation password setup', () => {
 
     render(<MemoryRouter><ResetPassword invitation /></MemoryRouter>);
 
-    expect(await screen.findByText('Link Expired or Invalid', {}, { timeout: 2500 })).toBeTruthy();
-    expect(screen.getByText(/Ask an administrator to resend it/)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'This link is not valid' }, { timeout: 2500 })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Request a new link' })).toBeTruthy();
   });
 });

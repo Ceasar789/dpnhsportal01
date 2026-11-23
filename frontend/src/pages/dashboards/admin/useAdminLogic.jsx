@@ -352,8 +352,11 @@ export const useAdminLogic = (userData) => {
 
   const resendInvitation = async (invitedUser) => {
     try {
-      await backendRequest(`/api/admin/users/${invitedUser.id}/resend-invitation`, { method: 'POST' });
-      showToast(`Invitation resent to ${invitedUser.email}.`);
+      const sent = await backendRequest(`/api/admin/users/${invitedUser.id}/resend-invitation`, { method: 'POST' });
+      // P1: a link that was already opened gets a set-password link instead.
+      showToast(sent?.link === 'recovery'
+        ? `Set-password link sent to ${invitedUser.email}.`
+        : `Invitation resent to ${invitedUser.email}.`);
     } catch (error) {
       showToast(resendInviteError(error), 'error');
       throw error;

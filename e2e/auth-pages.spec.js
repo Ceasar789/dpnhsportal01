@@ -124,9 +124,9 @@ test.describe('reset password without a recovery link', () => {
 test.describe('invitation callback integration', () => {
   test('a root-level expired invite opens the friendly setup state without overflow', async ({ page }) => {
     await page.goto('/#error=access_denied&error_code=otp_expired');
-    await expect(page).toHaveURL(/\/setup-password$/);
-    await expect(page.getByRole('heading', { name: 'Link Expired or Invalid' })).toBeVisible();
-    await expect(page.getByText(/Ask an administrator to resend it/)).toBeVisible();
+    await expect(page).toHaveURL(/\/setup-password#error=access_denied&error_code=otp_expired$/);
+    await expect(page.getByRole('heading', { name: 'This link has expired' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Request a new link' })).toBeVisible();
 
     for (const width of [360, 390, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });

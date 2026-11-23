@@ -218,5 +218,5 @@ test('User creation sends an invitation and fails without adding local state', a
   await expect(dialog).toHaveCount(0);
   expect(state.lastInviteBody).toEqual({ name: 'Invited User', email: 'invited.user@example.com', role: 'student', department: null, lrn: '108123456789' });
   await expect(page.getByText('Invited User', { exact: true })).toBeVisible();
-  await expect(page.getByText('Invitation Pending')).toBeVisible();
+  await expect(page.getByText('Invited', { exact: true })).toBeVisible();
 });

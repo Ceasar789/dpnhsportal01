@@ -41,6 +41,7 @@ function UserForm() {
   const {
     closeModal, editUser, saveUser, setUDept, setUEmail, setULrn, setUName, setURole, setUStatus,
     uDept = '', uEmail = '', uLrn = '', uName = '', uRole = 'student', uSaving = false, uStatus = 'active',
+    users = [], resendInvitation,
   } = useAdminContext();
   const editing = Boolean(editUser);
   const pending = editUser?.onboarding_status === 'invitation_pending';
@@ -62,6 +63,17 @@ function UserForm() {
   }, [round]);
 
   const fieldError = id => errors[id] || undefined;
+  // P1: the server said this email is a pending invite. Offer Resend for
+  // that person (when they are in the loaded list) instead of a new invite.
+  const pendingMatch = !editing && errors[USER_FIELDS.email] === USER_MESSAGES.invitePending && typeof resendInvitation === 'function'
+    ? users.find(u => (u.email || '').toLowerCase() === uEmail.trim().toLowerCase() && u.can_resend_invitation)
+    : null;
+  const [resending, setResending] = useState(false);
+  const resendInstead = async () => {
+    if (resending || !pendingMatch) return;
+    setResending(true);
+    try { await resendInvitation(pendingMatch); closeModal(); } catch { /* resendInvitation showed the message */ } finally { setResending(false); }
+  };
   const clearError = id => message => { if (!message) setErrors(e => (e[id] ? { ...e, [id]: undefined } : e)); };
 
   const roleOptions = ASSIGNABLE_ROLES.includes(uRole)
@@ -161,6 +173,11 @@ function UserForm() {
         <input type="email" inputMode="email" value={uEmail} onChange={e => setUEmail(e.target.value)} disabled={editing}
           autoComplete="off" autoCapitalize="none" spellCheck={false} />
       </Field>
+      {pendingMatch && (
+        <button type="button" className="fk-btn" style={{ margin: '-8px 0 16px' }} aria-busy={resending || undefined} onClick={resendInstead}>
+          {resending ? 'Sending…' : `Resend invitation to ${pendingMatch.name || pendingMatch.email}`}
+        </button>
+      )}
 
       <SegmentedChoice id={USER_FIELDS.role} legend="Role" name={USER_FIELDS.role} options={roleOptions} value={uRole} onChange={setURole}
         disabled={pending} help={pending ? 'Locked until they finish setting up their account.' : undefined} />

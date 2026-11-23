@@ -4,7 +4,7 @@
 // ============================================
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../config/supabase';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { validatePassword, PASSWORD_RULES } from '../../lib/passwordPolicy';
@@ -12,9 +12,15 @@ import { backendRequest } from '../../lib/backendApi';
 import { appErrorMessage } from '../../lib/appErrorMessage';
 import PasswordField from '../../components/ui/form/PasswordField';
 import FlippingLogo from '../../components/FlippingLogo';
+import LinkProblem from './LinkProblem';
+import { linkErrorCode, linkProblemKind } from '../../lib/authLinks';
 
 const ResetPassword = ({ invitation = false }) => {
   const navigate = useNavigate();
+  // P1: an old-format invitation link that failed lands here with
+  // #error_code=... (kept by the invitation guard); read it once.
+  const location = useLocation();
+  const [linkError] = useState(() => (invitation ? linkErrorCode(location.hash) : null));
 
   const [password, setPassword]               = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -53,7 +59,7 @@ const ResetPassword = ({ invitation = false }) => {
       } else {
         timeoutId = setTimeout(() => {
           setChecking(false);
-        }, 1500);
+        }, linkError ? 0 : 1500);
       }
     }).catch(() => {
       timeoutId = setTimeout(() => {
@@ -65,7 +71,7 @@ const ResetPassword = ({ invitation = false }) => {
       subscription.unsubscribe();
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [linkError]);
 
   // ============================================
   // HANDLE SUBMIT
@@ -172,8 +178,11 @@ const ResetPassword = ({ invitation = false }) => {
             </form>
           )}
 
+          {/* P1: invitation link expired, used or not valid, with a new-link form */}
+          {invitation && !checking && !validSession && !isSuccess && <LinkProblem kind={linkProblemKind(linkError)} />}
+
           {/* Invalid / expired link */}
-          {!checking && !validSession && !isSuccess && (
+          {!invitation && !checking && !validSession && !isSuccess && (
             <div className="flex flex-col items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
                 <AlertTriangle size={30} style={{ color: '#dc3545' }} aria-hidden="true" />

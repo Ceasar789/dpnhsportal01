@@ -9,6 +9,7 @@ import { Archive, ArchiveRestore, Mail, Pencil, Trash2 } from 'lucide-react';
 import { useAdminContext } from '../AdminContext';
 import { avatarColor, roleBadge, roleLabel } from '../shared/helpers';
 import UserFormDialog from '../shared/UserFormDialog';
+import { inviteChipLabel } from '../shared/userForm';
 import { focusAfterRemoval } from '../../../../lib/focusAfterRemoval';
 import Button from '../../../../components/ui/Button';
 import { useSignedPhotoUrl } from '../../../../hooks/useSignedPhotoUrl';
@@ -103,7 +104,7 @@ const UsersTab = () => {
                           <td data-cell="state">{showArchived
                             ? <span className="badge badge-yellow archive-status-badge"><Archive size={12} />Archived</span>
                             : u.onboarding_status === 'invitation_pending'
-                              ? <span className="badge badge-yellow">Invitation Pending</span>
+                              ? <span className={`badge ${u.invite_link_state === 'link_stale' ? 'badge-red' : 'badge-yellow'}`}>{inviteChipLabel(u)}</span>
                               : <span className={`badge ${onlineUsers.has(u.id) ? 'badge-green' : 'badge-grey'}`}><span className={`dot ${onlineUsers.has(u.id) ? 'dot-green' : 'dot-neutral'}`} style={{ marginRight: 'var(--space-4)' }}></span>{onlineUsers.has(u.id) ? 'Online' : 'Offline'}</span>}
                           </td>
                           <td data-cell="actions">
@@ -166,7 +167,7 @@ const UsersTab = () => {
           ['Department', sheetUser?.department],
           ['Status', sheetUser
             ? (showArchived ? 'Archived' : sheetUser.onboarding_status === 'invitation_pending'
-              ? 'Invitation Pending' : (onlineUsers.has(sheetUser.id) ? 'Online' : 'Offline'))
+              ? inviteChipLabel(sheetUser) : (onlineUsers.has(sheetUser.id) ? 'Online' : 'Offline'))
             : ''],
         ]}
         actions={sheetUser && (

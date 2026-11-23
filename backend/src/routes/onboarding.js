@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { adminClient, requireAuth, requireSession } from '../middleware/requireAuth.js';
 import { validatePassword } from '../../../shared/passwordPolicy.js';
+import { cooldownLeft, inviteLinkState, isNotActivated } from '../../../shared/inviteState.js';
 
 const ADMIN_ROLES = ['main_admin'];
 // The app has three roles. faculty and registrar were removed: an invite or a
@@ -12,6 +13,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const LRN_PATTERN = /^\d{12}$/;
 const LRN_REQUIRED = 'A 12-digit LRN is required for a student.';
 const LRN_TAKEN = 'This LRN is already used by another student.';
+// P1: the invite form, Resend and the public request-link page.
+const INVITE_PENDING = 'This person was already invited. Use Resend instead.';
+const RESEND_COOLDOWN = 'A link was sent less than a minute ago. Wait a minute, then try again.';
+const REQUEST_LINK_SENT = 'If this email belongs to an account that still needs a password, we sent a new link. Check your inbox and spam folder.';
+const REQUEST_LINK_INVALID = 'Enter a valid email address.';
+export const RESEND_COOLDOWN_MS = 60 * 1000;
+export const REQUEST_LINK_COOLDOWN_MS = 10 * 60 * 1000;
 
 const inviteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -20,6 +28,23 @@ const inviteLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => req.user?.id || req.ip,
   message: { error: 'Too many invitation requests. Try again later.' },
+});
+
+// The public request-link route. The limit that holds on serverless is the
+// per-email one: cooldownLeft reads the auth user's own link timestamps,
+// which Supabase stores. This per-IP limiter lives in one function
+// instance's memory.
+// ponytail: an extra brake only; a durable per-IP limit needs a table (P1 report).
+const requestLinkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  // Vercel sets x-real-ip to the caller; the app does not trust proxies, so
+  // req.ip there is the platform's own address.
+  keyGenerator: (req) => String(req.get('x-real-ip') || req.ip),
+  validate: { xForwardedForHeader: false },
+  message: { error: 'Too many requests. Try again later.' },
 });
 
 function inviteMetadata({ name, role }) {
@@ -46,7 +71,7 @@ async function allAuthUsers(client) {
 export function onboardingStatus(profile, authUser) {
   if ((profile.status || '').toLowerCase() === 'archived') return 'archived';
   if ((profile.status || '').toLowerCase() === 'active') return 'active';
-  if (authUser?.invited_at && authUser.app_metadata?.onboarding_complete !== true) return 'invitation_pending';
+  if (isNotActivated(profile.status, authUser)) return 'invitation_pending';
   return (profile.status || 'inactive').toLowerCase();
 }
 
@@ -84,11 +109,15 @@ export async function listDirectory(res, getClient = adminClient) {
       users: (profiles || []).map((profile) => {
         const authUser = authById.get(profile.id);
         const setupIncomplete = Boolean(authUser?.invited_at && authUser.app_metadata?.onboarding_complete !== true);
+        const pending = isNotActivated(profile.status, authUser);
         return {
           ...profile,
           role: setupIncomplete ? (authUser?.app_metadata?.intended_role || profile.role) : profile.role,
           onboarding_status: onboardingStatus(profile, authUser),
-          can_resend_invitation: Boolean(authUser?.invited_at && !authUser?.email_confirmed_at),
+          // P1: every not-activated account can get a new link, also when
+          // the first one was opened (or scanned) without a password set.
+          can_resend_invitation: pending,
+          invite_link_state: pending ? inviteLinkState(authUser) : null,
           lrn: lrnById.get(profile.id) ?? null,
         };
       }),
@@ -118,9 +147,17 @@ export async function inviteUser(req, res, getClient = adminClient) {
   let studentCreated = false;
   try {
     const { data: existingProfile, error: lookupError } = await client
-      .from('profiles').select('id').eq('email', email).maybeSingle();
+      .from('profiles').select('id, status').eq('email', email).maybeSingle();
     if (lookupError) throw lookupError;
-    if (existingProfile) return res.status(409).json({ error: 'An account already uses this email address.' });
+    if (existingProfile) {
+      // Admins only (this router): say whether it is a pending invite, so
+      // the form can offer Resend instead.
+      const { data: existingAuth } = await client.auth.admin.getUserById(existingProfile.id);
+      if (isNotActivated(existingProfile.status, existingAuth?.user)) {
+        return res.status(409).json({ error: INVITE_PENDING, code: 'invite_pending' });
+      }
+      return res.status(409).json({ error: 'An account already uses this email address.', code: 'account_exists' });
+    }
 
     const authUsers = await allAuthUsers(client);
     if (authUsers.some((user) => user.email?.toLowerCase() === email)) {
@@ -168,7 +205,7 @@ export async function inviteUser(req, res, getClient = adminClient) {
     });
     if (inviteError) throw inviteError;
 
-    res.status(201).json({ user: { ...profile, role, onboarding_status: 'invitation_pending', can_resend_invitation: true, ...(lrn && { lrn }) } });
+    res.status(201).json({ user: { ...profile, role, onboarding_status: 'invitation_pending', can_resend_invitation: true, invite_link_state: 'invited', ...(lrn && { lrn }) } });
   } catch (err) {
     if (userId) await rollbackProvisioning(client, userId, profileCreated, studentCreated);
     console.error('[onboarding] invitation failed —', err.message);
@@ -177,35 +214,60 @@ export async function inviteUser(req, res, getClient = adminClient) {
 }
 adminUsersRouter.post('/invite', inviteLimiter, (req, res) => inviteUser(req, res));
 
-adminUsersRouter.post('/:id/resend-invitation', inviteLimiter, async (req, res) => {
+// Supabase's own per-user email limit (Auth > Rate limits) answers 429.
+const isEmailRateLimit = (err) => err?.status === 429 || err?.code === 'over_email_send_rate_limit';
+
+// P1: a new link for a not-activated account. A link that was never opened
+// is sent again as an invite. Once a link was opened (by the person or by a
+// mail scanner) Supabase has confirmed the email and refuses a second
+// invite, so a set-password (recovery) link goes out instead; it lands on
+// the same password setup (/complete accepts it). Never creates a user.
+// Links and tokens are never logged.
+async function sendSetupLink(client, profile, authUser) {
+  const email = authUser.email || profile.email;
+  const redirectTo = setupRedirect();
+  if (authUser.email_confirmed_at) {
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+    return 'recovery';
+  }
+  const { error } = await client.auth.admin.inviteUserByEmail(email, {
+    data: inviteMetadata({ name: profile.name, role: authUser.app_metadata?.intended_role || profile.role }),
+    redirectTo,
+  });
+  if (error) throw error;
+  return 'invite';
+}
+
+export async function resendInvitation(req, res, getClient = adminClient, now = Date.now) {
   try {
-    const client = adminClient();
+    const client = getClient();
     const { data: profile, error } = await client.from('profiles')
       .select('id, email, name, role, status').eq('id', req.params.id).maybeSingle();
     if (error) throw error;
     if (!profile) return res.status(404).json({ error: 'User not found.' });
     if (profile.status === 'archived') return res.status(409).json({ error: 'Archived accounts cannot receive invitations.' });
 
+    // profiles.id references auth.users ON DELETE CASCADE, so a profile
+    // always has its auth user: there is no "invite a missing user" case.
     const { data: authData, error: authError } = await client.auth.admin.getUserById(profile.id);
     if (authError || !authData?.user) throw authError || new Error('Authentication account not found.');
-    if (!authData.user.invited_at || authData.user.email_confirmed_at) {
+    if (!isNotActivated(profile.status, authData.user)) {
       return res.status(409).json({ error: 'This account no longer has a pending invitation.' });
     }
+    if (cooldownLeft(authData.user, RESEND_COOLDOWN_MS, now()) > 0) {
+      return res.status(429).json({ error: RESEND_COOLDOWN, code: 'resend_cooldown' });
+    }
 
-    const { error: inviteError } = await client.auth.admin.inviteUserByEmail(profile.email, {
-      data: inviteMetadata({
-        ...profile,
-        role: authData.user.app_metadata?.intended_role || profile.role,
-      }),
-      redirectTo: setupRedirect(),
-    });
-    if (inviteError) throw inviteError;
-    res.json({ message: 'Invitation sent again.' });
+    const link = await sendSetupLink(client, profile, authData.user);
+    res.json({ message: link === 'recovery' ? 'A set-password link was sent.' : 'Invitation sent again.', link });
   } catch (err) {
+    if (isEmailRateLimit(err)) return res.status(429).json({ error: RESEND_COOLDOWN, code: 'resend_cooldown' });
     console.error('[onboarding] resend failed —', err.message);
     res.status(502).json({ error: 'The invitation could not be resent. Try again.' });
   }
-});
+}
+adminUsersRouter.post('/:id/resend-invitation', inviteLimiter, (req, res) => resendInvitation(req, res));
 
 adminUsersRouter.patch('/:id/archive-state', async (req, res) => {
   try {
@@ -213,7 +275,7 @@ adminUsersRouter.patch('/:id/archive-state', async (req, res) => {
     const archived = req.body?.archived === true;
     const { data, error: authError } = await client.auth.admin.getUserById(req.params.id);
     if (authError || !data?.user) throw authError || new Error('Authentication account not found.');
-    const pending = Boolean(data.user.invited_at && data.user.app_metadata?.onboarding_complete !== true);
+    const pending = isNotActivated(undefined, data.user);
     let nextStatus = 'archived';
     let nextOnboardingStatus = 'archived';
     if (!archived) {
@@ -229,7 +291,8 @@ adminUsersRouter.patch('/:id/archive-state', async (req, res) => {
         ...profile,
         role: pending ? (data.user.app_metadata?.intended_role || profile.role) : profile.role,
         onboarding_status: nextOnboardingStatus,
-        can_resend_invitation: Boolean(pending && !data.user.email_confirmed_at),
+        can_resend_invitation: Boolean(pending && !archived),
+        invite_link_state: pending && !archived ? inviteLinkState(data.user) : null,
       },
     });
   } catch (err) {
@@ -239,6 +302,40 @@ adminUsersRouter.patch('/:id/archive-state', async (req, res) => {
 });
 
 export const onboardingRouter = Router();
+
+// P1: POST /api/onboarding/request-link { email }. Public. Always the same
+// answer, so it never tells whether an account exists or what state it is
+// in. Mail goes out only for a not-activated account, at most once per
+// REQUEST_LINK_COOLDOWN_MS per account. A short floor on the answer time
+// hides most of the difference between "nothing to do" and "sent".
+export async function requestLink(req, res, getClient = adminClient, { now = Date.now, minMs = 600 } = {}) {
+  const started = Date.now();
+  const raw = req.body?.email;
+  const email = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (email.length > 254 || !EMAIL.test(email)) return res.status(400).json({ error: REQUEST_LINK_INVALID });
+  try {
+    const client = getClient();
+    const { data: profile, error } = await client.from('profiles')
+      .select('id, email, name, role, status').eq('email', email).maybeSingle();
+    if (error) throw error;
+    if (profile) {
+      const { data: authData, error: authError } = await client.auth.admin.getUserById(profile.id);
+      if (authError) throw authError;
+      const authUser = authData?.user;
+      if (isNotActivated(profile.status, authUser) && cooldownLeft(authUser, REQUEST_LINK_COOLDOWN_MS, now()) === 0) {
+        await sendSetupLink(client, profile, authUser);
+      }
+    }
+  } catch (err) {
+    // Logged without the address; the caller still gets the same answer.
+    console.error('[onboarding] request-link failed —', err?.message);
+  }
+  const wait = minMs - (Date.now() - started);
+  if (wait > 0) await new Promise((resolve) => { setTimeout(resolve, wait); });
+  res.json({ message: REQUEST_LINK_SENT });
+}
+onboardingRouter.post('/request-link', requestLinkLimiter, (req, res) => requestLink(req, res));
+
 onboardingRouter.post('/complete', requireSession, async (req, res) => {
   const passwordError = validatePassword(req.body?.password);
   if (passwordError) return res.status(400).json({ error: passwordError });

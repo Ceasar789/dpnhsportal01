@@ -19,7 +19,7 @@ describe('invitation callback routing', () => {
       loading: false,
       user: null,
       profileStatus: null,
-    })).toEqual({ destination: '/setup-password', preserveHash: false });
+    })).toEqual({ destination: '/setup-password', preserveHash: true });
   });
 
   it('holds a root callback while Supabase restores its session', () => {

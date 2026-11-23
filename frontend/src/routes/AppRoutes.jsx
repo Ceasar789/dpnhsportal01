@@ -22,6 +22,8 @@ import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword  from '../pages/auth/ResetPassword';
 import ChangePassword from '../pages/auth/ChangePassword';
 import VerifyEmail    from '../pages/auth/VerifyEmail';
+import ConfirmLink    from '../pages/auth/ConfirmLink';
+import RequestLink    from '../pages/auth/RequestLink';
 
 // Dashboard Pages
 import StudentDashboard   from '../pages/dashboards/student/StudentDashboard';
@@ -48,6 +50,8 @@ const AppRoutes = () => {
         <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
         <Route path="/reset-password"  element={<PageTransition><ResetPassword /></PageTransition>} />
         <Route path="/setup-password"  element={<PageTransition><ResetPassword invitation /></PageTransition>} />
+        <Route path="/auth/confirm"    element={<PageTransition><ConfirmLink /></PageTransition>} />
+        <Route path="/request-link"    element={<PageTransition><RequestLink /></PageTransition>} />
         <Route path="/verify-email"    element={<PageTransition><VerifyEmail /></PageTransition>} />
 
         {/* PROTECTED */}

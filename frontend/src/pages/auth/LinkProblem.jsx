@@ -15,6 +15,8 @@ import FormErrorSummary from '../../components/ui/form/FormErrorSummary';
 import { compose, email as emailRule, EMAIL_MESSAGE, required } from '../../lib/formRules';
 import { friendlyError } from '../../lib/friendlyError';
 import { LINK_PROBLEMS, REQUEST_LINK_MESSAGES, requestNewLink } from '../../lib/authLinks';
+import TurnstileWidget from '../../components/ui/form/TurnstileWidget';
+import { CAPTCHA_MESSAGES, turnstileSiteKey } from '../../lib/turnstile';
 
 const checkEmail = compose(required(REQUEST_LINK_MESSAGES.emailRequired), emailRule());
 const EMAIL_ID = 'request-link-email';
@@ -47,6 +49,9 @@ export function RequestLinkForm({ initialEmail = '' }) {
   const [attempt, setAttempt] = useState(0);
   const [failure, setFailure] = useState('');
   const [sent, setSent] = useState(false);
+  // P2: optional security check; absent key = no widget, no token, as before.
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaReset, setCaptchaReset] = useState(0);
   const busy = useRef(false);
   const [busyShown, setBusyShown] = useState(false);
   const done = useRef(null);
@@ -58,18 +63,20 @@ export function RequestLinkForm({ initialEmail = '' }) {
     const problem = checkEmail(value);
     if (problem) { setError(problem); setAttempt(a => a + 1); return; }
     setError(null);
+    if (turnstileSiteKey() && !captchaToken) { setFailure(CAPTCHA_MESSAGES.needed); return; }
     setFailure('');
     busy.current = true;
     setBusyShown(true);
     try {
-      await requestNewLink(value);
+      await (captchaToken ? requestNewLink(value, { captchaToken }) : requestNewLink(value));
       setSent(true);
     } catch (err) {
-      if (err?.status === 400) { setError(EMAIL_MESSAGE); setAttempt(a => a + 1); }
+      if (err?.status === 400 && err.code !== 'captcha_failed') { setError(EMAIL_MESSAGE); setAttempt(a => a + 1); }
       else setFailure(friendlyError(err, { fallback: REQUEST_LINK_MESSAGES.failed }));
     } finally {
       busy.current = false;
       setBusyShown(false);
+      setCaptchaReset((n) => n + 1);
     }
   };
 
@@ -94,6 +101,7 @@ export function RequestLinkForm({ initialEmail = '' }) {
         <input type="email" inputMode="email" name="email" autoComplete="email" autoCapitalize="none" spellCheck={false}
           value={value} onChange={(e) => setValue(e.target.value)} />
       </Field>
+      <TurnstileWidget onToken={setCaptchaToken} resetSignal={captchaReset} action="request-link" />
       <button type="submit" aria-busy={busyShown || undefined}
         className="w-full min-h-12 px-4 py-2 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity"
         style={{ backgroundColor: '#0d2b5c' }}>

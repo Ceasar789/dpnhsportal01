@@ -6,6 +6,8 @@ import { Eye, EyeOff, Mail, Lock, ChevronDown, AlertTriangle } from 'lucide-reac
 import FlippingLogo from '../../components/FlippingLogo';
 import ConsentCheckbox from '../../components/auth/ConsentCheckbox';
 import { loginErrorMessage } from '../../lib/loginAttemptLimit';
+import TurnstileWidget from '../../components/ui/form/TurnstileWidget';
+import { CAPTCHA_MESSAGES, turnstileSiteKey } from '../../lib/turnstile';
 
 const ROLE_OPTIONS = [
   { value: 'main_admin', label: 'Admin',      color: '#b91c1c', route: '/admin-dashboard' },
@@ -38,6 +40,9 @@ const FacultyLogin = () => {
   // Consent is asked at every sign-in and never stored.
   const [agreed, setAgreed] = useState(false);
   const [consentError, setConsentError] = useState(false);
+  // P2: optional security check; absent key = no widget, no token, as before.
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaReset, setCaptchaReset] = useState(0);
   const consentRef = useRef(null);
   const selectedRoleRef = useRef(selectedRole);
   const roleFieldRef = useRef(null);
@@ -125,6 +130,7 @@ const FacultyLogin = () => {
     if (!email.trim() || !password) { setErrorMessage('Please fill in all fields'); return; }
     // After the existing checks: no consent, no sign-in attempt.
     if (!agreed) { setErrorMessage(''); setConsentError(true); consentRef.current?.focus(); return; }
+    if (turnstileSiteKey() && !captchaToken) { setErrorMessage(CAPTCHA_MESSAGES.needed); return; }
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setIsLoading(true);
@@ -139,8 +145,9 @@ const FacultyLogin = () => {
     }, 30000);
 
     try {
-      await login(email, password, selectedRole);
+      await (captchaToken ? login(email, password, selectedRole, { captchaToken }) : login(email, password, selectedRole));
     } catch (error) {
+      setCaptchaReset((n) => n + 1);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       console.error('Login error:', error);
       if (error.message?.startsWith('ROLE_MISMATCH:')) {
@@ -228,6 +235,8 @@ const FacultyLogin = () => {
 
             <ConsentCheckbox id="faculty-consent" inputRef={consentRef} checked={agreed} error={consentError}
               onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setConsentError(false); }} />
+
+            <TurnstileWidget onToken={setCaptchaToken} resetSignal={captchaReset} action="sign-in" />
 
             <button type="submit" disabled={isLoading} aria-busy={isLoading} className="w-full h-12 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity disabled:opacity-50" style={{ backgroundColor: currentRole?.color || '#0d2b5c' }}>
               {isLoading ? <div className="flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" /><span className="sr-only">Signing in</span></div> : `Sign In${currentRole ? ` as ${currentRole.label}` : ''}`}

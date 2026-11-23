@@ -8,6 +8,11 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Mail, CheckCircle2, AlertTriangle } from 'lucide-react';
 import FlippingLogo from '../../components/FlippingLogo';
+import TurnstileWidget from '../../components/ui/form/TurnstileWidget';
+import { CAPTCHA_MESSAGES, turnstileSiteKey } from '../../lib/turnstile';
+import { friendlyError } from '../../lib/friendlyError';
+
+const SEND_FAILED = 'Failed to send reset email. Please check the address and try again.';
 
 const ForgotPassword = () => {
   const { sendPasswordReset } = useAuth();
@@ -15,21 +20,27 @@ const ForgotPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage]     = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  // P2: optional security check; absent key = no widget, no token, as before.
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim()) { setMessage('Please enter your email address'); setIsSuccess(false); return; }
+    if (turnstileSiteKey() && !captchaToken) { setMessage(CAPTCHA_MESSAGES.needed); setIsSuccess(false); return; }
     setIsLoading(true);
     setMessage('');
     try {
-      await sendPasswordReset(email);
+      await (captchaToken ? sendPasswordReset(email, { captchaToken }) : sendPasswordReset(email));
       setMessage('Password reset email sent! Check your inbox.');
       setIsSuccess(true);
     } catch (error) {
-      setMessage('Failed to send reset email. Please check the address and try again.');
+      // Fixed sentences only; the answer never depends on whether the address has an account.
+      setMessage(error?.code === 'captcha_failed' ? friendlyError(error) : SEND_FAILED);
       setIsSuccess(false);
     } finally {
       setIsLoading(false);
+      setCaptchaReset((n) => n + 1);
     }
   };
 
@@ -70,6 +81,8 @@ const ForgotPassword = () => {
                   style={{ backgroundColor: '#F8F9FA', border: '1px solid #E5E7EB' }} />
               </div>
             </div>
+
+            <TurnstileWidget onToken={setCaptchaToken} resetSignal={captchaReset} action="forgot-password" />
 
             <button type="submit" disabled={isLoading} aria-busy={isLoading}
               className="w-full h-12 rounded-md text-white font-semibold text-base hover:opacity-90 transition-opacity disabled:opacity-50"

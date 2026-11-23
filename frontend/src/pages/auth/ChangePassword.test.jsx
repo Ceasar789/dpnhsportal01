@@ -5,7 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({
   navigate: vi.fn(),
-  updatePassword: vi.fn(),
+  verifyCurrentPassword: vi.fn(),
+  sendPasswordCode: vi.fn(),
+  changePassword: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => ({
@@ -13,7 +15,14 @@ vi.mock('react-router-dom', async (importOriginal) => ({
   useNavigate: () => h.navigate,
 }));
 vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({ updatePassword: h.updatePassword, userData: { email: 'admin@example.test' } }),
+  useAuth: () => ({ userData: { email: 'admin@example.test' } }),
+}));
+// P2: the password change goes through lib/passwordSecurity (current password, emailed code, update).
+vi.mock('../../lib/passwordSecurity', async (importOriginal) => ({
+  ...(await importOriginal()),
+  verifyCurrentPassword: h.verifyCurrentPassword,
+  sendPasswordCode: h.sendPasswordCode,
+  changePassword: h.changePassword,
 }));
 vi.mock('../../components/FlippingLogo', () => ({ default: () => <div data-testid="logo" /> }));
 
@@ -23,8 +32,19 @@ const renderPage = () => render(<MemoryRouter><ChangePassword /></MemoryRouter>)
 
 beforeEach(() => {
   h.navigate.mockReset();
-  h.updatePassword.mockReset();
+  h.verifyCurrentPassword.mockReset().mockResolvedValue();
+  h.sendPasswordCode.mockReset().mockResolvedValue();
+  h.changePassword.mockReset();
 });
+const fillCurrent = () => fireEvent.change(screen.getByLabelText('CURRENT PASSWORD'), { target: { value: 'OldPassword1!' } });
+const toCodeStep = async () => {
+  fillCurrent();
+  fireEvent.change(screen.getByLabelText('NEW PASSWORD'), { target: { value: 'ValidPassword1!' } });
+  fireEvent.change(screen.getByLabelText('CONFIRM NEW PASSWORD'), { target: { value: 'ValidPassword1!' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
+  fireEvent.change(await screen.findByLabelText('CODE FROM THE EMAIL'), { target: { value: '123456' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
+};
 afterEach(cleanup);
 
 describe('Change Password presentation and behavior', () => {
@@ -48,7 +68,8 @@ describe('Change Password presentation and behavior', () => {
 
   it('CP-03 exposes the password toggle with an accessible pressed state', () => {
     renderPage();
-    const [toggle] = screen.getAllByRole('button', { name: 'Show password' });
+    const newId = screen.getByLabelText('NEW PASSWORD').id;
+    const toggle = screen.getAllByRole('button', { name: 'Show password' }).find(b => b.getAttribute('aria-controls') === newId);
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(toggle);
     expect(screen.getAllByRole('button', { name: 'Hide password' })[0].getAttribute('aria-pressed')).toBe('true');
@@ -57,38 +78,40 @@ describe('Change Password presentation and behavior', () => {
 
   it('CP-04 rejects a weak password without invoking authentication', () => {
     renderPage();
+    fillCurrent();
     fireEvent.change(screen.getByLabelText('NEW PASSWORD'), { target: { value: 'weak' } });
     fireEvent.change(screen.getByLabelText('CONFIRM NEW PASSWORD'), { target: { value: 'weak' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Update Password' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
     expect(screen.getByRole('alert')).toBeTruthy();
-    expect(h.updatePassword).not.toHaveBeenCalled();
+    expect(h.verifyCurrentPassword).not.toHaveBeenCalled();
+    expect(h.changePassword).not.toHaveBeenCalled();
   });
 
   it('CP-05 rejects mismatched passwords without invoking authentication', () => {
     renderPage();
+    fillCurrent();
     fireEvent.change(screen.getByLabelText('NEW PASSWORD'), { target: { value: 'ValidPassword1!' } });
     fireEvent.change(screen.getByLabelText('CONFIRM NEW PASSWORD'), { target: { value: 'ValidPassword2!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Update Password' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
     expect(screen.getByRole('alert').textContent).toMatch(/do not match/i);
-    expect(h.updatePassword).not.toHaveBeenCalled();
+    expect(h.verifyCurrentPassword).not.toHaveBeenCalled();
+    expect(h.changePassword).not.toHaveBeenCalled();
   });
 
-  it('CP-06 preserves the existing successful password-update call', async () => {
-    h.updatePassword.mockResolvedValue();
+  it('CP-06 changes the password after the current password and the emailed code', async () => {
+    h.changePassword.mockResolvedValue({ othersSignedOut: true });
     renderPage();
-    fireEvent.change(screen.getByLabelText('NEW PASSWORD'), { target: { value: 'ValidPassword1!' } });
-    fireEvent.change(screen.getByLabelText('CONFIRM NEW PASSWORD'), { target: { value: 'ValidPassword1!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Update Password' }));
-    await waitFor(() => expect(h.updatePassword).toHaveBeenCalledWith('ValidPassword1!'));
-    expect(await screen.findByText('Password changed successfully!')).toBeTruthy();
+    await toCodeStep();
+    await waitFor(() => expect(h.changePassword).toHaveBeenCalledWith({ password: 'ValidPassword1!', code: '123456', currentPassword: 'OldPassword1!' }));
+    expect(h.verifyCurrentPassword).toHaveBeenCalledWith('OldPassword1!', { captchaToken: '' });
+    expect(h.sendPasswordCode).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Your password was changed.')).toBeTruthy();
   });
 
   it('CP-07 preserves safe authentication failure feedback', async () => {
-    h.updatePassword.mockRejectedValue(new Error('private auth detail'));
+    h.changePassword.mockRejectedValue(new Error('private auth detail'));
     renderPage();
-    fireEvent.change(screen.getByLabelText('NEW PASSWORD'), { target: { value: 'ValidPassword1!' } });
-    fireEvent.change(screen.getByLabelText('CONFIRM NEW PASSWORD'), { target: { value: 'ValidPassword1!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Update Password' }));
+    await toCodeStep();
     expect(await screen.findByText('Failed to change password. Please try again.')).toBeTruthy();
     expect(screen.queryByText('private auth detail')).toBeNull();
   });
@@ -101,6 +124,8 @@ describe('Change Password presentation and behavior', () => {
 
   it('CP-09 does not invoke authentication while merely rendering the new surface', () => {
     renderPage();
-    expect(h.updatePassword).not.toHaveBeenCalled();
+    expect(h.verifyCurrentPassword).not.toHaveBeenCalled();
+    expect(h.sendPasswordCode).not.toHaveBeenCalled();
+    expect(h.changePassword).not.toHaveBeenCalled();
   });
 });

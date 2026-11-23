@@ -302,7 +302,9 @@ export const AuthProvider = ({ children }) => {
   // completely unaffected. FacultyLogin calls login(email, password, selectedRole)
   // so the role check happens BEFORE isAuthenticated is ever set to true —
   // closing the race-condition window (ID-010 / VULN: role mismatch).
-  const login = async (email, password, expectedRole = null) => {
+  // P2: captchaToken is sent only when the optional security check
+  // (Turnstile) is on; without it the call is exactly as before.
+  const login = async (email, password, expectedRole = null, { captchaToken } = {}) => {
     setLoading(true);
     setError(null);
     loginInProgressRef.current = true;
@@ -333,6 +335,7 @@ export const AuthProvider = ({ children }) => {
         const { data, error: authError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
+          ...(captchaToken ? { options: { captchaToken } } : {}),
         });
 
         if (authError) throw authError;
@@ -418,6 +421,7 @@ export const AuthProvider = ({ children }) => {
         // them would turn five user submissions into ten backend attempts.
         if (isCredentialFailure(err)
             || err.code === 'over_request_rate_limit'
+            || err.code === 'captcha_failed' // a security-check token works only once
             || /too many requests/i.test(err.message || '')
             || err.message?.startsWith('ROLE_MISMATCH:')
             || err.message === 'ARCHIVED_ACCOUNT'
@@ -463,7 +467,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const sendPasswordReset = async (email) => {
+  const sendPasswordReset = async (email, { captchaToken } = {}) => {
     // Follows whatever origin the app is served from, rather than a
     // hardcoded domain. The previous value was a Vercel URL that died the
     // moment the project was renamed, and that failure is invisible from
@@ -476,6 +480,7 @@ export const AuthProvider = ({ children }) => {
     // Redirect URLs. Unlisted, it silently falls back to the Site URL.
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/reset-password`,
+      ...(captchaToken ? { captchaToken } : {}),
     });
 
     if (resetError) throw resetError;

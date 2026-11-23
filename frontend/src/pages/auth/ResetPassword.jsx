@@ -14,6 +14,7 @@ import PasswordField from '../../components/ui/form/PasswordField';
 import FlippingLogo from '../../components/FlippingLogo';
 import LinkProblem from './LinkProblem';
 import { linkErrorCode, linkProblemKind } from '../../lib/authLinks';
+import { signOutOtherSessions } from '../../lib/passwordSecurity';
 
 const ResetPassword = ({ invitation = false }) => {
   const navigate = useNavigate();
@@ -93,6 +94,8 @@ const ResetPassword = ({ invitation = false }) => {
       } else {
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
+        // P2: every other device signs in again with the new password.
+        await signOutOtherSessions();
       }
       setIsSuccess(true);
       setMessage(`${invitation ? 'Account activated' : 'Password updated'} successfully! Redirecting to login...`);

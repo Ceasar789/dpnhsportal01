@@ -53,6 +53,11 @@ export const MESSAGES = Object.freeze({
   linkExpired: 'This link has expired or was already used. Ask for a new one.',
   notAssigned: "You aren't assigned to this subject and grade.",
   pastYear: "Past school years can't be changed.",
+  // P2: password security
+  captcha: "The security check didn't pass. Complete it again, then retry.",
+  codeInvalid: 'That code is wrong or has expired. Use the newest code from your email, or send a new one.',
+  codeNeeded: 'Enter the code we sent to your email.',
+  currentPassword: 'Your current password is incorrect.',
 });
 
 // Known error codes. Postgres SQLSTATE, PostgREST, Supabase Auth, and the
@@ -87,6 +92,11 @@ export const CODE_TABLE = Object.freeze({
   refresh_token_not_found: 'session',
   over_email_send_rate_limit: 'rateLimit',
   over_request_rate_limit: 'rateLimit',
+  captcha_failed: 'captcha',
+  reauthentication_not_valid: 'codeInvalid', // wrong OR expired code: Supabase answers both alike
+  reauthentication_needed: 'codeNeeded',
+  current_password_mismatch: 'currentPassword',
+  current_password_required: 'currentPassword',
   // App codes (backend trusted persistence, RPC guards, invite route)
   not_authenticated: 'session',
   inactive_or_wrong_role: 'permission',

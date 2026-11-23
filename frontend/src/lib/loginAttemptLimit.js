@@ -62,6 +62,7 @@ export const loginErrorMessage = (error) => {
   const message = error?.message || '';
   if (/invalid login credentials/i.test(message)) return 'Invalid email or password';
   if (/email not confirmed/i.test(message)) return 'Please verify your email first';
+  if (error?.code === 'captcha_failed') return "The security check didn't pass. Complete it again, then retry.";
   if (error?.code === 'over_request_rate_limit' || /too many requests|over_request_rate_limit/i.test(message)) {
     return 'Too many attempts. Please try again later';
   }

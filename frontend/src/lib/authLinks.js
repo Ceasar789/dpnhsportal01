@@ -87,11 +87,15 @@ export const REQUEST_LINK_MESSAGES = Object.freeze({
 });
 
 /** Ask the server for a new link. The answer is the same for every address. */
-export async function requestNewLink(email) {
+export async function requestNewLink(email, { captchaToken } = {}) {
   const response = await fetch(`${API_BASE}/api/onboarding/request-link`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: String(email || '').trim() }),
+    body: JSON.stringify({ email: String(email || '').trim(), ...(captchaToken ? { captchaToken } : {}) }),
   });
-  if (!response.ok) throw Object.assign(new Error('request-link failed'), { status: response.status });
+  if (!response.ok) {
+    // Only our own code is read (to tell "security check failed" from "bad email"); no text is shown.
+    const code = response.status === 400 && typeof response.json === 'function' ? await response.json().then((b) => b?.code, () => undefined) : undefined;
+    throw Object.assign(new Error('request-link failed'), { status: response.status, code });
+  }
 }

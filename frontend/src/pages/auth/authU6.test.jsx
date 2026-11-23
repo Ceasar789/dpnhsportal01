@@ -30,10 +30,11 @@ const checklist = () => screen.getByRole('list', { name: 'Password rules' });
 const states = () => within(checklist()).getAllByRole('listitem').map(li => li.getAttribute('data-met'));
 const RULE_TEXT = ['At least 12 characters', 'One uppercase letter (A-Z)', 'One number (0-9)', 'One special character (like ! or #)'];
 
+// P2: Change Password also asks for the current password (filled here) and its submit is "Send code".
 describe.each([
-  ['Change Password', async () => { render(<MemoryRouter><ChangePassword /></MemoryRouter>); }, 'CONFIRM NEW PASSWORD'],
-  ['Reset Password', async () => { render(<MemoryRouter><ResetPassword /></MemoryRouter>); await screen.findByLabelText('NEW PASSWORD'); }, 'CONFIRM PASSWORD'],
-])('U6 %s', (_name, open, CONFIRM) => {
+  ['Change Password', async () => { render(<MemoryRouter><ChangePassword /></MemoryRouter>); fireEvent.change(screen.getByLabelText('CURRENT PASSWORD'), { target: { value: 'OldPassword1!' } }); }, 'CONFIRM NEW PASSWORD', 'Send code'],
+  ['Reset Password', async () => { render(<MemoryRouter><ResetPassword /></MemoryRouter>); await screen.findByLabelText('NEW PASSWORD'); }, 'CONFIRM PASSWORD', 'Update Password'],
+])('U6 %s', (_name, open, CONFIRM, SUBMIT) => {
   it('the new password has the live checklist of the real rules, described by the field', async () => {
     await open();
     const input = screen.getByLabelText('NEW PASSWORD');
@@ -52,7 +53,7 @@ describe.each([
     await open();
     expect(screen.getAllByRole('list', { name: 'Password rules' })).toHaveLength(1);
     const toggles = screen.getAllByRole('button', { name: 'Show password' });
-    expect(toggles.map(t => t.getAttribute('aria-controls'))).toEqual([screen.getByLabelText('NEW PASSWORD').id, screen.getByLabelText(CONFIRM).id]);
+    expect(toggles.slice(-2).map(t => t.getAttribute('aria-controls'))).toEqual([screen.getByLabelText('NEW PASSWORD').id, screen.getByLabelText(CONFIRM).id]);
     for (const label of ['NEW PASSWORD', CONFIRM]) {
       expect(screen.getByLabelText(label).getAttribute('autocomplete')).toBe('new-password');
       expect(screen.getByLabelText(label).className).toContain('fk-control');
@@ -63,8 +64,8 @@ describe.each([
     await open();
     fireEvent.change(screen.getByLabelText('NEW PASSWORD'), { target: { value: 'abcdefghijkl' } });
     fireEvent.change(screen.getByLabelText(CONFIRM), { target: { value: 'abcdefghijkl' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Update Password' }));
-    expect(screen.getByRole('alert').textContent).toBe('Password must contain at least one uppercase letter');
+    fireEvent.click(screen.getByRole('button', { name: SUBMIT }));
+    expect(screen.getByRole('alert').textContent).toContain('Password must contain at least one uppercase letter');
     expect(h.updatePassword).not.toHaveBeenCalled();
     expect(h.updateUser).not.toHaveBeenCalled();
   });

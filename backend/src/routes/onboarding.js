@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { adminClient, requireAuth, requireSession } from '../middleware/requireAuth.js';
 import { validatePassword } from '../../../shared/passwordPolicy.js';
+import { verifyTurnstile } from '../lib/turnstile.js';
 import { cooldownLeft, inviteLinkState, isNotActivated } from '../../../shared/inviteState.js';
 
 const ADMIN_ROLES = ['main_admin'];
@@ -308,11 +309,15 @@ export const onboardingRouter = Router();
 // in. Mail goes out only for a not-activated account, at most once per
 // REQUEST_LINK_COOLDOWN_MS per account. A short floor on the answer time
 // hides most of the difference between "nothing to do" and "sent".
-export async function requestLink(req, res, getClient = adminClient, { now = Date.now, minMs = 600 } = {}) {
+export async function requestLink(req, res, getClient = adminClient, { now = Date.now, minMs = 600, verifyCaptcha = verifyTurnstile } = {}) {
   const started = Date.now();
   const raw = req.body?.email;
   const email = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   if (email.length > 254 || !EMAIL.test(email)) return res.status(400).json({ error: REQUEST_LINK_INVALID });
+  // P2: optional security check (on only when TURNSTILE_SECRET_KEY is set).
+  if (!(await verifyCaptcha(req.body?.captchaToken))) {
+    return res.status(400).json({ error: 'The security check did not pass. Complete it again, then retry.', code: 'captcha_failed' });
+  }
   try {
     const client = getClient();
     const { data: profile, error } = await client.from('profiles')
@@ -336,12 +341,14 @@ export async function requestLink(req, res, getClient = adminClient, { now = Dat
 }
 onboardingRouter.post('/request-link', requestLinkLimiter, (req, res) => requestLink(req, res));
 
-onboardingRouter.post('/complete', requireSession, async (req, res) => {
+// The invitee's first password. The 12-character policy is checked here, on
+// the server, before anything else (P2 test: onboarding.p2.test.js).
+export async function completeOnboarding(req, res, getClient = adminClient) {
   const passwordError = validatePassword(req.body?.password);
   if (passwordError) return res.status(400).json({ error: passwordError });
 
   try {
-    const client = adminClient();
+    const client = getClient();
     const { data: profile, error: profileError } = await client.from('profiles')
       .select('id, status').eq('id', req.authUser.id).maybeSingle();
     if (profileError) throw profileError;
@@ -381,4 +388,5 @@ onboardingRouter.post('/complete', requireSession, async (req, res) => {
     console.error('[onboarding] password setup failed —', err.message);
     res.status(502).json({ error: 'Password setup could not be completed. The invitation can be tried again.' });
   }
-});
+}
+onboardingRouter.post('/complete', requireSession, (req, res) => completeOnboarding(req, res));

@@ -17,6 +17,7 @@ import { Toast } from '../../../pages/dashboards/teacher/shared/ui';
 import useQuickCreateAssignments from '../../../pages/dashboards/teacher/lessonPlans/useQuickCreateAssignments';
 import MaterialFormModal from './materials/MaterialFormModal';
 import { DEPED_MODULES } from './materials/depedModules';
+import { GRADE_LEVELS } from '../../../lib/academicRules';
 import {
   filterMaterials, metaLine, safeLink, subjectChips, subjectGradeLine, subjectOptions, typeLabel, typeOptions,
 } from './materials/materialRules';
@@ -58,6 +59,7 @@ const ClarityTeacherMaterialsTab = () => {
   const [query, setQuery] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [type, setType] = useState('');
+  const [grade, setGrade] = useState('');
   const [dialog, setDialog] = useState(null);
   const [openingId, setOpeningId] = useState(null);
   const addRef = useRef(null);
@@ -106,7 +108,12 @@ const ClarityTeacherMaterialsTab = () => {
   const activeType = types.includes(type) ? type : '';
   const shown = useMemo(() => filterMaterials(rows, { query, subjectId: activeSubject, type: activeType }),
     [rows, query, activeSubject, activeType]);
-  const filtering = Boolean(query.trim() || activeSubject || activeType);
+  // Design p20 (4e): the teacher's own materials by grade, with counts.
+  const gradeChips = useMemo(() => GRADE_LEVELS.map(level => [level, rows.filter(r => r.grade_level === level).length])
+    .filter(([, count]) => count > 0), [rows]);
+  const activeGrade = gradeChips.some(([level]) => level === grade) ? grade : '';
+  const listed = activeGrade ? shown.filter(r => r.grade_level === activeGrade) : shown;
+  const filtering = Boolean(query.trim() || activeSubject || activeType || activeGrade);
 
   const openFile = async (row) => {
     if (openingId) return;
@@ -139,7 +146,7 @@ const ClarityTeacherMaterialsTab = () => {
     addRef.current?.focus();
   }, [dialog]);
 
-  const clearFilters = () => { setQuery(''); setSubjectId(''); setType(''); };
+  const clearFilters = () => { setQuery(''); setSubjectId(''); setType(''); setGrade(''); };
 
   return (
     <div className="x-tlm">
@@ -173,6 +180,16 @@ const ClarityTeacherMaterialsTab = () => {
               </label>
             )}
           </div>
+          {gradeChips.length > 1 && (
+            <div className="x-tlm-chips" role="group" aria-label="Filter by grade">
+              <button type="button" className={`x-chip${activeGrade ? '' : ' on'}`} aria-pressed={!activeGrade}
+                onClick={() => setGrade('')}>All grades ({rows.length})</button>
+              {gradeChips.map(([level, count]) => (
+                <button key={level} type="button" className={`x-chip${activeGrade === level ? ' on' : ''}`}
+                  aria-pressed={activeGrade === level} onClick={() => setGrade(level)}>{level} ({count})</button>
+              ))}
+            </div>
+          )}
           {chips.length > 0 && (
             <div className="x-tlm-chips" role="group" aria-label="Filter by subject">
               <button type="button" className={`x-chip${activeSubject ? '' : ' on'}`} aria-pressed={!activeSubject}
@@ -202,14 +219,14 @@ const ClarityTeacherMaterialsTab = () => {
           <b>No learning materials yet.</b>
           <span className="x-cs">Add a file or a link to keep your teaching materials in one place.</span>
         </div>
-      ) : shown.length === 0 ? (
+      ) : listed.length === 0 ? (
         <div className="x-card x-pad x-tlm-none">
           <b>No materials match your search or filters.</b>
           {filtering && <button type="button" className="x-btn x-tlm-clear" onClick={clearFilters}>Clear filters</button>}
         </div>
       ) : (
         <ul className="x-tlm-grid" aria-label="Learning materials">
-          {shown.map((row) => {
+          {listed.map((row) => {
             const sg = subjectGradeLine(row);
             const meta = metaLine(row);
             const link = row.kind === 'link' ? safeLink(row.link_url) : null;

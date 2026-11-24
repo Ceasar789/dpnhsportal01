@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BarChart3, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Settings, UserRound, X,
+  BarChart3, BookOpen, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Settings, UserRound, X,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -34,6 +34,8 @@ import { overviewSummary } from './overviewSummary';
 import ClarityStudentProfileTab from './ClarityStudentProfileTab';
 import ClarityStudentAttendanceTab from './ClarityStudentAttendanceTab';
 import ClarityStudentAnnouncementsTab from './ClarityStudentAnnouncementsTab';
+import ClarityStudentMaterialsTab from './ClarityStudentMaterialsTab';
+import { studentMaterialsFlagEnabled } from './studentMaterials';
 import '../../../styles/top-title.css';
 
 // Routes shown with a Clarity page instead of the classic tab (the classic
@@ -42,6 +44,8 @@ const CLARITY_PAGES = {
   '/student-dashboard/attendance': ClarityStudentAttendanceTab,
   '/student-dashboard/announcements': ClarityStudentAnnouncementsTab,
   '/student-dashboard/profile': ClarityStudentProfileTab,
+  // 4e: only with VITE_STUDENT_LEARNING_MATERIALS_ENABLED=1 (needs autorun/sql/4e).
+  ...(studentMaterialsFlagEnabled() ? { '/student-dashboard/materials': ClarityStudentMaterialsTab } : {}),
 };
 
 // Classic tabs shown in the final design's layout by scoped CSS only (S2b):
@@ -62,6 +66,7 @@ const STUDENT_NAV = [
   { path: '/student-dashboard/scores', icon: BarChart3, label: 'Scores' },
   { path: '/student-dashboard/attendance', icon: CalendarCheck, label: 'Attendance' },
   { path: '/student-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
+  ...(studentMaterialsFlagEnabled() ? [{ path: '/student-dashboard/materials', icon: BookOpen, label: 'Learning Materials' }] : []),
 ];
 
 const ClarityStudentLayout = ({ children }) => {

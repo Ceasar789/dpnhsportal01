@@ -3,7 +3,6 @@
 // ANNOUNCEMENTS TAB — published school news, read when the tab opens or on Refresh.
 // Split from the original monolithic StudentDashboard.jsx (1,123 lines)
 // ============================================
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
@@ -15,6 +14,7 @@ import PageHeader from '../PageHeader';
 import { INFO, RED } from '../badgeTones';
 import { isNewAnnouncement } from '../announcementAge';
 import { localNowTimestamp } from '../../../../lib/taskFormatting';
+import { canReadNews } from '../../../../lib/newsAudience';
 
 const AnnouncementsTab = () => {
   const { userData } = useAuth();
@@ -60,6 +60,8 @@ const AnnouncementsTab = () => {
     a.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     a.content?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  // 4j: only posts addressed to students (lib/newsAudience.js).
+  const shown = filtered.filter(a => canReadNews(a, 'student'));
 
   return (
     <div className="p-6">
@@ -91,7 +93,7 @@ const AnnouncementsTab = () => {
             <Btn className="min-h-11" onClick={fetchAnnouncements}>Retry</Btn>
           </div>
         </Card>
-      ) : filtered.length === 0 ? (
+      ) : shown.length === 0 ? (
         <Card className="p-8 text-center">
           <Megaphone size={40} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
           <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>No announcements are available right now.</p>
@@ -99,7 +101,7 @@ const AnnouncementsTab = () => {
         </Card>
       ) : (
         <div className="space-y-4">
-          {filtered.map((announcement, i) => (
+          {shown.map((announcement, i) => (
             <Card key={announcement.id || i} className="p-5">
               <div className="flex items-center gap-2 mb-2">
                 {isNewAnnouncement(announcement.created_at, now) && <Badge color={INFO.color} bg={INFO.bg}>NEW</Badge>}

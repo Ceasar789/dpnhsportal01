@@ -13,6 +13,8 @@ import { ArrowRight, ExternalLink, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { localNowTimestamp } from '../../lib/taskFormatting';
+import { friendlyError } from '../../lib/friendlyError';
+import { canReadNews, newsAudienceFilter } from '../../lib/newsAudience';
 import { Skeleton, SkeletonGroup } from '../../components/ui/Skeleton';
 
 const News = () => {
@@ -38,10 +40,8 @@ const News = () => {
     fetchNews();
   }, [userData?.role]);
 
-  const canViewNews = (item, role) => {
-    const targets = (item.target_roles || 'all').split(',').map(target => target.trim().toLowerCase());
-    return targets.includes('all') || targets.includes(role) || (targets.includes('staff') && ['teacher', 'faculty', 'registrar', 'main_admin'].includes(role));
-  };
+  // 4j: the audience rule lives in lib/newsAudience.js (query + screen).
+  const canViewNews = canReadNews;
 
   const fetchNews = async () => {
     setLoading(true);
@@ -53,9 +53,10 @@ const News = () => {
       .select('*')
       .eq('status', 'Published')
       .or(`expires_at.is.null,expires_at.gt.${localNowTimestamp()}`)
+      .or(newsAudienceFilter(userData?.role))
       .order('published_at', { ascending: false, nullsFirst: false });
     if (error) {
-      setLoadError(error.message || 'The news could not be loaded.');
+      setLoadError(friendlyError(error, { fallback: 'The news could not be loaded.' }));
       setNewsItems([]);
     } else {
       setLoadError(null);
@@ -72,9 +73,10 @@ const News = () => {
   // never loses it from the historical record even if its expires_at (set
   // back when it was still live) has since passed.
   const fetchHistory = async () => {
-    const { data, error } = await supabase.from('news').select('*').eq('status', 'Archived').order('updated_at', { ascending: false });
+    const { data, error } = await supabase.from('news').select('*').eq('status', 'Archived')
+      .or(newsAudienceFilter(userData?.role)).order('updated_at', { ascending: false });
     if (error) {
-      setHistoryError(error.message || 'The archive could not be loaded.');
+      setHistoryError(friendlyError(error, { fallback: 'The archive could not be loaded.' }));
       setHistoryItems([]);
       return;
     }

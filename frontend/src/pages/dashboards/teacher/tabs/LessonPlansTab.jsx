@@ -39,6 +39,7 @@ import { savedPlanType, SAVED_PLAN_TYPE_LABEL } from '../lessonPlans/savedPlanTy
 import { prepareDevelopmentWorksheetContext } from '../lessonPlans/worksheetContext';
 import { extractWeeklyWorksheetSource, WEEKDAYS } from '../lessonPlans/weeklyWorksheetSource';
 import { savedAiMetadata } from '../lessonPlans/aiAssignment';
+import { openSourcePdf } from '../lessonPlans/sourcePdf';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
@@ -1703,7 +1704,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                             <Btn variant="outline" onClick={() => printManualMock(plan)}><Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
                             <Btn variant="outline" onClick={() => downloadManualMock(plan)}>Download PDF<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
                           </>}
-                          {planType !== 'manual' && plan.file_url && <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold px-3 py-2 rounded-lg hover:underline" style={{ color: 'var(--banner-accent)' }}>Open source PDF ↗<span className="sr-only"> for {plan.title || 'lesson plan'}</span></a>}
+                          {planType !== 'manual' && (plan.file_url || plan.file_path) && <button type="button" onClick={async () => { if (!(await openSourcePdf(plan, supabase))) showToast('The source PDF could not be opened. Please try again.', 'error'); }} className="text-sm font-semibold px-3 py-2 rounded-lg hover:underline" style={{ color: 'var(--banner-accent)' }}>Open source PDF ↗<span className="sr-only"> for {plan.title || 'lesson plan'}</span></button>}
                           {!plan.localMock && <button type="button" onClick={() => handleDeletePlan(plan.id)} aria-label={`Delete ${plan.title || 'lesson plan'}`}
                             className="ml-auto min-h-11 px-3 py-2 rounded-lg text-sm font-semibold hover:opacity-90" style={{ color: 'var(--badge-red-fg)', border: '1px solid var(--border)' }}>
                             <Trash2 size={15} className="inline mr-1" aria-hidden="true" />Delete

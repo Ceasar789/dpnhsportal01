@@ -20,6 +20,7 @@ import { localNowTimestamp } from '../../../lib/taskFormatting';
 import { useToast } from '../../../pages/dashboards/student/hooks';
 import { isNewAnnouncement } from '../../../pages/dashboards/student/announcementAge';
 import { TARGET_ROLES } from '../../../pages/dashboards/admin/shared/helpers';
+import { canReadNews } from '../../../lib/newsAudience';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const stored = value => String(value ?? '').trim();
@@ -85,6 +86,8 @@ const ClarityStudentAnnouncementsTab = () => {
   // ---- end of the copy ----
   /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
   void userData; // read by the classic tab too; kept so the copy stays word for word
+  // 4j: only posts addressed to students (lib/newsAudience.js).
+  const shown = filtered.filter(a => canReadNews(a, 'student'));
 
   return (
     <div className="x-san">
@@ -128,14 +131,14 @@ const ClarityStudentAnnouncementsTab = () => {
             <button type="button" className="x-btn" onClick={fetchAnnouncements}>Retry</button>
           </div>
         )
-        : filtered.length === 0 ? (
+        : shown.length === 0 ? (
           <div className="x-card x-pad x-empty">
             <p className="x-ct">No announcements are available right now.</p>
             <p className="x-cs">Your school administrators will post important academic updates and reminders here soon.</p>
           </div>
         ) : (
           <ul className="x-san-list" aria-label="Announcements">
-            {filtered.map((announcement, i) => {
+            {shown.map((announcement, i) => {
               const from = stored(announcement.from);
               const audience = audienceOf(announcement.target_roles);
               const day = postedOn(announcement.created_at);

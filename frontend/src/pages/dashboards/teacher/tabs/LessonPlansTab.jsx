@@ -41,6 +41,7 @@ import { extractWeeklyWorksheetSource, WEEKDAYS } from '../lessonPlans/weeklyWor
 import { savedAiMetadata } from '../lessonPlans/aiAssignment';
 import { openSourcePdf } from '../lessonPlans/sourcePdf';
 import { outOfSyncByPlan } from '../lessonPlans/planSync';
+import { manualDraftFromAiPlan } from '../lessonPlans/aiToManual';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
@@ -197,6 +198,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   const [dayTaskSaving, setDayTaskSaving] = useState(false);
   // R40 (4c): the id of a plan just saved, to offer "generate a worksheet from it".
   const [savedPrompt, setSavedPrompt] = useState(null);
+  const aiHeadingRef = useRef(null); // R34 (4g)
   // R43 (4i): worksheets made from these plans (id, created_at, source plan), best effort.
   const [planSheets, setPlanSheets] = useState([]);
   const dayTaskSavingRef = useRef(false);
@@ -1155,6 +1157,36 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
     if (manualDirty) requestConfirmation('Discard unsaved Manual ILAW changes and start a new document?', start);
     else start();
   };
+  // R36 (4g, Q10): copy an AI plan into a NEW Manual ILAW draft; the AI plan is never changed.
+  const editAiAsManual = plan => {
+    if (!userData?.uid) return;
+    const start = () => {
+      const { draft } = manualDraftFromAiPlan(plan, userData.uid, userData.profile);
+      setTemporaryPlan(draft);
+      // Compared with a blank document, so leaving the unsaved copy asks first.
+      setManualBaseline(structuredClone(createTemporaryManualIlawDraft(userData.uid, userData.profile)));
+      setManualMockIdentity(null);
+      setManualRecord(null);
+      setManualAssignment(null);
+      manualRequestRef.current = null;
+      setManualErrors({});
+      setManualSaveError('');
+      setView('manual');
+      showToast('A Manual ILAW copy is open. The AI lesson plan is unchanged.', 'success');
+    };
+    if (manualDirty) requestConfirmation('Discard unsaved Manual ILAW changes and open a Manual copy of this AI plan?', start);
+    else start();
+  };
+  // R34 (4g): leave the Manual editor for the AI generator. Nothing is generated
+  // until the teacher picks a PDF and asks for it (one click = one AI call).
+  const generateInstead = () => {
+    const go = () => {
+      setView('list');
+      requestAnimationFrame(() => aiHeadingRef.current?.focus({ preventScroll: false }));
+    };
+    if (manualDirty) requestConfirmation('Leave this Manual ILAW document with unsaved changes and generate with AI instead?', go, 'Leave document');
+    else go();
+  };
   const manualQaStore = async () => {
     if (!import.meta.env.DEV) throw new Error('Manual ILAW mock saving is available only in local development.');
     if (!manualQaStoreRef.current) {
@@ -1449,6 +1481,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
             else leave();
           }} className="flex items-center gap-1 min-h-[44px] text-sm font-medium hover:underline flex-shrink-0"
             style={{ color: 'var(--banner-accent)' }}>← Back to Lesson Plans</button>}
+          {view === 'manual' && <button type="button" onClick={generateInstead}
+            className="flex items-center gap-1 min-h-[44px] text-sm font-medium hover:underline flex-shrink-0"
+            style={{ color: 'var(--banner-accent)' }}><Sparkles size={14} aria-hidden="true" />Generate instead</button>}
           {view === 'editor' && (
             <button type="button" disabled={saving} onClick={() => {
               const leave = () => { setView('list'); setIlawOutput(savedHtml); setTitleDraft(savedTitle); setTitleError(''); };
@@ -1546,7 +1581,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
 
             {/* Upload card */}
             <Card className="p-5 sm:p-6 text-center" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
-              <h2 className="font-semibold text-lg mb-2" style={{ color: 'var(--text)' }}>AI-Generated ILAW Lesson Plan</h2>
+              <h2 ref={aiHeadingRef} tabIndex={-1} className="font-semibold text-lg mb-2" style={{ color: 'var(--text)' }}>AI-Generated ILAW Lesson Plan</h2>
               <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
                 style={{ backgroundColor: 'var(--card2)', color: 'var(--banner-accent)' }}>
                 {(uploading || generating) ? (
@@ -1724,6 +1759,8 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                         {plan.file_name && <p className="text-xs mt-2 break-all" style={{ color: 'var(--text-muted)' }}><FileText size={14} className="inline mr-1" aria-hidden="true" />{plan.file_name}</p>}
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : liveManualState ? openSavedManual(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
+                          {planType === 'ai' && !plan.localMock && <Btn variant="outline" onClick={() => editAiAsManual(plan)}>
+                            Edit as manual<span className="sr-only"> (opens a Manual ILAW copy of {plan.title || 'lesson plan'})</span></Btn>}
                           {dayTaskEligible &&
                             <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
                               aria-label={`Generate Task for ${plan.title || 'lesson plan'}`}

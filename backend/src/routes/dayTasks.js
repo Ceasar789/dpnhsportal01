@@ -7,7 +7,9 @@ import { requestWorksheetJsonFromGemini } from '../lib/worksheetGenerator.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SOURCE_COLUMNS = 'id,teacher_id,status,title,objectives,subject,grade_level,subject_id,academic_year,ai_generated';
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const BODY_KEYS = new Set(['lessonPlanId', 'day', 'taskType', 'itemCount', 'typeCounts']);
+const BODY_KEYS = new Set(['lessonPlanId', 'day', 'taskType', 'itemCount', 'typeCounts', 'purpose']);
+// R39 (4h): the optional assessment purpose, and the task types each one may use.
+const PURPOSE_TASK_TYPES = { formative: ['activity', 'quiz'], summative: ['quiz'], essay: ['assignment'] };
 const QUIZ_TYPES = ['multiple_choice', 'true_false', 'identification', 'enumeration'];
 
 // ponytail: in-memory, so per server instance. A shared store is needed if duplicates across instances matter.
@@ -56,6 +58,13 @@ function parseQuizCounts(body) {
 function parseBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)
     || Object.keys(body).some(key => !BODY_KEYS.has(key))) return null;
+  if (Object.hasOwn(body, 'purpose')) {
+    const allowed = Object.hasOwn(PURPOSE_TASK_TYPES, body.purpose) ? PURPOSE_TASK_TYPES[body.purpose] : null;
+    if (!allowed || !allowed.includes(body.taskType)) return null;
+    const { purpose, ...rest } = body;
+    const task = parseBody(rest);
+    return task && { ...task, purpose };
+  }
   const { lessonPlanId, day, taskType } = body;
   if (typeof lessonPlanId !== 'string' || !UUID.test(lessonPlanId) || !DAYS.includes(day)) return null;
   // Lowercased so a differently cased UUID cannot slip past the in-flight guard.

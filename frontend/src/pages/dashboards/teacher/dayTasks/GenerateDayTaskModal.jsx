@@ -4,7 +4,8 @@ import WorksheetDraftDocument from '../worksheets/WorksheetDraftDocument';
 import { isCancelError, requestDayTask } from './dayTaskClient';
 import { appErrorMessage } from '../../../../lib/appErrorMessage';
 import { ASSIGNMENT_DEFAULT, ASSIGNMENT_MAX, ASSIGNMENT_MIN, DAY_TASK_TYPE_LABELS, DAY_TASK_TYPES, defaultQuizSplit,
-  ITEM_TYPE_LABELS, QUIZ_DEFAULT, QUIZ_ITEM_TYPES, QUIZ_MAX, QUIZ_MIN, toStoredTaskType, validateOptions } from './dayTaskOptions';
+  ITEM_TYPE_LABELS, QUIZ_DEFAULT, QUIZ_ITEM_TYPES, QUIZ_MAX, QUIZ_MIN, toStoredTaskType, validateOptions,
+  ASSESSMENT_PURPOSES, ASSESSMENT_PURPOSE_HELP, ASSESSMENT_PURPOSE_LABELS, purposeFits, taskTypeForPurpose } from './dayTaskOptions';
 
 const TASK_DESCRIPTIONS = {
   activity: 'One classroom activity, text only.',
@@ -44,6 +45,11 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
   const [step, setStep] = useState('day');
   const [day, setDay] = useState(null);
   const [taskType, setTaskType] = useState(null);
+  // R39 (4h): the assessment purpose. Optional: nothing is sent until the teacher picks one,
+  // and a pick that no longer fits a newly chosen task type is cleared.
+  const [purpose, setPurpose] = useState(null);
+  const chooseType = type => { setTaskType(type); setPurpose(current => (purposeFits(current, type) ? current : null)); };
+  const choosePurpose = value => { setPurpose(value); setTaskType(current => taskTypeForPurpose(value, current)); };
   const [quizCount, setQuizCount] = useState(String(QUIZ_DEFAULT));
   const [assignmentCount, setAssignmentCount] = useState(String(ASSIGNMENT_DEFAULT));
   const [customized, setCustomized] = useState(false);
@@ -92,7 +98,7 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
     setStep('generating');
     try {
       const result = await requestDayTask({ lessonPlanId: plan.id, day, taskType, ...options,
-        customized: taskType === 'quiz' && customized }, { signal: controller.signal });
+        customized: taskType === 'quiz' && customized, ...(purpose ? { purpose } : {}) }, { signal: controller.signal });
       if (controllerRef.current !== controller) return;
       controllerRef.current = null;
       setPreview({ result, seconds: Math.round((Date.now() - startedAt) / 1000) });
@@ -173,12 +179,26 @@ export default function GenerateDayTaskModal({ plan, days, onClose, onUseDraft }
             <div className="grid gap-2 sm:grid-cols-3">
               {DAY_TASK_TYPES.map(type => (
                 <button key={type} type="button" aria-pressed={taskType === type} className="min-h-11 rounded-lg px-3 py-2 text-left"
-                  style={taskType === type ? SELECTED_CARD_STYLE : CARD_STYLE} onClick={() => setTaskType(type)}>
+                  style={taskType === type ? SELECTED_CARD_STYLE : CARD_STYLE} onClick={() => chooseType(type)}>
                   <span className="block text-sm font-semibold">{DAY_TASK_TYPE_LABELS[type]}</span>
                   <span className="block text-xs" style={MUTED}>{TASK_DESCRIPTIONS[type]}</span>
                 </button>
               ))}
             </div>
+            {taskType && (
+              <div role="group" aria-label="Type of assessment" className="space-y-2">
+                <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Type of assessment</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {ASSESSMENT_PURPOSES.map(value => (
+                    <button key={value} type="button" aria-pressed={purpose === value} className="min-h-11 rounded-lg px-3 py-2 text-left"
+                      style={purpose === value ? SELECTED_CARD_STYLE : CARD_STYLE} onClick={() => choosePurpose(value)}>
+                      <span className="block text-sm font-semibold">{ASSESSMENT_PURPOSE_LABELS[value]}</span>
+                      <span className="block text-xs" style={MUTED}>{ASSESSMENT_PURPOSE_HELP[value]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {taskType === 'quiz' && (
               <div className="space-y-3">

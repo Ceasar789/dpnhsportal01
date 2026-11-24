@@ -57,7 +57,25 @@ export function validateOptions({ taskType, itemCount, typeCounts }) {
     ? VALID : invalid(`An assignment needs ${ASSIGNMENT_MIN} to ${ASSIGNMENT_MAX} items.`);
 }
 
-export function buildRequestBody({ lessonPlanId, day, taskType, itemCount, typeCounts, customized }) {
+// R39 (4h, Q12): the design's "Type of assessment", over the current task types.
+export const ASSESSMENT_PURPOSES = ['formative', 'summative', 'essay'];
+export const ASSESSMENT_PURPOSE_LABELS = { formative: 'Formative', summative: 'Summative', essay: 'Essay' };
+export const ASSESSMENT_PURPOSE_HELP = {
+  formative: 'Short checks during the lesson',
+  summative: 'End-of-topic assessment',
+  essay: 'Written response with rubric',
+};
+// Mirrors PURPOSE_TASK_TYPES in backend/src/routes/dayTasks.js.
+export const PURPOSE_TASK_TYPES = { formative: ['activity', 'quiz'], summative: ['quiz'], essay: ['assignment'] };
+export const purposeFits = (purpose, taskType) => Boolean(PURPOSE_TASK_TYPES[purpose]?.includes(taskType));
+export const taskTypeForPurpose = (purpose, current) => (purposeFits(purpose, current) ? current : PURPOSE_TASK_TYPES[purpose]?.at(-1));
+
+export function buildRequestBody({ purpose, ...options }) {
+  const body = baseRequestBody(options);
+  return purpose !== undefined && purposeFits(purpose, options.taskType) ? { ...body, purpose } : body;
+}
+
+function baseRequestBody({ lessonPlanId, day, taskType, itemCount, typeCounts, customized }) {
   const body = { lessonPlanId, day, taskType };
   if (taskType === 'activity') return body;
   if (taskType === 'assignment') return { ...body, itemCount: itemCount ?? ASSIGNMENT_DEFAULT };

@@ -72,8 +72,16 @@ const assignmentLines = ({ day, itemCount }) => [
 
 const TASK_LINES = { activity: activityLines, quiz: quizLines, assignment: assignmentLines };
 
+// R39 (4h): the teacher's assessment purpose, when chosen (validated by the route).
+export const PURPOSE_LINES = {
+  formative: 'Assessment purpose: formative. A short check of understanding during the lesson: keep every item quick and focused on this day\'s objective.',
+  summative: 'Assessment purpose: summative. An end-of-topic assessment: cover the key ideas of this day\'s objective and the weekly competency evenly, from recall to application.',
+  essay: 'Assessment purpose: essay. Written responses scored with the rubric: each task asks for an explanation in the student\'s own words.',
+};
+
 export function buildDayTaskPrompt(task, plan, source) {
-  return [...sharedLines(plan, source), ...TASK_LINES[task.taskType](task)].join('\n');
+  return [...sharedLines(plan, source), ...TASK_LINES[task.taskType](task),
+    ...(PURPOSE_LINES[task.purpose] ? [PURPOSE_LINES[task.purpose]] : [])].join('\n');
 }
 
 const STRING = { type: 'STRING' };

@@ -16,6 +16,7 @@ import { useToast } from '../../../pages/dashboards/teacher/hooks';
 import { Toast } from '../../../pages/dashboards/teacher/shared/ui';
 import useQuickCreateAssignments from '../../../pages/dashboards/teacher/lessonPlans/useQuickCreateAssignments';
 import MaterialFormModal from './materials/MaterialFormModal';
+import { DEPED_MODULES } from './materials/depedModules';
 import {
   filterMaterials, metaLine, safeLink, subjectChips, subjectGradeLine, subjectOptions, typeLabel, typeOptions,
 } from './materials/materialRules';
@@ -241,6 +242,29 @@ const ClarityTeacherMaterialsTab = () => {
           })}
         </ul>
       )}
+
+      {/* R52 (4c): DepEd learning resources per grade, teachers only (Q17). */}
+      <section className="x-card x-pad" aria-labelledby="x-tlm-deped" style={{ marginTop: 16 }}>
+        <h2 className="x-ct" id="x-tlm-deped">DepEd learning resources</h2>
+        <p className="x-cs">Budget of work and modules per grade from the DepEd LR portal. Opens the official site in a new tab.</p>
+        <ul className="x-tlm-grid" aria-label="DepEd learning resources by grade" style={{ marginTop: 12 }}>
+          {DEPED_MODULES.map(module => (
+            <li key={module.grade} className="x-card x-pad">
+              <h3 className="x-ct">{module.grade}</h3>
+              <a className="x-btn" href={module.url} target="_blank" rel="noopener noreferrer"
+                aria-label={`Open the ${module.grade} budget of work on the DepEd LR portal (opens in a new tab)`}>
+                Open {module.grade} on the DepEd LR portal
+              </a>
+              <details style={{ marginTop: 8 }}>
+                <summary className="x-btn gh">{module.subjects.length} subjects</summary>
+                <ul className="x-tlm-chips" aria-label={`${module.grade} subjects`}>
+                  {module.subjects.map(name => <li key={name} className="x-badge">{name}</li>)}
+                </ul>
+              </details>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {dialog && (
         <MaterialFormModal

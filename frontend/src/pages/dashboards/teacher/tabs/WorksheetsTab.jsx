@@ -23,6 +23,8 @@ import DistributeModal from '../worksheets/DistributeModal';
 import CreateTaskModal from '../worksheets/CreateTaskModal';
 import { saveManualTask } from '../worksheets/manualTaskSave';
 import { AI_GENERATED, MANUAL, SOURCE_FILTERS, worksheetSource } from './worksheetSource';
+
+const STATUS_FILTERS = ['All', 'Drafts', 'Saved', 'Distributed'];
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
@@ -134,6 +136,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const { toast, showToast } = useToast();
   const [activeFilter, setActiveFilter] = useState('All');
   const [sourceFilter, setSourceFilter] = useState('All');
+  // Design p4 (4c): All / Drafts / Saved / Distributed.
+  const [statusFilter, setStatusFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [worksheets, setWorksheets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -496,7 +500,19 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     && (!search.trim() || `${w.title || ''} ${w.subject || ''}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
   );
   // Cards only: weekly collection days keep using `filtered`.
-  const cardRows = filtered.filter(w => sourceFilter === 'All' || worksheetSource(w) === sourceFilter);
+  // Status (4c): Drafts are the local drafts only; Saved = saved, not distributed;
+  // Distributed = has at least one assignee. While the counts are unknown no
+  // saved worksheet is hidden on a guess.
+  const countsKnown = !assessment.assigneeCountsLoading && !assessment.assigneeCountsError;
+  const showDrafts = statusFilter === 'All' || statusFilter === 'Drafts';
+  const statusMatches = w => {
+    if (statusFilter === 'All') return true;
+    if (statusFilter === 'Drafts') return false;
+    if (!countsKnown) return true;
+    const assigned = assessment.assigneeCounts[w.id] || 0;
+    return statusFilter === 'Distributed' ? assigned > 0 : assigned === 0;
+  };
+  const cardRows = filtered.filter(w => (sourceFilter === 'All' || worksheetSource(w) === sourceFilter) && statusMatches(w));
   const savedWeeklyGroups = [...filtered.reduce((groups, row) => {
     if (isSavedCollectionDay(row)) {
       if (!groups.has(row.collection_id)) groups.set(row.collection_id, []);
@@ -690,6 +706,24 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           </button>
         ))}
       </div>
+      <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter worksheets by status">
+        <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }} aria-hidden="true">Status</span>
+        {STATUS_FILTERS.map(f => (
+          <button key={f} onClick={() => setStatusFilter(f)} aria-pressed={statusFilter === f}
+            className="px-4 min-h-10 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: statusFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
+              border: '1px solid var(--border)',
+              color: statusFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'
+            }}>
+            {f}
+          </button>
+        ))}
+      </div>
+      {['Saved', 'Distributed'].includes(statusFilter) && !countsKnown && !loading && !listError
+        && <p role="status" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+          Distribution counts are not available yet, so every saved worksheet is shown.
+        </p>}
 
       {!loading && !listError && <p role="status" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
         {cardRows.length} of {worksheets.length} saved worksheets
@@ -743,7 +777,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             </div>}
           </Card>
         </section>)}
-        {manualDrafts.map(draft => <section key={draft.draftId} aria-label="Manual Worksheet draft entry" className="min-w-0">
+        {(showDrafts ? manualDrafts : []).map(draft => <section key={draft.draftId} aria-label="Manual Worksheet draft entry" className="min-w-0">
           <Card className="p-4 min-w-0 flex flex-col h-full" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <Badge color="var(--banner-accent)" bg="var(--card2)">{draft.saved ? 'Saved locally for testing' : 'Not Saved'}</Badge>
             <h3 className="text-sm font-semibold mt-3 mb-1 break-words" style={{ color: 'var(--text)' }}>{draft.title || 'Untitled manual worksheet'}</h3>
@@ -760,7 +794,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           onCancel={() => setConfirmManualDelete(null)} onConfirm={() => {
             onDiscardManualDraft(confirmManualDelete); setConfirmManualDelete(null);
           }} />}
-        {weeklyCollections.filter(collection => weeklySaveStates[collection.collectionId]?.status !== 'saved'
+        {(showDrafts ? weeklyCollections : []).filter(collection => weeklySaveStates[collection.collectionId]?.status !== 'saved'
           || !savedCollectionIds.has(weeklySaveStates[collection.collectionId]?.receipt?.collectionId)).map(collection => {
           const save = weeklySaveStates[collection.collectionId];
           return <section key={collection.collectionId} aria-label="Weekly Worksheet Collection" className="min-w-0 md:col-span-2 lg:col-span-3">
@@ -817,7 +851,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             </div>}
           </Card>
         </section>; })}
-        {savedWeeklyGroups.filter(group => !weeklyWorksheetSaveFlagEnabled()
+        {(['All', 'Saved'].includes(statusFilter) ? savedWeeklyGroups : []).filter(group => !weeklyWorksheetSaveFlagEnabled()
           || savedWeeklyMeta[group.id]?.archived_at == null).map(group => {
           const subtitle = [group.rows.find(row => row.subject)?.subject,
             group.rows.find(row => row.grade_level)?.grade_level].filter(Boolean).join(' · ');
@@ -873,7 +907,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
             onDiscardWeeklyCollection(confirmWeeklyDeleteId); setConfirmWeeklyDeleteId(null);
             if (openWeeklyCollectionId === confirmWeeklyDeleteId) setOpenWeeklyCollectionId(null);
           }} />}
-        {generatedDraft && <section aria-label="Generated Worksheet draft entry" className="min-w-0">
+        {showDrafts && generatedDraft && <section aria-label="Generated Worksheet draft entry" className="min-w-0">
           {!import.meta.env.DEV && <p role="status" className="text-sm">{permanentSaveUnavailable}</p>}
           <Card className="p-4 min-w-0 flex flex-col h-full" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <div className="flex flex-wrap justify-between items-start gap-2 mb-3">

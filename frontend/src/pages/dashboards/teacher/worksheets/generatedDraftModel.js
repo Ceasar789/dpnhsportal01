@@ -97,6 +97,20 @@ export function updateGeneratedDraft(original, { title, instructions = original.
   return { ...original, title, instructions, checkingMode, sections, questions, answerKey, ...(assignment || {}) };
 }
 
+// 4c (QA ID-102, Q15): a question is worth at least 0.5 points when the
+// teacher saves it. Checked at save time only (QuestionBuilderModal), never in
+// validateGeneratedWorksheet: the saved-collection loader drops rows that fail
+// that check, and older worksheets with a 0-point item must not disappear.
+export const MIN_ITEM_POINTS = 0.5;
+export function minimumPointsErrors(draft) {
+  return (draft?.questions || []).flatMap((item, index) => {
+    const points = Number(item?.points);
+    return item?.points !== '' && item?.points !== null && Number.isFinite(points) && points >= 0 && points < MIN_ITEM_POINTS
+      ? [{ field: `question-${index + 1}-points`, message: `Give question ${index + 1} at least ${MIN_ITEM_POINTS} points.` }]
+      : [];
+  });
+}
+
 export function validateGeneratedWorksheet(draft) {
   const errors = [];
   if (!draft.title?.trim()) errors.push({ field: 'title', message: 'Enter a worksheet title.' });

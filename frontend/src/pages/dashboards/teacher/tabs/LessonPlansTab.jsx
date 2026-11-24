@@ -194,6 +194,8 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   const [weeklyQuestionCount] = useState(30);
   const [dayTaskPlan, setDayTaskPlan] = useState(null);
   const [dayTaskSaving, setDayTaskSaving] = useState(false);
+  // R40 (4c): the id of a plan just saved, to offer "generate a worksheet from it".
+  const [savedPrompt, setSavedPrompt] = useState(null);
   const dayTaskSavingRef = useRef(false);
   const worksheetGenerationRef = useRef(false);
   const worksheetRequestRef = useRef(0);
@@ -967,6 +969,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
           writeLessonPlanFilenamePreference(teacherId, plan.id, filenameValueRef.current);
         }
         showToast('Lesson plan saved.', 'success');
+        setSavedPrompt(plan.id);
         fetchPlans();
       } catch (error) {
         setSaveError(`Could not save the lesson plan. Your draft remains open. ${error.message}`);
@@ -1256,6 +1259,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       setTemporaryPlan(null);
       setView('list');
       fetchPlans();
+      if (intent === 'saved') setSavedPrompt(record.id);
       showToast(intent === 'saved' ? 'Lesson plan saved.'
         : 'Draft saved. Complete the required fields when you are ready to save the lesson plan.', 'success');
     } catch (failure) {
@@ -1384,12 +1388,36 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   // ── ILAW output styles ─────────────────────────────────────
 
 
+  // R40/R42 (4c): offered only for a plan the Generate Task button accepts
+  // (saved, owned, AI or Manual), the same rule as the plan cards below.
+  const canGenerateFrom = plan => {
+    const planType = savedPlanType(plan);
+    return Boolean(plan) && !plan.localMock && plan.teacher_id === userData?.uid
+      && (!manualSaveLive || planType !== 'manual' || manualStateOf(plan) === 'saved')
+      && ['draft', 'published'].includes(plan.status?.toLowerCase())
+      && ['ai', 'manual'].includes(planType);
+  };
+  const promptPlan = savedPrompt ? allPlans.find(plan => plan.id === savedPrompt && canGenerateFrom(plan)) || null : null;
+
   // ══════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════
   return (
     <div className={`p-4 sm:p-6 space-y-5${view === 'manual' ? ' teacher-manual-ilaw-active' : ''}`}>
       <Toast toast={toast} shadow />
+      {promptPlan && <div role="region" aria-label="Next step" className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg"
+        style={{ backgroundColor: 'var(--card2)', border: '1px solid var(--border)' }}>
+        <p className="text-sm sm:flex-1 min-w-0 break-words" style={{ color: 'var(--text)' }}>
+          Lesson plan saved. Continue and generate a worksheet from it?
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Btn variant="primary" className="min-h-[44px]" disabled={dayTaskPlan !== null || dayTaskSaving}
+            onClick={() => { setSavedPrompt(null); setDayTaskPlan(promptPlan); }}>
+            Generate worksheet<span className="sr-only"> from {promptPlan.title || 'this lesson plan'}</span>
+          </Btn>
+          <Btn variant="outline" className="min-h-[44px]" onClick={() => setSavedPrompt(null)}>Not now</Btn>
+        </div>
+      </div>}
       {confirmAction && <ConfirmDialog title="Confirm lesson plan action" message={confirmAction.message}
         confirmLabel={confirmAction.confirmLabel} onCancel={() => setConfirmAction(null)}
         onConfirm={() => { const action = confirmAction.action; setConfirmAction(null); void action(); }} />}

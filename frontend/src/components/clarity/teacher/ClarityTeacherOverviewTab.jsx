@@ -25,7 +25,7 @@ import { useAuth } from '../../../context/AuthContext';
 import GettingStartedCard from '../GettingStartedCard';
 import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
-import { savedPlanType, SAVED_PLAN_TYPE_LABEL } from '../../../pages/dashboards/teacher/lessonPlans/savedPlanType';
+import { savedPlanType, SAVED_PLAN_TYPE_LABEL, planState } from '../../../pages/dashboards/teacher/lessonPlans/savedPlanType';
 import ProgressRing from '../charts/ProgressRing';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 import { NO_TEACHING_LOAD_MESSAGE } from '../../../lib/academicRules';
@@ -411,7 +411,8 @@ const ClarityTeacherOverviewTab = () => {
               ) : (
                 <ul className="x-rows">
                   {recentLessonPlans.map(plan => {
-                    const status = getStatusStyle(plan.status);
+                    const state = planState(plan); // 4c: Saved lives in the plan, not in the status column
+                    const status = getStatusStyle(state);
                     const type = savedPlanType(plan);
                     return (
                       <li key={plan.id}>
@@ -424,7 +425,7 @@ const ClarityTeacherOverviewTab = () => {
                         </span>
                         <span className="x-news-pills">
                           <span className={`x-badge${type === 'ai' ? ' in' : ''}`}>{SAVED_PLAN_TYPE_LABEL[type]}</span>
-                          {plan.status?.toLowerCase() !== 'draft' && plan.status && <span className="x-badge">{status.label}</span>}
+                          <span className="x-badge">{state === 'saved' ? 'Saved' : status.label}</span>
                         </span>
                       </li>
                     );

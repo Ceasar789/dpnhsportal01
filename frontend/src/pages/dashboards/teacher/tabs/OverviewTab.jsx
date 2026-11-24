@@ -15,7 +15,7 @@ import {
   Calendar, Sparkles
 } from 'lucide-react';
 import { Card, Badge, Btn } from '../shared/ui';
-import { savedPlanType } from '../lessonPlans/savedPlanType';
+import { savedPlanType, planState, PLAN_STATE_LABEL } from '../lessonPlans/savedPlanType';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -274,7 +274,9 @@ const OverviewTab = () => {
             ) : (
               <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
                 {recentLessonPlans.map(plan => {
-                  const status = getStatusStyle(plan.status);
+                  // 4c: the real state (Saved lives in the plan, not in the status column).
+                  const state = planState(plan);
+                  const status = getStatusStyle(state === 'saved' ? 'published' : state);
                   return (
                     <li key={plan.id} className="py-4 first:pt-0 last:pb-0 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4" style={{ borderColor: 'var(--border)' }}>
                       <div className="min-w-0">
@@ -286,9 +288,7 @@ const OverviewTab = () => {
                           Created {formatDate(plan.created_at)}{plan.updated_at && plan.updated_at !== plan.created_at ? ` · Updated ${formatDate(plan.updated_at)}` : ''}
                         </p>
                       </div>
-                      {plan.status?.toLowerCase() !== 'draft' && plan.status && (
-                        <div className="shrink-0"><Badge color={status.color} bg={status.bg}>{status.label}</Badge></div>
-                      )}
+                      <div className="shrink-0"><Badge color={status.color} bg={status.bg}>{PLAN_STATE_LABEL[state]}</Badge></div>
                     </li>
                   );
                 })}

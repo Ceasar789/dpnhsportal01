@@ -11,7 +11,7 @@ import { Modal, Btn, Input, ConfirmDialog } from '../shared/ui';
 import { useTheme } from '../hooks';
 import useDialogSafety from './useDialogSafety';
 import { ITEM_TYPES, TRUE_FALSE_VALUES, splitAcceptedAnswers } from '../../../../lib/worksheetChecking';
-import { editableDraftItems, hasUnsavedGeneratedChanges, orderedWorksheetItems, saveGeneratedWorksheetLocally, updateGeneratedDraft, validateGeneratedWorksheet, worksheetSections } from './generatedDraftModel';
+import { editableDraftItems, hasUnsavedGeneratedChanges, minimumPointsErrors, MIN_ITEM_POINTS, orderedWorksheetItems, saveGeneratedWorksheetLocally, updateGeneratedDraft, validateGeneratedWorksheet, worksheetSections } from './generatedDraftModel';
 import WorksheetDraftDocument from './WorksheetDraftDocument';
 import { ESSAY_MAX_SENTENCES, ESSAY_MAX_WORDS, parseEssayMinimum } from '../../../../lib/essayRule';
 
@@ -180,7 +180,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
       setLocalSaveError('Choose an assigned subject and grade before saving.');
       return;
     }
-    const errors = validateGeneratedWorksheet(candidate);
+    const errors = [...validateGeneratedWorksheet(candidate), ...minimumPointsErrors(candidate)];
     if (errors.length) {
       setValidationErrors(errors);
       requestAnimationFrame(() => {
@@ -449,7 +449,7 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
                   className={draftMode ? 'h-8 min-w-0 px-2 rounded text-xs outline-none' : 'min-h-10 min-w-0 px-2 rounded text-xs'} style={fieldStyle}>
                   {ITEM_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
                 </select>
-                <input type="number" min="0" step="0.5" aria-label={`Question ${index + 1} points`}
+                <input type="number" min={MIN_ITEM_POINTS} step="0.5" aria-label={`Question ${index + 1} points`}
                   data-validation-field={`question-${index + 1}-points`} aria-invalid={Boolean(errorFor(`question-${index + 1}-points`))} value={it.points}
                   onChange={e => patch(index, { points: e.target.value })}
                   className={draftMode ? 'h-8 w-20 px-2 rounded text-xs outline-none' : 'min-h-10 w-20 px-2 rounded text-xs'} style={fieldStyle} />

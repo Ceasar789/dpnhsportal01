@@ -40,6 +40,7 @@ import { prepareDevelopmentWorksheetContext } from '../lessonPlans/worksheetCont
 import { extractWeeklyWorksheetSource, WEEKDAYS } from '../lessonPlans/weeklyWorksheetSource';
 import { savedAiMetadata } from '../lessonPlans/aiAssignment';
 import { openSourcePdf } from '../lessonPlans/sourcePdf';
+import { outOfSyncByPlan } from '../lessonPlans/planSync';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
@@ -196,6 +197,8 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   const [dayTaskSaving, setDayTaskSaving] = useState(false);
   // R40 (4c): the id of a plan just saved, to offer "generate a worksheet from it".
   const [savedPrompt, setSavedPrompt] = useState(null);
+  // R43 (4i): worksheets made from these plans (id, created_at, source plan), best effort.
+  const [planSheets, setPlanSheets] = useState([]);
   const dayTaskSavingRef = useRef(false);
   const worksheetGenerationRef = useRef(false);
   const worksheetRequestRef = useRef(0);
@@ -668,6 +671,17 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
 
       if (error) throw error;
       if (requestId === fetchSequenceRef.current) setPlans(data || []);
+      // Only a plan edited after it was created can be out of sync; otherwise the read is skipped.
+      const edited = (data || []).some(plan => plan?.updated_at && Date.parse(plan.updated_at) > Date.parse(plan.created_at || 0));
+      if (!edited) { if (requestId === fetchSequenceRef.current) setPlanSheets([]); }
+      else try {
+        const linked = await supabase.from('worksheets').select('id, created_at, source_lesson_plan_id')
+          .eq('teacher_id', userData.uid).not('source_lesson_plan_id', 'is', null);
+        if (requestId === fetchSequenceRef.current) setPlanSheets(linked?.error ? [] : (linked?.data || []));
+      } catch {
+        // A failed side read only hides the out-of-sync notes; the plans stay listed.
+        if (requestId === fetchSequenceRef.current) setPlanSheets([]);
+      }
     } catch (err) {
       if (requestId === fetchSequenceRef.current) setListError('Lesson plans could not be loaded. Check your connection and try again.');
       console.error('Error loading lesson plans:', err);
@@ -1398,6 +1412,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
       && ['ai', 'manual'].includes(planType);
   };
   const promptPlan = savedPrompt ? allPlans.find(plan => plan.id === savedPrompt && canGenerateFrom(plan)) || null : null;
+  const outOfSync = outOfSyncByPlan(plans, planSheets);
 
   // ══════════════════════════════════════════════════════════
   // RENDER
@@ -1716,6 +1731,16 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                               style={{ color: 'var(--banner-accent)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
                               <Sparkles size={15} aria-hidden="true" />Generate Task
                             </button>}
+                          {/* R43 (4i): out of sync. Sync opens Generate Task: a new draft, the old worksheets stay untouched. */}
+                          {dayTaskEligible && outOfSync.get(plan.id) > 0 && <p role="note" className="w-full text-xs break-words" style={{ color: 'var(--text-muted)' }}>
+                            This plan changed after {outOfSync.get(plan.id) === 1 ? 'a worksheet was' : `${outOfSync.get(plan.id)} worksheets were`} made from it.
+                            The existing worksheets stay as they are.{' '}
+                            <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
+                              className="min-h-11 px-2 font-semibold underline disabled:opacity-50" style={{ color: 'var(--banner-accent)' }}>
+                              Sync worksheet<span className="sr-only"> (make a new draft from {plan.title || 'this lesson plan'})</span>
+                            </button>
+                          </p>}
+                          {/* R43 (4i): end */}
                           {jobClient.enabled && persistedJob?.planId === plan.id && worksheetRun === null &&
                             <Btn variant="outline" onClick={() => resumeWeeklyJob(plan)}>
                               {persistedJob.jobId ? 'Resume weekly job' : 'Retry unconfirmed weekly request'}

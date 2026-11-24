@@ -43,6 +43,8 @@ import { openSourcePdf } from '../lessonPlans/sourcePdf';
 import { outOfSyncByPlan } from '../lessonPlans/planSync';
 import { manualDraftFromAiPlan } from '../lessonPlans/aiToManual';
 import { lessonPlanDocxBlocks } from '../lessonPlans/lessonPlanDocx';
+import PostToClassDialog from '../lessonPlans/PostToClassDialog';
+import { lessonPlanPostingFlagEnabled } from '../lessonPlans/postToClass';
 import { docxFileName, downloadDocx } from '../../../../lib/docx';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
@@ -201,6 +203,8 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   // R40 (4c): the id of a plan just saved, to offer "generate a worksheet from it".
   const [savedPrompt, setSavedPrompt] = useState(null);
   const aiHeadingRef = useRef(null); // R34 (4g)
+  // R19/R20/R23 (4d): the plan being posted; only with VITE_LESSON_PLAN_POSTING_ENABLED=1.
+  const [postingPlan, setPostingPlan] = useState(null);
   // R43 (4i): worksheets made from these plans (id, created_at, source plan), best effort.
   const [planSheets, setPlanSheets] = useState([]);
   const dayTaskSavingRef = useRef(false);
@@ -1454,6 +1458,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   return (
     <div className={`p-4 sm:p-6 space-y-5${view === 'manual' ? ' teacher-manual-ilaw-active' : ''}`}>
       <Toast toast={toast} shadow />
+      {postingPlan && lessonPlanPostingFlagEnabled() && <PostToClassDialog plan={postingPlan} teacherId={userData?.uid}
+        onClose={() => setPostingPlan(null)}
+        onPosted={() => { setPostingPlan(null); showToast('Lesson plan posted to the class.', 'success'); }} />}
       {promptPlan && <div role="region" aria-label="Next step" className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg"
         style={{ backgroundColor: 'var(--card2)', border: '1px solid var(--border)' }}>
         <p className="text-sm sm:flex-1 min-w-0 break-words" style={{ color: 'var(--text)' }}>
@@ -1763,6 +1770,8 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                           <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : liveManualState ? openSavedManual(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
                           {planType === 'ai' && !plan.localMock && <Btn variant="outline" onClick={() => editAiAsManual(plan)}>
                             Edit as manual<span className="sr-only"> (opens a Manual ILAW copy of {plan.title || 'lesson plan'})</span></Btn>}
+                          {lessonPlanPostingFlagEnabled() && dayTaskEligible && <Btn variant="outline" onClick={() => setPostingPlan(plan)}>
+                            Post to class<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>}
                           {/* R22 (4k): Word copy of the saved plan; PDF stays on its own button. */}
                           {!plan.localMock && ['ai', 'manual'].includes(planType) && <Btn variant="outline" onClick={() => {
                             try { downloadDocx(lessonPlanDocxBlocks(plan), docxFileName(plan.title)); }

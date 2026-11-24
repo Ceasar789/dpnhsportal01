@@ -13,6 +13,9 @@ import useDialogSafety from './useDialogSafety';
 import { ITEM_TYPES, TRUE_FALSE_VALUES, splitAcceptedAnswers } from '../../../../lib/worksheetChecking';
 import { editableDraftItems, hasUnsavedGeneratedChanges, minimumPointsErrors, MIN_ITEM_POINTS, orderedWorksheetItems, saveGeneratedWorksheetLocally, updateGeneratedDraft, validateGeneratedWorksheet, worksheetSections } from './generatedDraftModel';
 import WorksheetDraftDocument from './WorksheetDraftDocument';
+import AutoCheckPanel from './AutoCheckPanel';
+import { normalizeAutoCheckTypes, saveAutoCheckTypes } from './autoCheckTypes';
+import { supabase } from '../../../../config/supabase';
 import { ESSAY_MAX_SENTENCES, ESSAY_MAX_WORDS, parseEssayMinimum } from '../../../../lib/essayRule';
 
 const sameValues = (a, b) => Array.isArray(a) && Array.isArray(b)
@@ -73,6 +76,8 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
   const [sections, setSections] = useState(() => draftMode ? worksheetSections(draft) : []);
   const [savedItems, setSavedItems] = useState([]);
   const [mode, setMode] = useState(draftMode ? draft.checkingMode : worksheet.checking_mode || 'manual');
+  // R46 (4f): only written when VITE_AUTO_CHECK_TYPES_ENABLED is on (needs the 4f migration).
+  const [autoTypes, setAutoTypes] = useState(() => normalizeAutoCheckTypes(worksheet?.auto_check_types));
   const [title, setTitle] = useState(draft?.title || '');
   const [instructions, setInstructions] = useState(draft?.instructions || '');
   const [subjectId, setSubjectId] = useState(draft?.subjectId || '');
@@ -303,7 +308,8 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
     }
     setSaveFailed(false);
     if (!retryModeOnly) setSavedItems(items);
-    const modeSaved = await setCheckingMode(worksheet.id, mode);
+    const modeSaved = await setCheckingMode(worksheet.id, mode)
+      && (mode !== 'auto' || await saveAutoCheckTypes(supabase, worksheet.id, autoTypes));
     if (!modeSaved) {
       setPartialMessage('Questions were saved, but the checking mode was not changed. Keep this dialog open and try Save questions again.');
       setSaving(false);
@@ -401,6 +407,8 @@ const QuestionBuilderModal = ({ worksheet, loadItems, saveItems, setCheckingMode
               (off = you score every item yourself)
             </span>
           </label>
+          <AutoCheckPanel on={mode === 'auto'} dark={dark} types={autoTypes}
+            onTypesChange={!draftMode && worksheet?.id ? setAutoTypes : undefined} />
           {autoWithEssay && <p role="note" className="text-xs" style={{ color: 'var(--text-muted)' }}>{AUTO_ESSAY_NOTE}</p>}
           {draft?.collectionId && errorFor('checkingMode') && <p role="alert" className="text-xs" style={{ color: 'var(--red)' }}>{errorFor('checkingMode')}</p>}
 

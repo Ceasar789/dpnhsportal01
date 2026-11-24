@@ -21,6 +21,7 @@ import { useToast } from '../../../pages/dashboards/student/hooks';
 import { isNewAnnouncement } from '../../../pages/dashboards/student/announcementAge';
 import { TARGET_ROLES } from '../../../pages/dashboards/admin/shared/helpers';
 import { canReadNews } from '../../../lib/newsAudience';
+import { useAnnouncementReads } from '../../../pages/dashboards/student/announcementReads';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const stored = value => String(value ?? '').trim();
@@ -88,6 +89,11 @@ const ClarityStudentAnnouncementsTab = () => {
   void userData; // read by the classic tab too; kept so the copy stays word for word
   // 4j: only posts addressed to students (lib/newsAudience.js).
   const shown = filtered.filter(a => canReadNews(a, 'student'));
+  // Q7 (4s): All / Unread; read marks are kept on this device.
+  const { isRead, markRead } = useAnnouncementReads(userData?.uid);
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const unread = shown.filter(a => !isRead(a));
+  const listed = unreadOnly ? unread : shown;
 
   return (
     <div className="x-san">
@@ -109,6 +115,14 @@ const ClarityStudentAnnouncementsTab = () => {
         <input type="search" aria-label="Search announcements" placeholder="Search announcements..."
           value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
       </label>
+
+      {!loading && !loadError && shown.length > 0 && (
+        <div className="x-chips" role="group" aria-label="Show announcements">
+          <button type="button" className={`x-chip${unreadOnly ? '' : ' on'}`} aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>All ({shown.length})</button>
+          <button type="button" className={`x-chip${unreadOnly ? ' on' : ''}`} aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>Unread ({unread.length})</button>
+          {unread.length > 0 && <button type="button" className="x-btn gh" onClick={() => markRead(unread.map(a => a.id))}>Mark all as read</button>}
+        </div>
+      )}
 
       {loading ? <>
         <p className="x-sr" role="status">Loading announcements…</p>
@@ -136,9 +150,14 @@ const ClarityStudentAnnouncementsTab = () => {
             <p className="x-ct">No announcements are available right now.</p>
             <p className="x-cs">Your school administrators will post important academic updates and reminders here soon.</p>
           </div>
+        ) : listed.length === 0 ? (
+          <div className="x-card x-pad x-empty">
+            <p className="x-ct">You have read every announcement.</p>
+            <p className="x-cs">New announcements will show here as Unread.</p>
+          </div>
         ) : (
           <ul className="x-san-list" aria-label="Announcements">
-            {shown.map((announcement, i) => {
+            {listed.map((announcement, i) => {
               const from = stored(announcement.from);
               const audience = audienceOf(announcement.target_roles);
               const day = postedOn(announcement.created_at);
@@ -154,6 +173,8 @@ const ClarityStudentAnnouncementsTab = () => {
                       </span>
                     </div>
                     {stored(announcement.content) && <p className="x-san-text">{announcement.content}</p>}
+                    {!isRead(announcement) && <button type="button" className="x-btn gh" onClick={() => markRead([announcement.id])}
+                      aria-label={`Mark ${announcement.title || 'announcement'} as read`}>Mark as read</button>}
                     {(day || from || audience) && (
                       <p className="x-san-meta">
                         {[day, from && `By ${from}`].filter(Boolean).join(' · ')}

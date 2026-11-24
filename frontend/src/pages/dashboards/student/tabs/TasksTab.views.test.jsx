@@ -53,22 +53,22 @@ beforeEach(() => { state.loadError = false; setTasks(tasks); });
 afterEach(() => cleanup());
 
 describe('task view chips', () => {
-  it('defaults to To do, with counts on every chip', () => {
+  it('defaults to All (design p9), with counts on every chip', () => {
     show();
-    expect(chip('To do').getAttribute('aria-pressed')).toBe('true');
-    expect(chip('To do').textContent).toBe('To do (2)');
-    expect(chip('Upcoming').textContent).toBe('Upcoming (2)');
-    expect(chip('Done').textContent).toBe('Done (1)');
-    expect(chip('Activities').textContent).toBe('Activities (1)');
+    expect(chip('All').getAttribute('aria-pressed')).toBe('true');
     expect(chip('All').textContent).toBe('All (6)');
-    expect(titles()).toEqual(['Task overdue', 'Task nodue']);
-    expect(chip('To do').className).toContain('min-h-11');
+    expect(chip('Pending').textContent).toBe('Pending (4)');
+    expect(chip('Submitted').textContent).toBe('Submitted (1)');
+    expect(chip('Graded').textContent).toBe('Graded (0)');
+    expect(titles()).toHaveLength(6);
+    expect(chip('All').className).toContain('min-h-11');
   });
 
-  it('marks overdue To do rows with an Overdue badge and keeps the row content', () => {
-    show();
+  it('marks overdue rows Overdue, never-started ones also Missing, and keeps the row content', () => {
+    show('/?view=pending');
     const overdueRow = screen.getByText('Task overdue').closest('.p-4');
     expect(within(overdueRow).getByText('Overdue')).toBeTruthy();
+    expect(within(overdueRow).getByText('Missing')).toBeTruthy();
     expect(within(overdueRow).getByText(/^Late by/)).toBeTruthy();
     expect(within(overdueRow).getByText('Not started')).toBeTruthy();
     expect(within(overdueRow).getByRole('button', { name: 'Start' })).toBeTruthy();
@@ -77,32 +77,33 @@ describe('task view chips', () => {
 
   it('switches views with the chips and keeps the choice in the URL', () => {
     show();
-    fireEvent.click(chip('Done'));
-    expect(chip('Done').getAttribute('aria-pressed')).toBe('true');
-    expect(chip('To do').getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(chip('Submitted'));
+    expect(chip('Submitted').getAttribute('aria-pressed')).toBe('true');
+    expect(chip('All').getAttribute('aria-pressed')).toBe('false');
     expect(titles()).toEqual(['Task handed']);
     expect(screen.getByText('Submitted — awaiting result')).toBeTruthy();
-    expect(seen.search).toBe('?view=done');
-    fireEvent.click(chip('Activities'));
-    expect(titles()).toEqual(['Task act']);
+    expect(screen.getByText('Pending teacher review')).toBeTruthy();
+    expect(seen.search).toBe('?view=submitted');
+    fireEvent.click(chip('Graded'));
+    expect(titles()).toEqual([]);
+    expect(screen.getByText('No graded work yet.')).toBeTruthy();
     fireEvent.click(chip('All'));
     expect(titles()).toHaveLength(6);
   });
 
-  it('combines with ?subject=: counts and rows are for that subject only', () => {
+  it('combines with ?subject=, and an old ?view= value still opens the matching view', () => {
     show('/?subject=math&view=upcoming');
-    expect(chip('Upcoming').getAttribute('aria-pressed')).toBe('true');
-    expect(chip('To do').textContent).toBe('To do (0)');
-    expect(chip('Upcoming').textContent).toBe('Upcoming (1)');
-    expect(chip('Done').textContent).toBe('Done (1)');
+    expect(chip('Pending').getAttribute('aria-pressed')).toBe('true');
+    expect(chip('Pending').textContent).toBe('Pending (1)');
+    expect(chip('Submitted').textContent).toBe('Submitted (1)');
+    expect(chip('Graded').textContent).toBe('Graded (0)');
     expect(chip('All').textContent).toBe('All (2)');
     expect(titles()).toEqual(['Task math-later']);
-    fireEvent.click(chip('To do'));
-    expect(screen.getByText('Nothing to do right now.')).toBeTruthy();
+    fireEvent.click(chip('Graded'));
+    expect(screen.getByText('No graded work yet.')).toBeTruthy();
     expect(new URLSearchParams(seen.search).get('subject')).toBe('math');
-    expect(new URLSearchParams(seen.search).get('view')).toBe('todo');
+    expect(new URLSearchParams(seen.search).get('view')).toBe('graded');
   });
-
   it('a failed load shows the error, not chips with zeros', () => {
     state.loadError = true;
     setTasks(tasks);

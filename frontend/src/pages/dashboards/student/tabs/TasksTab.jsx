@@ -26,16 +26,15 @@ import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 import PageHeader from '../PageHeader';
 import { countdownTone, GREEN, INFO, NEUTRAL, RED, YELLOW } from '../badgeTones';
-import { groupTasks, isOverdue, VIEWS, VIEW_LABELS } from '../taskGroups';
+import { groupStudentViews, isMissing, isOverdue, STUDENT_VIEWS, STUDENT_VIEW_LABELS, studentView } from '../taskGroups';
 import { Skeleton, SkeletonGroup } from '../../../../components/ui/Skeleton';
 
 // What each view says when it has nothing in it.
 const EMPTY_VIEW_TEXT = {
-  todo: 'Nothing to do right now.',
-  upcoming: 'Nothing coming up.',
-  done: 'Nothing handed in yet.',
-  activities: 'No activities.',
   all: 'No tasks.',
+  pending: 'Nothing pending right now.',
+  submitted: 'Nothing waiting for a result.',
+  graded: 'No graded work yet.',
 };
 
 // A deterrent, not a guarantee: the paper cannot be selected, copied, cut,
@@ -90,8 +89,9 @@ const StudentTasksTab = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const subjectFilter = searchParams.get('subject');
   // The view chip lives in the URL (?view=) next to ?subject=, so the two
-  // combine and the Overview can link straight to one. To do is the default.
-  const view = VIEWS.includes(searchParams.get('view')) ? searchParams.get('view') : 'todo';
+  // combine and the Overview can link straight to one. All is the default
+  // (design p9); older values (todo, upcoming, done, activities) are mapped.
+  const view = studentView(searchParams.get('view'));
   const setView = (next) => setSearchParams(prev => {
     const params = new URLSearchParams(prev);
     params.set('view', next);
@@ -227,7 +227,7 @@ const StudentTasksTab = () => {
     : rows;
   // Grouped within the ?subject= filter, so the chip counts are for what the
   // student is actually looking at.
-  const groups = groupTasks(visibleRows, now);
+  const groups = groupStudentViews(visibleRows, now);
   const shownRows = groups[view];
 
   // Writes one submission's `submission` field into the matching `rows`
@@ -778,13 +778,13 @@ const StudentTasksTab = () => {
       ) : (<>
         <Card className="p-4 mb-4">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter tasks">
-            {VIEWS.map(value => (
+            {STUDENT_VIEWS.map(value => (
               <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)}
                 className="min-h-11 px-3 rounded-full text-sm font-semibold"
                 style={view === value
                   ? { color: 'var(--on-accent)', backgroundColor: 'var(--banner-accent)', border: '1px solid var(--banner-accent)' }
                   : { color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                {VIEW_LABELS[value]} <span>({groups[value].length})</span>
+                {STUDENT_VIEW_LABELS[value]} <span>({groups[value].length})</span>
               </button>
             ))}
           </div>
@@ -830,11 +830,16 @@ const StudentTasksTab = () => {
                 </div>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    {isMissing(row, now) && <Badge color={RED.color} bg={RED.bg}>Missing</Badge>}
                     {isOverdue(row, now) && <Badge color={RED.color} bg={RED.bg}>Overdue</Badge>}
                     {!handedIn && !(handoutRow && countdown.isLate) && <Badge color={countdownColors.color} bg={countdownColors.bg}>{countdown.text}</Badge>}
                     {/* An Activity's status would only repeat its Activity badge. */}
                     {!handoutRow && <Badge color={tone.color} bg={tone.bg}>{attachmentRow ? attachmentStatus(row.submission).label : statusLabel(row)}</Badge>}
                     {handedIn && row.submission.is_late === true && <Badge color={RED.color} bg={RED.bg}>Submitted late</Badge>}
+                    {/* Student #12 (4s): how this work is checked. */}
+                    {handedIn && !handoutRow && (row.submission.released === true
+                      ? (row.sheet.checking_mode === 'auto' && <Badge color={INFO.color} bg={INFO.bg}>Checked automatically</Badge>)
+                      : <Badge color={INFO.color} bg={INFO.bg}>Pending teacher review</Badge>)}
                   </div>
                   <div className="flex justify-end mt-2">
                     <Btn variant="pastel" className="min-h-11" onClick={() => open(row)} disabled={busy}>

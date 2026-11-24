@@ -14,7 +14,7 @@ import PageHeader from '../PageHeader';
 import { INFO, RED } from '../badgeTones';
 import { isNewAnnouncement } from '../announcementAge';
 import { localNowTimestamp } from '../../../../lib/taskFormatting';
-import { canReadNews } from '../../../../lib/newsAudience';
+import { canReadNews } from '../../../../lib/newsAudience'; import { useAnnouncementReads } from '../announcementReads';
 
 const AnnouncementsTab = () => {
   const { userData } = useAuth();
@@ -62,6 +62,14 @@ const AnnouncementsTab = () => {
   );
   // 4j: only posts addressed to students (lib/newsAudience.js).
   const shown = filtered.filter(a => canReadNews(a, 'student'));
+  // Q7 (4s): All / Unread; read marks are kept on this device.
+  const { isRead, markRead } = useAnnouncementReads(userData?.uid);
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const unread = shown.filter(a => !isRead(a));
+  const listed = unreadOnly ? unread : shown;
+  const chip = on => (on
+    ? { color: 'var(--on-accent)', backgroundColor: 'var(--banner-accent)', border: '1px solid var(--banner-accent)' }
+    : { color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' });
 
   return (
     <div className="p-6">
@@ -83,6 +91,16 @@ const AnnouncementsTab = () => {
         </div>
       </PageHeader>
 
+      {!loading && !loadError && shown.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4" role="group" aria-label="Show announcements">
+          <button type="button" aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}
+            className="min-h-11 px-3 rounded-full text-sm font-semibold" style={chip(!unreadOnly)}>All ({shown.length})</button>
+          <button type="button" aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}
+            className="min-h-11 px-3 rounded-full text-sm font-semibold" style={chip(unreadOnly)}>Unread ({unread.length})</button>
+          {unread.length > 0 && <Btn variant="outline" className="min-h-11" onClick={() => markRead(unread.map(a => a.id))}>Mark all as read</Btn>}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={32} style={{ color: 'var(--text-muted)' }} /></div>
       ) : loadError ? (
@@ -99,9 +117,14 @@ const AnnouncementsTab = () => {
           <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>No announcements are available right now.</p>
           <p style={{ color: 'var(--text-muted)' }}>Your school administrators will post important academic updates and reminders here soon.</p>
         </Card>
+      ) : listed.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-base font-semibold" style={{ color: 'var(--text)' }}>You have read every announcement.</p>
+          <p style={{ color: 'var(--text-muted)' }}>New announcements will show here as Unread.</p>
+        </Card>
       ) : (
         <div className="space-y-4">
-          {shown.map((announcement, i) => (
+          {listed.map((announcement, i) => (
             <Card key={announcement.id || i} className="p-5">
               <div className="flex items-center gap-2 mb-2">
                 {isNewAnnouncement(announcement.created_at, now) && <Badge color={INFO.color} bg={INFO.bg}>NEW</Badge>}
@@ -121,6 +144,9 @@ const AnnouncementsTab = () => {
                   {(announcement.from || 'A')[0].toUpperCase()}
                 </div>
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>From: {announcement.from || 'School Admin'}</p>
+                {!isRead(announcement) && <button type="button" className="min-h-11 ml-auto px-3 rounded-lg text-sm font-semibold"
+                  style={{ color: 'var(--text-muted)', border: '1px solid var(--border)', backgroundColor: 'transparent' }}
+                  onClick={() => markRead([announcement.id])} aria-label={`Mark ${announcement.title || 'announcement'} as read`}>Mark as read</button>}
               </div>
             </Card>
           ))}

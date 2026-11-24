@@ -51,7 +51,7 @@ describe('your-work.css', () => {
 
 describe('the shared student graph', () => {
   it('reads the mode and the maximum with each task', () => {
-    expect(read('lib/studentTaskGraph.js')).toContain(".select('id, title, subject, task_type, subject_id, items, instructions, submission_mode, max_points')");
+    expect(read('lib/studentTaskGraph.js')).toContain(".select('id, title, subject, task_type, subject_id, items, instructions, submission_mode, max_points, checking_mode')");
   });
 
   it('still never reads a score or remarks outside the released-only query', () => {

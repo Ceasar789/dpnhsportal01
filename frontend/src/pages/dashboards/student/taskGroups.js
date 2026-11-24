@@ -75,6 +75,32 @@ export const groupTasks = (rows, now = new Date()) => {
   return groups;
 };
 
+// Q6 (4s): the student's Tasks views from the design (p9). The older groups
+// above stay as they are (the Overview card and its tests use them).
+//   Pending    not handed in (To do + Upcoming)
+//   Submitted  handed in, score not released yet
+//   Graded     score released
+//   All        everything, handouts included
+export const STUDENT_VIEWS = ['all', 'pending', 'submitted', 'graded'];
+export const STUDENT_VIEW_LABELS = { all: 'All', pending: 'Pending', submitted: 'Submitted', graded: 'Graded' };
+// Old ?view= values still land on the matching new view.
+export const LEGACY_VIEWS = { todo: 'pending', upcoming: 'pending', done: 'submitted', activities: 'all' };
+export const studentView = value => (STUDENT_VIEWS.includes(value) ? value : LEGACY_VIEWS[value] || 'all');
+
+export const groupStudentViews = (rows, now = new Date()) => {
+  const groups = groupTasks(rows, now);
+  return {
+    all: groups.all,
+    pending: [...groups.todo, ...groups.upcoming].sort(byDue),
+    submitted: groups.done.filter(row => row.submission?.released !== true),
+    graded: groups.done.filter(row => row.submission?.released === true),
+  };
+};
+
+// Missing (design p9): past due and never started. Overdue alone means past
+// due and not handed in; late work is still accepted and flagged (Q9).
+export const isMissing = (row, now = new Date()) => isOverdue(row, now) && !row.submission;
+
 // The Overview card: how many unfinished tasks are due today and this week,
 // and the first `limit` of this week's, soonest first.
 export const dueSoon = (rows, now = new Date(), limit = 5) => {

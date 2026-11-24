@@ -1,0 +1,46 @@
+/* Q4: About page cards and photos. Light only, like every public page.
+   Imported by About.jsx alone; every rule is scoped under .about-page.
+   One shadow scale: sm = a card at rest, md = a photo at rest and a card
+   on hover, lg = a photo on hover. The lift moves 2px with transform only,
+   so layout never shifts, and only for a mouse with motion allowed. */
+@media (prefers-reduced-motion: reduce) {
+  .about-page .about-lift { transition: none; }
+  .about-page .about-lift:hover { transform: none; }
+}
+
+.about-page {
+  --about-border: rgba(15, 23, 42, 0.09);
+  --about-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --about-shadow-md: 0 2px 4px rgba(15, 23, 42, 0.05), 0 8px 20px rgba(15, 23, 42, 0.08);
+  --about-shadow-lg: 0 4px 8px rgba(15, 23, 42, 0.06), 0 14px 32px rgba(15, 23, 42, 0.12);
+}
+
+.about-page .about-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--about-border);
+  border-radius: 12px;
+  box-shadow: var(--about-shadow-sm);
+}
+
+.about-page .about-card-accent { border-top: 3px solid #FEB300; }
+
+.about-page .about-photo {
+  overflow: hidden;
+  background-color: #FFFFFF;
+  border: 1px solid var(--about-border);
+  border-radius: 12px;
+  box-shadow: var(--about-shadow-md);
+}
+
+/* Two lines are kept for every caption, so short ones still line up. */
+.about-page .about-caption { min-height: 3em; }
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .about-page .about-lift {
+    transition-property: transform, box-shadow;
+    transition-duration: 200ms;
+    transition-timing-function: ease-out;
+  }
+  .about-page .about-card.about-lift:hover { transform: translateY(-2px); box-shadow: var(--about-shadow-md); }
+  .about-page .about-photo.about-lift:hover { transform: translateY(-2px); box-shadow: var(--about-shadow-lg); }
+}

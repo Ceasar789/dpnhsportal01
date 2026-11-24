@@ -38,8 +38,8 @@ describe('About page content', () => {
     show(EMPTY);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Dela Paz National High School');
     expect(document.querySelector('main').textContent).not.toContain('Inspiring excellence'); // P3a: no tagline
-    expect(h2s()).toEqual(['About EduScribe', 'What EduScribe does', 'Who can use it',
-      'From the campus: turnover of the new perimeter fence and landscaping', 'Contact', 'Sign in to EduScribe']);
+    expect(h2s()).toEqual(['About EduScribe', 'What EduScribe does',
+      'From the campus: turnover of the new perimeter fence and landscaping', 'Who can use it', 'Contact', 'Sign in to EduScribe']);
     expect(screen.getByText(aboutContent.portalSummary)).toBeTruthy();
     expect(screen.queryByText(/OUR VISION/)).toBeNull();
     expect(screen.queryByText(/OUR MISSION/)).toBeNull();
@@ -62,8 +62,8 @@ describe('About page content', () => {
 
   it('with every field filled, every section renders', () => {
     show(FILLED);
-    expect(h2s()).toEqual(['About EduScribe', 'Our Mission', 'What EduScribe does', 'Who can use it', 'Our Story', 'Core Values', 'Key Numbers',
-      'From the campus: turnover of the new perimeter fence and landscaping', 'Contact', 'Sign in to EduScribe']);
+    expect(h2s()).toEqual(['About EduScribe', 'Our Mission', 'What EduScribe does', 'Our Story', 'Core Values', 'Key Numbers',
+      'From the campus: turnover of the new perimeter fence and landscaping', 'Who can use it', 'Contact', 'Sign in to EduScribe']);
     for (const text of ['Test mission sentence.', 'Test story paragraph two.', 'Test milestone', '2001', 'Test value B', 'Test learners', 'Test address line', 'Test hours']) {
       expect(screen.getByText(text)).toBeTruthy();
     }

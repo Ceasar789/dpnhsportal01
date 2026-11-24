@@ -30,8 +30,8 @@ describe('About gallery', () => {
       expect(Number(img.getAttribute('width'))).toBe(photo.width);
       expect(Number(img.getAttribute('height'))).toBe(photo.height);
       expect(img.getAttribute('loading')).toBe('lazy');
-      expect(img.className).toMatch(/\bmax-w-full\b/);
-      expect(img.className).toMatch(/\bh-auto\b/);
+      expect(img.className).toMatch(/\bobject-cover\b/);
+      expect(img.className).toMatch(/\bh-full\b/);
     });
   });
 
@@ -59,7 +59,7 @@ describe('About gallery', () => {
     const cls = gallery().querySelector('ul').className.split(/\s+/);
     expect(cls).toContain('grid-cols-1');
     expect(cls.filter(c => /^grid-cols-/.test(c))).toEqual(['grid-cols-1']);
-    expect(cls).toEqual(expect.arrayContaining(['sm:grid-cols-2', 'lg:grid-cols-3']));
+    expect(cls).toEqual(expect.arrayContaining(['min-[460px]:grid-cols-2', 'min-[940px]:grid-cols-3']));
   });
 });
 

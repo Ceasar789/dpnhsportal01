@@ -5,6 +5,9 @@
 // no invented numbers. Sections reveal on scroll as progressive enhancement
 // (useReveal); the key numbers count up once, with the final value always in
 // the markup and the animated copy hidden from screen readers.
+// Q4: layout only. Bands alternate white and the page tint, cards and photos
+// get the shadow scale from about.css, the gallery tiles all share one 3:2
+// crop, and Who can use it sits beside Contact on wide screens.
 // ============================================
 
 import { useEffect, useRef } from 'react';
@@ -17,6 +20,7 @@ import { useMediaQuery } from '../../lib/useMediaQuery';
 import { Rich } from '../public/Privacy';
 import aboutContent from './aboutContent';
 import useReveal, { canReveal } from './useReveal';
+import './about.css';
 
 export const ABOUT_TITLE = 'About us · Dela Paz National High School';
 
@@ -24,6 +28,16 @@ const NAVY = '#001D4E';
 const TEXT = '#334155';
 const GOLD_TEXT = '#7E5700';
 const FOCUS = 'rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0062cc] focus-visible:ring-offset-2';
+
+const MUTED = '#475569';
+const PROSE = 'max-w-[68ch] font-public text-base leading-relaxed break-words sm:text-lg';
+const H2 = 'font-work text-2xl font-bold leading-tight sm:text-[28px] lg:text-3xl';
+// Every tile is cropped to 3:2. Four photos already are 3:2 and stay centred;
+// these two are cropped, and the position keeps the people in the frame.
+const PHOTO_POSITION = {
+  '/about/turnover-01-crowd.jpg': '50% 80%',
+  '/about/turnover-03-ribbon-cutting.jpg': '50% 72%',
+};
 
 const has = v => (Array.isArray(v) ? v.length > 0 : Boolean(String(v ?? '').trim()));
 const stagger = i => ({ '--reveal-delay': `${Math.min(i, 4) * 80}ms` });
@@ -73,24 +87,38 @@ export const CountUp = ({ value, suffix = '' }) => {
 };
 
 const Section = ({ id, eyebrow, title, children, tone = 'light' }) => (
-  <section aria-labelledby={id} className={tone === 'navy' ? 'text-white' : ''}
+  <section aria-labelledby={id} className={tone === 'navy' ? 'text-white' : 'border-t border-slate-200'}
     style={{ backgroundColor: tone === 'navy' ? '#002a57' : tone === 'white' ? '#FFFFFF' : undefined }}>
-    <div className="mx-auto max-w-[1180px] px-4 py-14 sm:px-6 lg:py-20">
+    <div className="mx-auto max-w-[1180px] px-4 py-10 sm:px-6 sm:py-12 lg:py-16">
       <div data-reveal style={stagger(0)}>
         {eyebrow && (
-          <p className="font-work text-xs font-bold tracking-widest" style={{ color: tone === 'navy' ? '#FEB300' : GOLD_TEXT }}>{eyebrow}</p>
+          <p className="mb-2 font-work text-xs font-bold tracking-widest" style={{ color: tone === 'navy' ? '#FEB300' : GOLD_TEXT }}>{eyebrow}</p>
         )}
-        <h2 id={id} className="mt-2 font-work text-2xl font-bold leading-tight sm:text-3xl" style={{ color: tone === 'navy' ? '#FFFFFF' : NAVY }}>{title}</h2>
+        <h2 id={id} className={H2} style={{ color: tone === 'navy' ? '#FFFFFF' : NAVY }}>{title}</h2>
       </div>
-      <div className="mt-8">{children}</div>
+      <div className="mt-6">{children}</div>
     </div>
   </section>
 );
 
-const Card = ({ i, className = '', children }) => (
-  <div data-reveal style={stagger(i)} className={`min-w-0 rounded-lg bg-white p-6 shadow-sm ring-1 ring-black/5 break-words ${className}`}>
-    {children}
+// The reveal moves the outer box; the hover lift moves the inner card, so the
+// two transforms never fight. The outer box stretches, so cards in a row match.
+const Card = ({ i, className = '', accent = false, children }) => (
+  <div data-reveal style={stagger(i)} className={`flex min-w-0 ${className}`}>
+    <div className={`about-card about-lift w-full min-w-0 p-5 break-words sm:p-6 ${accent ? 'about-card-accent' : ''}`}>
+      {children}
+    </div>
   </div>
+);
+
+// A section drawn as a card, for the Who can use it | Contact pair.
+const Panel = ({ id, title, children }) => (
+  <section aria-labelledby={id} className="flex min-w-0">
+    <div className="about-card about-lift w-full min-w-0 p-5 break-words sm:p-6 lg:p-8">
+      <h2 id={id} data-reveal style={{ ...stagger(0), color: NAVY }} className={H2}>{title}</h2>
+      <div className="mt-4">{children}</div>
+    </div>
+  </section>
 );
 
 const ContactItem = ({ icon: Icon, label, children }) => (
@@ -132,7 +160,7 @@ const About = ({ content = aboutContent }) => {
     ? c.contactLine.split(c.email) : [c.contactLine, null];
 
   return (
-    <div ref={rootRef} className="public-shell min-h-viewport flex flex-col" style={{ backgroundColor: '#F8FAFC' }}>
+    <div ref={rootRef} className="about-page public-shell min-h-viewport flex flex-col" style={{ backgroundColor: '#F8FAFC' }}>
       <PublicHeader isMobile={isMobile} active="About" />
 
       <main className="flex-1" style={{ paddingTop: isMobile ? PUBLIC_HEADER_HEIGHT.mobile : PUBLIC_HEADER_HEIGHT.desktop }}>
@@ -157,7 +185,7 @@ const About = ({ content = aboutContent }) => {
 
         {has(c.portalSummary) && (
           <Section id="about-portal" title="About EduScribe" tone="white">
-            <p data-reveal className="max-w-3xl font-public text-lg leading-relaxed" style={{ ...stagger(1), color: TEXT }}>{c.portalSummary}</p>
+            <p data-reveal className={PROSE} style={{ ...stagger(1), color: TEXT }}>{c.portalSummary}</p>
           </Section>
         )}
 
@@ -183,10 +211,10 @@ const About = ({ content = aboutContent }) => {
 
         {has(c.features) && (
           <Section id="about-features" title="What EduScribe does">
-            <ul className="grid gap-6 md:grid-cols-3">
+            <ul className="grid gap-4 sm:gap-5 md:grid-cols-3 lg:gap-6">
               {c.features.map((group, i) => (
                 <li key={group.who} className="flex min-w-0">
-                  <Card i={i + 1} className="w-full">
+                  <Card i={i + 1} className="w-full" accent>
                     <h3 className="font-work text-lg font-bold" style={{ color: NAVY }}>{group.who}</h3>
                     <ul className="mt-3 list-disc space-y-2 pl-5 font-public text-base leading-relaxed" style={{ color: TEXT }}>
                       {group.items.map(item => <li key={item}>{item}</li>)}
@@ -195,12 +223,6 @@ const About = ({ content = aboutContent }) => {
                 </li>
               ))}
             </ul>
-          </Section>
-        )}
-
-        {has(c.whoCanUse) && (
-          <Section id="about-who" title="Who can use it" tone="white">
-            <p data-reveal className="max-w-3xl font-public text-lg leading-relaxed" style={{ ...stagger(1), color: TEXT }}><Rich text={c.whoCanUse} /></p>
           </Section>
         )}
 
@@ -255,32 +277,36 @@ const About = ({ content = aboutContent }) => {
         )}
 
         {showCampus && (
-          <Section id="about-campus" title={c.campus.title}>
+          <Section id="about-campus" title={c.campus.title} tone="white">
             {has(c.campus.paragraphs) && (
-              <div className="max-w-3xl space-y-4">
-                {c.campus.paragraphs.map((p, i) => <p key={p} data-reveal className="font-public text-lg leading-relaxed break-words" style={{ ...stagger(i + 1), color: TEXT }}>{p}</p>)}
+              <div className="space-y-4">
+                {c.campus.paragraphs.map((p, i) => <p key={p} data-reveal className={PROSE} style={{ ...stagger(i + 1), color: TEXT }}>{p}</p>)}
               </div>
             )}
             {photos.length > 0 && (
               <>
-                {/* One column on a phone, two from 640px, three from 1024px. width and
-                    height hold each photo's space while it loads; max-w-full and h-auto
-                    shrink it but never stretch it past the file's own size. */}
-                <ul className={`grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 ${has(c.campus.paragraphs) ? 'mt-10' : ''}`}>
+                {/* Identical 3:2 tiles. One column below 460px, two from 460px, three from
+                    940px: that keeps every tile at most 443px wide, the width of the
+                    narrowest photo (03), so no photo is ever stretched past its own pixels.
+                    width and height still hold the space while a photo loads. */}
+                <ul className={`grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 sm:gap-5 min-[940px]:grid-cols-3 lg:gap-6 ${has(c.campus.paragraphs) ? 'mt-8' : ''}`}>
                   {photos.map(photo => (
-                    <li key={photo.src} className="min-w-0">
-                      <figure className="h-full rounded-lg bg-white p-3 shadow-sm ring-1 ring-black/5">
-                        <img src={photo.src} width={photo.width} height={photo.height} alt={photo.caption}
-                          loading="lazy" decoding="async" className="mx-auto block h-auto max-w-full rounded" />
-                        <figcaption className="mt-3 font-public text-base leading-relaxed break-words" style={{ color: TEXT }}>
-                          {photo.caption}
-                          {has(photo.source) && <span className="mt-1 block text-sm" style={{ color: '#475569' }}>Source: {photo.source}</span>}
+                    <li key={photo.src} className="flex min-w-0">
+                      <figure className="about-photo about-lift flex w-full min-w-0 flex-col">
+                        <div className="aspect-[3/2] overflow-hidden bg-slate-100">
+                          <img src={photo.src} width={photo.width} height={photo.height} alt={photo.caption}
+                            loading="lazy" decoding="async" className="block h-full w-full object-cover"
+                            style={{ objectPosition: PHOTO_POSITION[photo.src] || '50% 50%' }} />
+                        </div>
+                        <figcaption className="flex flex-1 flex-col gap-2 p-4 font-public break-words">
+                          <span className="about-caption text-[15px] leading-normal" style={{ color: TEXT }}>{photo.caption}</span>
+                          {has(photo.source) && <span className="mt-auto block text-[13px] leading-normal" style={{ color: MUTED }}>Source: {photo.source}</span>}
                         </figcaption>
                       </figure>
                     </li>
                   ))}
                 </ul>
-                {has(c.campus.credit) && <p className="mt-6 font-public text-sm break-words" style={{ color: '#475569' }}>{c.campus.credit}</p>}
+                {has(c.campus.credit) && <p className="mt-5 font-public text-sm break-words" style={{ color: MUTED }}>{c.campus.credit}</p>}
               </>
             )}
           </Section>
@@ -292,45 +318,57 @@ const About = ({ content = aboutContent }) => {
           </section>
         )}
 
-        {showContact && (
-          <Section id="about-contact" title="Contact" tone="white">
-            {has(c.contactLine) && (
-              <p data-reveal className="mb-8 max-w-3xl font-public text-lg leading-relaxed break-words" style={{ ...stagger(1), color: TEXT }}>
-                {contactBefore}
-                {contactAfter !== null && (
-                  <><a href={`mailto:${c.email}`} className={`font-semibold underline break-all ${FOCUS}`} style={{ color: '#0062cc' }}>{c.email}</a>{contactAfter}</>
-                )}
-              </p>
-            )}
-            <ul data-reveal style={stagger(1)} className="grid max-w-4xl gap-6 sm:grid-cols-2">
-              {has(c.address) && <ContactItem icon={MapPin} label="ADDRESS">{c.address}</ContactItem>}
-              {has(c.mapUrl) && (
-                <ContactItem icon={MapPin} label="MAP">
-                  <a href={c.mapUrl} target="_blank" rel="noopener noreferrer" className={LINK_TEXT} style={{ color: '#0062cc' }}>
-                    {c.schoolName} on the map{' '}<span className="sr-only">(opens in a new tab)</span>
-                  </a>
-                </ContactItem>
+        {(has(c.whoCanUse) || showContact) && (
+          <div className="border-t border-slate-200">
+            <div className={`mx-auto grid max-w-[1180px] gap-4 px-4 py-10 sm:gap-5 sm:px-6 sm:py-12 lg:gap-6 lg:py-16 ${has(c.whoCanUse) && showContact ? 'lg:grid-cols-2' : ''}`}>
+              {has(c.whoCanUse) && (
+                <Panel id="about-who" title="Who can use it">
+                  <p data-reveal className="font-public text-base leading-relaxed sm:text-lg" style={{ ...stagger(1), color: TEXT }}><Rich text={c.whoCanUse} /></p>
+                </Panel>
               )}
-              {has(c.email) && contactAfter === null && (
-                <ContactItem icon={Mail} label="EMAIL">
-                  <a href={`mailto:${c.email}`} className={`${LINK_TEXT} break-all`} style={{ color: '#0062cc' }}>{c.email}</a>
-                </ContactItem>
+
+              {showContact && (
+                <Panel id="about-contact" title="Contact">
+                  {has(c.contactLine) && (
+                    <p data-reveal className="mb-6 font-public text-base leading-relaxed break-words sm:text-lg" style={{ ...stagger(1), color: TEXT }}>
+                      {contactBefore}
+                      {contactAfter !== null && (
+                        <><a href={`mailto:${c.email}`} className={`font-semibold underline break-all ${FOCUS}`} style={{ color: '#0062cc' }}>{c.email}</a>{contactAfter}</>
+                      )}
+                    </p>
+                  )}
+                  <ul data-reveal style={stagger(1)} className="grid gap-4 sm:grid-cols-2">
+                    {has(c.address) && <ContactItem icon={MapPin} label="ADDRESS">{c.address}</ContactItem>}
+                    {has(c.mapUrl) && (
+                      <ContactItem icon={MapPin} label="MAP">
+                        <a href={c.mapUrl} target="_blank" rel="noopener noreferrer" className={LINK_TEXT} style={{ color: '#0062cc' }}>
+                          {c.schoolName} on the map{' '}<span className="sr-only">(opens in a new tab)</span>
+                        </a>
+                      </ContactItem>
+                    )}
+                    {has(c.email) && contactAfter === null && (
+                      <ContactItem icon={Mail} label="EMAIL">
+                        <a href={`mailto:${c.email}`} className={`${LINK_TEXT} break-all`} style={{ color: '#0062cc' }}>{c.email}</a>
+                      </ContactItem>
+                    )}
+                    {has(c.phone) && (
+                      <ContactItem icon={Phone} label="PHONE">
+                        <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} className={LINK_TEXT} style={{ color: '#0062cc' }}>{c.phone}</a>
+                      </ContactItem>
+                    )}
+                    {has(c.officeHours) && <ContactItem icon={Clock} label="OFFICE HOURS">{c.officeHours}</ContactItem>}
+                    {has(c.facebookUrl) && (
+                      <ContactItem icon={Facebook} label="FACEBOOK">
+                        <a href={c.facebookUrl} target="_blank" rel="noopener noreferrer" className={LINK_TEXT} style={{ color: '#0062cc' }}>
+                          Dela Paz NHS on Facebook{' '}<span className="sr-only">(opens in a new tab)</span>
+                        </a>
+                      </ContactItem>
+                    )}
+                  </ul>
+                </Panel>
               )}
-              {has(c.phone) && (
-                <ContactItem icon={Phone} label="PHONE">
-                  <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} className={LINK_TEXT} style={{ color: '#0062cc' }}>{c.phone}</a>
-                </ContactItem>
-              )}
-              {has(c.officeHours) && <ContactItem icon={Clock} label="OFFICE HOURS">{c.officeHours}</ContactItem>}
-              {has(c.facebookUrl) && (
-                <ContactItem icon={Facebook} label="FACEBOOK">
-                  <a href={c.facebookUrl} target="_blank" rel="noopener noreferrer" className={LINK_TEXT} style={{ color: '#0062cc' }}>
-                    Dela Paz NHS on Facebook{' '}<span className="sr-only">(opens in a new tab)</span>
-                  </a>
-                </ContactItem>
-              )}
-            </ul>
-          </Section>
+            </div>
+          </div>
         )}
 
         {/* Sign in */}

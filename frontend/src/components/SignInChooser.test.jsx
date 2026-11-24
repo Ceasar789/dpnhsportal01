@@ -151,7 +151,7 @@ describe('SignInChooser', () => {
     expect(screen.getByRole('heading', { name: 'Welcome Back.' })).toBeTruthy();
   });
 
-  it('Space on Faculty opens the Faculty login', () => {
+  it('Space on Faculty opens /login', () => {
     fireEvent.click(setup());
     fireEvent.keyDown(option('Student'), { key: 'ArrowDown' });
     expect(document.activeElement).toBe(option('Faculty'));

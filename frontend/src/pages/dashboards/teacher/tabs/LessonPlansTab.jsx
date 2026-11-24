@@ -42,6 +42,8 @@ import { savedAiMetadata } from '../lessonPlans/aiAssignment';
 import { openSourcePdf } from '../lessonPlans/sourcePdf';
 import { outOfSyncByPlan } from '../lessonPlans/planSync';
 import { manualDraftFromAiPlan } from '../lessonPlans/aiToManual';
+import { lessonPlanDocxBlocks } from '../lessonPlans/lessonPlanDocx';
+import { docxFileName, downloadDocx } from '../../../../lib/docx';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
@@ -1761,6 +1763,11 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                           <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : liveManualState ? openSavedManual(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
                           {planType === 'ai' && !plan.localMock && <Btn variant="outline" onClick={() => editAiAsManual(plan)}>
                             Edit as manual<span className="sr-only"> (opens a Manual ILAW copy of {plan.title || 'lesson plan'})</span></Btn>}
+                          {/* R22 (4k): Word copy of the saved plan; PDF stays on its own button. */}
+                          {!plan.localMock && ['ai', 'manual'].includes(planType) && <Btn variant="outline" onClick={() => {
+                            try { downloadDocx(lessonPlanDocxBlocks(plan), docxFileName(plan.title)); }
+                            catch { showToast('The Word file could not be made. Please try again.', 'error'); }
+                          }}>Download Word<span className="sr-only"> (.docx) {plan.title || 'lesson plan'}</span></Btn>}
                           {dayTaskEligible &&
                             <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
                               aria-label={`Generate Task for ${plan.title || 'lesson plan'}`}

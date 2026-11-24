@@ -23,8 +23,12 @@ import DistributeModal from '../worksheets/DistributeModal';
 import CreateTaskModal from '../worksheets/CreateTaskModal';
 import { saveManualTask } from '../worksheets/manualTaskSave';
 import { AI_GENERATED, MANUAL, SOURCE_FILTERS, worksheetSource } from './worksheetSource';
+import { docxFileName, downloadDocx } from '../../../../lib/docx';
+import { printBlocks } from '../../../../lib/printBlocks';
+import { worksheetDocxBlocks } from '../worksheets/worksheetDocx';
 
 const STATUS_FILTERS = ['All', 'Drafts', 'Saved', 'Distributed'];
+const DOWNLOAD_BUTTON = 'min-h-11 px-3 rounded-lg text-xs font-semibold';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
@@ -490,6 +494,23 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   // hardcoded registry — a literal list drifts from the canonical subject
   // names (e.g. 'Math' vs the registered 'Mathematics') and leaves newer
   // subjects unreachable. A teacher with one subject just sees two chips.
+  // R22 / R49 (4k): Word copies of a saved worksheet (Student copy / Key to
+  // correction) and a print page for PDF. Items and keys come from the same
+  // read the question editor uses; nothing is written.
+  const exportWorksheet = async (ws, kind) => {
+    const loaded = await assessment.loadItems(ws.id);
+    if (!loaded) return; // loadItems has already said what could not be read
+    try {
+      const withKey = kind === 'key';
+      const blocks = worksheetDocxBlocks(ws, loaded.items, loaded.keys, { withKey });
+      if (kind === 'print') {
+        if (!printBlocks(blocks, ws.title || 'Worksheet')) showToast('Allow pop-ups for EduScribe to print or save as PDF.', 'error');
+      } else downloadDocx(blocks, docxFileName(ws.title, withKey ? ' - Key to correction' : ' - Student copy'));
+    } catch {
+      showToast('The file could not be made. Please try again.', 'error');
+    }
+  };
+
   const filters = useMemo(() => {
     const subjects = [...new Set(worksheets.map(w => w.subject).filter(Boolean))].sort();
     return ['All', ...subjects];
@@ -1021,6 +1042,12 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 onDownload={() => downloadWorksheet(ws)}
                 onDelete={() => handleDelete(ws.id)} />
             </div>
+            {ws.submission_mode !== 'attachment' && <div className="flex flex-wrap gap-2 mt-2" role="group" aria-label={`Download ${ws.title || 'worksheet'}`}>
+              {[['student', 'Student copy (.docx)'], ['key', 'Key to correction (.docx)'], ['print', 'Print / PDF']].map(([kind, label]) => (
+                <button key={kind} type="button" onClick={() => exportWorksheet(ws, kind)} className={DOWNLOAD_BUTTON}
+                  style={{ color: 'var(--banner-accent)', border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>{label}</button>
+              ))}
+            </div>}
             {deletingId === ws.id && <p role="status" className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Deleting worksheet…</p>}
             {assessment.postingsError ? (
               <p className="text-[11px] mt-2 flex items-center gap-2" style={{ color: '#dc2626' }}>

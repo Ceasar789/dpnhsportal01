@@ -37,11 +37,11 @@ const postedOn = value => {
 };
 
 const ClarityStudentAnnouncementsTab = () => {
-  // The classic file has these two findings too; disabled around the copy, not inside it.
-  /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+  // The classic file has this finding too; disabled around the copy, not inside it.
+  /* eslint-disable react-hooks/set-state-in-effect */
   // ---- TEMPORARY copy (AnnouncementsTab.jsx:20-62) ----
   const { userData } = useAuth();
-  const { showToast, Toast } = useToast();
+  const { Toast } = useToast();
 
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ const ClarityStudentAnnouncementsTab = () => {
     } catch (err) {
       console.warn('Announcements fetch failed —', err?.message);
       setLoadError(true);
-      showToast('Error fetching announcements', 'error');
+      // 4m: the error card below says it, with Retry; no second message.
     }
     setLoading(false);
   }, []);
@@ -84,7 +84,7 @@ const ClarityStudentAnnouncementsTab = () => {
     a.content?.toLowerCase().includes(searchQuery.toLowerCase())
   );
   // ---- end of the copy ----
-  /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+  /* eslint-enable react-hooks/set-state-in-effect */
   void userData; // read by the classic tab too; kept so the copy stays word for word
   // 4j: only posts addressed to students (lib/newsAudience.js).
   const shown = filtered.filter(a => canReadNews(a, 'student'));

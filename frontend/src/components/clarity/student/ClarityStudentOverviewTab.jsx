@@ -125,8 +125,8 @@ const ClarityStudentOverviewTab = () => {
             <span className="x-sov-ring"><ProgressRing value={performance.percent} label="Worksheet performance" detail={`average of ${plural(performance.count, 'released score')}`} /></span>
           ) : null} />
         <Kpi label="Attendance"
-          value={shown(attendance ? `${attendance.percent}%` : 'No data yet')}
-          sub={settled ? (attendance ? `${attendance.present} of ${attendance.total} recorded days` : 'Not yet recorded') : loading ? LOADING_SUB : ''}
+          value={shown(attendance ? `${attendance.percent}%` : graph?.attendanceError ? 'Unavailable' : 'No data yet')}
+          sub={settled ? (attendance ? `${attendance.present} of ${attendance.total} recorded days` : graph?.attendanceError ? 'Could not load attendance right now.' : 'Not yet recorded') : loading ? LOADING_SUB : ''}
           ring={loading ? LOADING_RING : settled && attendance && drawable(attendance.percent) !== null ? (
             <span className="x-sov-ring"><ProgressRing value={attendance.percent} label="Attendance" detail={`${attendance.present} of ${attendance.total} recorded days present`} /></span>
           ) : null} />

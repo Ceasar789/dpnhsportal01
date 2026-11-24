@@ -26,6 +26,11 @@
 //                   submission": that would invite an already-submitted
 //                   student to answer again and fail on the UNIQUE
 //                   constraint.
+//   studentRecordError / attendanceError (4m) — the student number or the
+//                   attendance rows could not be read (for example a policy
+//                   that hides them). Soft: tasks and scores are still
+//                   trustworthy, so neither screen is blanked; the LRN and
+//                   the attendance figure show as unavailable instead.
 //   scheduleError — the schedule or the subject names could not be read.
 //                   Overview treats this as fatal (it cannot draw subject
 //                   cards without it); Tasks does not (it only needs it to
@@ -47,6 +52,8 @@ export const SUBMISSION_SCORE_FIELDS = 'worksheet_id, score, total_points';
 const empty = () => ({
   fatalError: null,
   scheduleError: null,
+  studentRecordError: null,
+  attendanceError: null,
   enrolments: [],
   studentRecord: null,
   attendance: [],
@@ -131,10 +138,8 @@ export async function fetchStudentTaskGraph(studentId) {
       { label: 'Student attendance fetch' }),
   ]);
 
-  if (sheetResult.error || stateResult.error || scoreResult.error
-    || studentResult.error || attResult.error) {
-    graph.fatalError = sheetResult.error || stateResult.error || scoreResult.error
-      || studentResult.error || attResult.error;
+  if (sheetResult.error || stateResult.error || scoreResult.error) {
+    graph.fatalError = sheetResult.error || stateResult.error || scoreResult.error;
     console.warn('Student dashboard load failed —', graph.fatalError.message);
     return graph;
   }
@@ -142,8 +147,13 @@ export async function fetchStudentTaskGraph(studentId) {
   graph.sheetById = new Map((sheetResult.data || []).map(s => [s.id, s]));
   graph.submissionStates = stateResult.data || [];
   graph.releasedScores = scoreResult.data || [];
-  graph.studentRecord = studentResult.data || null;
-  graph.attendance = attResult.data || [];
+  // 4m: soft. One hidden side table must not blank every task the student has.
+  graph.studentRecordError = studentResult.error || null;
+  graph.attendanceError = attResult.error || null;
+  if (graph.studentRecordError) console.warn('Student number fetch failed —', graph.studentRecordError.message);
+  if (graph.attendanceError) console.warn('Student attendance fetch failed —', graph.attendanceError.message);
+  graph.studentRecord = studentResult.error ? null : (studentResult.data || null);
+  graph.attendance = attResult.error ? [] : (attResult.data || []);
 
   // Wave 3. One subjects read covering BOTH uses — the subjects that become
   // the Overview cards, and the subject names that label the Tasks rows.

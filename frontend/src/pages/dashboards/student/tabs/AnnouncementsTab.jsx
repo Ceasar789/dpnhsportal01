@@ -18,7 +18,7 @@ import { canReadNews } from '../../../../lib/newsAudience';
 
 const AnnouncementsTab = () => {
   const { userData } = useAuth();
-  const { showToast, Toast } = useToast();
+  const { Toast } = useToast();
 
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,7 @@ const AnnouncementsTab = () => {
     } catch (err) {
       console.warn('Announcements fetch failed —', err?.message);
       setLoadError(true);
-      showToast('Error fetching announcements', 'error');
+      // 4m: the error card below says it, with Retry; no second message.
     }
     setLoading(false);
   }, []);

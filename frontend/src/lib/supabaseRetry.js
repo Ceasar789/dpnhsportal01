@@ -47,6 +47,16 @@ async function attempt_(queryFn, label) {
   }
 }
 
+// 4m: a permanent refusal (a 4xx other than timeout / too many requests, or a
+// Postgres access, data or constraint error) is the same on the second try.
+// Retrying it only delays the real message by a second and a half.
+export function isPermanentFailure(result) {
+  const status = Number(result?.status);
+  if (Number.isFinite(status) && status >= 400 && status < 500 && ![408, 425, 429].includes(status)) return true;
+  const code = String(result?.error?.code ?? '');
+  return /^(22|23|42)[0-9A-Z]{3}$/.test(code);
+}
+
 /**
  * Runs `queryFn` (a function returning a Supabase query promise that
  * resolves to `{ data, error }`), retrying once after a short pause if
@@ -66,7 +76,7 @@ export async function withRetry(queryFn, opts = {}) {
   let result = await attempt_(queryFn, label);
   let attempt = 0;
 
-  while (result.error && attempt < retries) {
+  while (result.error && attempt < retries && !isPermanentFailure(result)) {
     console.warn(`${label} failed, retrying (${attempt + 1}/${retries}):`, result.error.message);
     await sleep(jitteredDelay(delayMs));
     result = await attempt_(queryFn, label);

@@ -470,7 +470,7 @@ const ClarityStudentProfileTab = () => {
   // Without a value the box stays, saying why: still loading, a failed load
   // (so the value is unknown), or really not on record yet.
   const lrnMissingText = !graph && studentDataLoading ? 'Loading…'
-    : graph?.fatalError ? 'Could not load your LRN right now.'
+    : graph?.fatalError || graph?.studentRecordError ? 'Could not load your LRN right now.'
       : 'Not set yet. Please ask the administrator to add it.';
   const status = stored(userData?.status);
   const email = stored(userData?.email);

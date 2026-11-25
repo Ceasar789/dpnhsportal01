@@ -104,7 +104,7 @@ describe('U-PDF-S open task (design p22)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Task upload' })).toBeTruthy();
     expect(screen.getByText('Mathematics · 10 points · Due Nov 28, 2026, 5:00 PM')).toBeTruthy();
     const steps = screen.getByRole('list', { name: 'Progress' });
-    expect([...steps.children].map(li => [li.textContent, li.getAttribute('aria-current')])).toEqual([['Assigned', 'step'], ['Turned in', null], ['Marked', null]]);
+    expect([...steps.children].map(li => [li.textContent, li.getAttribute('aria-current')])).toEqual([['Assigned, in progress', 'step'], ['Turned in, not yet', null], ['Marked, not yet', null]]);
     const details = screen.getByRole('region', { name: 'Details' });
     expect([...details.querySelectorAll('dt')].map(dt => [dt.textContent, dt.nextElementSibling.textContent])).toEqual([
       ['Section', 'Grade 8 – Rizal'], ['Checking', 'By teacher'], ['Due', 'Nov 28, 2026, 5:00 PM']]);

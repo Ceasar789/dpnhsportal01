@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../config/supabase';
-import { FileText, Clock, CalendarClock } from 'lucide-react';
+import { FileText, Clock, CalendarClock, Check } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
@@ -642,11 +642,23 @@ const StudentTasksTab = ({ pdf = false }) => {
           )}
           {pdf && !handout && (
             <ol className="x-card x-std-steps" aria-label="Progress">
-              {['Assigned', 'Turned in', 'Marked'].map((label, index) => (
-                <li key={label} className={index < step ? 'done' : index === step ? 'on' : undefined} aria-current={index === step ? 'step' : undefined}>
-                  <span className="x-std-dot" aria-hidden="true" />{label}
-                </li>
-              ))}
+              {['Assigned', 'Turned in', 'Marked'].map((label, index) => {
+                // U-PDF-S3: the look only, from the same `step`: reached steps are done
+                // (Assigned once turned in, Marked once released); the next unfinished
+                // one is in progress; the rest are upcoming. aria-current is unchanged.
+                const look = index < step || (index === step && step > 0) ? 'done'
+                  : index === (step === 0 ? 0 : step + 1) ? 'now' : 'next';
+                const strong = look === 'now' || (look === 'done' && index === 2);
+                return (
+                  <li key={label} className={strong ? `${look} x-std-strong` : look} aria-current={index === step ? 'step' : undefined}>
+                    <span className="x-std-dot" aria-hidden="true">
+                      {look === 'done' ? <Check size={18} strokeWidth={3} /> : look === 'now' ? <Clock size={18} strokeWidth={2.5} /> : null}
+                    </span>
+                    <span>{label}<span className="sr-only">{look === 'done' ? ', done' : look === 'now' ? ', in progress' : ', not yet'}</span></span>
+                    {index === 2 && step === 1 && <span className="x-std-wait">Waiting for your teacher</span>}
+                  </li>
+                );
+              })}
             </ol>
           )}
           <PaperArea {...paperAreaProps}>

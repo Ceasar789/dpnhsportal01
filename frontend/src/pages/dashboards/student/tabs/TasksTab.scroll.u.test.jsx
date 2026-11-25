@@ -127,7 +127,7 @@ describe('U-PDF-S2 CSS pins', () => {
     for (const part of ['position: sticky', 'align-self: start', 'grid-area: side']) expect(side).toContain(part);
     expect(rule(`${T}.x-std-grid`)).toContain('"scroll side"');
     const wide = block('@media (min-width: 1024px) and (min-height: 560px)');
-    expect(wide).toContain('height: calc(100dvh - 120px)');
+    expect(wide).toContain('height: calc(100dvh - 92px)');
     expect(wide).toContain('minmax(240px, 1fr)');
     expect(wide).toContain('overflow-y: auto');
   });

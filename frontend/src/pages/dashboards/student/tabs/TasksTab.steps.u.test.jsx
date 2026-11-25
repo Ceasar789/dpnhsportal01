@@ -109,10 +109,15 @@ describe('U-PDF-S3 one colour, fixed size, contrast', () => {
     expect(text).toMatch(/\.x-std-dot \{[^}]*border: 2px solid var\(--cl-bd2\)/);
   });
 
-  it('the circle is 36 px in every state (only the base rule sets its size)', () => {
+  it('the circle is 36 px in every state; only the wide compact bar makes it 28 px (also for every state)', () => {
     const sized = stepRules.filter(line => /[\s;{](width|height):/.test(line));
-    expect(sized).toHaveLength(1);
+    expect(sized).toHaveLength(3);
     expect(sized[0]).toMatch(/box-sizing: border-box; width: 36px; height: 36px;/);
+    expect(sized.slice(1).map(line => line.trim().replace(/^html\.\S+ \.x-stk /, ''))).toEqual([
+      '.x-std-steps .x-std-dot { grid-row: 1 / span 2; width: 28px; height: 28px; }',
+      '.x-std-steps .x-std-dot svg { width: 16px; height: 16px; }',
+    ]);
+    expect(sized.some(line => /li\.(done|now|next)/.test(line))).toBe(false);
   });
 
   it('the step markup carries no colour class', () => {

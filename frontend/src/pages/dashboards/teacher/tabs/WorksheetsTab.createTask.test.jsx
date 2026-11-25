@@ -68,7 +68,7 @@ const fill = (dialog, { type, title, directions }) => {
   fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: title } });
   if (directions !== undefined) fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: directions } });
 };
-const create = async dialog => { await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create' })); }); };
+const create = async dialog => { await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create worksheet' })); }); };
 
 describe('Create Worksheet button', () => {
   it('opens the create dialog, not the local draft editor', async () => {
@@ -126,7 +126,7 @@ describe('creating', () => {
     db.pending = new Promise(resolve => { release = resolve; });
     const dialog = await open();
     fill(dialog, { type: 'quiz', title: 'Quiz' });
-    const button = within(dialog).getByRole('button', { name: 'Create' });
+    const button = within(dialog).getByRole('button', { name: 'Create worksheet' });
     fireEvent.click(button);
     fireEvent.click(button);
     await act(async () => { release(); });

@@ -68,7 +68,7 @@ const fill = dialog => {
   fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Fractions drill' } });
   fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: 'Answer every item.' } });
 };
-const press = async dialog => { await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create' })); }); };
+const press = async dialog => { await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create worksheet' })); }); };
 const SUBJECT = 'Choose the subject and grade from your teaching load.';
 
 describe('U5 Create Worksheet: where the subject problem points', () => {
@@ -77,7 +77,7 @@ describe('U5 Create Worksheet: where the subject problem points', () => {
     const dialog = openCreate();
     expect(within(dialog).queryByLabelText('Teaching-load subject')).toBeNull();
     fill(dialog);
-    const create = within(dialog).getByRole('button', { name: 'Create' });
+    const create = within(dialog).getByRole('button', { name: 'Create worksheet' });
     expect(create.disabled).toBe(false);
     await press(dialog);
     const link = within(dialog).getByRole('link', { name: SUBJECT });

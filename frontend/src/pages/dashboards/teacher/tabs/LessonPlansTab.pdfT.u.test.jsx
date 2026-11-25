@@ -68,7 +68,7 @@ describe('U-PDF-T plan view', () => {
   const openView = async (plan = aiPlan()) => {
     const card = await show([plan]);
     fireEvent.click(within(card).getByRole('button', { name: /^View and edit/ }));
-    return screen.findByRole('region', { name: 'Lesson plan document' });
+    return screen.findByRole('textbox', { name: 'Lesson plan content' }); // U-PDF-T-FIX-A: no document region any more
   };
 
   it('header: Back to Lesson Plans, badges and Last edited, the Download menu with Word and PDF', async () => {
@@ -86,17 +86,16 @@ describe('U-PDF-T plan view', () => {
     expect(mock.aiPdf.mock.calls[0][0].html).toBe(aiPlan().objectives);
   });
 
-  it('the document is its own labelled, focusable scroll region (the editor sits inside it)', async () => {
-    const region = await openView();
-    expect(region.tabIndex).toBe(0);
-    expect(region.className).toContain('t-doc-scroll');
-    expect(within(region).getByRole('textbox', { name: 'Lesson plan content' })).toBeTruthy();
+  // U-PDF-T-FIX-A (user's decision): the whole document shows at its natural height; the page scrolls.
+  it('the document has no inner scroll region (the editor shows in full)', async () => {
+    await openView();
+    expect(screen.queryByRole('region', { name: 'Lesson plan document' })).toBeNull();
+    expect(document.querySelector('.t-doc-scroll')).toBeNull();
   });
 
-  it('Edit as manual copy (AI plans) opens a Manual ILAW copy, as the card button did', async () => {
+  // U-PDF-T-FIX-A (user's decision): "Edit as manual copy" is unhooked from the UI; its handler is kept.
+  it('Edit as manual copy is no longer offered in the plan view', async () => {
     await openView();
-    fireEvent.click(screen.getByRole('button', { name: /^Edit as manual copy/ }));
-    expect(await screen.findByRole('heading', { name: 'Manual ILAW Editor' })).toBeTruthy();
-    expect(mock.showToast).toHaveBeenCalledWith('A Manual ILAW copy is open. The AI lesson plan is unchanged.', 'success');
+    expect(screen.queryByRole('button', { name: /^Edit as manual/ })).toBeNull();
   });
 });

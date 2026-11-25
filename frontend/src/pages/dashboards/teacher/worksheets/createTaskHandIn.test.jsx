@@ -55,7 +55,7 @@ const showForm = (onSave = vi.fn(async () => ({ ok: true }))) => {
   return onSave;
 };
 const set = (label, value) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
-const createBtn = () => screen.getByRole('button', { name: 'Create' });
+const createBtn = () => screen.getByRole('button', { name: 'Create worksheet' });
 
 describe('the create form', () => {
   it('"How students hand in" is offered for Activity and Assignment only', () => {
@@ -170,7 +170,7 @@ describe('WorksheetsTab', () => {
     fireEvent.change(within(dialog).getByLabelText('How students hand in'), { target: { value: 'attachment' } });
     fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: 'Draw it.' } });
     fireEvent.change(within(dialog).getByLabelText('Points'), { target: { value: '25' } });
-    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create' })); });
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create worksheet' })); });
     expect(db.inserts[0][0]).toMatchObject({ task_type: 'assignment', submission_mode: 'attachment', max_points: 25, checking_mode: 'manual' });
     expect(screen.queryByRole('region', { name: 'Mock questions editor' })).toBeNull();
     expect(screen.getByText('Assignment created')).toBeTruthy();

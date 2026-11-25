@@ -613,6 +613,13 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     distributed: worksheets.filter(w => (assessment.assigneeCounts[w.id] || 0) > 0).length,
   };
 
+  // U-PDF-T-FIX-A (design p18): a paper worksheet's Preview is a page in this tab
+  // (Back to Worksheets) instead of a dialog; same content, exports and Edit questions.
+  const closeDayTaskPreview = () => {
+    setDayTaskPreviewWorksheet(null);
+    requestAnimationFrame(() => worksheetsHeadingRef.current?.focus({ preventScroll: true }));
+  };
+
   return activeManualDraft ? (
     <div className="p-4 sm:p-6 min-w-0">
       <QuestionBuilderModal key={activeManualDraft.draftId} worksheet={activeManualDraft} draft={activeManualDraft}
@@ -631,6 +638,14 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
           requestAnimationFrame(() => worksheetsHeadingRef.current?.focus({ preventScroll: true }));
         }}
         onDiscardDraft={() => { onDiscardManualDraft(activeManualDraft.draftId); setActiveManualDraftId(null); }} />
+    </div>
+  ) : dayTaskPreviewWorksheet ? (
+    <div className="p-4 sm:p-6 min-w-0">
+      <Toast toast={toast} />
+      <SavedDayTaskPreview key={dayTaskPreviewWorksheet.id} worksheet={dayTaskPreviewWorksheet}
+        loadItems={assessment.loadItems} onClose={closeDayTaskPreview} downloads={worksheetDownloads(dayTaskPreviewWorksheet)}
+        onEditQuestions={canEditQuestions(dayTaskPreviewWorksheet)
+          ? () => editQuestionsFrom(dayTaskPreviewWorksheet, () => setDayTaskPreviewWorksheet(null)) : null} />
     </div>
   ) : showGeneratedEditor && activeGeneratedDraft
     && !['saving', 'saved'].includes(weeklySaveStates[activeWeeklyCollectionId]?.status)
@@ -1127,10 +1142,6 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
 
       {savedPreviewWorksheet && <SavedWorksheetPreview worksheet={savedPreviewWorksheet}
         loadItems={assessment.loadItems} onClose={() => setSavedPreviewWorksheet(null)} />}
-      {dayTaskPreviewWorksheet && <SavedDayTaskPreview key={dayTaskPreviewWorksheet.id} worksheet={dayTaskPreviewWorksheet}
-        loadItems={assessment.loadItems} onClose={() => setDayTaskPreviewWorksheet(null)} downloads={worksheetDownloads(dayTaskPreviewWorksheet)}
-        onEditQuestions={canEditQuestions(dayTaskPreviewWorksheet)
-          ? () => editQuestionsFrom(dayTaskPreviewWorksheet, () => setDayTaskPreviewWorksheet(null)) : null} />}
       {showPreviewModal && previewingWorksheet && (
         <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)} dismissible
           actions={worksheetDownloads(previewingWorksheet).length > 0
@@ -1222,7 +1233,8 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
 
       {creatingTask && <CreateTaskModal subjectPicker={subjectFields('create-task')} subjectReady={subjectReady}
         subjectFieldId={subjectFieldId('create-task')}
-        saving={saving} onSave={createTask} onClose={() => setCreatingTask(false)} />}
+        saving={saving} onSave={createTask} onClose={() => setCreatingTask(false)}
+        onGenerateInstead={userData?.uid ? () => { setCreatingTask(false); setGeneratingWorksheet(true); } : null} />}
 
       {buildingWorksheet && worksheetSource(buildingWorksheet) === MANUAL && (
         <QuestionBuilderModal

@@ -28,14 +28,14 @@ describe('Create Worksheet keeps its buttons, now in the pinned footer', () => {
   it('Cancel then Create, in the footer, outside the scrolling body', () => {
     show();
     const footer = footerOf('Create Worksheet');
-    expect(names(footer)).toEqual(['Cancel', 'Create']);
-    expect(bodyOf('Create Worksheet').contains(screen.getByRole('button', { name: 'Create' }))).toBe(false);
+    expect(names(footer)).toEqual(['Cancel', 'Create worksheet']); // U-PDF-T-FIX-A: the primary button reads "Create worksheet"
+    expect(bodyOf('Create Worksheet').contains(screen.getByRole('button', { name: 'Create worksheet' }))).toBe(false);
     expect(bodyOf('Create Worksheet').contains(screen.getByLabelText('Title'))).toBe(true);
   });
 
   it('same disabled state and handlers as before', async () => {
     const { onSave, onClose } = show();
-    const create = screen.getByRole('button', { name: 'Create' });
+    const create = screen.getByRole('button', { name: 'Create worksheet' });
     expect(create.disabled).toBe(false);
     await act(async () => { fireEvent.click(create); });
     expect(onSave).not.toHaveBeenCalled();

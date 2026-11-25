@@ -19,8 +19,9 @@ describe('SavedDayTaskPreview downloads', () => {
     render(<SavedDayTaskPreview worksheet={worksheet} loadItems={loadItems} onClose={vi.fn()}
       downloads={[{ key: 'student', label: 'Student copy (.docx)', run }]} />);
     await act(async () => {});
-    const dialog = screen.getByRole('dialog', { name: 'Preview: Quiz 1' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Download Quiz 1' }));
+    // U-PDF-T-FIX-A: the Preview is a page; the menu sits in its header.
+    const header = screen.getByRole('heading', { level: 1, name: 'Quiz 1' }).parentElement.parentElement;
+    fireEvent.click(within(header).getByRole('button', { name: 'Download Quiz 1' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /Student copy/ }));
     expect(run).toHaveBeenCalledTimes(1);
   });
@@ -31,7 +32,7 @@ describe('SavedDayTaskPreview downloads', () => {
     const region = screen.getByRole('region', { name: 'Worksheet' });
     expect(region.tabIndex).toBe(0);
     expect(region.className).toContain('t-doc-scroll');
-    expect(region.contains(screen.getByRole('checkbox', { name: 'Show teacher answer key' }))).toBe(false);
+    expect(region.contains(screen.getByRole('tab', { name: 'Key to Correction' }))).toBe(false);
     expect(screen.queryByRole('button', { name: /^Download/ })).toBeNull();
   });
 });

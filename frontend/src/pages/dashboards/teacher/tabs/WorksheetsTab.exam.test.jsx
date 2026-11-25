@@ -57,7 +57,7 @@ describe('Exam in the Worksheets tab', () => {
     const dialog = screen.getByRole('dialog', { name: 'Create Worksheet' });
     fireEvent.change(within(dialog).getByLabelText('Type'), { target: { value: 'exam' } });
     fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Unit exam' } });
-    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create' })); });
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create worksheet' })); });
     expect(db.inserts).toHaveLength(1);
     expect(db.inserts[0][0]).toMatchObject({ task_type: 'exam', checking_mode: 'auto', items: 0, origin: 'manual',
       source_lesson_plan_id: null, collection_id: null });

@@ -56,7 +56,7 @@ describe('Create Worksheet dialog and Exam', () => {
     expect(radio('Auto-check').disabled).toBe(false);
     expect(screen.queryByText('Assignments are answered in writing and checked by you.')).toBeNull();
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Unit exam' } });
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create worksheet' })); });
     expect(onSave).toHaveBeenCalledWith({ title: 'Unit exam', taskType: 'exam', directions: '', checkingMode: 'auto' });
   });
 
@@ -65,7 +65,7 @@ describe('Create Worksheet dialog and Exam', () => {
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'exam' } });
     fireEvent.click(radio('Manual check'));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Unit exam' } });
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create worksheet' })); });
     expect(onSave.mock.calls[0][0].checkingMode).toBe('manual');
   });
 });

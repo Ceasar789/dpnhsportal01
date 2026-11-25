@@ -20,7 +20,8 @@ const show = (loadItems, props = {}) => render(<ThemeContext.Provider value={{ d
   <SavedDayTaskPreview worksheet={worksheet} loadItems={loadItems} onClose={vi.fn()} {...props} />
 </ThemeContext.Provider>);
 const studentDocument = () => screen.findByRole('article', { name: 'Student-facing worksheet' });
-const toggle = () => screen.getByRole('checkbox', { name: 'Show teacher answer key' });
+// U-PDF-T-FIX-A: the answer-key switch became the "Key to Correction" tab.
+const toggle = () => screen.getByRole('tab', { name: 'Key to Correction' });
 
 afterEach(cleanup);
 
@@ -73,17 +74,17 @@ describe('SavedDayTaskPreview', () => {
     expect(within(await studentDocument()).getByRole('heading', { name: 'WORKSHEET' })).toBeTruthy();
   });
 
-  it('opens in the wider max-w-4xl dialog', async () => {
+  it('opens as a page in the Worksheets tab, not a dialog (U-PDF-T-FIX-A)', async () => {
     show(vi.fn().mockResolvedValue({ items: [], keys: {} }));
     await studentDocument();
-    expect(screen.getByRole('dialog').className).toContain('max-w-4xl');
-    expect(screen.getByRole('dialog').className).not.toContain('max-w-3xl');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: worksheet.title })).toBeTruthy();
   });
 
   it('offers no answer key for an Activity, since it has nothing to answer', async () => {
     show(vi.fn().mockResolvedValue({ items: [], keys: {} }));
     await studentDocument();
-    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByRole('tab')).toBeNull();
   });
 
   it('renders a Quiz in position order with options and hides answers from the student copy', async () => {
@@ -108,7 +109,7 @@ describe('SavedDayTaskPreview', () => {
     expect(key.textContent).toContain('Answer: True');
     expect(key.textContent).toContain('Answer: plant, animal');
     expect(screen.getByRole('article', { name: 'Student-facing worksheet' })).toBeTruthy();
-    fireEvent.click(toggle());
+    fireEvent.click(screen.getByRole('tab', { name: 'Student copy' }));
     expect(screen.queryByRole('article', { name: 'Teacher answer key' })).toBeNull();
   });
 
@@ -157,11 +158,11 @@ describe('SavedDayTaskPreview', () => {
     expect(screen.getByRole('article', { name: 'Student-facing worksheet' }).textContent).toContain('Newer task');
   });
 
-  it('closes through the dialog button', async () => {
+  it('closes through Back to Worksheets', async () => {
     const onClose = vi.fn();
     show(vi.fn().mockResolvedValue({ items: [], keys: {} }), { onClose });
     await studentDocument();
-    fireEvent.click(screen.getByRole('button', { name: `Close Preview: ${worksheet.title}` }));
+    fireEvent.click(screen.getByRole('button', { name: '← Back to Worksheets' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

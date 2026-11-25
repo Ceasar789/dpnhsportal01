@@ -130,7 +130,8 @@ describe('lesson plan PDF print workflow', () => {
     expect(screen.getByRole('heading', { name: 'Fractions', level: 1 })).toBeTruthy();
     expect(mock.tables).toContain('lesson_plans');
     expect(mock.tables).not.toContain('teacher_subjects'); // the unsaved development sample needs no assignment read
-    expect(mock.tables.every(table => table === 'lesson_plans')).toBe(true);
+    // U-PDF-T-FIX-A: the plan view also READS its linked worksheets (the Linked worksheet card); still no write.
+    expect(mock.tables.every(table => ['lesson_plans', 'worksheets'].includes(table))).toBe(true);
     expect(mock.writes).toEqual([]);
   });
 
@@ -191,7 +192,7 @@ describe('lesson plan PDF print workflow', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Suggested PDF filename' }), { target: { value: 'Old custom' } });
     fireEvent.change(screen.getByRole('textbox', { name: 'Lesson Plan Title' }), { target: { value: '  Filipino 7 Lesson Plan  ' } });
     expect(mock.writes).toEqual([]);
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Filipino 7 Lesson Plan', level: 1 })).toBeTruthy());
     expect(mock.updateFilters).toEqual({ id: 'plan-one', teacher_id: mock.teacherId, updated_at: '2026-01-01T00:00:00Z' });
     expect(mock.saved.title).toBe('Filipino 7 Lesson Plan');
@@ -216,7 +217,7 @@ describe('lesson plan PDF print workflow', () => {
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button', { name: /View and edit.*Original/i }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Lesson Plan Title' }), { target: { value: invalid } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Lesson Plan Title' }).getAttribute('aria-invalid')).toBe('true'));
     expect(mock.writes).toEqual([]);
   });
@@ -230,7 +231,7 @@ describe('lesson plan PDF print workflow', () => {
     const editor = screen.getByRole('textbox', { name: 'Lesson plan content' });
     editor.innerHTML = '<p>Unsaved HTML</p>';
     fireEvent.input(editor);
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(screen.getByRole('textbox', { name: 'Lesson Plan Title' }).value).toBe('New title');
     expect(editor.innerHTML).toBe('<p>Unsaved HTML</p>');
@@ -255,7 +256,7 @@ describe('lesson plan PDF print workflow', () => {
     expect(editor.style.getPropertyValue('--ilaw-school-seal')).toContain('school-seal.png');
     expect(editor.style.getPropertyValue('--ilaw-eduscribe-logo')).toContain('eduscribe-logo.png');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(mock.writes).toEqual(['update']));
     expect(mock.saved.objectives).toContain('Original AI activity');
     expect(mock.saved.objectives).not.toContain('eduscribe-logo');

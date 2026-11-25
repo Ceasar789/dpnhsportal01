@@ -82,7 +82,7 @@ it('saves a generated HTML draft with one click and no assignment', async () => 
   await waitFor(() => expect(screen.getByRole('button', { name: 'Save Plan' }).disabled).toBe(false));
   expect(screen.queryByLabelText('Teaching assignment')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Save Plan' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Save Changes' })).toBeTruthy());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy());
   const save = calls.find(call => call.url.endsWith('/api/lesson-plans/ai-save') && call.options.method === 'POST');
   expect(JSON.parse(save.options.body)).toMatchObject({ title: 'synthetic',
     html: '<p>Synthetic ILAW draft</p>' });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import WorksheetsTab from './WorksheetsTab';
 
 const { db, auth, hook } = vi.hoisted(() => ({ db: { rows: [] }, auth: { userData: { uid: 'teacher-1' } }, hook: { state: {} } }));
@@ -98,7 +98,8 @@ describe('Edit questions in Preview', () => {
     await show(rows);
     const card = screen.getByRole('heading', { name: title }).closest('div[class]').parentElement;
     fireEvent.click(within(card).getAllByRole('button', { name: 'Preview' })[0]);
-    await screen.findByRole('heading', { name: `Preview: ${title}` });
+    // U-PDF-T-FIX-A: a paper row opens the Preview page (h1 = title); a legacy row keeps the "Preview: title" dialog.
+    await waitFor(() => expect(screen.queryByRole('heading', { name: `Preview: ${title}` }) || screen.queryByRole('heading', { level: 1, name: title })).toBeTruthy());
   };
   const editButton = () => screen.queryByRole('button', { name: 'Edit questions' });
   beforeEach(() => { hook.state = { loadItems: vi.fn(async () => ({ items: [], keys: {} })) }; });
@@ -107,7 +108,7 @@ describe('Edit questions in Preview', () => {
     await preview([manual], 'Hand quiz');
     fireEvent.click(editButton());
     expect(screen.getByRole('region', { name: 'Mock questions editor' }).textContent).toBe('Hand quiz');
-    expect(screen.queryByRole('heading', { name: 'Preview: Hand quiz' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '← Back to Worksheets' })).toBeNull();
   });
 
   it('an undistributed manual row in the plain Preview also offers it', async () => {

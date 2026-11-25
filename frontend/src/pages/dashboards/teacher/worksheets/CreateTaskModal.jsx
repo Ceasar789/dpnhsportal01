@@ -11,6 +11,7 @@
 // ============================================
 
 import { useEffect, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
 import Field from '../../../../components/ui/form/Field';
 import FormErrorSummary from '../../../../components/ui/form/FormErrorSummary';
@@ -26,8 +27,11 @@ const MODES = [
   { value: 'manual', label: 'Manual check', help: 'You mark every answer yourself.' },
 ];
 const muted = { color: 'var(--text-muted)' };
+// U-PDF-T-FIX-A: the same frame as the Generate worksheet dialog (large, two columns, full
+// screen on phones), so the two read as a pair. Restyle only: fields, rules and onSave unchanged.
+const CARD = { backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text)' };
 
-const CreateTaskModal = ({ subjectPicker, subjectReady, subjectFieldId, saving, onSave, onClose }) => {
+const CreateTaskModal = ({ subjectPicker, subjectReady, subjectFieldId, saving, onSave, onClose, onGenerateInstead = null }) => {
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState('activity');
   const [directions, setDirections] = useState('');
@@ -78,12 +82,19 @@ const CreateTaskModal = ({ subjectPicker, subjectReady, subjectFieldId, saving, 
     if (result && !result.ok) setError(result.message);
   };
 
-  return <>{routeBlocker}<Modal title="Create Worksheet" onClose={requestClose} closeDisabled={saving} footer={
+  return <>{routeBlocker}<Modal title="Create Worksheet" onClose={requestClose} closeDisabled={saving} size="max-w-5xl" fullScreenOnPhone
+    description="Write a worksheet yourself, then add its questions." footer={
     <div className="fk-footer">
       <Btn variant="outline" className="fk-btn" onClick={requestClose} disabled={saving}>Cancel</Btn>
-      <Btn variant="primary" className="fk-btn" onClick={submit} busy={saving}>{saving ? 'Creating…' : 'Create'}</Btn>
+      {onGenerateInstead && <Btn variant="outline" className="fk-btn" onClick={onGenerateInstead} disabled={saving}>
+        <Sparkles size={16} aria-hidden="true" />Generate with AI instead</Btn>}
+      <Btn variant="primary" className="fk-btn" onClick={submit} busy={saving}>{saving ? 'Creating…' : 'Create worksheet'}</Btn>
     </div>
   }>
+    <p className="text-sm mb-4" style={muted}>Write a worksheet yourself, then add its questions.</p>
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] items-start">
+    <section aria-labelledby="create-task-options" className="rounded-xl p-4 sm:p-5 min-w-0" style={CARD}>
+    <h3 id="create-task-options" className="text-base font-semibold mb-4">Worksheet options</h3>
     <div className="ctm-form flex flex-col">
       {busyNotice && <p role="status" className="text-sm mb-4">{busyNotice}</p>}
       <FormErrorSummary id="create-task-summary" errors={problems} attempt={attempt} focusTo="first-field" />
@@ -127,6 +138,22 @@ const CreateTaskModal = ({ subjectPicker, subjectReady, subjectFieldId, saving, 
         note={taskType === 'assignment' && <p className="text-xs" style={muted}>Assignments are answered in writing and checked by you.</p>} />}
       {taskType !== 'activity' && !attachment && <p className="text-xs" style={muted}>After creating, add the questions and their points.</p>}
       {error && <p role="alert" className="text-sm" style={{ color: 'var(--red)' }}>{error}</p>}
+    </div>
+    </section>
+    <aside className="grid gap-4 min-w-0" aria-label="About this worksheet">
+      <section aria-labelledby="create-task-next" className="rounded-xl p-4 grid gap-2 min-w-0" style={CARD}>
+        <h3 id="create-task-next" className="text-base font-semibold">What happens next</h3>
+        <ol className="grid gap-1 text-sm list-decimal pl-5" style={muted}>
+          <li>Create the worksheet. It is saved in Worksheets and not sent to anyone yet.</li>
+          {taskType !== 'activity' && !attachment && <li>Add the questions and their points.</li>}
+          <li>Distribute it to a class when it is ready.</li>
+        </ol>
+      </section>
+      {onGenerateInstead && <section aria-labelledby="create-task-ai" className="rounded-xl p-4 grid gap-2 min-w-0" style={CARD}>
+        <h3 id="create-task-ai" className="text-base font-semibold">From a lesson plan</h3>
+        <p className="text-sm" style={muted}>Generate with AI instead builds a worksheet from one of your saved lesson plans. You review it before it is saved.</p>
+      </section>}
+    </aside>
     </div>
   </Modal></>;
 };

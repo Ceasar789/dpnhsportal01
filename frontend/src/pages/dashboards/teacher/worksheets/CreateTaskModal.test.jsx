@@ -14,7 +14,7 @@ const show = (props = {}) => {
 const type = value => fireEvent.change(screen.getByLabelText('Type'), { target: { value } });
 const title = value => fireEvent.change(screen.getByLabelText('Title'), { target: { value } });
 const directions = value => fireEvent.change(screen.getByLabelText(/^Directions/), { target: { value } });
-const create = () => screen.getByRole('button', { name: 'Create' });
+const create = () => screen.getByRole('button', { name: 'Create worksheet' });
 // U5: Create is never disabled. A blocked form saves nothing when Create is pressed; a valid one saves.
 const press = async () => { await act(async () => { fireEvent.click(create()); }); };
 const blocked = async onSave => { expect(create().disabled).toBe(false); await press(); expect(onSave).not.toHaveBeenCalled(); };

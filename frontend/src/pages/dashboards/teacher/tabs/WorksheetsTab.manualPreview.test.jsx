@@ -58,7 +58,7 @@ describe('Preview of a Create Worksheet row', () => {
     expect(loader.calls).toEqual(['q1']);
     expect(screen.queryByText('File Information')).toBeNull();
     expect(screen.queryByText(/^No questions yet\./)).toBeNull();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Show teacher answer key' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Key to Correction' })); // U-PDF-T-FIX-A: was the answer-key switch
     const key = screen.getByRole('article', { name: 'Teacher answer key' });
     expect(key.textContent).toContain('Mars');
   });

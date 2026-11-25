@@ -57,7 +57,7 @@ describe('Worksheets create with only an old Grade 11 load row', () => {
     expect(within(dialog).getByText(/No subject is assigned for this school year\. Ask your admin/)).toBeTruthy();
     expect(within(dialog).queryByText(/Grade 11/)).toBeNull();
     fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Blocked task' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create worksheet' }));
     expect(within(dialog).getAllByText('Choose the subject and grade from your teaching load.').length).toBeGreaterThan(0);
     expect(insert).not.toHaveBeenCalled();
   });

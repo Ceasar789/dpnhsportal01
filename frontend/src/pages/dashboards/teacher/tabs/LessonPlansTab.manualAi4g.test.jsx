@@ -84,16 +84,15 @@ const aiPlan = { id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', teacher_id: TEACHER
   grade_level: 'Grade 7', ai_generated: true, status: 'draft', objectives: AI_HTML, created_at: '2026-06-01T00:00:00Z' };
 
 describe('R36: Edit as manual', () => {
-  it('opens a Manual ILAW copy filled from the AI plan and writes nothing', async () => {
+  // U-PDF-T-FIX-A (user's decision): the button is unhooked from the AI plan view; the handler
+  // (editAiAsManual) and the copy model (aiToManual.js, its own tests) are kept unchanged.
+  it('is no longer offered in the AI plan view, and opening the view writes nothing', async () => {
     mock.plans = [aiPlan];
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     const row = await card('States of Matter');
-    // U-PDF-T: "Edit as manual" moved from the card into the AI plan view as "Edit as manual copy" (same handler).
     fireEvent.click(within(row).getByRole('button', { name: /^View and edit/ }));
-    fireEvent.click(await screen.findByRole('button', { name: /^Edit as manual copy/ }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Manual ILAW Editor' })).toBeTruthy();
-    expect(screen.getByRole('textbox', { name: 'Name of Lesson' }).value).toBe('States of Matter');
-    expect(screen.getByRole('textbox', { name: 'Learning Objectives, Monday' }).value).toBe('Name the states');
+    expect(await screen.findByRole('textbox', { name: 'Lesson plan content' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Edit as manual/ })).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
     expect(mock.plans).toEqual([aiPlan]);
   });

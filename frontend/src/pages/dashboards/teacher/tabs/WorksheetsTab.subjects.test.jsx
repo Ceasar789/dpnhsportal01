@@ -71,8 +71,8 @@ describe('Saved day task preview', () => {
     expect(await screen.findByRole('article', { name: 'Student-facing worksheet' })).toBeTruthy();
     expect(state.loadItems).toHaveBeenCalledWith('day-task');
     expect(screen.queryByText('File Information')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Close Preview: Cells - Tuesday Activity' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '← Back to Worksheets' })); // U-PDF-T-FIX-A: a page, not a dialog
+    expect(screen.queryByRole('article', { name: 'Student-facing worksheet' })).toBeNull();
   });
 
   it('keeps the old preview for a worksheet with a file, even if it has a lesson plan', async () => {
@@ -177,7 +177,7 @@ describe('Worksheet manual authoring entry', () => {
     expect(within(dialog).getByText(message)).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Blocked task' } });
     fireEvent.change(within(dialog).getByLabelText('Directions'), { target: { value: 'Read the story.' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create worksheet' }));
     expect(within(dialog).getAllByText('Choose the subject and grade from your teaching load.').length).toBeGreaterThan(0);
     expect(writes).toEqual([]);
   });

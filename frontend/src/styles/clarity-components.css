@@ -307,6 +307,8 @@ html.theme-clarity .x-sov-id { display: flex; flex-wrap: wrap; align-items: cent
 html.theme-clarity .x-sov-id b { font-weight: 600; }
 html.theme-clarity .x-sov-id .x-badge { font-size: 13px; }
 html.theme-clarity .x-sov-ring { width: 56px; flex: none; align-self: center; }
+/* U-PDF-S (p8): the attendance ring is green; the rings are the cards' figure. */
+html.theme-clarity .x-sov-ring-ok .x-seg-ring.c1 { stroke: var(--cl-ok); }
 html.theme-clarity .x-sov .x-grid3 { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
 html.theme-clarity .x-sc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 16px; }
 html.theme-clarity .x-sc-ring { display: block; width: 64px; }
@@ -326,6 +328,25 @@ html.theme-clarity .x-sc-rel { display: flex; align-items: baseline; justify-con
 html.theme-clarity .x-sc-num { font-size: 22px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--cl-tx); }
 html.theme-clarity .x-sc-await { margin: 0; }
 html.theme-clarity .x-sc-btn { margin-top: auto; width: 100%; padding: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* U-PDF-S (design p10): three stat cards and the By subject list (icon, name, bar, percent). */
+html.theme-clarity .x-sc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 16px; margin-bottom: 20px; }
+html.theme-clarity .x-sc-stat { min-width: 0; padding: 20px; }
+html.theme-clarity .x-sc-stat .x-kl, html.theme-clarity .x-sc-stat .x-cs { margin: 0; }
+html.theme-clarity .x-sc-stat .x-kv { margin: 6px 0 2px; }
+html.theme-clarity .x-sc-list .x-ct { margin: 0 0 8px; }
+html.theme-clarity .x-sc-list > ul { list-style: none; margin: 0; padding: 0; }
+html.theme-clarity .x-sc-row { padding: 12px 0; border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-sc-row:first-child { border-top: 0; }
+html.theme-clarity .x-sc-line { display: flex; align-items: center; gap: 12px; min-width: 0; }
+html.theme-clarity .x-sc-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9px; background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-sc-copy { flex: 1 1 auto; min-width: 0; }
+html.theme-clarity .x-sc-row .x-sc-name { font-size: 14px; }
+html.theme-clarity .x-sc-row .x-sc-sub { margin: 2px 0 0; }
+html.theme-clarity .x-sc-bar { flex: 0 1 160px; height: 8px; min-width: 56px; border-radius: 9999px; background: var(--cl-bg); overflow: hidden; }
+html.theme-clarity .x-sc-bar i { display: block; height: 100%; border-radius: inherit; background: var(--cl-ac); }
+html.theme-clarity .x-sc-pct { flex: none; min-width: 44px; text-align: right; font-weight: 700; color: var(--cl-tx); font-variant-numeric: tabular-nums; }
+html.theme-clarity .x-sc-more { margin: 6px 0 0 44px; }
+html.theme-clarity .x-sc-more .x-sc-btn { width: auto; margin-top: 0; }
 html.theme-clarity .x-sov-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 html.theme-clarity .x-sov-due { margin-top: 12px; }
 html.theme-clarity .x-sov-task { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 44px; color: inherit; text-decoration: none; }
@@ -333,7 +354,7 @@ html.theme-clarity .x-sov-task:focus-visible { outline: 2px solid var(--cl-ac); 
 html.theme-clarity .x-sov-task .x-badge { flex: none; }
 html.theme-clarity .x-sov-tcopy { display: grid; gap: 2px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 html.theme-clarity .x-sov-bars { margin-top: 16px; }
-html.theme-clarity .x-sov-more { margin: 16px 0 0; text-align: right; }
+html.theme-clarity .x-sov-more { margin: 16px 0 0; text-align: left; }
 /* T3: Teacher Grading (master-detail) */
 html.theme-clarity .x-tgr-dev { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
 html.theme-clarity .x-tgr-saved { margin: 0 0 12px; }
@@ -776,6 +797,59 @@ html.theme-clarity .x-pagein { animation: cl-rise .5s var(--cl-ease) backwards; 
 @keyframes cl-sheet { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes cl-sheetout { to { transform: translateY(100%); } }
 
+/* U-PDF-S (design p22): the open task: title and meta, the steps, the paper beside Your work and Details. */
+html.theme-clarity .x-stk .x-std-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); grid-template-areas: "back back" "head head" "steps steps" "paper work" "paper details" "submit details"; gap: 16px 20px; align-items: start; }
+html.theme-clarity .x-stk .x-std-back { grid-area: back; justify-self: start; }
+html.theme-clarity .x-stk .x-std-head { grid-area: head; min-width: 0; }
+html.theme-clarity .x-stk .x-std-head .x-h1, html.theme-clarity .x-stk .x-std-head .x-sub { margin: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-stk .x-std-steps { grid-area: steps; display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 18px 24px; list-style: none; }
+html.theme-clarity .x-stk .x-std-steps li { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; font-size: 13px; color: var(--cl-mu); text-align: center; }
+html.theme-clarity .x-stk .x-std-steps li.on { color: var(--cl-tx); font-weight: 600; }
+html.theme-clarity .x-stk .x-std-dot { width: 28px; height: 28px; border-radius: 9999px; border: 2px solid var(--cl-bd); background: var(--cl-card); }
+html.theme-clarity .x-stk .x-std-steps li.done .x-std-dot { border-color: var(--cl-ok); background: var(--cl-ok); }
+html.theme-clarity .x-stk .x-std-steps li.on .x-std-dot { border-color: var(--cl-ac); background: var(--cl-ac); }
+html.theme-clarity .x-stk .x-std-paper { grid-area: paper; min-width: 0; }
+html.theme-clarity .x-stk .x-std-work { grid-area: work; min-width: 0; }
+html.theme-clarity .x-stk .x-std-work > * { margin-top: 0; }
+html.theme-clarity .x-stk .x-std-details { grid-area: details; min-width: 0; padding: 20px; }
+html.theme-clarity .x-stk .x-std-details .x-ct { margin: 0 0 8px; }
+html.theme-clarity .x-stk .x-std-details dl { margin: 0; }
+html.theme-clarity .x-stk .x-std-details dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-stk .x-std-details dt { color: var(--cl-mu); }
+html.theme-clarity .x-stk .x-std-details dd { margin: 0; font-weight: 600; color: var(--cl-tx); text-align: right; overflow-wrap: anywhere; }
+html.theme-clarity .x-stk .x-std-submit { grid-area: submit; margin-top: 0; }
+@media (max-width: 1023px) {
+  html.theme-clarity .x-stk .x-std-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "back" "head" "steps" "paper" "submit" "work" "details"; }
+}
+@media (max-width: 767px) {
+  html.theme-clarity .x-stk .x-std-steps { padding: 14px 12px; }
+}
+/* U-PDF-S (design p9): the Tasks list as one card of rows; count bubbles in the tabs; due and status pills. */
+html.theme-clarity .x-stk .x-stk-n { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 9999px; background: var(--cl-bg); color: var(--cl-mu); font-size: 12px; font-weight: 600; }
+html.theme-clarity .x-stk [aria-pressed="true"] .x-stk-n { background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-stk .rounded-xl.x-stk-bar { padding: 0; margin-bottom: 16px; }
+html.theme-clarity .x-stk .x-stk-list { padding: 4px 20px; }
+html.theme-clarity .x-stk .x-stk-list ul { list-style: none; margin: 0; padding: 0; }
+html.theme-clarity .x-stk .x-stk-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-stk .x-stk-row:first-child { border-top: 0; }
+html.theme-clarity .x-stk .x-stk-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9px; background: var(--cl-ac-s); color: var(--cl-ac); }
+html.theme-clarity .x-stk .x-stk-copy { flex: 1 1 auto; min-width: 0; }
+html.theme-clarity .x-stk .x-stk-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--cl-tx); overflow-wrap: anywhere; }
+html.theme-clarity .x-stk .x-stk-meta { margin: 2px 0 0; font-size: 12px; color: var(--cl-mu); overflow-wrap: anywhere; }
+html.theme-clarity .x-stk .x-stk-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+html.theme-clarity .x-stk .x-stk-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: var(--cl-bg); color: var(--cl-mu); overflow-wrap: normal; }
+html.theme-clarity .x-stk .x-stk-pill.ok { background: var(--cl-ok-s); color: var(--cl-ok); }
+html.theme-clarity .x-stk .x-stk-pill.wa { background: var(--cl-wa-s); color: var(--cl-wa); }
+html.theme-clarity .x-stk .x-stk-pill.er { background: var(--cl-er-s); color: var(--cl-er); }
+html.theme-clarity .x-stk .x-stk-pill.in { background: var(--cl-ac-s); color: var(--cl-in); }
+html.theme-clarity .x-stk .x-stk-pill.dot::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }
+html.theme-clarity .x-stk .x-stk-open { flex: none; }
+@media (max-width: 767px) {
+  html.theme-clarity .x-stk .x-stk-row { flex-wrap: wrap; }
+  html.theme-clarity .x-stk .x-stk-copy { flex-basis: calc(100% - 44px); }
+  html.theme-clarity .x-stk .x-stk-pills { order: 3; flex: 1 1 auto; justify-content: flex-start; margin-left: 44px; }
+  html.theme-clarity .x-stk .x-stk-open { order: 4; }
+}
 /* S2b: the classic student Tasks body in the final design's layout (Student PDF p2).
    Layout and type only: the classic markup, its inline colours and every
    read, filter and answer/submit flow are unchanged. */
@@ -814,14 +888,41 @@ html.theme-clarity .x-sat-rate { text-align: center; }
 html.theme-clarity .x-sat-rate .x-cs { margin: 4px 0 0; }
 html.theme-clarity .x-sat-ring { width: 120px; margin: 0 auto 12px; }
 html.theme-clarity .x-sat-ring figcaption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
-html.theme-clarity .x-sat-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+html.theme-clarity .x-sat-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 html.theme-clarity .x-sat-tiles > div { padding: 16px 18px; }
 html.theme-clarity .x-sat-tiles .x-kl, html.theme-clarity .x-sat-tiles .x-kv { margin: 0; }
 html.theme-clarity .x-sat-records { padding: 0; overflow: hidden; }
+/* U-PDF-S (design p11): Present, Late, Absent cards and the rate card in one row; records Date and Status. */
+html.theme-clarity .x-sat-stats { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 16px; margin-bottom: 20px; align-items: stretch; }
+html.theme-clarity .x-sat-stats > .x-sat-rate:only-child { grid-column: 1 / -1; }
+html.theme-clarity .x-sat-stats .x-sat-tiles > div { min-width: 0; }
+html.theme-clarity .x-sat-rate { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; min-width: 0; text-align: left; }
+html.theme-clarity .x-sat-ratecopy { min-width: 0; }
+html.theme-clarity .x-sat-ratecopy .x-kl, html.theme-clarity .x-sat-ratecopy .x-cs { margin: 0; }
+html.theme-clarity .x-sat-stats .x-sat-ring { width: 56px; margin: 0; flex: none; }
+html.theme-clarity .x-sat-error { margin-bottom: 20px; }
+html.theme-clarity .x-sat-records { margin-bottom: 20px; }
+html.theme-clarity .x-sat-day { display: block; color: var(--cl-tx); }
+html.theme-clarity .x-sat-detail { display: block; margin-top: 2px; font-size: 12px; color: var(--cl-dim); overflow-wrap: anywhere; }
+html.theme-clarity .x-sat-cal { margin-bottom: 12px; }
+html.theme-clarity .x-sat-note { margin: 0; }
 html.theme-clarity .x-sat-records > .x-ct { padding: 20px 20px 12px; }
 html.theme-clarity .x-sat-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-top: 1px solid var(--cl-bd); }
 html.theme-clarity .x-sat-more .x-cs { margin: 0; }
 html.theme-clarity .x-san-search { max-width: 360px; margin-bottom: 16px; }
+/* U-PDF-S (design p12): toggle and search at the top right; date · School under each card. */
+html.theme-clarity .x-san-tools { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 0; }
+html.theme-clarity .x-san-toolrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+html.theme-clarity .x-san-tools .x-san-search { flex: none; width: min(320px, 100%); max-width: none; margin: 0; }
+html.theme-clarity .x-seg .x-san-markall { color: var(--cl-ac); }
+html.theme-clarity .x-san-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+html.theme-clarity .x-san-read { min-height: 44px; padding: 0 4px; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--cl-ac); cursor: pointer; }
+html.theme-clarity .x-san-read:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; border-radius: 6px; }
+@media (max-width: 767px) {
+  html.theme-clarity .x-san-tools { align-items: stretch; width: 100%; }
+  html.theme-clarity .x-san-toolrow { justify-content: flex-start; }
+  html.theme-clarity .x-san-tools .x-san-search { width: 100%; }
+}
 html.theme-clarity .x-san-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 html.theme-clarity .x-san-item { display: flex; gap: 16px; padding: 20px 24px; }
 html.theme-clarity .x-san-ico { flex: none; width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: var(--cl-ac-s); color: var(--cl-ac); }
@@ -833,6 +934,9 @@ html.theme-clarity .x-san-meta { display: flex; flex-wrap: wrap; align-items: ce
 @media (max-width: 1023px) {
   html.theme-clarity .x-sat-layout { grid-template-columns: minmax(0, 1fr); }
 }
+@media (max-width: 1023px) {
+  html.theme-clarity .x-sat-stats { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 767px) {
   html.theme-clarity .x-sat-grid th { padding: 8px 4px; font-size: 11px; }
   html.theme-clarity .x-sat-grid td { height: 72px; padding: 4px; }
@@ -840,7 +944,7 @@ html.theme-clarity .x-san-meta { display: flex; flex-wrap: wrap; align-items: ce
   html.theme-clarity .x-san-item { padding: 16px; gap: 12px; }
   /* U-S4: a day cell shows the status letter (P, L, A, E) in its colour; the
      word stays in the text for screen readers. Records become a list (p11):
-     date and status on one line, section, subject and notes under it. */
+     date (with section, subject and notes under it) and status on one line. */
   html.theme-clarity .x-sat-grid td .x-badge[data-code] { justify-content: center; padding: 2px 0; font-size: 0; }
   html.theme-clarity .x-sat-grid td .x-badge[data-code]::before { content: attr(data-code); font-size: 12px; font-weight: 700; line-height: 18px; }
   html.theme-clarity .x-sat-records .x-tw { overflow: visible; }
@@ -852,16 +956,25 @@ html.theme-clarity .x-san-meta { display: flex; flex-wrap: wrap; align-items: ce
   html.theme-clarity .x-sat-records .x-table td { display: block; padding: 0; border: 0; }
   html.theme-clarity .x-sat-records .x-table td:first-child { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--cl-tx); }
   html.theme-clarity .x-sat-records .x-table td:nth-child(2) { flex: none; }
-  html.theme-clarity .x-sat-records .x-table td:nth-child(n+3) { flex-basis: 100%; font-size: 13px; color: var(--cl-dim); }
-  html.theme-clarity .x-sat-records .x-table td:nth-child(n+3):empty { display: none; }
-  html.theme-clarity .x-sat-records .x-table td:nth-child(3)::before { content: "Section: "; }
-  html.theme-clarity .x-sat-records .x-table td:nth-child(4)::before { content: "Subject: "; }
-  html.theme-clarity .x-sat-records .x-table td:nth-child(5)::before { content: "Notes: "; }
 }
 
 /* U-S5: Student Learning Materials cards (design p21): subject badge, title,
    description, teacher and date, one action at the bottom. */
-html.theme-clarity .x-slm-note { margin: -8px 0 16px; }
+/* U-PDF-S (design p21): tinted info banner, count bubbles, search in the header, a colour bar per subject. */
+html.theme-clarity .x-slm-note { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; background: var(--cl-ac-s); color: var(--cl-ac); font-weight: 500; }
+html.theme-clarity .x-slm-note svg { flex: none; }
+html.theme-clarity .x-slm-search { width: min(280px, 100%); }
+html.theme-clarity .x-head > .x-act:has(.x-slm-search) { flex-wrap: nowrap; align-items: center; gap: 8px; }
+html.theme-clarity .x-slm-n { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 4px; padding: 0 6px; border-radius: 9999px; background: var(--cl-bg); color: var(--cl-mu); font-size: 12px; font-weight: 600; }
+html.theme-clarity .x-chip.on .x-slm-n { background: var(--cl-card); color: var(--cl-ac); }
+html.theme-clarity .x-slm-bar { display: block; width: 28px; height: 4px; border-radius: 9999px; background: var(--cl-c1); }
+html.theme-clarity .x-slm-bar.c2 { background: var(--cl-c2); }
+html.theme-clarity .x-slm-bar.c3 { background: var(--cl-c3); }
+html.theme-clarity .x-slm-bar.c4 { background: var(--cl-ok); }
+html.theme-clarity .x-slm-bar.c5 { background: var(--cl-er); }
+@media (max-width: 767px) {
+  html.theme-clarity .x-slm-search { width: 100%; }
+}
 html.theme-clarity .x-slm-card { display: flex; flex-direction: column; gap: 8px; padding: 20px; min-width: 0; }
 html.theme-clarity .x-slm-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 html.theme-clarity .x-slm-card .x-ct { margin: 0; overflow-wrap: anywhere; }

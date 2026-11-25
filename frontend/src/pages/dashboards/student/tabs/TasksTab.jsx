@@ -26,8 +26,9 @@ import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 import PageHeader from '../PageHeader';
 import { countdownTone, GREEN, INFO, NEUTRAL, RED, YELLOW } from '../badgeTones';
-import { groupStudentViews, isMissing, isOverdue, STUDENT_VIEWS, STUDENT_VIEW_LABELS, studentView, taskTypeLabel, taskTypeOptions } from '../taskGroups';
+import { groupStudentViews, isMissing, isOverdue, STUDENT_VIEWS, STUDENT_VIEW_LABELS, studentView, taskRowPills, taskTypeLabel, taskTypeOptions } from '../taskGroups';
 import { Skeleton, SkeletonGroup } from '../../../../components/ui/Skeleton';
+import { normalizeGradeLevel } from '../../../../lib/academicRules';
 
 // What each view says when it has nothing in it.
 const EMPTY_VIEW_TEXT = {
@@ -82,7 +83,10 @@ const toStudentMessage = (error, fallback) => {
   return fallback;
 };
 
-const StudentTasksTab = () => {
+// U-PDF-S: `pdf` is set only by the Clarity route (TasksTabSwitch) and draws the
+// list as design p9 (one card of rows with a due pill, a status pill and Open).
+// Without it (the classic shell, ?clarity=0) the tab is exactly as before.
+const StudentTasksTab = ({ pdf = false }) => {
   const { dark } = useTheme();
   const { userData } = useAuth();
   const { showToast, Toast } = useToast();
@@ -611,13 +615,36 @@ const StudentTasksTab = () => {
       entry.pointsEach = Number.isFinite(points) && entry.items.every(item => Number(item.points) === points)
         ? `${points} ${points === 1 ? 'point' : 'points'} each` : null;
     });
+    // U-PDF-S (design p22), Clarity only: a title with "Subject · points · Due",
+    // the Assigned / Turned in / Marked steps, and the paper beside Your work and
+    // Details (placed by CSS grid areas, so the classic view's markup is unchanged).
+    const step = submission?.released === true ? 2 : done && submission ? 1 : 0;
+    const points = Number(active.sheet.max_points);
+    const metaLine = [active.subjectName || active.sheet.subject, Number.isFinite(points) && points > 0 && `${points} ${points === 1 ? 'point' : 'points'}`,
+      active.assignee.due_at && `Due ${formatManila(active.assignee.due_at)}`].filter(Boolean).join(' · ');
+    const sectionLine = [normalizeGradeLevel(enrolled?.sections?.grade_level), enrolled?.sections?.name].filter(Boolean).join(' – ');
     return (
       <div className="p-6">
         <Toast />
-        <div className="mx-auto" style={{ maxWidth: 1100 }}>
+        <div className={pdf ? 'mx-auto x-std-grid' : 'mx-auto'} style={{ maxWidth: 1100 }}>
           <button onClick={() => (leaveGuardRef.current ? leaveGuardRef.current(back) : back())}
-            className="text-sm mb-4 min-h-11 px-1" style={muted}>← Back</button>
-          <article aria-label="Worksheet test paper" className="rounded border p-5 sm:p-8 shadow-sm" {...PAPER_GUARD}
+            className={pdf ? 'text-sm min-h-11 px-1 x-std-back' : 'text-sm mb-4 min-h-11 px-1'} style={muted}>{pdf ? '‹ Back to Tasks' : '← Back'}</button>
+          {pdf && (
+            <header className="x-std-head">
+              <h1 className="x-h1">{active.sheet.title}</h1>
+              {metaLine && <p className="x-sub">{metaLine}</p>}
+            </header>
+          )}
+          {pdf && !handout && (
+            <ol className="x-card x-std-steps" aria-label="Progress">
+              {['Assigned', 'Turned in', 'Marked'].map((label, index) => (
+                <li key={label} className={index < step ? 'done' : index === step ? 'on' : undefined} aria-current={index === step ? 'step' : undefined}>
+                  <span className="x-std-dot" aria-hidden="true" />{label}
+                </li>
+              ))}
+            </ol>
+          )}
+          <article aria-label="Worksheet test paper" className={pdf ? 'rounded border p-5 sm:p-8 shadow-sm x-std-paper' : 'rounded border p-5 sm:p-8 shadow-sm'} {...PAPER_GUARD}
             style={{ backgroundColor: '#fffefb', borderColor: '#c9c3b8', color: '#1f1f1f',
               fontFamily: "Georgia, 'Times New Roman', serif", userSelect: 'none', WebkitUserSelect: 'none' }}>
             <StudentWorksheetHeader title={active.sheet.title} subject={active.sheet.subject}
@@ -708,8 +735,20 @@ const StudentTasksTab = () => {
           </div>
         )}
           </article>
-          {attachment && <YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} />}
-          {items.length > 0 && <div className="mt-5 space-y-3">
+          {attachment && (pdf
+            ? <div className="x-std-work"><YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} /></div>
+            : <YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} />)}
+          {pdf && (
+            <section className="x-card x-std-details" aria-labelledby="x-std-details-h">
+              <h2 id="x-std-details-h" className="x-ct">Details</h2>
+              <dl>
+                {sectionLine && <div><dt>Section</dt><dd>{sectionLine}</dd></div>}
+                {!handout && <div><dt>Checking</dt><dd>{active.sheet.checking_mode === 'auto' ? 'Auto-check' : 'By teacher'}</dd></div>}
+                {active.assignee.due_at && <div><dt>Due</dt><dd>{formatManila(active.assignee.due_at)}</dd></div>}
+              </dl>
+            </section>
+          )}
+          {items.length > 0 && <div className={pdf ? 'mt-5 space-y-3 x-std-submit' : 'mt-5 space-y-3'}>
             {!done && (
               <Btn className="min-h-11 px-5" onClick={() => setConfirmingSubmit(true)} disabled={busy || unansweredCount > 0}>
                 Submit
@@ -739,7 +778,7 @@ const StudentTasksTab = () => {
   return (
     <div className="p-6">
       <Toast />
-      <PageHeader title="Tasks" subtitle="Work your teachers have assigned to you."
+      <PageHeader title="Tasks" subtitle={pdf ? 'Worksheets and activities from your teachers' : 'Work your teachers have assigned to you.'}
         onRefresh={fetchTasks} refreshLabel="Refresh tasks" />
       {openError && !loading && !loadError && (
         <Card className="p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -788,7 +827,7 @@ const StudentTasksTab = () => {
           <p style={muted}>No tasks match this subject.</p>
         </Card>
       ) : (<>
-        <Card className="p-4 mb-4">
+        <Card className={pdf ? 'x-stk-bar mb-4' : 'p-4 mb-4'} style={pdf ? { backgroundColor: 'transparent', border: 0 } : undefined}>
           <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter tasks">
             {STUDENT_VIEWS.map(value => (
@@ -797,7 +836,8 @@ const StudentTasksTab = () => {
                 style={view === value
                   ? { color: 'var(--on-accent)', backgroundColor: 'var(--banner-accent)', border: '1px solid var(--banner-accent)' }
                   : { color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                {STUDENT_VIEW_LABELS[value]} <span>({groups[value].length})</span>
+                {pdf ? <>{STUDENT_VIEW_LABELS[value]} <span className="x-stk-n">{groups[value].length}</span></>
+                  : <>{STUDENT_VIEW_LABELS[value]} <span>({groups[value].length})</span></>}
               </button>
             ))}
           </div>
@@ -816,6 +856,45 @@ const StudentTasksTab = () => {
         <Card className="p-8 text-center">
           <FileText size={40} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />
           <p style={muted}>{EMPTY_VIEW_TEXT[view]}</p>
+        </Card>
+        ) : pdf ? (
+        <Card className="x-stk-list">
+          <ul aria-label="Tasks">
+            {shownRows.map(row => {
+              const pills = taskRowPills(row, now);
+              const handedIn = Boolean(row.submission) && row.submission.status !== 'in_progress';
+              const handoutRow = isHandout(row.sheet);
+              const attachmentRow = isAttachmentTask(row.sheet);
+              // Q3: the type and the finer status ride in the grey line (nothing is dropped).
+              const detail = [
+                row.subjectName || row.sheet.subject,
+                row.assignee.assigned_at && `Assigned ${formatManila(row.assignee.assigned_at, { time: false }).replace(/, \d{4}$/, '')}`,
+                taskTypeLabel(row.sheet),
+                !handoutRow && (attachmentRow ? attachmentStatus(row.submission).label : statusLabel(row)),
+                handedIn && row.submission.is_late === true && 'Submitted late',
+                handedIn && !handoutRow && (row.submission.released === true
+                  ? (row.sheet.checking_mode === 'auto' && 'Checked automatically')
+                  : 'Pending teacher review'),
+              ].filter(Boolean);
+              return (
+                <li key={row.assignee.task_id} className="x-stk-row">
+                  <span className="x-stk-ico" aria-hidden="true"><FileText size={16} /></span>
+                  <div className="x-stk-copy">
+                    <p className="x-stk-title">{row.sheet.title}</p>
+                    <p className="x-stk-meta">{detail.join(' · ')}</p>
+                    {row.assignee.due_at && <p className="x-sr">Due {formatManila(row.assignee.due_at)}</p>}
+                  </div>
+                  <div className="x-stk-pills">
+                    {pills.due && <span className={`x-stk-pill${pills.due.tone ? ` ${pills.due.tone}` : ''}`}>{pills.due.text}</span>}
+                    {pills.status && <span className={`x-stk-pill dot ${pills.status.tone}`}>{pills.status.text}</span>}
+                  </div>
+                  <Btn variant="outline" className="min-h-11 x-stk-open" onClick={() => open(row)} disabled={busy}>
+                    Open{' '}<span className="sr-only">{row.sheet.title}</span>
+                  </Btn>
+                </li>
+              );
+            })}
+          </ul>
         </Card>
         ) : (
         <div className="space-y-3">

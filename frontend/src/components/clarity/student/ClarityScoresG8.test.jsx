@@ -32,36 +32,32 @@ const show = () => render(<MemoryRouter><ClarityScoresTab /></MemoryRouter>);
 afterEach(() => { cleanup(); Object.assign(state, { graph: null, loading: false, refresh: null }); });
 
 describe('structure (p3)', () => {
-  it('the Overall card is the first cell of the same grid as the subject cards', () => {
+  // U-PDF-S (design p10): three stat cards, then the "By subject" rows.
+  it('three cards first: Overall average, Released, Highest', () => {
     state.graph = graphOf();
     const { container } = show();
-    const grid = container.querySelector('.x-sc-grid');
-    expect(grid.firstElementChild.getAttribute('aria-label')).toBe('Overall');
-    expect([...grid.children].map(c => c.className)).toEqual([
-      'x-card x-sc-card x-sc-overall', 'x-card x-sc-card', 'x-card x-sc-card',
-    ]);
-    expect(grid.firstElementChild.querySelector('.x-sc-name').textContent).toBe('Overall average');
-    expect(within(grid.firstElementChild).getByText('2 released scores')).toBeTruthy();
+    const stats = container.querySelector('.x-sc-stats');
+    expect(stats.getAttribute('aria-label')).toBe('Overall');
+    expect([...stats.children].map(c => c.querySelector('.x-kl').textContent)).toEqual(['Overall average', 'Released', 'Highest']);
+    expect([...stats.children].map(c => c.querySelector('.x-kv').textContent)).toEqual(['85%', '2', '90%']);
   });
 
-  it('each subject card: name, ring with "Average" beside it, Released N / M, the awaiting line only when it applies, then the button', () => {
+  it('each subject row: icon, name, "N released scores" with the awaiting count only when it applies, bar, percent, then the button', () => {
     state.graph = graphOf();
     show();
     const science = screen.getByRole('article', { name: 'Science' });
-    const order = [...science.querySelectorAll('.x-sc-name, .x-sc-ring, .x-sc-sub, .x-sc-rel, .x-sc-await, .x-sc-btn')].map(e => e.className.split(' ').pop());
-    expect(order).toEqual(['x-sc-name', 'x-sc-ring', 'x-sc-sub', 'x-sc-rel', 'x-sc-await', 'x-sc-btn']);
-    expect(within(science).getByText('Average')).toBeTruthy();
-    expect(science.querySelector('.x-sc-num').textContent).toBe('1 / 2');
-    expect(science.querySelector('.x-sc-await').textContent).toBe('1 awaiting results');
+    const order = [...science.querySelectorAll('.x-sc-ico, .x-sc-name, .x-sc-sub, .x-sc-bar, .x-sc-pct, .x-sc-btn')].map(e => e.className.split(' ').pop());
+    expect(order).toEqual(['x-sc-ico', 'x-sc-name', 'x-sc-sub', 'x-sc-bar', 'x-sc-pct', 'x-sc-btn']);
+    expect(science.querySelector('.x-sc-sub').textContent).toBe('1 released score · 1 awaiting results');
     const math = screen.getByRole('article', { name: 'Mathematics' });
-    expect(math.querySelector('.x-sc-await')).toBeNull();
+    expect(math.querySelector('.x-sc-sub').textContent).toBe('1 released score');
   });
 
-  it('the rings show only the percentage: no inner "average" caption', () => {
+  it('the percent is text beside a bar; no rings on this page', () => {
     state.graph = graphOf();
     const { container } = show();
-    expect(container.querySelectorAll('.x-ringlbl')).toHaveLength(0);
-    expect([...container.querySelectorAll('.x-ringval')].map(t => t.textContent)).toEqual(['85%', '90%', '80%']);
+    expect(container.querySelectorAll('.x-ringval')).toHaveLength(0);
+    expect([...container.querySelectorAll('.x-sc-pct')].map(t => t.textContent)).toEqual(['90% average', '80% average']);
   });
 
   it('Show / Hide released scores keeps its text and function', () => {

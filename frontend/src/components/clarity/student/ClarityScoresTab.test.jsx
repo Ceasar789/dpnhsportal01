@@ -72,7 +72,8 @@ afterEach(() => {
 
 describe('parity with the classic tab (same fixture, both versions)', () => {
   const facts = () => {
-    const subjects = screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent);
+    // U-PDF-S: Clarity names subjects at level 3, under its "By subject" heading (design p10).
+    const subjects = screen.getAllByRole('heading', { level: document.querySelector('.x-sc-list') ? 3 : 2 }).map(h => h.textContent);
     const buttons = screen.getAllByRole('button').map(b => b.getAttribute('aria-label') || b.textContent);
     openAll();
     const lists = [...document.querySelectorAll('ul[id^="scores-"]')].map(ul => [ul.id, rowsOf(ul)]);
@@ -90,17 +91,18 @@ describe('parity with the classic tab (same fixture, both versions)', () => {
     expect(clarity.buttons).toEqual(classic.buttons);
     expect(clarity.lists).toEqual(classic.lists);
     expect(clarity.lists[0][1]).toEqual(['Task q2ExamSubmitted Mar 12, 203015/20 · 75%', 'Task q1QuizSubmitted Mar 10, 20308/10 · 80%']);
-    for (const text of ['Scores', 'Your released scores by subject.', 'Overall average', '3 released scores',
-      '2 / 3', '1 / 2', '1 awaiting results']) {
+    for (const text of ['Scores', 'Overall average', '1 awaiting results']) {
       expect(classic.body, text).toContain(text);
       expect(clarity.body, text).toContain(text);
     }
-    // The percentages: classic prints them; Clarity draws rings whose labels carry them.
-    expect(classic.body).toContain('68%');
-    expect(classic.body).toContain('78%');
-    expect(classic.body).toContain('50%');
-    const rings = screen.getAllByRole('img').map(i => i.getAttribute('aria-label'));
-    expect(rings).toEqual(['68 percent, Overall average', '78 percent, English average', '50 percent, Math average']);
+    // U-PDF-S (design p10): the released count per subject and the percentages as text with a bar.
+    expect(clarity.body).toContain('Your released worksheet scores');
+    expect(clarity.body).toContain('2 released scores · 1 awaiting results');
+    expect(clarity.body).toContain('1 released score');
+    for (const p of ['68%', '78%', '50%']) {
+      expect(classic.body).toContain(p);
+      expect(clarity.body).toContain(p);
+    }
   });
 
   it('the refresh and retry buttons call the same refresh', () => {
@@ -124,17 +126,18 @@ describe('parity with the classic tab (same fixture, both versions)', () => {
 });
 
 describe('the Clarity Scores tab', () => {
-  it('shows the banner text exactly, in a banner', () => {
+  it('the "not an official grade" note is the Overall average caption (your Q2 answer)', () => {
     state.graph = makeGraph();
     show(<ClarityScoresTab />);
-    const banner = screen.getByText('Based on your released scores only. This is not an official grade.');
-    expect(banner.className).toBe('x-banner');
+    const note = screen.getByText('Released scores only. Not an official grade.');
+    expect(note.closest('.x-sc-stat').textContent).toContain('Overall average');
+    expect(document.querySelector('.x-banner')).toBeNull();
   });
 
   it('a null percent says "No released scores", never 0, with no NaN or undefined in the markup', () => {
     state.graph = makeGraph({ releasedScores: [] });
     const { container } = show(<ClarityScoresTab />);
-    expect(screen.getAllByText('No released scores')).toHaveLength(3); // overall, English, Math
+    expect(screen.getAllByText('No released scores')).toHaveLength(3); // the Highest card, English, Math
     expect(screen.queryAllByRole('img')).toHaveLength(0);
     expect(screen.getByText('No released scores yet.')).toBeTruthy();
     expect(screen.getByText('0 released scores')).toBeTruthy();
@@ -146,18 +149,18 @@ describe('the Clarity Scores tab', () => {
     show(<ClarityScoresTab />);
     const english = screen.getByRole('article', { name: 'English' });
     expect(within(english).getByText('No released scores')).toBeTruthy();
-    expect(within(english).getByText('0 / 3')).toBeTruthy();
-    expect(within(english).getByText('1 awaiting results')).toBeTruthy();
+    expect(within(english).getByText('0 released scores · 1 awaiting results')).toBeTruthy();
     expect(within(english).queryByRole('button')).toBeNull();
   });
 
-  it('0, 100 and over-100 percents: real values in the text and labels, the ring clamped with a note', () => {
+  it('0, 100 and over-100 percents: real values in the text; the bar is clamped to its track', () => {
     state.graph = graphOf([['Alpha', 0, 10], ['Beta', 10, 10], ['Gamma', 12, 10]]);
     show(<ClarityScoresTab />);
-    const labels = screen.getAllByRole('img').map(i => i.getAttribute('aria-label'));
-    expect(labels).toContain('0 percent, Alpha average');
-    expect(labels).toContain('100 percent, Beta average');
-    expect(labels.some(l => l.includes('Gamma'))).toBe(false);
+    const bar = name => screen.getByRole('article', { name }).querySelector('.x-sc-bar i');
+    expect(screen.getByRole('article', { name: 'Alpha' }).querySelector('.x-sc-pct').textContent).toBe('0% average');
+    expect(screen.getByRole('article', { name: 'Beta' }).querySelector('.x-sc-pct').textContent).toBe('100% average');
+    expect(screen.getByRole('article', { name: 'Gamma' }).querySelector('.x-sc-pct').textContent).toBe('120% average');
+    expect([bar('Alpha').style.width, bar('Beta').style.width, bar('Gamma')]).toEqual(['0%', '100%', null]);
     openAll();
     expect(rowsOf(screen.getByRole('article', { name: 'Gamma' }))[0]).toContain('12/10 · 120%');
     expect(rowsOf(screen.getByRole('article', { name: 'Alpha' }))[0]).toContain('0/10 · 0%');
@@ -167,17 +170,17 @@ describe('the Clarity Scores tab', () => {
     const name = 'Mathematics'.repeat(30);
     state.graph = graphOf([[name, 5, 10]]);
     show(<ClarityScoresTab />);
-    const heading = screen.getByRole('heading', { level: 2, name });
+    const heading = screen.getByRole('heading', { level: 3, name });
     expect(heading.style.overflowWrap).toBe('anywhere');
     expect(heading.style.minWidth).toBe('0px');
   });
 
-  it('30 subjects: 30 cards, 30 rings plus the overall one', () => {
+  it('30 subjects: 30 rows, each with its bar', () => {
     state.graph = graphOf(Array.from({ length: 30 }, (_, i) => [`Subject ${String(i).padStart(2, '0')}`, i, 30]));
     show(<ClarityScoresTab />);
     expect(screen.getAllByRole('article')).toHaveLength(30);
-    expect(screen.getAllByRole('img')).toHaveLength(31);
-    expect(screen.getByText('30 released scores')).toBeTruthy();
+    expect(document.querySelectorAll('.x-sc-bar')).toHaveLength(30);
+    expect(screen.getByText('30')).toBeTruthy();
   });
 
   it('loading: a status message, nothing else', () => {
@@ -222,20 +225,21 @@ describe('ScoresTabSwitch', () => {
     cleanup();
     const switched = show(<ScoresTabSwitch classic={ScoresTab} />, '/student/scores?clarity=0').container.innerHTML;
     expect(switched).toBe(classic);
-    expect(document.querySelector('.x-banner')).toBeNull();
+    expect(document.querySelector('.x-sc-stats')).toBeNull();
   });
 
+  // U-PDF-S: the Clarity page is recognised by its stat cards (the banner is now a caption).
   it('?clarity=0 or a stored flag decide as everywhere else', () => {
     state.graph = makeGraph();
     show(<ScoresTabSwitch classic={ScoresTab} />, '/student/scores?clarity=1');
-    expect(document.querySelector('.x-banner')).toBeTruthy();
+    expect(document.querySelector('.x-sc-stats')).toBeTruthy();
     cleanup();
     window.localStorage.setItem(CLARITY_STORAGE_KEY, '1');
     show(<ScoresTabSwitch classic={ScoresTab} />);
-    expect(document.querySelector('.x-banner')).toBeTruthy();
+    expect(document.querySelector('.x-sc-stats')).toBeTruthy();
     cleanup();
     show(<ScoresTabSwitch classic={ScoresTab} />, '/student/scores?clarity=0');
-    expect(document.querySelector('.x-banner')).toBeNull();
+    expect(document.querySelector('.x-sc-stats')).toBeNull();
   });
 });
 

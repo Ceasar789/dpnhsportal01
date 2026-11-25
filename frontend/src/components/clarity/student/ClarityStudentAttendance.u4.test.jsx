@@ -67,7 +67,7 @@ describe('U-S4 CSS', () => {
   it('phones: the letter replaces the word visually; records become rows of date + status, details under them', () => {
     expect(phone).toContain(P + '.x-sat-grid td .x-badge[data-code]::before { content: attr(data-code);');
     expect(phone).toContain(P + '.x-sat-records .x-table tr { display: flex; flex-wrap: wrap;');
-    expect(phone).toContain(P + '.x-sat-records .x-table td:nth-child(n+3):empty { display: none; }');
+    expect(phone).not.toContain('td:nth-child(n+3)'); // U-PDF-S: section, subject and notes now sit under the date
     expect(phone).not.toMatch(/nowrap|!important/);
     expect(css.lastIndexOf('@media (max-width: 767px) {', css.indexOf(phone))).toBeGreaterThan(-1);
   });

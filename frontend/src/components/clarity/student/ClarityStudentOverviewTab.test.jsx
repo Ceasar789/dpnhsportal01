@@ -72,10 +72,11 @@ describe('layout from real data', () => {
     expect(screen.getByText('Your subjects, tasks and attendance at a glance.')).toBeTruthy();
     expect(screen.getByText('Grade 8 · Mabini · School Year 2026-2027')).toBeTruthy();
     expect(screen.getByText('LRN 136482910027')).toBeTruthy();
+    // U-PDF-S (design p8): Pending tasks first; the percents are inside the rings.
     expect(tiles()).toEqual([
-      'Worksheet performance77%Average of 3 released scores',
-      'Attendance75%3 of 4 recorded days',
-      'Pending tasks31 due today',
+      'Pending tasks32 due this week',
+      'Worksheet performanceaverage of 3 released scores',
+      'Attendance3 of 4 recorded days present',
     ]);
     expect(screen.getByRole('img', { name: 'Worksheet performance: 77 percent, average of 3 released scores' })).toBeTruthy();
     expect(screen.getByRole('img', { name: 'Attendance: 75 percent, 3 of 4 recorded days present' })).toBeTruthy();
@@ -87,7 +88,7 @@ describe('layout from real data', () => {
     cleanup();
     show(ClarityStudentOverviewTab);
     const due = region('Due today and this week');
-    expect(within(due).getByText('1 due today · 2 this week')).toBeTruthy();
+    expect(within(due).getByText('3 tasks pending')).toBeTruthy();
     expect(links(due)).toEqual(before);
     const items = within(due).getAllByRole('link').map(a => a.textContent);
     expect(items[0]).toMatch(/^Photosynthesis worksheetEnglish · Due Mar 13, 2030, 5:00 PMDue today$/);
@@ -114,7 +115,7 @@ describe('layout from real data', () => {
     state.graph = makeGraph(TASKS, { releasedScores: [] });
     show(ClarityStudentOverviewTab);
     expect(within(region('Your subjects')).getByText('No released scores yet.')).toBeTruthy();
-    expect(tiles()[0]).toBe('Worksheet performanceNo released scoresNo scores yet');
+    expect(tiles()[1]).toBe('Worksheet performanceNo released scoresNo scores yet');
   });
 
   it('nothing invented: no welcome card, no teacher names, no placeholder dashes, no "preview"', () => {
@@ -160,7 +161,7 @@ describe('states', () => {
   it('loading: loading texts, no numbers', () => {
     Object.assign(state, { graph: null, loading: true });
     const { container } = show(ClarityStudentOverviewTab);
-    expect(tiles()).toEqual(['Worksheet performanceLoading…', 'AttendanceLoading…', 'Pending tasksLoading…']);
+    expect(tiles()).toEqual(['Pending tasksLoading…', 'Worksheet performanceLoading…', 'AttendanceLoading…']);
     expect(within(region('Due today and this week')).getByText('Loading your tasks…')).toBeTruthy();
     expect(within(region('Your subjects')).getByText('Loading your scores…')).toBeTruthy();
     expect(container.textContent).not.toMatch(/\d+%|—/);
@@ -169,7 +170,7 @@ describe('states', () => {
   it('failed load: "Could not load" text everywhere, Retry on subjects calls refresh, never a dash or 0', () => {
     state.graph = makeGraph(TASKS, { fatalError: new Error('synthetic') });
     const { container } = show(ClarityStudentOverviewTab);
-    expect(tiles()).toEqual(['Worksheet performanceCould not load', 'AttendanceCould not load', 'Pending tasksCould not load']);
+    expect(tiles()).toEqual(['Pending tasksCould not load', 'Worksheet performanceCould not load', 'AttendanceCould not load']);
     expect(screen.getByText('Could not load your enrolment')).toBeTruthy();
     expect(within(region('Due today and this week')).getByText('Could not load your tasks.')).toBeTruthy();
     fireEvent.click(within(region('Tasks by subject')).getByRole('button', { name: 'Retry' }));
@@ -181,7 +182,7 @@ describe('states', () => {
     state.graph = makeGraph(TASKS.slice(3), { attendance: [], enrolments: [], studentRecord: null });
     show(ClarityStudentOverviewTab);
     expect(screen.getByText('Not yet enrolled in a section')).toBeTruthy();
-    expect(tiles()).toEqual(['Worksheet performance77%Average of 3 released scores', 'AttendanceNo data yetNot yet recorded', 'Pending tasks0Nothing due']);
+    expect(tiles()).toEqual(['Pending tasks0Nothing due', 'Worksheet performanceaverage of 3 released scores', 'AttendanceNo data yetNot yet recorded']);
     expect(within(region('Due today and this week')).getByText('Nothing due this week. Nice work!')).toBeTruthy();
   });
 });

@@ -101,28 +101,30 @@ const ClarityStudentAnnouncementsTab = () => {
       <div className="x-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1">Announcements</h1>
-          <p className="x-sub">News and reminders from your school.</p>
+          <p className="x-sub">News and reminders from the school</p>
         </div>
-        <div className="x-act">
-          <button type="button" className="x-iconbtn" onClick={fetchAnnouncements} aria-label="Refresh announcements">
-            <RefreshCw size={16} aria-hidden="true" />
-          </button>
+        {/* U-PDF-S (design p12): the All / Unread toggle and the search sit at the
+            top right; Refresh and Mark all as read stay (existing actions). */}
+        <div className="x-act x-san-tools">
+          <div className="x-san-toolrow">
+            {!loading && !loadError && shown.length > 0 && (
+              <div className="x-seg x-san-seg" role="group" aria-label="Show announcements">
+                <button type="button" className={unreadOnly ? undefined : 'on'} aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>All ({shown.length})</button>
+                <button type="button" className={unreadOnly ? 'on' : undefined} aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>Unread ({unread.length})</button>
+                {unread.length > 0 && <button type="button" className="x-san-markall" onClick={() => markRead(unread.map(a => a.id))}>Mark all as read</button>}
+              </div>
+            )}
+            <button type="button" className="x-iconbtn" onClick={fetchAnnouncements} aria-label="Refresh announcements">
+              <RefreshCw size={16} aria-hidden="true" />
+            </button>
+          </div>
+          <label className="x-search x-san-search">
+            <Search size={16} aria-hidden="true" />
+            <input type="search" aria-label="Search announcements" placeholder="Search announcements..."
+              value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+          </label>
         </div>
       </div>
-
-      <label className="x-search x-san-search">
-        <Search size={16} aria-hidden="true" />
-        <input type="search" aria-label="Search announcements" placeholder="Search announcements..."
-          value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-      </label>
-
-      {!loading && !loadError && shown.length > 0 && (
-        <div className="x-chips" role="group" aria-label="Show announcements">
-          <button type="button" className={`x-chip${unreadOnly ? '' : ' on'}`} aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>All ({shown.length})</button>
-          <button type="button" className={`x-chip${unreadOnly ? ' on' : ''}`} aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>Unread ({unread.length})</button>
-          {unread.length > 0 && <button type="button" className="x-btn gh" onClick={() => markRead(unread.map(a => a.id))}>Mark all as read</button>}
-        </div>
-      )}
 
       {loading ? <>
         <p className="x-sr" role="status">Loading announcements…</p>
@@ -173,14 +175,14 @@ const ClarityStudentAnnouncementsTab = () => {
                       </span>
                     </div>
                     {stored(announcement.content) && <p className="x-san-text">{announcement.content}</p>}
-                    {!isRead(announcement) && <button type="button" className="x-btn gh" onClick={() => markRead([announcement.id])}
-                      aria-label={`Mark ${announcement.title || 'announcement'} as read`}>Mark as read</button>}
-                    {(day || from || audience) && (
-                      <p className="x-san-meta">
-                        {[day, from && `By ${from}`].filter(Boolean).join(' · ')}
-                        {audience && <>{(day || from) ? ' · ' : ''}<span className="x-badge">{audience}</span></>}
-                      </p>
-                    )}
+                    {/* Design p12: "Nov 19, 2026 · School". Only the school's admins post
+                        announcements, so "School" is who posted unless a name is stored;
+                        the audience stays as plain text after it. */}
+                    <div className="x-san-foot">
+                      <p className="x-san-meta">{[day, from ? `By ${from}` : 'School', audience].filter(Boolean).join(' · ')}</p>
+                      {!isRead(announcement) && <button type="button" className="x-san-read" onClick={() => markRead([announcement.id])}
+                        aria-label={`Mark ${announcement.title || 'announcement'} as read`}>Mark as read</button>}
+                    </div>
                   </div>
                 </li>
               );

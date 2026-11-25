@@ -113,6 +113,29 @@ export const taskTypeOptions = rows => [...rows.reduce((counts, row) => {
 // due and not handed in; late work is still accepted and flagged (Q9).
 export const isMissing = (row, now = new Date()) => isOverdue(row, now) && !row.submission;
 
+// U-PDF-S (design p9): the two pills of a task row. The due pill: "Missing"
+// (past due, never started), "Due today", or "Due Nov 21"; none once handed in
+// or without a deadline. The status pill: Graded (released), Submitted (handed
+// in), Overdue (past due, not handed in), else Pending. An Activity (handout)
+// has nothing to hand in, so it gets no status pill.
+const SHORT_MANILA = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' });
+export const taskRowPills = (row, now = new Date()) => {
+  const handedIn = isDone(row.submission);
+  const handout = isHandout(row.sheet);
+  const due = manilaInstant(row.assignee?.due_at);
+  let duePill = null;
+  if (!handedIn && !handout && isMissing(row, now)) duePill = { tone: 'er', text: 'Missing' };
+  else if (!handedIn && due) duePill = manilaDay(due) === manilaDay(now) ? { tone: 'wa', text: 'Due today' } : { tone: '', text: `Due ${SHORT_MANILA.format(due)}` };
+  let status = null;
+  if (!handout) {
+    if (row.submission?.released === true) status = { tone: 'ok', text: 'Graded' };
+    else if (handedIn) status = { tone: 'in', text: 'Submitted' };
+    else if (isOverdue(row, now)) status = { tone: 'er', text: 'Overdue' };
+    else status = { tone: 'wa', text: 'Pending' };
+  }
+  return { due: duePill, status };
+};
+
 // The Overview card: how many unfinished tasks are due today and this week,
 // and the first `limit` of this week's, soonest first.
 export const dueSoon = (rows, now = new Date(), limit = 5) => {

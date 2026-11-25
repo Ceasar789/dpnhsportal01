@@ -56,7 +56,7 @@ const Kpi = ({ label, value, sub, ring, icon: Icon }) => (
     <div className="x-ov-kpi">
       <div style={{ minWidth: 0 }}>
         <p className="x-kl">{label}</p>
-        <p className="x-kv">{value}</p>
+        {value !== null && value !== undefined && <p className="x-kv">{value}</p>}
         <p className="x-kd">{sub}</p>
       </div>
       {ring || (Icon && <span className="x-ico" aria-hidden="true"><Icon size={16} /></span>)}
@@ -125,22 +125,24 @@ const ClarityStudentOverviewTab = () => {
 
       <GettingStartedCard role="student" uid={userData?.uid} steps={firstSteps} />
 
+      {/* U-PDF-S (design p8): Pending tasks, then the two rings; the percent
+          sits inside each ring, the caption under the label. */}
       <section aria-label="Your progress" className="x-kpis">
+        <Kpi label="Pending tasks" icon={ClipboardList}
+          value={shown(String(pendingCount))}
+          sub={settled ? (pendingCount === 0 ? 'Nothing due' : `${soon.weekCount} due this week`) : loading ? LOADING_SUB : ''} />
         <Kpi label="Worksheet performance"
-          value={shown(performance ? `${performance.percent}%` : 'No released scores')}
-          sub={settled ? (performance ? `Average of ${plural(performance.count, 'released score')}` : 'No scores yet') : loading ? LOADING_SUB : ''}
+          value={settled && performance && drawable(performance.percent) !== null ? null : shown(performance ? `${performance.percent}%` : 'No released scores')}
+          sub={settled ? (performance ? `average of ${plural(performance.count, 'released score')}` : 'No scores yet') : loading ? LOADING_SUB : ''}
           ring={loading ? LOADING_RING : settled && performance && drawable(performance.percent) !== null ? (
             <span className="x-sov-ring"><ProgressRing value={performance.percent} label="Worksheet performance" detail={`average of ${plural(performance.count, 'released score')}`} /></span>
           ) : null} />
         <Kpi label="Attendance"
-          value={shown(attendance ? `${attendance.percent}%` : graph?.attendanceError ? 'Unavailable' : 'No data yet')}
-          sub={settled ? (attendance ? `${attendance.present} of ${attendance.total} recorded days` : graph?.attendanceError ? 'Could not load attendance right now.' : 'Not yet recorded') : loading ? LOADING_SUB : ''}
+          value={settled && attendance && drawable(attendance.percent) !== null ? null : shown(attendance ? `${attendance.percent}%` : graph?.attendanceError ? 'Unavailable' : 'No data yet')}
+          sub={settled ? (attendance ? `${attendance.present} of ${attendance.total} recorded days present` : graph?.attendanceError ? 'Could not load attendance right now.' : 'Not yet recorded') : loading ? LOADING_SUB : ''}
           ring={loading ? LOADING_RING : settled && attendance && drawable(attendance.percent) !== null ? (
-            <span className="x-sov-ring"><ProgressRing value={attendance.percent} label="Attendance" detail={`${attendance.present} of ${attendance.total} recorded days present`} /></span>
+            <span className="x-sov-ring x-sov-ring-ok"><ProgressRing value={attendance.percent} label="Attendance" detail={`${attendance.present} of ${attendance.total} recorded days present`} /></span>
           ) : null} />
-        <Kpi label="Pending tasks" icon={ClipboardList}
-          value={shown(String(pendingCount))}
-          sub={settled ? (soon.todayCount > 0 ? `${soon.todayCount} due today` : pendingCount === 0 ? 'Nothing due' : `task${pendingCount === 1 ? '' : 's'} due`) : loading ? LOADING_SUB : ''} />
       </section>
 
       <div className="x-cols">
@@ -148,7 +150,7 @@ const ClarityStudentOverviewTab = () => {
           <h2 className="x-ct" id="x-sov-due">Due today and this week</h2>
           <p className="x-cs">
             {loading ? 'Loading your tasks…' : loadError ? 'Could not load your tasks.'
-              : `${soon.todayCount} due today · ${soon.weekCount} this week`}
+              : `${plural(pendingCount, 'task')} pending`}
           </p>
           {loading && (
             <SkeletonGroup as="ul" className="x-rows x-sov-due">

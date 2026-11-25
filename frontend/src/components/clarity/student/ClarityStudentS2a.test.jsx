@@ -101,7 +101,7 @@ describe('My Attendance (p4)', () => {
     expect(within(oct).getByText('Excused').className).toBe('x-badge');
     fireEvent.change(screen.getByLabelText('Month'), { target: { value: 'all' } });
     expect(screen.queryByRole('table', { name: /^Attendance in/ })).toBeNull();
-    expect(screen.getByText('Choose a month to see it on the calendar. Every record is listed below.')).toBeTruthy();
+    expect(screen.getByText('Choose a month to see it on the calendar. Every record is listed above.')).toBeTruthy();
     expect(screen.getByText('Showing 5 of 5')).toBeTruthy();
   });
 
@@ -110,16 +110,21 @@ describe('My Attendance (p4)', () => {
     const rate = screen.getByRole('region', { name: 'Attendance rate' });
     expect(within(rate).getByRole('img').getAttribute('aria-label')).toBe('Attendance rate: 40 percent, 5 total days recorded');
     expect(rate.textContent).toContain('Rate = days Present ÷ all recorded days. Late and Excused count as not present.');
+    // U-PDF-S (design p11): Present, Late, Absent cards; Excused is a line in the rate card.
     const tiles = [...screen.getByRole('region', { name: 'Attendance totals' }).children].map(t => t.textContent);
-    expect(tiles).toEqual(['Present2', 'Late1', 'Absent1', 'Excused1']);
+    expect(tiles).toEqual(['Present2', 'Late1', 'Absent1']);
+    expect(rate.textContent).toContain('1 excused');
+    expect(rate.textContent).toContain('2 of 5 days');
   });
 
   it('the records list leaves a missing subject or note empty (no dash)', async () => {
     render(<ClarityStudentAttendanceTab />); await settle();
     const records = screen.getByRole('region', { name: 'Attendance records' });
     expect(records.textContent).not.toContain('—');
+    // U-PDF-S (design p11): Date and Status; the section (and a subject or note when stored) under the date.
     const rows = [...within(records).getByRole('table').querySelectorAll('tbody tr')].map(tr => [...tr.cells].map(td => td.textContent));
-    expect(rows[1]).toEqual(['Nov 9, 2026', 'Late', 'Mabini', '', '']);
+    expect(rows[1]).toEqual(['Mon, Nov 9Mabini', 'Late']);
+    expect([...within(records).getByRole('table').querySelectorAll('th')].map(th => th.textContent)).toEqual(['Date', 'Status']);
   });
 
   it('no records: clean empty state, no rate and no counts; a failed read is its own state with Retry', async () => {
@@ -153,9 +158,9 @@ describe('Announcements (p5)', () => {
     expect(within(items[0]).getByText('NEW')).toBeTruthy();
     expect(within(items[0]).getByText('Important')).toBeTruthy();
     expect(items[0].querySelector('.x-san-meta').textContent).toBe('Nov 9, 2026 · By Registrar · All Users');
-    expect(items[1].querySelector('.x-san-meta').textContent).toBe('Oct 1, 2026 · Students Only');
+    expect(items[1].querySelector('.x-san-meta').textContent).toBe('Oct 1, 2026 · School · Students Only');
     expect(within(items[1]).queryByText('NEW')).toBeNull();
-    expect(items[2].querySelector('.x-san-meta').textContent).toBe('Oct 2, 2026');
+    expect(items[2].querySelector('.x-san-meta').textContent).toBe('Oct 2, 2026 · School');
     expect(items[2].querySelector('.x-san-text')).toBeNull();
     expect(document.body.textContent).not.toMatch(/School Admin/);
   });

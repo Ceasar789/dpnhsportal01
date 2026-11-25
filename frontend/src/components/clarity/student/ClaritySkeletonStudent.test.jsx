@@ -58,10 +58,10 @@ describe('student tabs: skeleton while loading, gone when loaded', () => {
     noTextInGroups();
   });
 
-  it('Scores (#37): the score-card grid while loading, nothing once loaded', () => {
+  it('Scores (#37): the three stat cards while loading, nothing once loaded', () => {
     show(ClarityScoresTab);
     expect(screen.getByRole('status').textContent).toBe('Loading your scores…');
-    expect(document.querySelectorAll('[data-skeleton].x-sc-grid > .x-sc-card').length).toBe(4);
+    expect(document.querySelectorAll('[data-skeleton].x-sc-stats > .x-sc-stat').length).toBe(3);
     noTextInGroups();
     cleanup();
     Object.assign(h, { loading: false, graph: { enrolments: [], worksheets: [], submissions: [], scores: [], subjects: [] } });

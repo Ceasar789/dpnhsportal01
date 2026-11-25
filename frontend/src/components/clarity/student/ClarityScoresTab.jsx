@@ -8,56 +8,49 @@
 // ============================================
 
 import { useMemo, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 import { useStudentData } from '../../../pages/dashboards/student/StudentDataContext';
 import { overallScores, scoresBySubject } from '../../../pages/dashboards/student/scoresView';
 import { formatManila } from '../../../lib/taskFormatting';
-import ProgressRing from '../charts/ProgressRing';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
 
 const WRAP = { minWidth: 0, overflowWrap: 'anywhere' };
 const NO_RELEASED = 'No released scores';
-const EMPTY_STYLE = { padding: '12px 0', textAlign: 'left' };
-// A ring can only draw 0-100 (its centre would read 100% for 120), so a
-// recorded value outside that is shown as the plain number the classic
-// prints. Same guard as ClarityOverviewTab. A value that is not a number at
-// all (NaN) is treated as no data, never printed.
+// A bar can only fill 0-100%, so a recorded value outside that (120, -20)
+// is printed as the classic prints it, with no bar. A value that is not a
+// number at all (NaN) is treated as no data, never printed.
 const drawable = p => (p !== null && p >= 0 && p <= 100 ? p : null);
 const usable = p => typeof p === 'number' && Number.isFinite(p);
 const percentText = p => (usable(p) ? `${p}%` : '—');
-// The rings get no `label`: ProgressRing draws its label as a <b> that
-// .o-ring b positions over the ring. The visible headings carry it instead.
-// G8: no `unit` either: its caption inside a 64px ring was about 6px and
-// unreadable, so the centre shows only the percentage and "Average" sits
-// beside the ring.
 const releasedCount = n => `${n} released ${n === 1 ? 'score' : 'scores'}`;
 
-const SubjectCard = ({ subject }) => {
+// U-PDF-S (design p10): one row per subject: icon, name, "N released scores"
+// (and "N awaiting results"), a bar and the percent. The row keeps its list of
+// released scores behind "Show released scores (n)" (your Q2 answer; the classic wording).
+const SubjectRow = ({ subject }) => {
   const [open, setOpen] = useState(false);
   const listId = `scores-${subject.key}`;
+  const width = drawable(subject.percent);
   return (
-    <article className="x-card x-sc-card" aria-labelledby={`${listId}-name`}>
-      <div className="x-sc-top">
-        <h2 id={`${listId}-name`} className="x-sc-name" style={WRAP}>{subject.name}</h2>
-        <div className="x-sc-avg">
-          {!usable(subject.percent)
-            ? <p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p>
-            : drawable(subject.percent) === null
-              ? <p className="x-kv">{percentText(subject.percent)}</p>
-              : <span className="x-sc-ring"><ProgressRing value={subject.percent} detail={`${subject.name} average`} /></span>}
+    <li className="x-sc-row">
+      <article aria-labelledby={`${listId}-name`}>
+      <div className="x-sc-line">
+        <span className="x-sc-ico" aria-hidden="true"><BarChart3 size={16} /></span>
+        <div className="x-sc-copy">
+          <h3 id={`${listId}-name`} className="x-sc-name" style={WRAP}>{subject.name}</h3>
+          <p className="x-cs x-sc-sub">{[releasedCount(subject.items.length), subject.awaiting > 0 && `${subject.awaiting} awaiting results`].filter(Boolean).join(' · ')}</p>
         </div>
-        <p className="x-cs x-sc-sub">Average</p>
+        <span className="x-sc-bar" aria-hidden="true">{width !== null && <i style={{ width: `${width}%` }} />}</span>
+        <b className="x-sc-pct">{usable(subject.percent) ? percentText(subject.percent) : '—'}<span className="x-sr">{usable(subject.percent) ? ' average' : ` ${NO_RELEASED}`}</span></b>
       </div>
-      <p className="x-sc-rel"><span className="x-kl">Released</span><b className="x-sc-num">{subject.items.length} / {subject.assigned}</b></p>
-      {subject.awaiting > 0 && <p className="x-cs x-sc-await">{subject.awaiting} awaiting results</p>}
       {subject.items.length > 0 && (
-        <>
+        <div className="x-sc-more">
           <button type="button" className="x-btn x-sc-btn" aria-expanded={open} aria-controls={listId}
             onClick={() => setOpen(value => !value)}>
             {open ? 'Hide released scores' : `Show released scores (${subject.items.length})`}
           </button>
           {open && (
-            <ul id={listId} className="x-rows" style={{ marginTop: 12 }}>
+            <ul id={listId} className="x-rows" style={{ marginTop: 8 }}>
               {subject.items.map(item => (
                 <li key={item.id}>
                   <div className="g">
@@ -72,19 +65,32 @@ const SubjectCard = ({ subject }) => {
               ))}
             </ul>
           )}
-        </>
+        </div>
       )}
-    </article>
+      </article>
+    </li>
   );
 };
 
-// L2: one score card while it loads: name, ring, caption.
-const SCORE_CARD_SKELETON = (
-  <div className="x-sc-top">
-    <p className="x-sc-name"><Skeleton inline h="0.8em" w="60%" /></p>
-    <div className="x-sc-avg"><span className="x-sc-ring"><Skeleton w="100%" h="100%" r={9999} /></span></div>
-    <p className="x-cs x-sc-sub"><Skeleton inline h="0.8em" w="45%" /></p>
+// The single highest released score and its subject (real rows only).
+const highestOf = subjects => subjects.flatMap(subject => subject.items.map(item => ({ ...item, subject: subject.name })))
+  .filter(item => usable(item.percent))
+  .reduce((best, item) => (!best || item.percent > best.percent ? item : best), null);
+
+const Stat = ({ label, value, caption }) => (
+  <div className="x-card x-sc-stat">
+    <p className="x-kl">{label}</p>
+    <p className="x-kv">{value}</p>
+    <p className="x-cs">{caption}</p>
   </div>
+);
+
+const STAT_SKELETON = (
+  <>
+    <p className="x-kl"><Skeleton inline h="0.8em" w="50%" /></p>
+    <p className="x-kv"><Skeleton inline h="0.8em" w="40%" /></p>
+    <p className="x-cs"><Skeleton inline h="0.8em" w="60%" /></p>
+  </>
 );
 
 const ClarityScoresTab = () => {
@@ -93,13 +99,14 @@ const ClarityScoresTab = () => {
   const ready = !!graph && !loadError;
   const overall = useMemo(() => (ready ? overallScores(graph) : null), [graph, ready]);
   const subjects = useMemo(() => (ready ? scoresBySubject(graph) : []), [graph, ready]);
+  const highest = useMemo(() => highestOf(subjects), [subjects]);
 
   return (
     <div>
       <div className="x-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1">Scores</h1>
-          <p className="x-sub">Your released scores by subject.</p>
+          <p className="x-sub">Your released worksheet scores</p>
         </div>
         {refresh && (
           <div className="x-act">
@@ -109,14 +116,12 @@ const ClarityScoresTab = () => {
           </div>
         )}
       </div>
-      <p className="x-banner">Based on your released scores only. This is not an official grade.</p>
 
       {loading && !graph ? (
         <>
           <p className="x-sr" role="status">Loading your scores…</p>
-          <SkeletonGroup className="x-sc-grid">
-            <div className="x-card x-sc-card x-sc-overall">{SCORE_CARD_SKELETON}</div>
-            {[1, 2, 3].map(i => <div key={i} className="x-card x-sc-card">{SCORE_CARD_SKELETON}</div>)}
+          <SkeletonGroup className="x-sc-stats">
+            {[0, 1, 2].map(i => <div key={i} className="x-card x-sc-stat">{STAT_SKELETON}</div>)}
           </SkeletonGroup>
         </>
       ) : loadError ? (
@@ -127,22 +132,18 @@ const ClarityScoresTab = () => {
         </div>
       ) : ready ? (
         <>
-          <div className="x-sc-grid">
-            <section aria-label="Overall" className="x-card x-sc-card x-sc-overall">
-              <div className="x-sc-top">
-                <p className="x-sc-name">Overall average</p>
-                <div className="x-sc-avg">
-                  {!usable(overall.percent)
-                    ? <p className="x-empty" style={EMPTY_STYLE}>{NO_RELEASED}</p>
-                    : drawable(overall.percent) === null
-                      ? <p className="x-kv">{percentText(overall.percent)}</p>
-                      : <span className="x-sc-ring"><ProgressRing value={overall.percent} detail="Overall average" /></span>}
-                </div>
-                <p className="x-cs x-sc-sub">{releasedCount(overall.count)}</p>
-              </div>
+          <section aria-label="Overall" className="x-sc-stats">
+            <Stat label="Overall average" value={usable(overall.percent) ? percentText(overall.percent) : '—'}
+              caption="Released scores only. Not an official grade." />
+            <Stat label="Released" value={String(overall.count)} caption={overall.count === 1 ? 'score' : 'scores'} />
+            <Stat label="Highest" value={highest ? percentText(highest.percent) : '—'} caption={highest ? highest.subject : NO_RELEASED} />
+          </section>
+          {subjects.length > 0 && (
+            <section className="x-card x-pad x-sc-list" aria-labelledby="x-sc-by">
+              <h2 id="x-sc-by" className="x-ct">By subject</h2>
+              <ul>{subjects.map(subject => <SubjectRow key={subject.key} subject={subject} />)}</ul>
             </section>
-            {subjects.map(subject => <SubjectCard key={subject.key} subject={subject} />)}
-          </div>
+          )}
           {overall.count === 0 && (
             <div className="x-card x-empty" style={{ marginTop: 16 }}>
               <p>No released scores yet.</p>

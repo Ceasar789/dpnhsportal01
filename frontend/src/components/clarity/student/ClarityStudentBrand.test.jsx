@@ -29,9 +29,10 @@ afterEach(() => { cleanup(); state.graph = null; });
 
 describe('Clarity Student brand subtitle', () => {
   it.each([
-    ['Grade 8', 'Student · Grade 8'],
-    ['8', 'Student · Grade 8'],
-    ['grade 10', 'Student · Grade 10'],
+    // U-PDF-S (design p8): the brand line is just the grade.
+    ['Grade 8', 'Grade 8'],
+    ['8', 'Grade 8'],
+    ['grade 10', 'Grade 10'],
   ])('a real grade_level of "%s" shows "%s"', (gradeLevel, expected) => {
     state.graph = graphWith([{ section_id: 's', sections: { name: 'Mabini', grade_level: gradeLevel, school_year: '2026-2027' } }]);
     show();

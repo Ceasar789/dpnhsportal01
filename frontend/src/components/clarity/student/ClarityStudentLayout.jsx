@@ -231,7 +231,7 @@ const ClarityStudentLayout = ({ children }) => {
           <img src="/EduScribeLogoIcon.png" alt="EduScribe" />
           <div>
             <b>EduScribe</b>
-            <span>{grade ? `Student · ${grade}` : 'Student Dashboard'}</span>
+            <span>{grade || 'Student Dashboard'}</span>
           </div>
         </div>
 
@@ -277,7 +277,7 @@ const ClarityStudentLayout = ({ children }) => {
         <ClarityTopBar headerRef={headerRef} phone={phone} menuButtonRef={menuButtonRef}
           menuLabel="Open navigation menu" menuOpen={sidebarOpen} menuControls="student-sidebar" onOpenMenu={() => setSidebarOpen(true)}
           pageTitle={pageTitle} dark={dark} onToggleDark={toggleDark}
-          bell={<span className="x-bell" data-shared="bell"><NotificationBell followLinks /></span>} />
+          bell={<span className="x-bell" data-shared="bell"><NotificationBell followLinks designPanel /></span>} />
 
         <main ref={mainRef} id="x-main" tabIndex={-1} className="x-content">
           {ClarityPage ? <ClarityPage /> : restyled ? <div className={restyled}>{children}</div> : children}

@@ -23,7 +23,7 @@ import { manilaDateToday } from '../../../lib/taskFormatting';
 import { useToast } from '../../../pages/dashboards/student/hooks';
 import StudentDataContext from '../../../pages/dashboards/student/StudentDataContext';
 import {
-  attendanceRate, attendanceTotals, currentManilaMonth, formatAttendanceDate, KNOWN_STATUSES,
+  attendanceRate, attendanceTotals, currentManilaMonth, KNOWN_STATUSES,
   monthLabel, monthOf, monthOptions, RATE_RULE, statusKey,
 } from '../../../pages/dashboards/student/attendanceView';
 import ProgressRing from '../charts/ProgressRing';
@@ -41,11 +41,21 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // day cells are too narrow for the word, so CSS shows the letter instead
 // (the word stays in the text for screen readers, and as the tooltip).
 const CODE = { present: 'P', late: 'L', absent: 'A', excused: 'E' };
-const StatusPill = ({ row, coded = false }) => {
+const StatusPill = ({ row, coded = false, dot = false }) => {
   const known = KNOWN_STATUSES.includes(statusKey(row));
   const label = known ? row.status : `Other${row.status ? ` (${row.status})` : ''}`;
   const extra = coded ? { 'data-code': CODE[statusKey(row)] || '?', title: label } : {};
-  return <span className={['x-badge', known && TONE[statusKey(row)]].filter(Boolean).join(' ')} {...extra}>{label}</span>;
+  return <span className={['x-badge', known && TONE[statusKey(row)]].filter(Boolean).join(' ')} {...extra}>{dot && <i aria-hidden="true" />}{label}</span>;
+};
+
+// U-PDF-S (design p11): "Fri, Nov 20" in the records; the year only when it is
+// not this year (a record from another year must still say which).
+const RECORD_DAY = new Intl.DateTimeFormat('en-PH', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+const RECORD_DAY_YEAR = new Intl.DateTimeFormat('en-PH', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+const recordDay = (key, thisYear) => {
+  const at = new Date(`${key}T00:00:00Z`);
+  if (Number.isNaN(at.getTime())) return key || '';
+  return (key.slice(0, 4) === thisYear ? RECORD_DAY : RECORD_DAY_YEAR).format(at);
 };
 
 // The weeks of a "YYYY-MM" month, Sunday first, with the neighbouring days that
@@ -164,7 +174,8 @@ const ClarityStudentAttendanceTab = () => {
   /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
   const today = manilaDateToday();
-  const tiles = [['Present', totals.present], ['Late', totals.late], ['Absent', totals.absent], ['Excused', totals.excused]];
+  // The PDF's three count cards; Excused is a line in the rate card (when > 0).
+  const tiles = [['Present', totals.present], ['Late', totals.late], ['Absent', totals.absent]];
 
   return (
     <div className="x-sat">
@@ -172,7 +183,7 @@ const ClarityStudentAttendanceTab = () => {
       <div className="x-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1">My Attendance</h1>
-          <p className="x-sub">Your attendance as recorded by your adviser.</p>
+          <p className="x-sub">Your attendance records</p>
         </div>
         <div className="x-act">
           <button type="button" className="x-iconbtn" onClick={fetchAttendance} aria-label="Refresh attendance">
@@ -181,8 +192,83 @@ const ClarityStudentAttendanceTab = () => {
         </div>
       </div>
 
-      <div className="x-sat-layout">
-        <section className="x-card x-pad x-sat-cal" aria-labelledby="x-sat-month">
+      {/* U-PDF-S (design p11): Present, Late, Absent and the rate ring on top. */}
+      {loading ? (
+        <>
+          <p className="x-sr" role="status">Loading your attendance…</p>
+          <SkeletonGroup className="x-sat-stats">
+            <div className="x-sat-tiles">{[0, 1, 2].map(i => <div key={i} className="x-card"><p className="x-kl"><Skeleton inline h="0.8em" w="50%" /></p><p className="x-kv"><Skeleton inline h="0.8em" w="30%" /></p></div>)}</div>
+            <div className="x-card x-sat-rate"><p className="x-kl"><Skeleton inline h="0.8em" w="60%" /></p><div className="x-sat-ring"><Skeleton w="100%" h="100%" className="sk-round" /></div></div>
+          </SkeletonGroup>
+        </>
+      ) : loadError ? (
+        <div className="x-card x-pad x-empty x-sat-error">
+          <p role="alert" className="x-ct">Could not load your attendance.</p>
+          <p className="x-cs">This is a loading problem, not an empty record. Check your connection and try again.</p>
+          <button type="button" className="x-btn" onClick={fetchAttendance}>Retry</button>
+        </div>
+      ) : (
+        <div className="x-sat-stats">
+          {totals.total > 0 && (
+            <section aria-label="Attendance totals" className="x-sat-tiles">
+              {tiles.map(([label, value]) => <div key={label} className="x-card"><p className="x-kl">{label}</p><p className="x-kv">{value}</p></div>)}
+            </section>
+          )}
+          <section className="x-card x-sat-rate" aria-label="Attendance rate" title={RATE_RULE}>
+            {totals.total === 0 ? <p className="x-empty">No attendance recorded yet.</p> : <>
+              <div className="x-sat-ratecopy">
+                <h2 className="x-kl">Attendance rate</h2>
+                <p className="x-cs">{totals.present} of {totals.total} days</p>
+                {totals.excused > 0 && <p className="x-cs">{totals.excused} excused</p>}
+                <p className="x-sr">{RATE_RULE}</p>
+              </div>
+              <div className="x-sat-ring"><ProgressRing value={rate} label="Attendance rate" detail={`${totals.total} total days recorded`} /></div>
+            </>}
+          </section>
+        </div>
+      )}
+      {!loading && !loadError && totals.other > 0 && (
+        <p className="x-cs">{totals.other} other {totals.other === 1 ? 'record' : 'records'} (not Present, Late, Absent or Excused).</p>
+      )}
+
+      {!loading && !loadError && records.length > 0 && (
+        <section className="x-card x-sat-records" aria-labelledby="x-sat-records">
+          <h2 id="x-sat-records" className="x-ct">Attendance records</h2>
+          {filtered.length === 0 ? (
+            <p className="x-empty">No attendance recorded {month === 'all' ? 'for this section' : `in ${monthLabel(month)}`}.</p>
+          ) : <>
+            <div className="x-tw">
+              <table className="x-table">
+                <thead><tr>{['Date', 'Status'].map(h => <th key={h} scope="col">{h}</th>)}</tr></thead>
+                <tbody>
+                  {shown.map((r, i) => {
+                    // Section, subject and notes stay, as one muted line under the date.
+                    const detail = [r.section_id ? sectionName(r.section_id) : '', r.subject || '', r.remarks || ''].filter(Boolean);
+                    return (
+                      <tr key={r.id || i}>
+                        <td>
+                          <span className="x-sat-day">{recordDay(r.date, today.slice(0, 4))}</span>
+                          {detail.length > 0 && <span className="x-sat-detail">{detail.join(' · ')}</span>}
+                        </td>
+                        <td><StatusPill row={r} dot /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="x-sat-more">
+              <p className="x-cs">Showing {shown.length} of {filtered.length}</p>
+              {shown.length < filtered.length && (
+                <button type="button" className="x-btn" onClick={() => setPaging({ key: filterKey, count: shownCount + PAGE_SIZE })}>Show more</button>
+              )}
+            </div>
+          </>}
+        </section>
+      )}
+
+      {/* Your Q1 answer: the month calendar and its Month/Section selectors stay, below the records. */}
+      <section className="x-card x-pad x-sat-cal" aria-labelledby="x-sat-month">
           <div className="x-sat-calhead">
             <h2 id="x-sat-month" className="x-ct">{month === 'all' ? 'All months' : monthLabel(month)}</h2>
             {loading && (
@@ -211,7 +297,6 @@ const ClarityStudentAttendanceTab = () => {
           </div>
           {loading ? (
             <>
-              <p className="x-sr" role="status">Loading your attendance…</p>
               <SkeletonGroup>
                 <table className="x-sat-grid">
                   <thead><tr>{[0, 1, 2, 3, 4, 5, 6].map(d => <th key={d} scope="col"><Skeleton inline h="0.8em" w={24} /></th>)}</tr></thead>
@@ -225,81 +310,12 @@ const ClarityStudentAttendanceTab = () => {
             </>
           )
             : loadError ? (
-              <div className="x-empty">
-                <p role="alert" className="x-ct">Could not load your attendance.</p>
-                <p className="x-cs">This is a loading problem, not an empty record. Check your connection and try again.</p>
-                <button type="button" className="x-btn" onClick={fetchAttendance}>Retry</button>
-              </div>
+              <p className="x-empty">The calendar needs your attendance, which could not be loaded.</p>
             )
-            : month === 'all' ? <p className="x-empty">Choose a month to see it on the calendar. Every record is listed below.</p>
+            : month === 'all' ? <p className="x-empty">Choose a month to see it on the calendar. Every record is listed above.</p>
             : <MonthCalendar month={month} rows={filtered} today={today} />}
         </section>
-
-        <div className="x-sat-side">
-          <section className="x-card x-pad x-sat-rate" aria-label="Attendance rate">
-            {loading ? (
-              <>
-                <p className="x-sr">Loading…</p>
-                <SkeletonGroup>
-                  <div className="x-sat-ring"><Skeleton w="100%" h="100%" className="sk-round" /></div>
-                  <p className="x-ct"><Skeleton inline h="0.8em" w="55%" /></p>
-                  <p className="x-cs"><Skeleton inline h="0.8em" w="70%" /></p>
-                  <p className="x-cs"><Skeleton inline h="0.8em" w="85%" /></p>
-                </SkeletonGroup>
-              </>
-            )
-              : loadError ? <p className="x-empty">Could not load your attendance.</p>
-              : totals.total === 0 ? <p className="x-empty">No attendance recorded yet.</p>
-              : <>
-                <div className="x-sat-ring"><ProgressRing value={rate} label="Attendance rate" detail={`${totals.total} total days recorded`} /></div>
-                <h2 className="x-ct">Attendance rate</h2>
-                <p className="x-cs">{totals.total} total days recorded</p>
-                <p className="x-cs">{RATE_RULE}</p>
-              </>}
-          </section>
-          {!loading && !loadError && totals.total > 0 && (
-            <section aria-label="Attendance totals" className="x-sat-tiles">
-              {tiles.map(([label, value]) => <div key={label} className="x-card"><p className="x-kl">{label}</p><p className="x-kv">{value}</p></div>)}
-            </section>
-          )}
-          {!loading && !loadError && totals.other > 0 && (
-            <p className="x-cs">{totals.other} other {totals.other === 1 ? 'record' : 'records'} (not Present, Late, Absent or Excused).</p>
-          )}
-          <p className="x-cs">Attendance is recorded once a day by your adviser.</p>
-        </div>
-      </div>
-
-      {!loading && !loadError && records.length > 0 && (
-        <section className="x-card x-sat-records" aria-labelledby="x-sat-records">
-          <h2 id="x-sat-records" className="x-ct">Attendance records</h2>
-          {filtered.length === 0 ? (
-            <p className="x-empty">No attendance recorded {month === 'all' ? 'for this section' : `in ${monthLabel(month)}`}.</p>
-          ) : <>
-            <div className="x-tw">
-              <table className="x-table">
-                <thead><tr>{['Date', 'Status', 'Section', 'Subject', 'Notes'].map(h => <th key={h} scope="col">{h}</th>)}</tr></thead>
-                <tbody>
-                  {shown.map((r, i) => (
-                    <tr key={r.id || i}>
-                      <td>{formatAttendanceDate(r.date)}</td>
-                      <td><StatusPill row={r} /></td>
-                      <td>{r.section_id ? sectionName(r.section_id) : ''}</td>
-                      <td>{r.subject || ''}</td>
-                      <td>{r.remarks || ''}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="x-sat-more">
-              <p className="x-cs">Showing {shown.length} of {filtered.length}</p>
-              {shown.length < filtered.length && (
-                <button type="button" className="x-btn" onClick={() => setPaging({ key: filterKey, count: shownCount + PAGE_SIZE })}>Show more</button>
-              )}
-            </div>
-          </>}
-        </section>
-      )}
+      <p className="x-cs x-sat-note">Attendance is recorded once a day by your adviser.</p>
     </div>
   );
 };

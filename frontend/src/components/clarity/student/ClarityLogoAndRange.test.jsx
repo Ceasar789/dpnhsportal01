@@ -77,7 +77,7 @@ describe('Clarity Scores: values outside 0-100', () => {
   it('120: "120%" visible for overall, subject and item; no ring drawn above 100', () => {
     state.graph = scoresGraph(12);
     const { container } = show(<ClarityScoresTab />);
-    expect(flat(overall().textContent)).toBe('Overall average120%1 released score');
+    expect(flat(overall().textContent)).toBe('Overall average120%Released scores only. Not an official grade.Released1scoreHighest120%Math');
     expect(math().textContent).toContain('120%');
     expect(itemRow()).toBe('Task tQuizSubmitted Mar 10, 203012/10 · 120%');
     expect(rings()).toEqual([]);
@@ -105,13 +105,17 @@ describe('Clarity Scores: values outside 0-100', () => {
     expect(container.innerHTML).not.toMatch(/NaN|undefined/);
   });
 
-  it('in range (0 and 100) still draws rings with the real value in the label', () => {
+  it('in range (0 and 100) shows the real value and fills the bar to it (design p10: bars, no rings)', () => {
     state.graph = scoresGraph(10);
     show(<ClarityScoresTab />);
-    expect(rings()).toEqual(['100 percent, Overall average', '100 percent, Math average']);
+    expect(overall().textContent).toContain('100%');
+    expect(math().querySelector('.x-sc-pct').textContent).toBe('100% average');
+    expect(math().querySelector('.x-sc-bar i').style.width).toBe('100%');
+    expect(rings()).toEqual([]);
     cleanup();
     state.graph = scoresGraph(0);
     show(<ClarityScoresTab />);
-    expect(rings()).toEqual(['0 percent, Overall average', '0 percent, Math average']);
+    expect(math().querySelector('.x-sc-pct').textContent).toBe('0% average');
+    expect(math().querySelector('.x-sc-bar i').style.width).toBe('0%');
   });
 });

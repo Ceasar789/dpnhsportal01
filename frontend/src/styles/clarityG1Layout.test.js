@@ -62,13 +62,13 @@ describe('Admin Calendar layout', () => {
 
 describe('Student sizing', () => {
   const AUTO = /grid-template-columns: repeat\(auto-fill, minmax\(min\(200px, 100%\), 1fr\)\)/;
-  it('Scores: denser auto-fill cards and 64px rings', () => {
-    expect(rule('.x-sc-grid')).toMatch(AUTO);
-    expect(rule('.x-sc-ring')).toMatch(/width: 64px/);
+  it('Scores (U-PDF-S, design p10): auto-fit stat cards and a bar per subject row', () => {
+    expect(rule('.x-sc-stats')).toMatch(/repeat\(auto-fit, minmax\(min\(200px, 100%\), 1fr\)\)/);
     const scores = read('components/clarity/student/ClarityScoresTab.jsx');
-    expect(scores).toMatch(/className="x-sc-grid"/);
+    expect(scores).toMatch(/className="x-sc-stats"/);
     expect(scores).not.toMatch(/x-grid2/);
-    expect(scores.match(/<span className="x-sc-ring"><ProgressRing /g)).toHaveLength(2);
+    expect(scores).not.toMatch(/<ProgressRing/);
+    expect(scores).toMatch(/className="x-sc-bar"/);
   });
   it('Overview: 56px rings and denser subject cards', () => {
     expect(rule('.x-sov-ring')).toMatch(/width: 56px/);

@@ -31,6 +31,7 @@ import FlippingLogo from '../../../components/FlippingLogo';
 import { StudentDataProvider } from './StudentDataContext';
 import StudentShellSwitch from '../../../components/clarity/student/StudentShellSwitch';
 import ScoresTabSwitch from '../../../components/clarity/student/ScoresTabSwitch';
+import TasksTabSwitch from '../../../components/clarity/student/TasksTabSwitch';
 import OverviewTabSwitch from '../../../components/clarity/student/OverviewTabSwitch';
 import './StudentDashboard.css';
 
@@ -64,7 +65,7 @@ const StudentDashboard = () => {
             <PageTransition>
               <Routes>
                 <Route path="/" element={<OverviewTabSwitch classic={OverviewTab} />} />
-                <Route path="/tasks" element={<StudentTasksTab />} />
+                <Route path="/tasks" element={<TasksTabSwitch classic={StudentTasksTab} />} />
                 <Route path="/scores" element={<ScoresTabSwitch classic={ScoresTab} />} />
                 <Route path="/attendance" element={<AttendanceTab />} />
                 <Route path="/announcements" element={<AnnouncementsTab />} />

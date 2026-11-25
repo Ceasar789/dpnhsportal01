@@ -12,7 +12,7 @@
 // without it the card shows no name.
 // ============================================
 import { useEffect, useMemo, useState } from 'react';
-import { Download, ExternalLink, FileText, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, FileText, Info, RefreshCw, Search } from 'lucide-react';
 import { supabase } from '../../../config/supabase';
 import { normalizeGradeLevel } from '../../../lib/academicRules';
 import { useStudentData } from '../../../pages/dashboards/student/StudentDataContext';
@@ -35,6 +35,7 @@ export default function ClarityStudentMaterialsTab() {
   const subjectIds = useMemo(() => (graph?.cardSubjectIds instanceof Set ? [...graph.cardSubjectIds] : []), [graph]);
   const [state, setState] = useState({ status: 'loading', rows: [] });
   const [subject, setSubject] = useState('');
+  const [query, setQuery] = useState('');
   const [reload, setReload] = useState(0);
   const [opening, setOpening] = useState(null);
   const [openError, setOpenError] = useState('');
@@ -55,7 +56,12 @@ export default function ClarityStudentMaterialsTab() {
     entry[2] += 1;
     return map.set(r.subject_id, entry);
   }, new Map()).values()].sort((a, b) => a[1].localeCompare(b[1])), [state.rows]);
-  const shown = state.rows.filter(r => !subject || r.subject_id === subject);
+  // U-PDF-S (design p21): search over title, description and subject, with the chip.
+  const needle = query.trim().toLocaleLowerCase();
+  const shown = state.rows.filter(r => (!subject || r.subject_id === subject)
+    && (!needle || [r.title, r.description, r.subjects?.name].some(v => String(v || '').toLocaleLowerCase().includes(needle))));
+  // One colour per subject for the card's top bar (the chips' order, five tones).
+  const tone = id => (chips.findIndex(([chipId]) => chipId === id) % 5) + 1;
 
   const openFile = async (row) => {
     setOpening(row.id);
@@ -81,18 +87,23 @@ export default function ClarityStudentMaterialsTab() {
           <p className="x-sub">{['Slides, notes and links from your teachers', grade, sectionName].filter(Boolean).join(' · ')}</p>
         </div>
         <div className="x-act">
+          <label className="x-search x-slm-search">
+            <Search size={16} aria-hidden="true" />
+            <span className="x-sr">Search materials</span>
+            <input type="search" placeholder="Search materials..." autoComplete="off" value={query} onChange={e => setQuery(e.target.value)} />
+          </label>
           <button type="button" className="x-iconbtn" onClick={() => { setState({ status: 'loading', rows: [] }); setReload(k => k + 1); }} aria-label="Refresh learning materials">
             <RefreshCw size={16} aria-hidden="true" />
           </button>
         </div>
       </div>
-      <p className="x-cs x-slm-note">You only see materials your teachers posted to your section and subjects.</p>
+      <p className="x-slm-note" role="note"><Info size={16} aria-hidden="true" /> You only see materials your teachers posted to your section and subjects.</p>
       {openError && <p role="alert" className="x-cs">{openError}</p>}
       {chips.length > 1 && (
         <div className="x-tlm-chips" role="group" aria-label="Filter by subject">
-          <button type="button" className={`x-chip${subject ? '' : ' on'}`} aria-pressed={!subject} onClick={() => setSubject('')}>All {state.rows.length}</button>
+          <button type="button" className={`x-chip${subject ? '' : ' on'}`} aria-pressed={!subject} onClick={() => setSubject('')}>All <span className="x-slm-n">{state.rows.length}</span></button>
           {chips.map(([id, name, count]) => (
-            <button key={id} type="button" className={`x-chip${subject === id ? ' on' : ''}`} aria-pressed={subject === id} onClick={() => setSubject(id)}>{name} {count}</button>
+            <button key={id} type="button" className={`x-chip${subject === id ? ' on' : ''}`} aria-pressed={subject === id} onClick={() => setSubject(id)}>{name} <span className="x-slm-n">{count}</span></button>
           ))}
         </div>
       )}
@@ -103,6 +114,11 @@ export default function ClarityStudentMaterialsTab() {
         <div className="x-card x-pad x-rail">
           <span role="alert">Learning materials could not be loaded. Check your connection and try again.</span>
           <button type="button" className="x-btn" onClick={() => { setState({ status: 'loading', rows: [] }); setReload(k => k + 1); }}>Retry</button>
+        </div>
+      ) : shown.length === 0 && state.rows.length > 0 ? (
+        <div className="x-card x-pad x-tlm-none">
+          <b>No materials match your search.</b>
+          <button type="button" className="x-btn" onClick={() => { setQuery(''); setSubject(''); }}>Clear search</button>
         </div>
       ) : shown.length === 0 ? (
         <div className="x-card x-pad x-tlm-none">
@@ -116,6 +132,7 @@ export default function ClarityStudentMaterialsTab() {
             const byline = [teachers.get(row.teacher_id), postedOn(row.created_at)].filter(Boolean).join(' · ');
             return (
               <li key={row.id} className="x-card x-slm-card">
+                <span className={`x-slm-bar c${tone(row.subject_id)}`} aria-hidden="true" />
                 <div className="x-slm-top">
                   <span className="x-ico" aria-hidden="true">{row.kind === 'link' ? <ExternalLink size={16} /> : <FileText size={16} />}</span>
                   {row.subjects?.name && <span className="x-badge in">{row.subjects.name}</span>}

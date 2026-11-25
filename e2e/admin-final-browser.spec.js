@@ -150,7 +150,8 @@ test('Teaching Load guards logout and resumes the existing sign-out workflow', a
 
   await page.getByRole('button', { name: 'Logout' }).click();
   await page.getByRole('button', { name: 'Stay on Teaching Load' }).click();
-  await expect(page).toHaveURL(/\/admin-dashboard\/teaching-load$/);
+  // The admin shell keeps one URL (/admin-dashboard); staying means the Teaching Load page is still shown.
+  await expect(page.locator('.page-title').filter({ hasText: 'Teaching Load' })).toBeVisible();
   await expect(page.getByText('Unsaved changes', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Logout' }).click();
@@ -179,7 +180,8 @@ test('Teaching Load route Forward is blocked and a successful Save clears the gu
   await page.evaluate(() => window.history.forward());
   await expect(page.getByRole('dialog', { name: 'Leave Teaching Load?' })).toBeVisible();
   await page.getByRole('button', { name: 'Stay on Teaching Load' }).click();
-  await expect(page).toHaveURL(/\/admin-dashboard\/teaching-load$/);
+  // The admin shell keeps one URL (/admin-dashboard); staying means the Teaching Load page is still shown.
+  await expect(page.locator('.page-title').filter({ hasText: 'Teaching Load' })).toBeVisible();
   await page.getByRole('button', { name: 'Save Assignment' }).click();
   await expect(page.getByText('All changes saved')).toBeVisible();
   await page.getByRole('button', { name: 'Overview', exact: true }).click();
@@ -274,7 +276,8 @@ test('Change Password keeps the approved background, controls, and viewport fit 
   await expect(rootSurface).toHaveCSS('background-image', /capstonebackground\.jpg/);
   await expect(page.getByLabel('NEW PASSWORD', { exact: true })).toBeVisible();
   await expect(page.getByLabel('CONFIRM NEW PASSWORD', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Update Password' })).toBeVisible();
+  // Since the emailed-code change, the first step's button is Send code.
+  await expect(page.getByRole('button', { name: 'Send code' })).toBeVisible();
 
   for (const theme of ['light', 'dark']) {
     await page.evaluate(value => localStorage.setItem('smartedu-theme', value), theme);

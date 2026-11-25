@@ -1443,8 +1443,9 @@ test.describe('isolated Teacher A2 announcements and logout', () => {
     await page.getByRole('button', { name: /Back/ }).click();
     const button = page.getByRole('button', { name: /Download PDF saved version of Synthetic science lesson/ });
     await expect(button).toBeEnabled();
-    const sourcePdf = page.getByRole('link', { name: /Open source PDF.*Synthetic science lesson/ });
-    const sourceHref = await sourcePdf.getAttribute('href');
+    // 4j: Open source PDF is a button that opens a short-lived signed link (no stored href).
+    const sourcePdf = page.getByRole('button', { name: /Open source PDF.*Synthetic science lesson/ });
+    await expect(sourcePdf).toBeEnabled();
     const popupCount = page.context().pages().length;
     const downloadPromise = page.waitForEvent('download');
     await button.click();
@@ -1470,7 +1471,7 @@ test.describe('isolated Teacher A2 announcements and logout', () => {
     await viewer.screenshot({ path: 'test-results/teacher-ai-pdf/edited-science-viewer.png' });
     await viewer.close();
     expect(page.context().pages()).toHaveLength(popupCount);
-    expect(await sourcePdf.getAttribute('href')).toBe(sourceHref);
+    await expect(sourcePdf).toBeEnabled();
     expect(harness.state.lessonPlanWrites).toEqual(['PATCH']);
     expect(harness.state.blockedRequests).toEqual([]);
     harness.assertHealthy();

@@ -102,44 +102,38 @@ test.describe('admin user modal', () => {
     // passed without the guard ever running. The form has to be valid for
     // this to mean anything.
     //
-    // Valid, but the request never leaves: POST /auth/v1/signup is
-    // intercepted, counted and failed after a delay long enough that both
-    // clicks land while the first is still in flight. Nothing is created,
-    // which keeps the suite read-only.
+    // Valid, but the request never leaves: since U3 an admin INVITES users, so
+    // POST /api/admin/users/invite is intercepted, counted and failed after a
+    // delay long enough that both clicks land while the first is still in
+    // flight. Nothing is created, which keeps the suite read-only. (The form
+    // no longer has password fields: the invited user sets one.)
     let attempts = 0;
-    await page.route('**/auth/v1/signup*', async (route) => {
+    await page.route('**/api/admin/users/invite*', async (route) => {
       attempts += 1;
       await new Promise((r) => setTimeout(r, 1500));
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
-        body: JSON.stringify({ message: 'intercepted by the e2e suite — no user was created' }),
+        body: JSON.stringify({ error: 'intercepted by the e2e suite — no user was created' }),
       });
     });
 
     await openCreate(page);
     const unique = `e2e-double-${Date.now()}@example.com`;
-    await page.getByRole('dialog').locator('.form-input').nth(0).fill('E2E Double Click');
-    await page.getByRole('dialog').locator('.form-input').nth(1).fill(unique);
-    // UX-075 added a confirm field, so there are now two password inputs
-    // and both must be filled — a mismatch is rejected on the field and
-    // never reaches signup, which would make this test measure nothing.
-    await page.locator('#users-password').fill('Str0ng!Passw0rd#9');
-    await page.locator('#users-password-confirm').fill('Str0ng!Passw0rd#9');
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Full name').fill('E2E Double Click');
+    await dialog.getByLabel('Email').fill(unique);
+    // Teacher, so the form is complete without an LRN.
+    await dialog.getByRole('radio', { name: 'Teacher' }).check();
 
-    // Two clicks in ONE tick, dispatched on the element itself. Calling
-    // Playwright's click() twice does not test a double click here: the
-    // busy label changes to "Creating…", the locator stops matching, and
-    // the second click waits for "Create" to come back — which happens
-    // only after the first save has finished. That is two sequential
-    // saves, and it is what the first version of this test measured.
-    const save = page.getByRole('button', { name: /^Create$/ }).last();
+    // Two clicks in ONE tick, dispatched on the element itself (see above).
+    const save = dialog.getByRole('button', { name: /^Send invite$/ });
     await save.evaluate((el) => { el.click(); el.click(); });
 
     await expect.poll(() => attempts, { timeout: 10_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(2500);
 
-    expect(attempts, `a double click fired ${attempts} signup requests`).toBe(1);
+    expect(attempts, `a double click fired ${attempts} invite requests`).toBe(1);
   });
 });
 

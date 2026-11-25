@@ -7,7 +7,9 @@ import { inviteUser, listDirectory, requestLink, resendInvitation, RESEND_COOLDO
 
 process.env.APP_URL = 'https://portal.example.test';
 
-const NOW = Date.parse('2026-11-23T12:00:00Z');
+// "Now" is the real clock at test start: inviteLinkState() reads Date.now() for the 24 h link expiry,
+// so a fixed date here made the pending invite read link_stale once that date was a day old.
+const NOW = Date.now();
 const ago = (ms) => new Date(NOW - ms).toISOString();
 const HOUR = 60 * 60 * 1000;
 

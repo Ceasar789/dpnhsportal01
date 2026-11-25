@@ -54,6 +54,9 @@ export async function installAdminFinalMocks(page, options = {}) {
   };
 
   await page.addInitScript(({ session, theme }) => {
+    // This suite covers the classic admin shell; Clarity is now the default, so the tab uses the
+    // supported ?clarity=0 rollback (useClarityFlag.js) to keep testing what it was written for.
+    sessionStorage.setItem('smartedu-clarity', '0');
     sessionStorage.setItem('smartedu-auth-tab-id', 'admin-final-e2e-tab');
     sessionStorage.setItem('smartedu-auth-admin-final-e2e-tab', JSON.stringify(session));
     localStorage.setItem('smartedu-theme', theme);

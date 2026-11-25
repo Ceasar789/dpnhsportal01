@@ -623,6 +623,11 @@ const StudentTasksTab = ({ pdf = false }) => {
     const metaLine = [active.subjectName || active.sheet.subject, Number.isFinite(points) && points > 0 && `${points} ${points === 1 ? 'point' : 'points'}`,
       active.assignee.due_at && `Due ${formatManila(active.assignee.due_at)}`].filter(Boolean).join(' · ');
     const sectionLine = [normalizeGradeLevel(enrolled?.sections?.grade_level), enrolled?.sections?.name].filter(Boolean).join(' – ');
+    // U-PDF-S2, Clarity only: the paper and Submit sit in their own labelled,
+    // focusable scroll area, and Details with Your work in one side column
+    // aligned with its top. The classic view gets a Fragment (no extra element).
+    const PaperArea = pdf ? 'div' : React.Fragment;
+    const paperAreaProps = pdf ? { className: 'x-std-scroll', role: 'region', 'aria-label': 'Worksheet', tabIndex: 0 } : {};
     return (
       <div className="p-6">
         <Toast />
@@ -644,6 +649,7 @@ const StudentTasksTab = ({ pdf = false }) => {
               ))}
             </ol>
           )}
+          <PaperArea {...paperAreaProps}>
           <article aria-label="Worksheet test paper" className={pdf ? 'rounded border p-5 sm:p-8 shadow-sm x-std-paper' : 'rounded border p-5 sm:p-8 shadow-sm'} {...PAPER_GUARD}
             style={{ backgroundColor: '#fffefb', borderColor: '#c9c3b8', color: '#1f1f1f',
               fontFamily: "Georgia, 'Times New Roman', serif", userSelect: 'none', WebkitUserSelect: 'none' }}>
@@ -735,19 +741,6 @@ const StudentTasksTab = ({ pdf = false }) => {
           </div>
         )}
           </article>
-          {attachment && (pdf
-            ? <div className="x-std-work"><YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} /></div>
-            : <YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} />)}
-          {pdf && (
-            <section className="x-card x-std-details" aria-labelledby="x-std-details-h">
-              <h2 id="x-std-details-h" className="x-ct">Details</h2>
-              <dl>
-                {sectionLine && <div><dt>Section</dt><dd>{sectionLine}</dd></div>}
-                {!handout && <div><dt>Checking</dt><dd>{active.sheet.checking_mode === 'auto' ? 'Auto-check' : 'By teacher'}</dd></div>}
-                {active.assignee.due_at && <div><dt>Due</dt><dd>{formatManila(active.assignee.due_at)}</dd></div>}
-              </dl>
-            </section>
-          )}
           {items.length > 0 && <div className={pdf ? 'mt-5 space-y-3 x-std-submit' : 'mt-5 space-y-3'}>
             {!done && (
               <Btn className="min-h-11 px-5" onClick={() => setConfirmingSubmit(true)} disabled={busy || unansweredCount > 0}>
@@ -758,6 +751,20 @@ const StudentTasksTab = ({ pdf = false }) => {
               <p role="status" className="text-sm" style={{ color: 'var(--text)' }}>{unansweredCount} question(s) unanswered.</p>}
             {done && <p className="text-sm" style={{ color: 'var(--text)' }}>Submitted. You cannot change your answers now.</p>}
           </div>}
+          </PaperArea>
+          {pdf ? (
+            <div className="x-std-side">
+              <section className="x-card x-std-details" aria-labelledby="x-std-details-h">
+                <h2 id="x-std-details-h" className="x-ct">Details</h2>
+                <dl>
+                  {sectionLine && <div><dt>Section</dt><dd>{sectionLine}</dd></div>}
+                  {!handout && <div><dt>Checking</dt><dd>{active.sheet.checking_mode === 'auto' ? 'Auto-check' : 'By teacher'}</dd></div>}
+                  {active.assignee.due_at && <div><dt>Due</dt><dd>{formatManila(active.assignee.due_at)}</dd></div>}
+                </dl>
+              </section>
+              {attachment && <div className="x-std-work"><YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} /></div>}
+            </div>
+          ) : attachment && <YourWorkPanel row={active} onChanged={fetchTasks} showToast={showToast} registerLeaveGuard={registerLeaveGuard} />}
         </div>
         {/* Modal reads the teacher theme context, so the student's value is passed through it. */}
         {confirmingSubmit && <TeacherThemeContext.Provider value={{ dark }}>

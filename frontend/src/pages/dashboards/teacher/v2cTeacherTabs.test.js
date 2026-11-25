@@ -26,8 +26,11 @@ describe('V2c Worksheets', () => {
     expect(worksheets).toMatch(/>Worksheets<\/h1>\n\s*<p className="text-sm mt-1" style=\{\{ color: 'var\(--text-muted\)' \}\}>Create tasks here and send them to your classes\.<\/p>/);
   });
   it('selected chips and Preview: dark text on the light accent in dark (white was 2.72:1), white in light', () => {
-    expect(worksheets).toContain("color: activeFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'");
-    expect(worksheets).toContain("color: sourceFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'");
+    // U-T3: Subject and Source are selects now (text colour on the card colour); the selected
+    // status tab keeps the same dark-on-accent / white-on-accent rule.
+    expect(worksheets).toContain("color: statusFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'");
+    expect(worksheets).not.toContain('activeFilter === f ?');
+    expect(worksheets.match(/style=\{\{ color: 'var\(--text\)', backgroundColor: 'var\(--card-bg\)', border: '1px solid var\(--border\)' \}\}/g)).toHaveLength(2);
     expect(worksheets).toContain("style={{ backgroundColor: 'var(--banner-accent)', color: dark ? '#0f172a' : '#ffffff' }}>");
     expect(worksheets).toContain("style={{ color: dark ? '#0f172a' : '#fff', backgroundColor: 'var(--banner-accent)' }}>");
     // --banner-accent: dark #8b93ff (navy text), light #1908DF (white text).

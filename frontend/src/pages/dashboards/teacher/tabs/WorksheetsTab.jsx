@@ -13,7 +13,7 @@ import { permanentSaveUnavailable } from '../persistence/editorPersistence';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
 import {
   FileText, Plus, ExternalLink,
-  Loader2, MoreHorizontal
+  Loader2, MoreHorizontal, Pencil
 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Modal, ConfirmDialog, Badge, Btn, Toast } from '../shared/ui';
@@ -26,6 +26,7 @@ import { AI_GENERATED, MANUAL, SOURCE_FILTERS, worksheetSource } from './workshe
 import { docxFileName, downloadDocx } from '../../../../lib/docx';
 import { printBlocks } from '../../../../lib/printBlocks';
 import { worksheetDocxBlocks } from '../worksheets/worksheetDocx';
+import RenameWorksheetDialog from '../worksheets/RenameWorksheetDialog';
 
 const STATUS_FILTERS = ['All', 'Drafts', 'Saved', 'Distributed'];
 const DOWNLOAD_BUTTON = 'min-h-11 px-3 rounded-lg text-xs font-semibold';
@@ -142,6 +143,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const [sourceFilter, setSourceFilter] = useState('All');
   // Design p4 (4c): All / Drafts / Saved / Distributed.
   const [statusFilter, setStatusFilter] = useState('All');
+  const [renaming, setRenaming] = useState(null); // U-T3: the worksheet being renamed
   const [search, setSearch] = useState('');
   const [worksheets, setWorksheets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -534,6 +536,24 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     return statusFilter === 'Distributed' ? assigned > 0 : assigned === 0;
   };
   const cardRows = filtered.filter(w => (sourceFilter === 'All' || worksheetSource(w) === sourceFilter) && statusMatches(w));
+  // U-T3: counts on the status tabs, over the same subject, source and search
+  // filters. Saved and Distributed need the assignee counts; until they are
+  // known those two tabs show no number rather than a guess.
+  const sourceRows = filtered.filter(w => sourceFilter === 'All' || worksheetSource(w) === sourceFilter);
+  const draftCount = manualDrafts.length + (generatedDraft ? 1 : 0)
+    + weeklyCollections.filter(c => weeklySaveStates[c.collectionId]?.status !== 'saved').length;
+  const distributedRows = countsKnown ? sourceRows.filter(w => (assessment.assigneeCounts[w.id] || 0) > 0).length : null;
+  const statusCounts = {
+    All: sourceRows.length + draftCount,
+    Drafts: draftCount,
+    Saved: countsKnown ? sourceRows.length - distributedRows : null,
+    Distributed: distributedRows,
+  };
+  const onRenamed = (id, title) => {
+    setWorksheets(rows => rows.map(w => (w.id === id ? { ...w, title } : w)));
+    setRenaming(null);
+    showToast('Worksheet renamed');
+  };
   const savedWeeklyGroups = [...filtered.reduce((groups, row) => {
     if (isSavedCollectionDay(row)) {
       if (!groups.has(row.collection_id)) groups.set(row.collection_id, []);
@@ -696,50 +716,44 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         ))}
       </div>
 
-      <div className="mb-4 max-w-md">
-        <label htmlFor="worksheet-search" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Search worksheets</label>
-        <Input id="worksheet-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search title or subject" />
-      </div>
-      <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter worksheets by subject">
-        {filters.map(f => (
-          <button key={f} onClick={() => setActiveFilter(f)} aria-pressed={activeFilter === f}
-            className="px-4 min-h-10 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: activeFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              color: activeFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'
-            }}>
-            {f}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter worksheets by source">
-        <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }} aria-hidden="true">Source</span>
-        {SOURCE_FILTERS.map(f => (
-          <button key={f} onClick={() => setSourceFilter(f)} aria-pressed={sourceFilter === f}
-            className="px-4 min-h-10 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: sourceFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              color: sourceFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'
-            }}>
-            {f}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter worksheets by status">
-        <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }} aria-hidden="true">Status</span>
-        {STATUS_FILTERS.map(f => (
-          <button key={f} onClick={() => setStatusFilter(f)} aria-pressed={statusFilter === f}
-            className="px-4 min-h-10 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: statusFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              color: statusFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'
-            }}>
-            {f}
-          </button>
-        ))}
+      {/* U-T3 (design p4): one status tab row with counts, then one tidy row:
+          search, Subject and Source as labelled selects (wraps on phones). */}
+      <div className="ws-filters flex flex-col gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter worksheets by status">
+          {STATUS_FILTERS.map(f => (
+            <button key={f} type="button" onClick={() => setStatusFilter(f)} aria-pressed={statusFilter === f}
+              className="px-4 min-h-11 rounded-full text-sm font-semibold inline-flex items-center gap-2"
+              style={{
+                backgroundColor: statusFilter === f ? 'var(--banner-accent)' : 'var(--card-bg)',
+                border: '1px solid var(--border)',
+                color: statusFilter === f ? (dark ? '#0f172a' : '#ffffff') : 'var(--text)'
+              }}>
+              {f}{statusCounts[f] !== null && <>{' '}<span className="tabular-nums" style={{ opacity: 0.85 }}>{statusCounts[f]}</span></>}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_minmax(0,12rem)] gap-3 items-end">
+          <div className="min-w-0">
+            <label htmlFor="worksheet-search" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Search worksheets</label>
+            <Input id="worksheet-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search title or subject" />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="worksheet-subject-filter" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Subject</label>
+            <select id="worksheet-subject-filter" value={activeFilter} onChange={event => setActiveFilter(event.target.value)}
+              className="w-full min-h-11 rounded-lg px-3 text-base"
+              style={{ color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+              {filters.map(f => <option key={f} value={f}>{f === 'All' ? 'All subjects' : f}</option>)}
+            </select>
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="worksheet-source-filter" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Source</label>
+            <select id="worksheet-source-filter" value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}
+              className="w-full min-h-11 rounded-lg px-3 text-base"
+              style={{ color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+              {SOURCE_FILTERS.map(f => <option key={f} value={f}>{f === 'All' ? 'All sources' : f}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
       {['Saved', 'Distributed'].includes(statusFilter) && !countsKnown && !loading && !listError
         && <p role="status" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -1003,24 +1017,32 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                   must render as their own neutral state — neither may fall
                   through to "Not distributed", which is a positive claim of
                   0 that is not yet (or no longer) known to be true. */}
-              {assessment.assigneeCountsLoading ? (
-                <Badge color={dark ? '#94a3b8' : '#64748b'} bg={dark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.12)'}>
-                  Checking…
-                </Badge>
-              ) : assessment.assigneeCountsError ? (
-                <span className="flex items-center gap-2">
-                  <Badge color="#dc2626" bg="rgba(220,38,38,0.12)">Status unknown</Badge>
-                  <button onClick={() => assessment.fetchAssigneeCounts()}
-                    className="text-[11px] underline font-semibold" style={{ color: '#dc2626' }}>
-                    Retry
-                  </button>
-                </span>
-              ) : (
-                <Badge color={distributedCount > 0 ? (dark ? '#4ade80' : '#15803d') : (dark ? '#fbbf24' : '#b45309')}
-                  bg={distributedCount > 0 ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
-                  {distributedCount > 0 ? `Distributed · ${distributedCount}` : 'Not distributed'}
-                </Badge>
-              )}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {assessment.assigneeCountsLoading ? (
+                  <Badge color={dark ? '#94a3b8' : '#64748b'} bg={dark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.12)'}>
+                    Checking…
+                  </Badge>
+                ) : assessment.assigneeCountsError ? (
+                  <span className="flex items-center gap-2">
+                    <Badge color="#dc2626" bg="rgba(220,38,38,0.12)">Status unknown</Badge>
+                    <button onClick={() => assessment.fetchAssigneeCounts()}
+                      className="text-[11px] underline font-semibold" style={{ color: '#dc2626' }}>
+                      Retry
+                    </button>
+                  </span>
+                ) : (
+                  <Badge color={distributedCount > 0 ? (dark ? '#4ade80' : '#15803d') : (dark ? '#fbbf24' : '#b45309')}
+                    bg={distributedCount > 0 ? 'rgba(22,163,74,0.12)' : 'rgba(217,119,6,0.12)'}>
+                    {distributedCount > 0 ? `Distributed · ${distributedCount}` : 'Not distributed'}
+                  </Badge>
+                )}
+                {/* U-T3: rename a saved worksheet (the owner's existing update path). */}
+                <button type="button" onClick={() => setRenaming(ws)} aria-label={`Rename ${ws.title || 'worksheet'}`}
+                  className="min-h-11 px-3 rounded-lg text-sm font-semibold inline-flex items-center gap-1"
+                  style={{ color: 'var(--banner-accent)', border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>
+                  <Pencil size={14} aria-hidden="true" /> Rename
+                </button>
+              </div>
             </div>
             <div className="mb-1"><Badge color="var(--banner-accent)" bg="var(--card2)">{worksheetSource(ws) === AI_GENERATED ? 'Powered by Gemini' : MANUAL}</Badge></div>
             <h3 className="text-sm font-semibold mb-1 break-words" style={{ color: 'var(--text)' }}>{ws.title}</h3>
@@ -1071,6 +1093,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         )}
       </div>
 
+      {renaming && <RenameWorksheetDialog worksheet={renaming} onClose={() => setRenaming(null)} onRenamed={onRenamed} />}
       {showAddModal && (
         <Modal title="Create Worksheet" onClose={requestCreateClose}>
           <form onSubmit={handleAddWorksheet} className="flex flex-col gap-4">

@@ -42,14 +42,14 @@ const show = async () => {
   render(<WorksheetsTab />);
   await screen.findByRole('heading', { name: 'Sent quiz' });
 };
-const status = name => within(screen.getByRole('group', { name: 'Filter worksheets by status' })).getByRole('button', { name });
+const status = name => within(screen.getByRole('group', { name: 'Filter worksheets by status' })).getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
 const cards = () => ['Sent quiz', 'Kept quiz'].filter(title => screen.queryByRole('heading', { name: title }));
 
 describe('Status filter (4c)', () => {
   it('offers All, Drafts, Saved, Distributed and starts at All', async () => {
     await show();
     const group = screen.getByRole('group', { name: 'Filter worksheets by status' });
-    expect(within(group).getAllByRole('button').map(b => b.textContent)).toEqual(['All', 'Drafts', 'Saved', 'Distributed']);
+    expect(within(group).getAllByRole('button').map(b => b.textContent)).toEqual(['All 2', 'Drafts 0', 'Saved 1', 'Distributed 1']);
     expect(status('All').getAttribute('aria-pressed')).toBe('true');
     expect(cards()).toEqual(['Sent quiz', 'Kept quiz']);
   });

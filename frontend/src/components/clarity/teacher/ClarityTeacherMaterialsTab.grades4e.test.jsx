@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // 4e (design p20): the teacher's own materials by grade, with counts. Harness from ClarityTeacherMaterialsTab.test.jsx.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const UID = '0b4e3c3a-1d2e-4f5a-8b9c-0d1e2f3a4b5c';
 const h = vi.hoisted(() => ({ assign: { assignmentRows: [], loadState: 'ready', retry: () => {} } }));
@@ -37,30 +37,33 @@ const show = async (rows = ROWS) => {
   await waitFor(() => expect(screen.queryByText('Loading learning materials…')).toBeNull());
 };
 const cards = () => [...document.querySelectorAll('.x-tlm-card')];
-const gradeChip = name => within(screen.getByRole('group', { name: 'Filter by grade' })).getAllByRole('button')
-  .find(button => button.textContent.startsWith(`${name} (`));
+// U-T4: grade cards (Grade 7-10) with counts and Open replace the grade chips.
+const gradeCards = () => [...document.querySelectorAll('.x-tlm-gcard')].map(c => [c.querySelector('.x-tlm-gname').textContent, c.querySelector('.x-tlm-gcount').textContent]);
+const openGrade = level => fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Open ${level}:`) }));
 const titles = () => cards().map(c => c.querySelector('.x-tlm-title').textContent);
 
 beforeEach(() => { h.assign = { assignmentRows: ASSIGNMENTS, loadState: 'ready', retry: () => {} }; api.loadOfficialSchoolYear.mockResolvedValue('2026-2027'); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('Grade filter (4e)', () => {
-  it('shows only grades that have materials, with counts; All grades counts everything', async () => {
+  it('a card per grade (Grade 7-10) with its count of the teacher\'s own materials (design p20)', async () => {
     await show();
-    expect(within(screen.getByRole('group', { name: 'Filter by grade' })).getAllByRole('button').map(b => b.textContent))
-      .toEqual(['All grades (3)', 'Grade 7 (1)', 'Grade 8 (1)']);
-    expect(gradeChip('All grades').getAttribute('aria-pressed')).toBe('true');
+    expect(gradeCards()).toEqual([['Grade 7', '1 material'], ['Grade 8', '1 material'], ['Grade 9', '0 materials'], ['Grade 10', '0 materials']]);
+    expect(screen.queryByRole('button', { name: /^Show all grades/ })).toBeNull();
   });
-  it('a grade chip lists that grade only; All grades brings everything back', async () => {
+  it('Open lists that grade only; Show all grades brings everything back', async () => {
     await show();
-    fireEvent.click(gradeChip('Grade 8'));
+    openGrade('Grade 8');
     expect(titles()).toEqual(['Cell diagram']);
-    fireEvent.click(gradeChip('All grades'));
+    expect(screen.getByText('Grade 8 · Choose a subject')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all grades (3)' }));
     expect(titles()).toHaveLength(3);
   });
-  it('with materials for one grade only, no grade filter is shown', async () => {
+  it('a grade with nothing yet says so for that grade', async () => {
     await show([ROWS[0]]);
-    expect(screen.queryByRole('group', { name: 'Filter by grade' })).toBeNull();
+    openGrade('Grade 9');
+    expect(screen.getByText('You have not added materials for Grade 9 yet.')).toBeTruthy();
+    expect(titles()).toEqual([]);
   });
 });
 

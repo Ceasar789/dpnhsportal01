@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import WorksheetsTab from './WorksheetsTab';
 
 const { db, auth } = vi.hoisted(() => ({ db: { rows: [] }, auth: { userData: { uid: 'teacher-1' } } }));
@@ -40,8 +40,11 @@ const show = async () => {
   render(<WorksheetsTab />);
   await screen.findByRole('heading', { name: 'AI worksheet' });
 };
-const source = name => within(screen.getByRole('group', { name: 'Filter worksheets by source' })).getByRole('button', { name });
-const subject = name => within(screen.getByRole('group', { name: 'Filter worksheets by subject' })).getByRole('button', { name });
+// U-T3: Subject and Source are labelled selects (one tidy row, design p4).
+const sourceSelect = () => screen.getByRole('combobox', { name: 'Source' });
+const subjectSelect = () => screen.getByRole('combobox', { name: 'Subject' });
+const pickSource = value => fireEvent.change(sourceSelect(), { target: { value } });
+const pickSubject = value => fireEvent.change(subjectSelect(), { target: { value } });
 const cards = () => ['AI worksheet', 'Day quiz', 'Hand quiz', 'Monday collection day']
   .filter(title => screen.queryByRole('heading', { name: title }));
 const badgeOf = title => screen.getByRole('heading', { name: title }).parentElement.textContent;
@@ -49,45 +52,45 @@ const badgeOf = title => screen.getByRole('heading', { name: title }).parentElem
 describe('Source filter', () => {
   it('starts at All and shows every card', async () => {
     await show();
-    expect(source('All').getAttribute('aria-pressed')).toBe('true');
+    expect(sourceSelect().value).toBe('All');
     expect(cards()).toEqual(['AI worksheet', 'Day quiz', 'Hand quiz']);
   });
 
   it('AI-generated shows AI rows and day tasks only', async () => {
     await show();
-    fireEvent.click(source('AI-generated'));
-    expect(source('AI-generated').getAttribute('aria-pressed')).toBe('true');
+    pickSource('AI-generated');
+    expect(sourceSelect().value).toBe('AI-generated');
     expect(cards()).toEqual(['AI worksheet', 'Day quiz']);
   });
 
   it('Manual shows Create Worksheet rows only', async () => {
     await show();
-    fireEvent.click(source('Manual'));
+    pickSource('Manual');
     expect(cards()).toEqual(['Hand quiz']);
-    fireEvent.click(source('All'));
+    pickSource('All');
     expect(cards()).toEqual(['AI worksheet', 'Day quiz', 'Hand quiz']);
   });
 
   it('combines with the subject filter', async () => {
     await show();
-    fireEvent.click(subject('English'));
-    fireEvent.click(source('AI-generated'));
+    pickSubject('English');
+    pickSource('AI-generated');
     expect(cards()).toEqual(['AI worksheet']);
-    fireEvent.click(source('Manual'));
+    pickSource('Manual');
     expect(cards()).toEqual(['Hand quiz']);
   });
 
   it('combines with search', async () => {
     await show();
     fireEvent.change(screen.getByLabelText('Search worksheets'), { target: { value: 'quiz' } });
-    fireEvent.click(source('AI-generated'));
+    pickSource('AI-generated');
     expect(cards()).toEqual(['Day quiz']);
   });
 
   it('shows the empty state when nothing matches', async () => {
     await show();
-    fireEvent.click(subject('Science'));
-    fireEvent.click(source('Manual'));
+    pickSubject('Science');
+    pickSource('Manual');
     expect(cards()).toEqual([]);
     expect(screen.getByText('No worksheets match your search, subject or source filter.')).toBeTruthy();
   });
@@ -95,16 +98,16 @@ describe('Source filter', () => {
   it('never turns a weekly collection day into a card', async () => {
     await show();
     for (const name of ['All', 'AI-generated', 'Manual']) {
-      fireEvent.click(source(name));
+      pickSource(name);
       expect(screen.queryByRole('heading', { name: 'Monday collection day' })).toBeNull();
     }
   });
 
   it('leaves the subject filter alone when Source is All', async () => {
     await show();
-    fireEvent.click(subject('Science'));
+    pickSubject('Science');
     expect(cards()).toEqual(['Day quiz']);
-    expect(subject('Science').getAttribute('aria-pressed')).toBe('true');
+    expect(subjectSelect().value).toBe('Science');
   });
 });
 

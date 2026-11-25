@@ -108,10 +108,13 @@ const ClarityTeacherMaterialsTab = () => {
   const activeType = types.includes(type) ? type : '';
   const shown = useMemo(() => filterMaterials(rows, { query, subjectId: activeSubject, type: activeType }),
     [rows, query, activeSubject, activeType]);
-  // Design p20 (4e): the teacher's own materials by grade, with counts.
-  const gradeChips = useMemo(() => GRADE_LEVELS.map(level => [level, rows.filter(r => r.grade_level === level).length])
-    .filter(([, count]) => count > 0), [rows]);
-  const activeGrade = gradeChips.some(([level]) => level === grade) ? grade : '';
+  // Design p20 (4e, U-T4): a card per grade (Grade 7-10) with how many of the
+  // teacher's own materials it has, and Open. A grade picked, the subject
+  // chips and their counts are for that grade.
+  const gradeCards = useMemo(() => GRADE_LEVELS.map(level => [level, rows.filter(r => r.grade_level === level).length]), [rows]);
+  const activeGrade = GRADE_LEVELS.includes(grade) ? grade : '';
+  const inGrade = activeGrade ? rows.filter(r => r.grade_level === activeGrade) : rows;
+  const subjectCount = id => inGrade.filter(r => r.subject_id === id).length;
   const listed = activeGrade ? shown.filter(r => r.grade_level === activeGrade) : shown;
   const filtering = Boolean(query.trim() || activeSubject || activeType || activeGrade);
 
@@ -180,25 +183,39 @@ const ClarityTeacherMaterialsTab = () => {
               </label>
             )}
           </div>
-          {gradeChips.length > 1 && (
-            <div className="x-tlm-chips" role="group" aria-label="Filter by grade">
-              <button type="button" className={`x-chip${activeGrade ? '' : ' on'}`} aria-pressed={!activeGrade}
-                onClick={() => setGrade('')}>All grades ({rows.length})</button>
-              {gradeChips.map(([level, count]) => (
-                <button key={level} type="button" className={`x-chip${activeGrade === level ? ' on' : ''}`}
-                  aria-pressed={activeGrade === level} onClick={() => setGrade(level)}>{level} ({count})</button>
+          {/* U-T4: grade cards (design p20) replace the grade chips. */}
+          <section className="x-tlm-grades" aria-labelledby="x-tlm-grades-h">
+            <h2 id="x-tlm-grades-h" className="x-tlm-label">Grade level</h2>
+            <ul className="x-tlm-gcards">
+              {gradeCards.map(([level, count]) => (
+                <li key={level} className={`x-card x-tlm-gcard${activeGrade === level ? ' on' : ''}`}>
+                  <b className="x-tlm-gname">{level}</b>
+                  <span className="x-tlm-gcount">{count} {count === 1 ? 'material' : 'materials'}</span>
+                  <button type="button" className="x-btn" aria-pressed={activeGrade === level}
+                    aria-label={`Open ${level}: ${count} ${count === 1 ? 'material' : 'materials'}`} onClick={() => { setGrade(level); setSubjectId(''); }}>
+                    Open
+                  </button>
+                </li>
               ))}
-            </div>
-          )}
+            </ul>
+            {activeGrade && (
+              <button type="button" className="x-btn gh x-tlm-allgrades" onClick={() => { setGrade(''); setSubjectId(''); }}>
+                Show all grades ({rows.length})
+              </button>
+            )}
+          </section>
           {chips.length > 0 && (
-            <div className="x-tlm-chips" role="group" aria-label="Filter by subject">
-              <button type="button" className={`x-chip${activeSubject ? '' : ' on'}`} aria-pressed={!activeSubject}
-                onClick={() => setSubjectId('')}>All subjects</button>
-              {chips.map(c => (
-                <button key={c.id} type="button" className={`x-chip${activeSubject === c.id ? ' on' : ''}`}
-                  aria-pressed={activeSubject === c.id} onClick={() => setSubjectId(c.id)}>{c.name}</button>
-              ))}
-            </div>
+            <>
+              <p className="x-tlm-label" id="x-tlm-subjects-h">{activeGrade || 'All grades'} · Choose a subject</p>
+              <div className="x-tlm-chips" role="group" aria-label="Filter by subject">
+                <button type="button" className={`x-chip${activeSubject ? '' : ' on'}`} aria-pressed={!activeSubject}
+                  onClick={() => setSubjectId('')}>All subjects <span className="x-tlm-n">{inGrade.length}</span></button>
+                {chips.filter(c => subjectCount(c.id) > 0).map(c => (
+                  <button key={c.id} type="button" className={`x-chip${activeSubject === c.id ? ' on' : ''}`}
+                    aria-pressed={activeSubject === c.id} onClick={() => setSubjectId(c.id)}>{c.name} <span className="x-tlm-n">{subjectCount(c.id)}</span></button>
+                ))}
+              </div>
+            </>
           )}
         </>
       )}
@@ -215,9 +232,16 @@ const ClarityTeacherMaterialsTab = () => {
           <button type="button" className="x-btn" onClick={() => setReloadKey(k => k + 1)}>Retry</button>
         </div>
       ) : rows.length === 0 ? (
+        // U-T4: about the teacher's OWN materials only. The DepEd resources
+        // below are official links, so the page never says there is nothing.
         <div className="x-card x-pad x-tlm-none">
-          <b>No learning materials yet.</b>
-          <span className="x-cs">Add a file or a link to keep your teaching materials in one place.</span>
+          <b>You have not added your own materials yet.</b>
+          <span className="x-cs">Add a file or a link to keep your teaching materials in one place. The DepEd resources below are official links, not your uploads.</span>
+        </div>
+      ) : activeGrade && inGrade.length === 0 ? (
+        <div className="x-card x-pad x-tlm-none">
+          <b>You have not added materials for {activeGrade} yet.</b>
+          <span className="x-cs">Use Add material and choose {activeGrade}.</span>
         </div>
       ) : listed.length === 0 ? (
         <div className="x-card x-pad x-tlm-none">
@@ -225,6 +249,8 @@ const ClarityTeacherMaterialsTab = () => {
           {filtering && <button type="button" className="x-btn x-tlm-clear" onClick={clearFilters}>Clear filters</button>}
         </div>
       ) : (
+        <>
+        <h2 className="x-tlm-label x-tlm-mine">{activeGrade ? `My materials · ${activeGrade}` : 'My materials'}</h2>
         <ul className="x-tlm-grid" aria-label="Learning materials">
           {listed.map((row) => {
             const sg = subjectGradeLine(row);
@@ -258,6 +284,7 @@ const ClarityTeacherMaterialsTab = () => {
             );
           })}
         </ul>
+        </>
       )}
 
       {/* R52 (4c): DepEd learning resources per grade, teachers only (Q17). */}

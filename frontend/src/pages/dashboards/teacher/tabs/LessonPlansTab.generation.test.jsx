@@ -382,7 +382,7 @@ describe('AI lesson plan generation with synthetic services', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html: '<p>First response</p>', truncated: false }) });
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
-    expect(screen.getByText('Upload a PDF to generate an editable ILAW lesson plan. Generation creates a draft; it does not save the lesson plan.')).toBeTruthy();
+    expect(screen.getByText('Upload your lesson material as a PDF and EduScribe will draft an ILAW lesson plan for you. You can review and edit the draft before saving it.')).toBeTruthy();
     choosePdf();
     fireEvent.click(screen.getByRole('button', { name: 'Generate lesson plan' }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Lesson plan content' }).innerHTML).toContain('First response'));

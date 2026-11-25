@@ -86,7 +86,7 @@ describe('Exam in the Worksheets tab', () => {
     render(<WorksheetsTab />);
     await screen.findByRole('heading', { name: 'Unit exam' });
     expect(screen.getByRole('heading', { name: 'Unit exam' }).parentElement.textContent).toContain('Manual');
-    fireEvent.click(within(screen.getByRole('group', { name: 'Filter worksheets by source' })).getByRole('button', { name: 'Manual' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Source' }), { target: { value: 'Manual' } });
     expect(screen.getByRole('heading', { name: 'Unit exam' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'AI sheet' })).toBeNull();
   });

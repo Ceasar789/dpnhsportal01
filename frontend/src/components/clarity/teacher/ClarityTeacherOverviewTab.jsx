@@ -292,11 +292,7 @@ const ClarityTeacherOverviewTab = () => {
           <h1 className="x-h1">Dashboard Overview</h1>
           <p className="x-sub">Your lesson plans, resources, and classes for today · Academic Year {yearText}</p>
         </div>
-        <div className="x-act">
-          <button type="button" className="x-btn pri" onClick={go('/teacher-dashboard/lesson-plans')}>
-            <Plus size={16} aria-hidden="true" /> Create lesson plan
-          </button>
-        </div>
+        {/* U-T1: no header button; the cards and Quick actions open Lesson Plans. */}
       </div>
 
       <GettingStartedCard role="teacher" uid={userData?.uid} steps={firstSteps} />

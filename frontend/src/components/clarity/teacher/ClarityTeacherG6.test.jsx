@@ -61,7 +61,7 @@ describe('header (p5)', () => {
     expect(within(head).getByRole('heading', { level: 1, name: 'Grading' })).toBeTruthy();
     expect(within(head).getByLabelText('Worksheet').value).toBe('sheet-a');
     expect([...within(head).getByLabelText('Section').options].map(o => o.textContent)).toEqual(['All sections', 'Grade 8 · Mabini']);
-    expect(filtersButton().getAttribute('aria-expanded')).toBe('false');
+    expect(filtersButton().getAttribute('aria-expanded')).toBe('true');
     expect(head.contains(filtersButton())).toBe(true);
   });
 
@@ -83,17 +83,17 @@ describe('header (p5)', () => {
   });
 });
 
-describe('Filters (not in p5): closed by default, nothing removed', () => {
-  it('closed: no Subject, Grade, status chips or summary on screen', async () => {
+describe('Filters: open by default (U-T5), nothing removed', () => {
+  it('closed with the Filters button: no Subject, Grade, status chips or summary on screen', async () => {
     show(); await ready();
+    fireEvent.click(filtersButton());
     expect(screen.queryByLabelText('Subject')).toBeNull();
     expect(screen.queryByRole('group', { name: 'Filter by status' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Summary' })).toBeNull();
   });
 
-  it('open: Subject, Grade, the chips with counts and the summary, in one compact panel', async () => {
+  it('open on arrival: Subject, Grade, the chips with counts and the summary, in one compact panel', async () => {
     show(); await ready();
-    fireEvent.click(filtersButton());
     expect(filtersButton().getAttribute('aria-expanded')).toBe('true');
     const panel = screen.getByRole('region', { name: 'Filters' });
     expect(within(panel).getByLabelText('Subject')).toBeTruthy();
@@ -106,7 +106,6 @@ describe('Filters (not in p5): closed by default, nothing removed', () => {
 
   it('a filter chosen in the panel keeps working after the panel is closed', async () => {
     show(); await ready();
-    fireEvent.click(filtersButton());
     fireEvent.click(screen.getByRole('button', { name: /^Released/ }));
     fireEvent.click(filtersButton());
     expect(screen.queryByRole('region', { name: 'Filters' })).toBeNull();
@@ -116,7 +115,6 @@ describe('Filters (not in p5): closed by default, nothing removed', () => {
   it('a Subject that matches no worksheet can still be undone from the panel (the button stays in the header)', async () => {
     fixture.rows = [sheetA];
     show(); await ready();
-    fireEvent.click(filtersButton());
     fireEvent.change(screen.getByLabelText('Subject'), { target: { value: 'Science' } });
     expect(screen.getByLabelText('Subject').value).toBe('Science');
     expect(filtersButton()).toBeTruthy();

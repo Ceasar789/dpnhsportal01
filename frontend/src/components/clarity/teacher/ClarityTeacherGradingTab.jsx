@@ -242,10 +242,11 @@ const ClarityTeacherGradingTab = () => {
     ['Average (released)', releasedAverage(sectionRows)],
   ] : null;
 
-  // The design shows only the worksheet and section pickers; Subject, Grade,
-  // the status chips and the summary sit behind "Filters" (closed by
-  // default). Closed or open, every filter keeps its value and effect.
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Subject, Grade, the status chips and the summary sit in the Filters panel.
+  // U-T5: the panel is open when the page opens (design p5 shows the chips);
+  // the Filters button still closes it. Closed or open, every filter keeps
+  // its value and effect.
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const listReady = selected && !(scoresLoading || scoreTarget !== selected.id) && !scoresError;
   const checkButton = selected && (
     <button type="button" className="x-btn pri" onClick={() => setChecking(selected)}>Check submissions</button>

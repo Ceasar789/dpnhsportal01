@@ -213,11 +213,12 @@ describe('states (same texts as classic)', () => {
     expect(await screen.findByRole('table')).toBeTruthy();
   });
 
-  it('an empty roster says so; the export note stays; no "preview"', async () => {
+  it('an empty roster says so; Export to Excel is offered; no "preview"', async () => {
     db.links = [];
     const { container } = render(<MemoryRouter><ClarityTeacherAttendanceTab /></MemoryRouter>);
     expect(await screen.findByText('No students are enrolled in this advisory section.')).toBeTruthy();
-    expect(screen.getByText('Export is unavailable. Attendance can be reviewed by date here.')).toBeTruthy();
+    expect(screen.queryByText('Export is unavailable. Attendance can be reviewed by date here.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Export to Excel' })).toBeTruthy();
     const attrs = [...container.querySelectorAll('[aria-label],[title],[alt]')].flatMap(el => ['aria-label', 'title', 'alt'].map(a => el.getAttribute(a) || ''));
     expect(`${container.textContent} ${attrs.join(' ')}`).not.toMatch(/preview/i);
   });

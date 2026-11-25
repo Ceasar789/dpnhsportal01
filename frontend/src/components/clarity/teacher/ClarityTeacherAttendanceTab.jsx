@@ -26,6 +26,7 @@ import { supabase } from '../../../config/supabase';
 import { withRetry } from '../../../lib/supabaseRetry';
 import { philippineDateKey } from '../../../lib/calendarRules';
 import { useToast } from '../../../pages/dashboards/teacher/hooks';
+import AttendanceExportPanel from './AttendanceExportPanel';
 import { Toast } from '../../../pages/dashboards/teacher/shared/ui';
 import useDialogSafety from '../../../pages/dashboards/teacher/worksheets/useDialogSafety';
 import { saveAttendance } from '../../../pages/dashboards/teacher/tabs/attendanceSaveClient';
@@ -555,7 +556,9 @@ const ClarityTeacherAttendanceTab = () => {
             )}
           </aside>
         </div>
-        <p className="x-cs x-tat-foot">Export is unavailable. Attendance can be reviewed by date here.</p>
+        {/* U-T6: Export to Excel (the selected section, a date range). */}
+        {selectedSection && <AttendanceExportPanel section={selectedSection}
+          students={students.filter(st => String(st.sectionId) === String(selectedSection.id))} />}
       </>}
     </div>
   );

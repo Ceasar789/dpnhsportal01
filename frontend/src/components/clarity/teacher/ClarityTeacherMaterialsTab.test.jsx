@@ -69,9 +69,10 @@ describe('states (real data only)', () => {
     await waitFor(() => expect(cards()).toHaveLength(3));
   });
 
-  it('no materials: an empty state, no search or filters, nothing invented', async () => {
+  it("no materials: an empty state about the teacher's own uploads, no search or filters, nothing invented", async () => {
     await show([]);
-    expect(screen.getByText('No learning materials yet.')).toBeTruthy();
+    expect(screen.getByText('You have not added your own materials yet.')).toBeTruthy();
+    expect(screen.queryByText('No learning materials yet.')).toBeNull();
     expect(screen.queryByRole('searchbox')).toBeNull();
     expect(screen.queryByRole('group', { name: 'Filter by subject' })).toBeNull();
     expect(cards()).toHaveLength(0);
@@ -130,10 +131,10 @@ describe('search, subject chips and type filter', () => {
   it('chips and types come only from the materials; filters combine and can be cleared', async () => {
     await show();
     const chips = within(screen.getByRole('group', { name: 'Filter by subject' })).getAllByRole('button').map(b => b.textContent);
-    expect(chips).toEqual(['All subjects', 'English', 'Science']);
-    fireEvent.click(screen.getByRole('button', { name: 'Science' }));
+    expect(chips).toEqual(['All subjects 3', 'English 1', 'Science 1']);
+    fireEvent.click(screen.getByRole('button', { name: 'Science 1' }));
     expect(cards().map(c => c.querySelector('.x-tlm-title').textContent)).toEqual(['Cell diagram']);
-    fireEvent.click(screen.getByRole('button', { name: 'All subjects' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All subjects 3' }));
     const type = screen.getByRole('combobox', { name: 'Filter by type' });
     expect([...type.options].map(o => o.textContent)).toEqual(['All types', 'Image', 'Link', 'PDF']);
     fireEvent.change(type, { target: { value: 'Link' } });

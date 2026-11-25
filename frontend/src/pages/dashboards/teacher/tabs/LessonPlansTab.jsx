@@ -1623,7 +1623,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
               ) : (
                 <>
                   <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-                    Upload a PDF to generate an editable ILAW lesson plan. Generation creates a draft; it does not save the lesson plan.
+                    Upload your lesson material as a PDF and EduScribe will draft an ILAW lesson plan for you. You can review and edit the draft before saving it.
                   </p>
                   <TeacherFilePicker id="lesson-pdf-upload" accept=".pdf"
                     guidance={`PDF only · Maximum ${MAX_PDF_MB} MB`}
@@ -1766,24 +1766,27 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                           </div>
                         </div>
                         {plan.file_name && <p className="text-xs mt-2 break-all" style={{ color: 'var(--text-muted)' }}><FileText size={14} className="inline mr-1" aria-hidden="true" />{plan.file_name}</p>}
-                        <div className="flex flex-wrap items-center gap-2 mt-3">
-                          <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : liveManualState ? openSavedManual(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
-                          {planType === 'ai' && !plan.localMock && <Btn variant="outline" onClick={() => editAiAsManual(plan)}>
-                            Edit as manual<span className="sr-only"> (opens a Manual ILAW copy of {plan.title || 'lesson plan'})</span></Btn>}
-                          {lessonPlanPostingFlagEnabled() && dayTaskEligible && <Btn variant="outline" onClick={() => setPostingPlan(plan)}>
-                            Post to class<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>}
-                          {/* R22 (4k): Word copy of the saved plan; PDF stays on its own button. */}
-                          {!plan.localMock && ['ai', 'manual'].includes(planType) && <Btn variant="outline" onClick={() => {
-                            try { downloadDocx(lessonPlanDocxBlocks(plan), docxFileName(plan.title)); }
-                            catch { showToast('The Word file could not be made. Please try again.', 'error'); }
-                          }}>Download Word<span className="sr-only"> (.docx) {plan.title || 'lesson plan'}</span></Btn>}
-                          {dayTaskEligible &&
-                            <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
-                              aria-label={`Generate Task for ${plan.title || 'lesson plan'}`}
-                              className="min-h-11 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
-                              style={{ color: 'var(--banner-accent)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                              <Sparkles size={15} aria-hidden="true" />Generate Task
-                            </button>}
+                        {/* U-T2: the actions in three groups (design p3): open and work on the plan,
+                            its files, then Delete on its own. Same buttons, handlers and names. */}
+                        <div className="lp-actions mt-3 grid gap-3">
+                          <div role="group" aria-label={`Work on ${plan.title || 'lesson plan'}`} className="flex flex-wrap items-center gap-2">
+                            <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : liveManualState ? openSavedManual(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
+                            {planType === 'ai' && !plan.localMock && <Btn variant="outline" onClick={() => editAiAsManual(plan)}>
+                              Edit as manual<span className="sr-only"> (opens a Manual ILAW copy of {plan.title || 'lesson plan'})</span></Btn>}
+                            {lessonPlanPostingFlagEnabled() && dayTaskEligible && <Btn variant="outline" onClick={() => setPostingPlan(plan)}>
+                              Post to class<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>}
+                            {dayTaskEligible &&
+                              <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
+                                aria-label={`Generate Task for ${plan.title || 'lesson plan'}`}
+                                className="min-h-11 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
+                                style={{ color: 'var(--banner-accent)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+                                <Sparkles size={15} aria-hidden="true" />Generate Task
+                              </button>}
+                            {jobClient.enabled && persistedJob?.planId === plan.id && worksheetRun === null &&
+                              <Btn variant="outline" onClick={() => resumeWeeklyJob(plan)}>
+                                {persistedJob.jobId ? 'Resume weekly job' : 'Retry unconfirmed weekly request'}
+                              </Btn>}
+                          </div>
                           {/* R43 (4i): out of sync. Sync opens Generate Task: a new draft, the old worksheets stay untouched. */}
                           {dayTaskEligible && outOfSync.get(plan.id) > 0 && <p role="note" className="w-full text-xs break-words" style={{ color: 'var(--text-muted)' }}>
                             This plan changed after {outOfSync.get(plan.id) === 1 ? 'a worksheet was' : `${outOfSync.get(plan.id)} worksheets were`} made from it.
@@ -1794,27 +1797,32 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                             </button>
                           </p>}
                           {/* R43 (4i): end */}
-                          {jobClient.enabled && persistedJob?.planId === plan.id && worksheetRun === null &&
-                            <Btn variant="outline" onClick={() => resumeWeeklyJob(plan)}>
-                              {persistedJob.jobId ? 'Resume weekly job' : 'Retry unconfirmed weekly request'}
-                            </Btn>}
-                          {planType === 'ai' && <Btn variant="outline" onClick={() => printSavedAi(plan)}>
-                            <Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
-                          </Btn>}
-                          {planType === 'ai' && <Btn variant="outline" className="min-h-[44px]" onClick={() => downloadSavedAi(plan)}
-                            disabled={Boolean(aiPdfUnavailable) || aiPdfBusyId !== null} busy={aiPdfBusyId === plan.id}>
-                            <Download size={14} aria-hidden="true" />{aiPdfBusyId === plan.id ? 'Preparing PDF…' : 'Download PDF'}
-                            <span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
-                          </Btn>}
-                          {(plan.localMock || liveManualState) && <>
-                            <Btn variant="outline" onClick={() => printManualMock(plan)}><Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
-                            <Btn variant="outline" onClick={() => downloadManualMock(plan)}>Download PDF<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
-                          </>}
-                          {planType !== 'manual' && (plan.file_url || plan.file_path) && <button type="button" onClick={async () => { if (!(await openSourcePdf(plan, supabase))) showToast('The source PDF could not be opened. Please try again.', 'error'); }} className="text-sm font-semibold px-3 py-2 rounded-lg hover:underline" style={{ color: 'var(--banner-accent)' }}>Open source PDF ↗<span className="sr-only"> for {plan.title || 'lesson plan'}</span></button>}
-                          {!plan.localMock && <button type="button" onClick={() => handleDeletePlan(plan.id)} aria-label={`Delete ${plan.title || 'lesson plan'}`}
-                            className="ml-auto min-h-11 px-3 py-2 rounded-lg text-sm font-semibold hover:opacity-90" style={{ color: 'var(--badge-red-fg)', border: '1px solid var(--border)' }}>
-                            <Trash2 size={15} className="inline mr-1" aria-hidden="true" />Delete
-                          </button>}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                            <div role="group" aria-label={`Files of ${plan.title || 'lesson plan'}`} className="flex flex-wrap items-center gap-2">
+                              {planType === 'ai' && <Btn variant="outline" onClick={() => printSavedAi(plan)}>
+                                <Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
+                              </Btn>}
+                              {planType === 'ai' && <Btn variant="outline" className="min-h-[44px]" onClick={() => downloadSavedAi(plan)}
+                                disabled={Boolean(aiPdfUnavailable) || aiPdfBusyId !== null} busy={aiPdfBusyId === plan.id}>
+                                <Download size={14} aria-hidden="true" />{aiPdfBusyId === plan.id ? 'Preparing PDF…' : 'Download PDF'}
+                                <span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
+                              </Btn>}
+                              {(plan.localMock || liveManualState) && <>
+                                <Btn variant="outline" onClick={() => printManualMock(plan)}><Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
+                                <Btn variant="outline" onClick={() => downloadManualMock(plan)}>Download PDF<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
+                              </>}
+                              {planType !== 'manual' && (plan.file_url || plan.file_path) && <button type="button" onClick={async () => { if (!(await openSourcePdf(plan, supabase))) showToast('The source PDF could not be opened. Please try again.', 'error'); }} className="min-h-11 text-sm font-semibold px-3 py-2 rounded-lg hover:underline" style={{ color: 'var(--banner-accent)' }}>Open source PDF ↗<span className="sr-only"> for {plan.title || 'lesson plan'}</span></button>}
+                              {/* R22 (4k): Word copy of the saved plan; PDF stays on its own button. */}
+                              {!plan.localMock && ['ai', 'manual'].includes(planType) && <Btn variant="outline" onClick={() => {
+                                try { downloadDocx(lessonPlanDocxBlocks(plan), docxFileName(plan.title)); }
+                                catch { showToast('The Word file could not be made. Please try again.', 'error'); }
+                              }}>Download Word<span className="sr-only"> (.docx) {plan.title || 'lesson plan'}</span></Btn>}
+                            </div>
+                            {!plan.localMock && <button type="button" onClick={() => handleDeletePlan(plan.id)} aria-label={`Delete ${plan.title || 'lesson plan'}`}
+                              className="min-h-11 px-3 py-2 rounded-lg text-sm font-semibold hover:opacity-90" style={{ color: 'var(--badge-red-fg)', border: '1px solid var(--border)' }}>
+                              <Trash2 size={15} className="inline mr-1" aria-hidden="true" />Delete
+                            </button>}
+                          </div>
                         </div>
                         {import.meta.env.DEV && worksheetPreview?.status === 'ready'
                           && (!worksheetPreview.context.subjectId || !worksheetPreview.context.gradeLevel) &&

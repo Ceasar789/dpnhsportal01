@@ -6,20 +6,32 @@
 // row level security lets only the owning teacher read learning_materials and
 // its files; the read policy is the proposed migration autorun/sql/4e.
 // Files open through a 5-minute signed link; links only when they are http(s).
+// U-S5 (design p21): subject chips with counts, the "only your section and
+// subjects" note, cards with subject, title, description, teacher and date,
+// Download or Open link. Teacher names come from the proposed U-S5 function;
+// without it the card shows no name.
 // ============================================
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, FileText, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, FileText, RefreshCw } from 'lucide-react';
 import { supabase } from '../../../config/supabase';
 import { normalizeGradeLevel } from '../../../lib/academicRules';
 import { useStudentData } from '../../../pages/dashboards/student/StudentDataContext';
 import { MATERIALS_BUCKET } from '../teacher/materials/materialsApi';
 import { safeLink } from '../teacher/materials/materialRules';
 import { Skeleton, SkeletonGroup } from '../../ui/Skeleton';
-import { listStudentMaterials } from './studentMaterials';
+import { listMaterialTeachers, listStudentMaterials } from './studentMaterials';
+
+const POSTED = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: '2-digit' });
+const postedOn = (value) => {
+  const at = value ? new Date(value) : null;
+  return at && !Number.isNaN(at.getTime()) ? POSTED.format(at) : '';
+};
 
 export default function ClarityStudentMaterialsTab() {
   const { graph, loading: graphLoading } = useStudentData();
   const grade = graph && !graph.fatalError ? normalizeGradeLevel(graph.enrolments?.[0]?.sections?.grade_level) : null;
+  const sectionName = graph && !graph.fatalError ? graph.enrolments?.[0]?.sections?.name?.trim() || null : null;
+  const [teachers, setTeachers] = useState(() => new Map());
   const subjectIds = useMemo(() => (graph?.cardSubjectIds instanceof Set ? [...graph.cardSubjectIds] : []), [graph]);
   const [state, setState] = useState({ status: 'loading', rows: [] });
   const [subject, setSubject] = useState('');
@@ -33,11 +45,16 @@ export default function ClarityStudentMaterialsTab() {
     listStudentMaterials({ grade, subjectIds })
       .then(rows => { if (active) setState({ status: 'ready', rows }); })
       .catch(() => { if (active) setState({ status: 'error', rows: [] }); });
+    listMaterialTeachers().then(names => { if (active) setTeachers(names); });
     return () => { active = false; };
   }, [graphLoading, grade, subjectIds, reload]);
 
-  const chips = useMemo(() => [...new Map(state.rows.filter(r => r.subjects?.name).map(r => [r.subject_id, r.subjects.name])).entries()]
-    .sort((a, b) => a[1].localeCompare(b[1])), [state.rows]);
+  // [subject id, name, count], A-Z.
+  const chips = useMemo(() => [...state.rows.filter(r => r.subjects?.name).reduce((map, r) => {
+    const entry = map.get(r.subject_id) || [r.subject_id, r.subjects.name, 0];
+    entry[2] += 1;
+    return map.set(r.subject_id, entry);
+  }, new Map()).values()].sort((a, b) => a[1].localeCompare(b[1])), [state.rows]);
   const shown = state.rows.filter(r => !subject || r.subject_id === subject);
 
   const openFile = async (row) => {
@@ -45,7 +62,8 @@ export default function ClarityStudentMaterialsTab() {
     setOpenError('');
     const tab = window.open('about:blank', '_blank');
     try {
-      const { data, error } = await supabase.storage.from(MATERIALS_BUCKET).createSignedUrl(row.file_path, 300);
+      const { data, error } = await supabase.storage.from(MATERIALS_BUCKET)
+        .createSignedUrl(row.file_path, 300, { download: row.file_name || true });
       if (error || !data?.signedUrl) throw new Error('no link');
       if (tab) { tab.opener = null; tab.location.href = data.signedUrl; }
     } catch {
@@ -60,7 +78,7 @@ export default function ClarityStudentMaterialsTab() {
       <div className="x-head">
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1">Learning Materials</h1>
-          <p className="x-sub">Files and links from your teachers{grade ? ` for ${grade}` : ''}</p>
+          <p className="x-sub">{['Slides, notes and links from your teachers', grade, sectionName].filter(Boolean).join(' · ')}</p>
         </div>
         <div className="x-act">
           <button type="button" className="x-iconbtn" onClick={() => { setState({ status: 'loading', rows: [] }); setReload(k => k + 1); }} aria-label="Refresh learning materials">
@@ -68,12 +86,13 @@ export default function ClarityStudentMaterialsTab() {
           </button>
         </div>
       </div>
+      <p className="x-cs x-slm-note">You only see materials your teachers posted to your section and subjects.</p>
       {openError && <p role="alert" className="x-cs">{openError}</p>}
       {chips.length > 1 && (
         <div className="x-tlm-chips" role="group" aria-label="Filter by subject">
-          <button type="button" className={`x-chip${subject ? '' : ' on'}`} aria-pressed={!subject} onClick={() => setSubject('')}>All subjects</button>
-          {chips.map(([id, name]) => (
-            <button key={id} type="button" className={`x-chip${subject === id ? ' on' : ''}`} aria-pressed={subject === id} onClick={() => setSubject(id)}>{name}</button>
+          <button type="button" className={`x-chip${subject ? '' : ' on'}`} aria-pressed={!subject} onClick={() => setSubject('')}>All {state.rows.length}</button>
+          {chips.map(([id, name, count]) => (
+            <button key={id} type="button" className={`x-chip${subject === id ? ' on' : ''}`} aria-pressed={subject === id} onClick={() => setSubject(id)}>{name} {count}</button>
           ))}
         </div>
       )}
@@ -91,21 +110,31 @@ export default function ClarityStudentMaterialsTab() {
           <span className="x-cs">When your teachers add files or links for your subjects, they will show here.</span>
         </div>
       ) : (
-        <ul className="x-tlm-grid" aria-label="Learning materials">
+        <ul className="x-tlm-grid x-slm-grid" aria-label="Learning materials">
           {shown.map(row => {
             const link = row.kind === 'link' ? safeLink(row.link_url) : null;
+            const byline = [teachers.get(row.teacher_id), postedOn(row.created_at)].filter(Boolean).join(' · ');
             return (
-              <li key={row.id} className="x-card x-pad">
-                <span className="x-ico" aria-hidden="true">{row.kind === 'link' ? <ExternalLink size={16} /> : <FileText size={16} />}</span>
+              <li key={row.id} className="x-card x-slm-card">
+                <div className="x-slm-top">
+                  <span className="x-ico" aria-hidden="true">{row.kind === 'link' ? <ExternalLink size={16} /> : <FileText size={16} />}</span>
+                  {row.subjects?.name && <span className="x-badge in">{row.subjects.name}</span>}
+                </div>
                 <h2 className="x-ct">{row.title}</h2>
-                <p className="x-cs">{[row.subjects?.name, row.grade_level].filter(Boolean).join(' · ')}</p>
-                {row.description && <p className="x-cs">{row.description}</p>}
-                {link ? (
-                  <a className="x-btn" href={link} target="_blank" rel="noopener noreferrer" aria-label={`Open ${row.title} (opens in a new tab)`}>Open link</a>
-                ) : row.file_path ? (
-                  <button type="button" className="x-btn" onClick={() => openFile(row)} disabled={opening === row.id}
-                    aria-label={`Open ${row.title} (opens in a new tab)`}>{opening === row.id ? 'Opening…' : 'Open file'}</button>
-                ) : null}
+                {row.description && <p className="x-cs x-slm-desc">{row.description}</p>}
+                {byline && <p className="x-cs x-slm-by">{byline}</p>}
+                <div className="x-slm-act">
+                  {link ? (
+                    <a className="x-btn" href={link} target="_blank" rel="noopener noreferrer" aria-label={`Open link ${row.title} (opens in a new tab)`}>
+                      <ExternalLink size={16} aria-hidden="true" /> Open link
+                    </a>
+                  ) : row.file_path ? (
+                    <button type="button" className="x-btn" onClick={() => openFile(row)} disabled={opening === row.id}
+                      aria-busy={opening === row.id ? 'true' : undefined} aria-label={`Download ${row.title}`}>
+                      <Download size={16} aria-hidden="true" /> {opening === row.id ? 'Preparing…' : 'Download'}
+                    </button>
+                  ) : null}
+                </div>
               </li>
             );
           })}

@@ -14,7 +14,7 @@ import { FileText, Clock, CalendarClock } from 'lucide-react';
 import { useTheme, useToast, Card, Badge } from '../hooks';
 import { withRetry } from '../../../../lib/supabaseRetry';
 import { TRUE_FALSE_VALUES } from '../../../../lib/worksheetChecking';
-import { formatCountdown, formatManila, manilaInstant, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
+import { formatCountdown, formatManila, manilaInstant } from '../../../../lib/taskFormatting';
 import { useStudentData } from '../StudentDataContext';
 import { SUBMISSION_STATE_FIELDS } from '../../../../lib/studentTaskGraph';
 import StudentWorksheetHeader from './StudentWorksheetHeader';
@@ -26,7 +26,7 @@ import { Btn, Modal } from '../../teacher/shared/ui';
 import { ThemeContext as TeacherThemeContext } from '../../teacher/hooks';
 import PageHeader from '../PageHeader';
 import { countdownTone, GREEN, INFO, NEUTRAL, RED, YELLOW } from '../badgeTones';
-import { groupStudentViews, isMissing, isOverdue, STUDENT_VIEWS, STUDENT_VIEW_LABELS, studentView } from '../taskGroups';
+import { groupStudentViews, isMissing, isOverdue, STUDENT_VIEWS, STUDENT_VIEW_LABELS, studentView, taskTypeLabel, taskTypeOptions } from '../taskGroups';
 import { Skeleton, SkeletonGroup } from '../../../../components/ui/Skeleton';
 
 // What each view says when it has nothing in it.
@@ -95,6 +95,13 @@ const StudentTasksTab = () => {
   const setView = (next) => setSearchParams(prev => {
     const params = new URLSearchParams(prev);
     params.set('view', next);
+    return params;
+  }, { replace: true });
+  // U-S3: the worksheet type (?type=, next to ?view= and ?subject=); empty = All types.
+  const typeParam = searchParams.get('type') || '';
+  const setType = (next) => setSearchParams(prev => {
+    const params = new URLSearchParams(prev);
+    if (next) params.set('type', next); else params.delete('type');
     return params;
   }, { replace: true });
 
@@ -225,9 +232,14 @@ const StudentTasksTab = () => {
   const visibleRows = subjectFilter
     ? rows.filter(r => r.sheet.subject_id === subjectFilter)
     : rows;
-  // Grouped within the ?subject= filter, so the chip counts are for what the
-  // student is actually looking at.
-  const groups = groupStudentViews(visibleRows, now);
+  // U-S3: the types listed are the ones in the student's (subject-filtered)
+  // tasks; a ?type= that is not among them counts as All types.
+  const typeOptions = taskTypeOptions(visibleRows);
+  const activeType = typeOptions.some(([label]) => label === typeParam) ? typeParam : '';
+  const typedRows = activeType ? visibleRows.filter(r => taskTypeLabel(r.sheet) === activeType) : visibleRows;
+  // Grouped within the ?subject= and ?type= filters, so the chip counts are
+  // for what the student is actually looking at.
+  const groups = groupStudentViews(typedRows, now);
   const shownRows = groups[view];
 
   // Writes one submission's `submission` field into the matching `rows`
@@ -777,6 +789,7 @@ const StudentTasksTab = () => {
         </Card>
       ) : (<>
         <Card className="p-4 mb-4">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter tasks">
             {STUDENT_VIEWS.map(value => (
               <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)}
@@ -787,6 +800,16 @@ const StudentTasksTab = () => {
                 {STUDENT_VIEW_LABELS[value]} <span>({groups[value].length})</span>
               </button>
             ))}
+          </div>
+          <label className="flex flex-col gap-1 text-sm font-semibold min-w-0" style={{ color: 'var(--text)' }}>
+            Type
+            <select value={activeType} onChange={e => setType(e.target.value)}
+              className="min-h-11 rounded-lg px-3 text-base font-normal max-w-full"
+              style={{ color: 'var(--text)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+              <option value="">All types ({visibleRows.length})</option>
+              {typeOptions.map(([label, count]) => <option key={label} value={label}>{label} ({count})</option>)}
+            </select>
+          </label>
           </div>
         </Card>
         {shownRows.length === 0 ? (
@@ -805,7 +828,7 @@ const StudentTasksTab = () => {
             // A teacher Activity is stored as task_type 'worksheet' with no
             // questions; isHandout is that rule, so its badge reads Activity.
             const attachmentRow = isAttachmentTask(row.sheet);
-            const typeLabel = handoutRow || (attachmentRow && row.sheet.task_type === 'worksheet') ? 'Activity' : (TASK_TYPE_LABELS[row.sheet.task_type] || 'Task');
+            const typeLabel = taskTypeLabel(row.sheet);
             const tone = attachmentRow ? attachmentStatus(row.submission).tone : statusTone(row);
             // Once handed in, the deadline no longer counts down or reads as late.
             const handedIn = Boolean(row.submission) && row.submission.status !== 'in_progress';

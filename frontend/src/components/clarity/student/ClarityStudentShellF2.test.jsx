@@ -77,7 +77,7 @@ describe('brand and wording', () => {
 
 describe('footer user card', () => {
   it.each([
-    ['grade and section', { name: 'Mabini', grade_level: 'Grade 8' }, 'Grade 8 – Mabini'],
+    ['grade and section', { name: 'Mabini', grade_level: 'Grade 8' }, 'Grade 8 · Mabini'],
     ['grade only', { name: '', grade_level: '8' }, 'Grade 8'],
     ['section only', { name: 'Mabini', grade_level: null }, 'Mabini'],
     ['neither', { name: null, grade_level: null }, 'Student'],
@@ -91,13 +91,13 @@ describe('footer user card', () => {
     expect(foot().textContent).not.toMatch(/undefined|null|NaN/);
   });
 
-  it('initials sit in the yellow avatar; the profile toggle still opens Profile Settings', () => {
+  it('initials sit in the yellow avatar; the card itself links to Profile Settings', () => {
     show();
     expect(foot().querySelector('.x-ava').textContent).toBe('JD');
-    const toggle = within(foot()).getByRole('button', { name: 'Toggle profile menu' });
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Profile Settings' })).toBeTruthy();
+    const card = within(foot()).getByRole('link', { name: /\(Profile settings\)$/ });
+    expect(card.getAttribute('href')).toBe('/student-dashboard/profile');
+    expect(screen.queryByRole('button', { name: 'Profile Settings' })).toBeNull();
+    expect(screen.queryByText('Profile & password')).toBeNull();
   });
 
   it('the logout icon button keeps the name "Logout" and the same handler (confirm, then log out)', async () => {

@@ -15,7 +15,7 @@ import { useContext, useEffect, useId, useRef, useState } from 'react';
 import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
 import {
   LogOut, LayoutDashboard, Users, Newspaper, Calendar, FileText, Settings,
-  ChevronLeft, ChevronRight, X, BookMarked, GraduationCap, Columns, Clock, UserRound,
+  ChevronLeft, ChevronRight, X, BookMarked, GraduationCap, Columns, Clock,
 } from 'lucide-react';
 import NotificationBell from '../../NotificationBell';
 import Avatar from '../../Avatar';
@@ -155,7 +155,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
   const shell = useAdminShellBehavior({ navigate, logout, userData });
   const {
     sidebarCollapsed, setSidebarCollapsed, sidebarOpen, setSidebarOpen, sidebarRef, menuButtonRef,
-    deleteConfirmBusy, profileOpen, setProfileOpen, logoutConfirmOpen, setLogoutConfirmOpen,
+    deleteConfirmBusy, logoutConfirmOpen, setLogoutConfirmOpen,
     darkMode, page, setDarkMode, setPage, toast, activeSettingsSub, deleteConfirm,
     requestSidebarNavigation, openSettingsSection, photoUrl, settingsLeave,
   } = shell;
@@ -308,25 +308,13 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
           )}
         </div>
 
-        {/* Pinned to the bottom: the profile link (when open) above the user card. */}
+        {/* Pinned to the bottom: the user card. U-S6: the card itself opens
+            Profile Settings (through the unsaved-changes guard); no separate item. */}
         <div style={{ marginTop: 'auto' }}>
-          {/* V2a: Profile and the password change, always one tap away. */}
-          <button type="button" className={`x-nav${onProfile ? ' on' : ''}`}
-            aria-current={onProfile ? 'page' : undefined}
-            aria-label={collapsed ? 'Profile & password' : undefined} title={collapsed ? 'Profile & password' : undefined}
-            onClick={() => requestSidebarNavigation(() => setPage('profile'), 'Profile Settings')}>
-            <UserRound size={18} aria-hidden="true" />
-            {!collapsed && <span>Profile &amp; password</span>}
-          </button>
-          {profileOpen && !collapsed && (
-            <button type="button" className="x-nav"
-              onClick={() => requestSidebarNavigation(() => { setPage('profile'); setProfileOpen(false); }, 'Profile Settings')}>
-              <Settings size={16} aria-hidden="true" /> <span>Profile Settings</span>
-            </button>
-          )}
           <div className="x-side-foot" style={collapsed ? { flexDirection: 'column' } : undefined}>
-            <button type="button" className="x-user" onClick={() => setProfileOpen(open => !open)}
-              aria-expanded={profileOpen} aria-label="Toggle profile menu">
+            <button type="button" className={`x-user${onProfile ? ' on' : ''}`} aria-current={onProfile ? 'page' : undefined}
+              title={collapsed ? `${name} (Profile settings)` : undefined}
+              onClick={() => requestSidebarNavigation(() => setPage('profile'), 'Profile Settings')}>
               <span className="x-ava"><Avatar src={photoUrl} name={name} size={36} bg="transparent" color="currentColor" /></span>
               {!collapsed && (
                 <span className="x-user-txt">
@@ -334,6 +322,7 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
                   <span>{roleText}</span>
                 </span>
               )}
+              <span className="x-sr">{collapsed ? `${name} ` : ' '}(Profile settings)</span>
             </button>
             <button type="button" className="x-iconbtn" aria-label="Logout" title="Logout"
               onClick={() => requestSidebarNavigation(() => setLogoutConfirmOpen(true), 'Logout')}>
@@ -372,7 +361,8 @@ const ClarityAdminLayout = ({ navigate, logout, userData }) => {
             onMenu={() => setPhoneMenuOpen(true)} menuButtonRef={phoneMenuRef} sheetId="admin-phone-menu" />
           <PhoneMenuSheet id="admin-phone-menu" open={phoneMenuOpen} onClose={() => setPhoneMenuOpen(false)}
             groups={phoneGroups} returnFocusRef={phoneMenuRef} closeKey={page}
-            profile={{ key: 'profile', label: 'Profile & password', current: onProfile, onSelect: navTo('profile', 'Profile Settings') }}
+            profile={{ key: 'profile', label: name, sub: roleText, current: onProfile, onSelect: navTo('profile', 'Profile Settings'),
+              avatar: <Avatar src={photoUrl} name={name} size={40} bg="transparent" color="currentColor" /> }}
             onSignOut={() => requestSidebarNavigation(() => setLogoutConfirmOpen(true), 'Logout')} />
         </>
       )}

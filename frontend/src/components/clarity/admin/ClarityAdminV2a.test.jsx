@@ -83,11 +83,11 @@ describe('V2a admin shell', () => {
       expect(title().previousElementSibling.classList.contains('x-menubtn')).toBe(true);
     });
 
-  it('Profile & password is in the drawer without opening the name card, and opens Profile', async () => {
+  it('the profile card in the drawer opens Profile; there is no separate Profile & password item', async () => {
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
-    const entry = within(sidebar()).getByRole('button', { name: 'Profile & password' });
-    expect(within(sidebar()).getByRole('button', { name: 'Toggle profile menu' }).getAttribute('aria-expanded')).toBe('false');
+    const entry = within(sidebar()).getByRole('button', { name: /\(Profile settings\)$/ });
+    expect(within(sidebar()).queryByRole('button', { name: 'Profile & password' })).toBeNull();
     fireEvent.click(entry);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Profile content'));
     expect(title().textContent).toBe('Profile Settings');

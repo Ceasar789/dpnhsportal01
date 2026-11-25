@@ -41,7 +41,7 @@ describe('Student Learning Materials (4e)', () => {
     ], error: null };
     render(<ClarityStudentMaterialsTab />);
     expect(await screen.findByText('Cell diagram')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open Cell diagram (opens in a new tab)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download Cell diagram' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: /Bad link/ })).toBeNull();
   });
   it('a failed read is an error with Retry, never the empty state', async () => {

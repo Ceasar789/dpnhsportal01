@@ -42,8 +42,11 @@ html.theme-clarity .x-side-foot b { display: block; font-size: 13px; color: var(
 html.theme-clarity .x-side-foot span { font-size: 12px; color: var(--cl-side-tx); overflow-wrap: anywhere; }
 /* F2: the footer user card (final design): avatar, name, role line; the
    logout is an icon button beside it. Initials sit on the design's yellow. */
-html.theme-clarity .x-user { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; padding: 4px; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+html.theme-clarity .x-user { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; padding: 4px; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; text-decoration: none; cursor: pointer; }
 html.theme-clarity .x-user:hover { background: var(--cl-side-hov); }
+/* U-S6: the card is the link to Profile Settings; marked while it is open. */
+html.theme-clarity .x-user.on { background: var(--cl-ac-s); }
+html.theme-clarity .x-side-foot .x-user-txt .x-user-lrn { margin-top: 2px; font-weight: 600; color: var(--cl-side-head); }
 html.theme-clarity .x-user:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
 html.theme-clarity .x-side-foot .x-user-txt { min-width: 0; display: flex; flex-direction: column; }
 html.theme-clarity .x-side-foot .x-user-txt span { display: block; }
@@ -299,6 +302,10 @@ html.theme-clarity .x-tan-text { margin: 6px 0 8px; color: var(--cl-mu); overflo
 html.theme-clarity .x-tan-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
 /* S1: Student Overview (final design) */
 html.theme-clarity .x-sov-who { margin: 6px 0 0; overflow-wrap: anywhere; }
+/* U-S2: grade, section and school year in the text colour, the LRN as a chip. */
+html.theme-clarity .x-sov-id { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; font-size: 15px; color: var(--cl-tx); }
+html.theme-clarity .x-sov-id b { font-weight: 600; }
+html.theme-clarity .x-sov-id .x-badge { font-size: 13px; }
 html.theme-clarity .x-sov-ring { width: 56px; flex: none; align-self: center; }
 html.theme-clarity .x-sov .x-grid3 { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
 html.theme-clarity .x-sc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 16px; }
@@ -771,7 +778,7 @@ html.theme-clarity .x-stk > .page-transition > div { padding: 0; }
 html.theme-clarity .x-stk > .page-transition > div > header { margin-bottom: 24px; }
 html.theme-clarity .x-stk > .page-transition > div > header h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
 html.theme-clarity .x-stk > .page-transition > div > header h1 + p { font-size: 14px; }
-html.theme-clarity .x-stk > .page-transition > div > .rounded-xl:has(> [aria-label="Filter tasks"]) { padding: 10px; margin-bottom: 20px; }
+html.theme-clarity .x-stk > .page-transition > div > .rounded-xl:has([aria-label="Filter tasks"]) { padding: 10px; margin-bottom: 20px; }
 html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] { gap: 8px; }
 html.theme-clarity .x-stk > .page-transition > div [aria-label="Filter tasks"] > button { min-height: 40px; padding: 0 20px; font-size: 14px; }
 html.theme-clarity .x-stk > .page-transition > div > .space-y-3 > .rounded-xl { padding: 18px 24px; gap: 16px; }
@@ -791,7 +798,9 @@ html.theme-clarity .x-sat-grid { width: 100%; table-layout: fixed; border-collap
 html.theme-clarity .x-sat-grid th { padding: 10px 12px; background: var(--cl-bg); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--cl-dim); text-align: left; }
 html.theme-clarity .x-sat-grid td { height: 96px; padding: 10px 12px; vertical-align: top; border-top: 1px solid var(--cl-bd); border-left: 1px solid var(--cl-bd); }
 html.theme-clarity .x-sat-grid td:first-child { border-left: 0; }
-html.theme-clarity .x-sat-grid td .x-badge { display: flex; width: 100%; margin-top: 6px; border-radius: 6px; overflow-wrap: anywhere; }
+html.theme-clarity .x-sat-grid td .x-badge { display: flex; width: 100%; margin-top: 6px; border-radius: 6px; overflow-wrap: normal; }
+/* U-S4: a status word is never broken inside ("Pres / ent"). */
+html.theme-clarity .x-sat-records .x-badge { overflow-wrap: normal; }
 html.theme-clarity .x-sat-d { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 9999px; font-weight: 600; color: var(--cl-tx); }
 html.theme-clarity .x-sat-grid td.out .x-sat-d { color: var(--cl-dim); font-weight: 500; }
 html.theme-clarity .x-sat-d.today { background: var(--cl-ac); color: var(--cl-ac-t); }
@@ -824,7 +833,36 @@ html.theme-clarity .x-san-meta { display: flex; flex-wrap: wrap; align-items: ce
   html.theme-clarity .x-sat-grid td { height: 72px; padding: 4px; }
   html.theme-clarity .x-sat-grid td .x-badge { padding: 1px 4px; font-size: 10px; }
   html.theme-clarity .x-san-item { padding: 16px; gap: 12px; }
+  /* U-S4: a day cell shows the status letter (P, L, A, E) in its colour; the
+     word stays in the text for screen readers. Records become a list (p11):
+     date and status on one line, section, subject and notes under it. */
+  html.theme-clarity .x-sat-grid td .x-badge[data-code] { justify-content: center; padding: 2px 0; font-size: 0; }
+  html.theme-clarity .x-sat-grid td .x-badge[data-code]::before { content: attr(data-code); font-size: 12px; font-weight: 700; line-height: 18px; }
+  html.theme-clarity .x-sat-records .x-tw { overflow: visible; }
+  html.theme-clarity .x-sat-records .x-table { display: block; min-width: 0; }
+  html.theme-clarity .x-sat-records .x-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  html.theme-clarity .x-sat-records .x-table tbody { display: block; }
+  html.theme-clarity .x-sat-records .x-table tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 14px 20px; border-bottom: 1px solid var(--cl-bd); }
+  html.theme-clarity .x-sat-records .x-table tr:last-child { border-bottom: 0; }
+  html.theme-clarity .x-sat-records .x-table td { display: block; padding: 0; border: 0; }
+  html.theme-clarity .x-sat-records .x-table td:first-child { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--cl-tx); }
+  html.theme-clarity .x-sat-records .x-table td:nth-child(2) { flex: none; }
+  html.theme-clarity .x-sat-records .x-table td:nth-child(n+3) { flex-basis: 100%; font-size: 13px; color: var(--cl-dim); }
+  html.theme-clarity .x-sat-records .x-table td:nth-child(n+3):empty { display: none; }
+  html.theme-clarity .x-sat-records .x-table td:nth-child(3)::before { content: "Section: "; }
+  html.theme-clarity .x-sat-records .x-table td:nth-child(4)::before { content: "Subject: "; }
+  html.theme-clarity .x-sat-records .x-table td:nth-child(5)::before { content: "Notes: "; }
 }
+
+/* U-S5: Student Learning Materials cards (design p21): subject badge, title,
+   description, teacher and date, one action at the bottom. */
+html.theme-clarity .x-slm-note { margin: -8px 0 16px; }
+html.theme-clarity .x-slm-card { display: flex; flex-direction: column; gap: 8px; padding: 20px; min-width: 0; }
+html.theme-clarity .x-slm-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+html.theme-clarity .x-slm-card .x-ct { margin: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-slm-desc, html.theme-clarity .x-slm-by { margin: 0; overflow-wrap: anywhere; }
+html.theme-clarity .x-slm-act { margin-top: auto; padding-top: 4px; display: flex; flex-wrap: wrap; gap: 8px; }
+html.theme-clarity .x-slm-act .x-btn { min-height: 44px; }
 
 /* G5: Student Profile Settings ("Option A"): identity card | details. */
 html.theme-clarity .x-sprof-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -1073,6 +1111,8 @@ html.theme-clarity .x-set-nav { height: auto; padding: 0; background: none; box-
 html.theme-clarity.dark .x-app, html.theme-clarity.dark .x-back, html.theme-clarity.dark .modal-overlay { color-scheme: dark; }
 html.theme-clarity.dark .x-stk, html.theme-clarity.dark .x-tws { --on-accent: var(--cl-ac-t); }
 html.theme-clarity .x-stk [aria-label="Filter tasks"] > button:focus-visible { outline: 2px solid var(--cl-tx); outline-offset: 2px; }
+/* U-S3: the Type select beside the chips. */
+html.theme-clarity .x-stk .rounded-xl:has([aria-label="Filter tasks"]) select:focus-visible { outline: 2px solid var(--cl-ac); outline-offset: 2px; }
 html.theme-clarity.dark .x-app :focus-visible, html.theme-clarity.dark .x-back :focus-visible { outline-color: var(--cl-ac); }
 html.theme-clarity .x-usr-tabs { padding: 4px 4px 6px; margin: -4px -4px 12px; scroll-padding-inline: 4px; }
 html.theme-clarity .x-tld-grades { margin-bottom: 4px; }

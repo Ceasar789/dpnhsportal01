@@ -169,12 +169,11 @@ describe('footer user card', () => {
     expect(within(foot()).getByText('Administrator')).toBeTruthy();
   });
 
-  it('the profile toggle keeps its behaviour: Profile Settings opens the profile page', async () => {
+  it('the footer card is the profile entry: it opens the profile page directly', async () => {
     await showClarity();
-    const toggle = within(foot()).getByRole('button', { name: 'Toggle profile menu' });
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
+    const card = within(foot()).getByRole('button', { name: /\(Profile settings\)$/ });
+    expect(card.getAttribute('aria-expanded')).toBeNull();
+    fireEvent.click(card);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Profile content');
   });
 

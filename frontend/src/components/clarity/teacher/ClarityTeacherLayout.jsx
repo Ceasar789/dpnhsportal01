@@ -28,7 +28,7 @@ import { useNavigate, Link, useLocation, useNavigationType } from 'react-router-
 import {
   Users, BookOpen, GraduationCap,
   CalendarCheck, Megaphone, LogOut,
-  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, Settings, X, FolderOpen, UserRound,
+  LayoutDashboard, ClipboardList, ChevronRight, ChevronLeft, X, FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -87,6 +87,9 @@ const PHONE_BAR = [['/teacher-dashboard', 'Overview'], ['/teacher-dashboard/less
 const ClarityTeacherLayout = ({ children }) => {
   useHtmlClass('theme-clarity');
   const desktop = useMediaQuery('(min-width: 1024px)');
+  // U-S6: profileOpen (inside the copy) no longer drives a menu here; the
+  // user card links to Profile Settings. Disabled around the copy, not in it.
+  /* eslint-disable no-unused-vars */
   // ---- TEMPORARY copy (TeacherDashboard.jsx:44-165) ----
   const { dark, toggleDark } = useTheme();
   const { logout, userData } = useAuth();
@@ -211,6 +214,7 @@ const ClarityTeacherLayout = ({ children }) => {
     { path: '/teacher-dashboard/announcements', icon: Megaphone, label: 'Announcements' },
   ];
   // ---- end of the copy ----
+  /* eslint-enable no-unused-vars */
 
   // M2: a Clarity-only page (no classic route or nav item), so it is kept
   // out of the copy above; GROUPS places it between Worksheets and Grading.
@@ -324,28 +328,12 @@ const ClarityTeacherLayout = ({ children }) => {
           ))}
         </nav>
 
-        {/* Pinned to the bottom: the profile link (when open) above the user card. */}
+        {/* Pinned to the bottom: the user card. U-S6: the card itself opens
+            Profile Settings (photo, name and password); no separate item. */}
         <div style={{ marginTop: 'auto' }}>
-          {/* V2a: Profile and the password change, always one tap away. */}
-          <Link to="/teacher-dashboard/profile" onClick={() => setSidebarOpen(false)}
-            aria-current={onProfile ? 'page' : undefined}
-            aria-label={collapsed ? 'Profile & password' : undefined} title={collapsed ? 'Profile & password' : undefined}
-            className={`x-nav${onProfile ? ' on' : ''}`}>
-            <UserRound size={18} aria-hidden="true" />
-            {!collapsed && <span>Profile &amp; password</span>}
-          </Link>
-          {profileOpen && !collapsed && (
-            <button type="button" className="x-nav" onClick={() => { navigate('profile'); setProfileOpen(false); setSidebarOpen(false); }}>
-              <Settings size={16} aria-hidden="true" /> <span>Profile Settings</span>
-            </button>
-          )}
           <div className="x-side-foot" style={collapsed ? { flexDirection: 'column' } : undefined}>
-            <button type="button" className="x-user"
-              onClick={() => {
-                if (sidebarCollapsed && !sidebarOpen) setSidebarCollapsed(false);
-                setProfileOpen(open => !open);
-              }}
-              aria-expanded={profileOpen} aria-label="Toggle profile menu">
+            <Link to="/teacher-dashboard/profile" className={`x-user${onProfile ? ' on' : ''}`} onClick={() => setSidebarOpen(false)}
+              aria-current={onProfile ? 'page' : undefined} title={collapsed ? `${name} (Profile settings)` : undefined}>
               <span className="x-ava"><Avatar src={photoUrl} name={name} size={36} bg="transparent" color="currentColor" /></span>
               {!collapsed && (
                 <span className="x-user-txt">
@@ -353,7 +341,8 @@ const ClarityTeacherLayout = ({ children }) => {
                   <span>Teacher</span>
                 </span>
               )}
-            </button>
+              <span className="x-sr">{collapsed ? `${name} ` : ' '}(Profile settings)</span>
+            </Link>
             <button ref={logoutButtonRef} type="button" className="x-iconbtn" onClick={handleLogout} aria-label="Logout" title="Logout">
               <LogOut size={18} aria-hidden="true" />
             </button>
@@ -385,7 +374,9 @@ const ClarityTeacherLayout = ({ children }) => {
             onMenu={() => setPhoneMenuOpen(true)} menuButtonRef={phoneMenuRef} sheetId="teacher-phone-menu" />
           <PhoneMenuSheet id="teacher-phone-menu" open={phoneMenuOpen} onClose={() => setPhoneMenuOpen(false)}
             groups={phoneGroups} returnFocusRef={phoneMenuRef} closeKey={location.pathname}
-            profile={{ key: 'profile', label: 'Profile & password', href: '/teacher-dashboard/profile', current: onProfile, onSelect: () => navigate('/teacher-dashboard/profile') }}
+            profile={{ key: 'profile', label: name, sub: 'Teacher', href: '/teacher-dashboard/profile',
+              avatar: <Avatar src={photoUrl} name={name} size={40} bg="transparent" color="currentColor" />,
+              current: onProfile, onSelect: () => navigate('/teacher-dashboard/profile') }}
             onSignOut={handleLogout} />
         </>
       )}

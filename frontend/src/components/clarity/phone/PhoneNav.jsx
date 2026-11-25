@@ -5,8 +5,8 @@
 //   PhoneBottomNav - the bottom tab bar (4 destinations + Menu), the only
 //                    primary navigation on phones (no hamburger there).
 //   PhoneMenuSheet - the Menu bottom sheet: every other page of the role,
-//                    grouped like the desktop sidebar, then Profile &
-//                    password and Sign out. A real dialog: focus trap,
+//                    grouped like the desktop sidebar, then the profile
+//                    card (opens Profile) and Sign out. A real dialog: focus trap,
 //                    counted scroll lock, Esc and backdrop close, focus back
 //                    to the Menu tab, closes when a page is chosen or the
 //                    page changes.
@@ -24,8 +24,19 @@ import '../../../styles/phone-shell.css';
 export const PHONE_QUERY = '(max-width: 767.98px), (max-width: 1023.98px) and (max-height: 500px)';
 
 // Text entry raises the on-screen keyboard; the bar steps aside meanwhile so
-// it never covers the field or the button under it.
-const TYPING = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]), textarea, select, [contenteditable="true"]';
+// it never covers the field or the button under it. A select opens a picker,
+// not the keyboard, so it never hides the bar (U-S1).
+const TYPING = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]), textarea, [contenteditable="true"]';
+
+// U-S1: the keyboard is really on screen when the visual viewport is clearly
+// shorter than the layout viewport (pinch zoom keeps height * scale equal).
+// Without visualViewport (old browsers, tests) focus alone decides, as before.
+const KEYBOARD_GAP = 120;
+const keyboardOpen = (win = window) => {
+  const vv = win.visualViewport;
+  if (!vv) return true;
+  return vv.height * (vv.scale || 1) < win.innerHeight - KEYBOARD_GAP;
+};
 
 const Badge = ({ item }) => (item.badge > 0 ? (
   <span className="x-pnav-badge">{item.badge}<span className="x-sr"> {item.badgeText || ''}</span></span>
@@ -56,17 +67,34 @@ export function PhoneBrand() {
 export function PhoneBottomNav({ items, menuOpen, menuCurrent, onMenu, menuButtonRef, sheetId, label = 'Main' }) {
   const barRef = useRef(null);
   const [typing, setTyping] = useState(false);
+  // U-S1: hidden only while a text field has focus AND the keyboard is open.
+  // Re-checked on every focus change, keyboard resize and rotation, so a
+  // keyboard closed with "back", a field removed with its dialog or a turn of
+  // the phone can never leave the bar stuck hidden.
   useEffect(() => {
-    const onFocusIn = (event) => {
-      const el = event.target;
-      setTyping(Boolean(el?.matches?.(TYPING)) && !barRef.current?.contains(el));
+    let timer = null;
+    const check = (el = document.activeElement) => {
+      const field = Boolean(el?.matches?.(TYPING)) && document.contains(el) && !barRef.current?.contains(el);
+      setTyping(field && keyboardOpen());
     };
-    const onFocusOut = () => setTyping(false);
+    const onFocusIn = (event) => check(event.target);
+    const later = () => { window.clearTimeout(timer); timer = window.setTimeout(() => check(), 0); };
+    const vv = window.visualViewport;
+    // Focus leaving: decide now from where it goes (nowhere = shown), then
+    // re-check once the browser has settled.
+    const onFocusOut = (event) => { check(event.relatedTarget); later(); };
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
+    vv?.addEventListener('resize', later);
+    window.addEventListener('orientationchange', later);
+    window.addEventListener('resize', later);
     return () => {
+      window.clearTimeout(timer);
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);
+      vv?.removeEventListener('resize', later);
+      window.removeEventListener('orientationchange', later);
+      window.removeEventListener('resize', later);
     };
   }, []);
   return (
@@ -92,7 +120,8 @@ export function PhoneBottomNav({ items, menuOpen, menuCurrent, onMenu, menuButto
 }
 
 // groups: [{ heading, items }]; profile: an item; onSignOut: runs after the
-// sheet has closed. closeKey: the current page, so a page change closes it.
+// sheet has closed; profile also takes sub (second line) and avatar (a node).
+// closeKey: the current page, so a page change closes it.
 export function PhoneMenuSheet({ id, open, onClose, groups, profile, onSignOut, returnFocusRef, closeKey }) {
   const wrapRef = useRef(null);
   const panelRef = useRef(null);
@@ -157,7 +186,16 @@ export function PhoneMenuSheet({ id, open, onClose, groups, profile, onSignOut, 
           </div>
         ))}
         <div className="x-psheet-grp x-psheet-foot">
-          {row({ ...profile, icon: UserRound })}
+          {/* U-S6: the profile card (photo, name, line) is the way to the
+              profile page; there is no separate "Profile & password" row. */}
+          <Target item={profile} className={`x-psheet-row x-psheet-me${profile.current ? ' on' : ''}`} onPick={pick}>
+            <span className="x-psheet-ava" aria-hidden="true">{profile.avatar || <UserRound size={20} />}</span>
+            <span className="x-psheet-l">
+              <b className="x-psheet-name">{profile.label}</b>
+              {profile.sub && <span className="x-psheet-sub">{profile.sub}</span>}
+              <span className="x-sr"> (Profile settings)</span>
+            </span>
+          </Target>
           <button type="button" className="x-psheet-row" onClick={() => { onClose(); window.setTimeout(onSignOut, 0); }}>
             <LogOut size={20} aria-hidden="true" />
             <span className="x-psheet-l">Sign out</span>

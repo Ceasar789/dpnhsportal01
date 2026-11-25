@@ -22,7 +22,7 @@ const Harness = ({ signOut = vi.fn(), page = 'a' }) => {
       <main><input aria-label="Name" /></main>
       <PhoneBottomNav items={BAR} menuOpen={open} menuCurrent={false} onMenu={() => setOpen(true)} menuButtonRef={ref} sheetId="sheet" />
       <PhoneMenuSheet id="sheet" open={open} onClose={() => setOpen(false)} groups={GROUPS} returnFocusRef={ref} closeKey={page}
-        profile={{ key: 'p', label: 'Profile & password', current: false, onSelect: () => onSelect.p() }} onSignOut={signOut} />
+        profile={{ key: 'p', label: 'Ana Reyes', sub: 'Teacher', current: false, onSelect: () => onSelect.p() }} onSignOut={signOut} />
     </>
   );
 };
@@ -80,12 +80,12 @@ describe('PhoneMenuSheet', () => {
     expect(sheet.contains(document.activeElement)).toBe(true);
     expect(document.body.style.overflow).toBe('hidden');
   });
-  it('groups like the sidebar, then Profile & password and Sign out', () => {
+  it('groups like the sidebar, then the profile card and Sign out', () => {
     render(<Harness />);
     fireEvent.click(menuTab());
     const sheet = screen.getByRole('dialog', { name: 'Menu' });
     expect(within(sheet).getAllByRole('group').map(g => g.getAttribute('aria-label'))).toEqual(['Academics', 'System']);
-    expect([...sheet.querySelectorAll('.x-psheet-row')].map(r => r.textContent)).toEqual(['Subjects', 'Settings', 'Profile & password', 'Sign out']);
+    expect([...sheet.querySelectorAll('.x-psheet-row')].map(r => r.textContent)).toEqual(['Subjects', 'Settings', 'Ana ReyesTeacher (Profile settings)', 'Sign out']);
     expect(within(sheet).getByRole('button', { name: 'Settings' }).getAttribute('aria-current')).toBe('page');
   });
   it('Escape closes and focus returns to the Menu tab; the scroll lock is released', () => {
@@ -112,7 +112,7 @@ describe('PhoneMenuSheet', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(onSelect.s).toHaveBeenCalledTimes(1);
     fireEvent.click(menuTab());
-    fireEvent.click(screen.getByRole('button', { name: 'Profile & password' }));
+    fireEvent.click(screen.getByRole('button', { name: /\(Profile settings\)$/ }));
     expect(onSelect.p).toHaveBeenCalledTimes(1);
   });
   it('Sign out closes the sheet first, then asks', () => {

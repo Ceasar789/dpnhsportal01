@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // SHELL: the Admin Clarity shell on phones: no hamburger, the brand in the
 // top bar, the bottom tab bar (Overview, Users, News, Calendar, Menu) and the
-// Menu sheet with every other page, Profile & password and Sign out.
+// Menu sheet with every other page, the profile card and Sign out.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -102,12 +102,12 @@ describe('SHELL admin on phones', () => {
     expect(within(bar()).getByRole('button', { name: /^News/ }).textContent).toBe('News2 published');
   });
 
-  it('the Menu sheet: the other pages grouped like the sidebar, then Profile & password and Sign out', async () => {
+  it('the Menu sheet: the other pages grouped like the sidebar, then the profile card and Sign out', async () => {
     await show();
     const sheet = openMenu();
     expect(within(sheet).getAllByRole('group').map(g => g.getAttribute('aria-label'))).toEqual(['Academics', 'Communication', 'System']);
     expect([...sheet.querySelectorAll('.x-psheet-row')].map(r => r.textContent)).toEqual(
-      ['Subjects', 'Teaching Load', 'Sections', 'Schedules', 'Memos', 'Settings', 'Profile & password', 'Sign out']);
+      ['Subjects', 'Teaching Load', 'Sections', 'Schedules', 'Memos', 'Settings', 'MSMaria SantosAdministrator (Profile settings)', 'Sign out']);
   });
 
   it('a page from the sheet opens; the sheet closes; the Menu tab shows that the page is inside it', async () => {
@@ -121,9 +121,9 @@ describe('SHELL admin on phones', () => {
     expect(document.activeElement).toBe(menu);
   });
 
-  it('Profile & password and Sign out from the sheet', async () => {
+  it('the profile card and Sign out from the sheet', async () => {
     await show();
-    fireEvent.click(within(openMenu()).getByRole('button', { name: 'Profile & password' }));
+    fireEvent.click(within(openMenu()).getByRole('button', { name: /\(Profile settings\)$/ }));
     await waitFor(() => expect(heading()).toBe('Profile content'));
     fireEvent.click(within(openMenu()).getByRole('button', { name: 'Sign out' }));
     expect(await screen.findByRole('dialog', { name: 'Sign Out?' })).toBeTruthy();

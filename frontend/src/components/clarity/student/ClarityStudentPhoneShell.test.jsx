@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // SHELL: the Student Clarity shell on phones: no hamburger, the brand in the
 // top bar, the bottom tab bar (Overview, Tasks, Scores, Attendance, Menu) and
-// the Menu sheet (Announcements, Profile & password, Sign out).
+// the Menu sheet (Announcements, the profile card, Sign out).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -65,10 +65,10 @@ describe('SHELL student on phones', () => {
     expect(where()).toBe('/student-dashboard/scores');
   });
 
-  it('the Menu sheet: Announcements, Profile & password, Sign out; Announcements marks the Menu tab', () => {
+  it('the Menu sheet: Announcements, the profile card, Sign out; Announcements marks the Menu tab', () => {
     renderAt('/student-dashboard');
     const sheet = openMenu();
-    expect([...sheet.querySelectorAll('.x-psheet-row')].map(r => r.textContent)).toEqual(['Announcements', 'Profile & password', 'Sign out']);
+    expect([...sheet.querySelectorAll('.x-psheet-row')].map(r => r.textContent)).toEqual(['Announcements', 'SSSample StudentStudent (Profile settings)', 'Sign out']);
     fireEvent.click(within(sheet).getByRole('link', { name: 'Announcements' }));
     expect(where()).toBe('/student-dashboard/announcements');
     expect(within(bar()).getByRole('button', { name: /^Menu/ }).className).toContain('on');

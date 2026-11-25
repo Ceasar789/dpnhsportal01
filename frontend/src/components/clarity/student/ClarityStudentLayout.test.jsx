@@ -160,12 +160,9 @@ describe('flag on: the Clarity shell', () => {
     h.desktop = true;
     renderAt('/student-dashboard?clarity=1');
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy();
-    const toggle = screen.getByRole('button', { name: 'Toggle profile menu' });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(toggle.className).toBe('x-user');
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
+    const card = screen.getByRole('link', { name: /\(Profile settings\)$/ });
+    expect(card.className).toBe('x-user');
+    fireEvent.click(card);
     expect(screen.getByRole('heading', { level: 1, name: 'Profile Settings' })).toBeTruthy();
   });
 });

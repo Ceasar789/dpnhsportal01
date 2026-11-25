@@ -82,10 +82,13 @@ const ClarityStudentOverviewTab = () => {
 
   // Loading, failed, or the real value.
   const shown = (value) => (loading ? LOADING_VALUE : loadError ? 'Could not load' : value);
+  // U-S2 (design p8): "Grade 8 · Rizal · School Year 2026-2027", and the LRN
+  // as its own chip only when the student record has one.
   const enrolment = settled
     ? [info.gradeLevel && info.section ? `${info.gradeLevel} · ${info.section}` : 'Not yet enrolled in a section',
-      info.studentId && `ID: ${info.studentId}`, info.schoolYear && `School Year ${info.schoolYear}`].filter(Boolean).join(' · ')
+      info.schoolYear && `School Year ${info.schoolYear}`].filter(Boolean).join(' · ')
     : null;
+  const lrn = settled ? String(graph?.studentRecord?.lrn ?? '').trim() || null : null;
 
   // V2a: the first-time steps, from a task to its score.
   const toTasks = () => navigate('/student-dashboard/tasks');
@@ -102,7 +105,12 @@ const ClarityStudentOverviewTab = () => {
         <div style={{ minWidth: 0 }}>
           <h1 className="x-h1">Overview</h1>
           <p className="x-sub">Your subjects, tasks and attendance at a glance.</p>
-          {enrolment && <p className="x-cs x-sov-who">{enrolment}</p>}
+          {enrolment && (
+            <p className="x-sov-who x-sov-id">
+              <b>{enrolment}</b>
+              {lrn && <span className="x-badge in">LRN {lrn}</span>}
+            </p>
+          )}
           {loading && <SkeletonGroup as="p" className="x-cs x-sov-who"><Skeleton inline h="0.8em" w={260} /></SkeletonGroup>}
           {loadError && <p className="x-cs x-sov-who">Could not load your enrolment</p>}
         </div>

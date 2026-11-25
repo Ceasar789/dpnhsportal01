@@ -37,9 +37,16 @@ const PAGE_SIZE = 20;
 // Excused and anything else neutral. The label is always written out.
 const TONE = { present: 'ok', absent: 'er', late: 'wa' };
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const StatusPill = ({ row }) => (KNOWN_STATUSES.includes(statusKey(row))
-  ? <span className={['x-badge', TONE[statusKey(row)]].filter(Boolean).join(' ')}>{row.status}</span>
-  : <span className="x-badge">Other{row.status ? ` (${row.status})` : ''}</span>);
+// U-S4: in the calendar a pill also carries a one-letter code. On phones the
+// day cells are too narrow for the word, so CSS shows the letter instead
+// (the word stays in the text for screen readers, and as the tooltip).
+const CODE = { present: 'P', late: 'L', absent: 'A', excused: 'E' };
+const StatusPill = ({ row, coded = false }) => {
+  const known = KNOWN_STATUSES.includes(statusKey(row));
+  const label = known ? row.status : `Other${row.status ? ` (${row.status})` : ''}`;
+  const extra = coded ? { 'data-code': CODE[statusKey(row)] || '?', title: label } : {};
+  return <span className={['x-badge', known && TONE[statusKey(row)]].filter(Boolean).join(' ')} {...extra}>{label}</span>;
+};
 
 // The weeks of a "YYYY-MM" month, Sunday first, with the neighbouring days that
 // fill the first and last week (shown dimmed, never with records).
@@ -75,7 +82,7 @@ const MonthCalendar = ({ month, rows, today }) => {
               <td key={cell.key} className={cell.inMonth ? undefined : 'out'} aria-hidden={cell.inMonth ? undefined : 'true'}>
                 <span className={`x-sat-d${cell.key === today ? ' today' : ''}`}>{cell.day}</span>
                 {cell.key === today && <span className="x-sr"> (today)</span>}
-                {cell.inMonth && (byDate.get(cell.key) || []).map((r, i) => <StatusPill key={r.id || i} row={r} />)}
+                {cell.inMonth && (byDate.get(cell.key) || []).map((r, i) => <StatusPill key={r.id || i} row={r} coded />)}
               </td>
             ))}
           </tr>

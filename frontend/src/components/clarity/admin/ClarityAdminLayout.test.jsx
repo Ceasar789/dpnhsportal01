@@ -170,7 +170,7 @@ describe('flag on: the Clarity shell', () => {
 
   it('hosts the classic tab components and the classic tab styles', async () => {
     const view = await show(CLARITY);
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' })); fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: /\(Profile settings\)$/ }));
     expect(screen.getByRole('heading', { name: 'Profile content' })).toBeTruthy();
     expect(view.container.querySelector('style').textContent).toContain('.table-card');
   });
@@ -219,10 +219,12 @@ describe('parity with the classic shell (same mocks)', () => {
 
   it('unsaved Settings: the same text, asked in the app; Keep editing and Escape stay (focus back), Discard changes leaves', async () => {
     Object.assign(h, { page: 'settings', dirty: true });
-    const results = await both(async () => {
+    const results = await both(async (shell) => {
       const native = vi.spyOn(window, 'confirm');
-      fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }));
-      const item = screen.getByRole('button', { name: 'Profile Settings' });
+      // U-S6: classic opens its profile menu first; in Clarity the card itself is the entry.
+      if (shell === 'classic') fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }));
+      const item = shell === 'classic' ? screen.getByRole('button', { name: 'Profile Settings' })
+        : screen.getByRole('button', { name: /\(Profile settings\)$/ });
       item.focus();
       fireEvent.click(item);
       const ask = screen.getByRole('alertdialog', { name: 'Leave Settings?' });
@@ -255,16 +257,20 @@ describe('parity with the classic shell (same mocks)', () => {
     expect(results[0]).toEqual([[['Subjects']], 1]);
   });
 
-  it('the profile menu: "Toggle profile menu" opens "Profile Settings", which opens the profile page', async () => {
-    const results = await both(async () => {
-      const toggle = screen.getByRole('button', { name: 'Toggle profile menu' });
-      fireEvent.click(toggle);
-      const expanded = toggle.getAttribute('aria-expanded');
-      fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
-      return [expanded, screen.getByRole('heading', { level: 1 }).textContent];
+  it('the profile entry opens the profile page (classic: its menu; Clarity: the card itself, no menu)', async () => {
+    const results = await both(async (shell) => {
+      if (shell === 'classic') {
+        fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
+      } else {
+        expect(screen.queryByRole('button', { name: 'Toggle profile menu' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Profile & password' })).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: /\(Profile settings\)$/ }));
+      }
+      return screen.getByRole('heading', { level: 1 }).textContent;
     });
     expect(results[1]).toEqual(results[0]);
-    expect(results[0]).toEqual(['true', 'Profile content']);
+    expect(results[0]).toEqual('Profile content');
   });
 
   it('archive confirmation: the same texts, busy state, closes only when confirmed, focus goes where asked', async () => {

@@ -191,10 +191,9 @@ describe('navigation behaviour (as classic)', () => {
     await waitFor(() => expect(window.scrollTo).toHaveBeenLastCalledWith(0, 200));
   });
 
-  it('Profile Settings opens the profile page with its focusable heading', async () => {
+  it('the profile card opens the profile page with its focusable heading', async () => {
     renderAt(CLARITY);
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Profile Settings' }));
+    fireEvent.click(screen.getByRole('link', { name: /\(Profile settings\)$/ }));
     const heading = await screen.findByRole('heading', { name: 'Profile Settings' });
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(screen.getByTestId('where').textContent).toBe('/teacher-dashboard/profile');
@@ -229,10 +228,9 @@ describe('navigation behaviour (as classic)', () => {
     expect(screen.queryByRole('dialog', { name: 'Navigation' })).toBeNull();
   });
 
-  it('desktop: Collapse / Expand like classic (labels become link names, the profile menu closes)', () => {
+  it('desktop: Collapse / Expand like classic (labels become link names; the profile card stays a link)', () => {
     h.desktop = true;
     renderAt(CLARITY);
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }));
     const collapse = screen.getByRole('button', { name: 'Collapse sidebar' });
     expect(collapse.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(collapse);
@@ -242,10 +240,10 @@ describe('navigation behaviour (as classic)', () => {
     expect(sidebar().classList.contains('x-tch-mini')).toBe(true);
     expect(within(sidebar()).getByRole('link', { name: 'Lesson Plans' }).textContent).toBe('');
     expect(sidebar().querySelector('.x-grp')).toBeNull();
-    // Opening the profile menu while collapsed expands the sidebar, as classic.
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }));
-    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Profile Settings' })).toBeTruthy();
+    // U-S6: collapsed, the card is the avatar alone and still opens Profile.
+    const card = within(sidebar()).getByRole('link', { name: /\(Profile settings\)$/ });
+    expect(card.querySelector('.x-user-txt')).toBeNull();
+    expect(card.getAttribute('href')).toBe('/teacher-dashboard/profile');
   });
 });
 

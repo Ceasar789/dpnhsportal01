@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BarChart3, BookOpen, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, Settings, UserRound, X,
+  BarChart3, BookOpen, CalendarCheck, ClipboardCheck, LayoutDashboard, LogOut, Megaphone, X,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfileUnsavedChanges } from '../../../context/ProfileUnsavedChangesContext';
@@ -87,7 +87,6 @@ const ClarityStudentLayout = ({ children }) => {
   const photoUrl = useSignedPhotoUrl(userData?.profile?.photo_url);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutPending, setLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState('');
@@ -106,8 +105,11 @@ const ClarityStudentLayout = ({ children }) => {
   const grade = graph && !graph.fatalError ? normalizeGradeLevel(graph.enrolments?.[0]?.sections?.grade_level) : null;
   // The footer card's second line: grade and section from the same loaded
   // enrolment, only the parts that exist; "Student" when neither does.
+  // U-S2: "Grade 8 · Rizal" as in the design, and the LRN on its own line
+  // only when the student record has one (never a placeholder).
   const sectionName = graph && !graph.fatalError ? graph.enrolments?.[0]?.sections?.name?.trim() || null : null;
-  const studentLine = [grade, sectionName].filter(Boolean).join(' – ') || 'Student';
+  const studentLine = [grade, sectionName].filter(Boolean).join(' · ') || 'Student';
+  const lrn = graph && !graph.fatalError ? String(graph.studentRecord?.lrn ?? '').trim() || null : null;
   // The Tasks badge: the same pending count the Overview shows (overviewSummary),
   // hidden while loading, after a failed load (the summary is then blank), or at 0.
   const pendingCount = useMemo(() => {
@@ -250,28 +252,20 @@ const ClarityStudentLayout = ({ children }) => {
           })}
         </nav>
 
-        {/* Pinned to the bottom: the profile link (when open) above the user card. */}
+        {/* Pinned to the bottom: the user card. U-S6: the card itself opens
+            Profile Settings (photo, name and password); no separate item. */}
         <div style={{ marginTop: 'auto' }}>
-        {/* V2a: Profile and the password change, always one tap away. */}
-        <Link to="/student-dashboard/profile" onClick={() => setSidebarOpen(false)}
-          aria-current={onProfile ? 'page' : undefined} className={`x-nav${onProfile ? ' on' : ''}`}>
-          <UserRound size={18} aria-hidden="true" />
-          <span>Profile &amp; password</span>
-        </Link>
-        {profileOpen && (
-          <button type="button" className="x-nav" onClick={() => { navigate('profile'); setProfileOpen(false); setSidebarOpen(false); }}>
-            <Settings size={16} aria-hidden="true" /> Profile Settings
-          </button>
-        )}
         <div className="x-side-foot">
-          <button type="button" className="x-user" onClick={() => setProfileOpen(open => !open)}
-            aria-expanded={profileOpen} aria-label="Toggle profile menu">
+          <Link to="/student-dashboard/profile" className={`x-user${onProfile ? ' on' : ''}`} onClick={() => setSidebarOpen(false)}
+            aria-current={onProfile ? 'page' : undefined}>
             <span className="x-ava" data-shared="avatar"><Avatar src={photoUrl} name={name} size={36} bg="transparent" color="currentColor" /></span>
             <span className="x-user-txt">
               <b>{name}</b>
               <span>{studentLine}</span>
+              {lrn && <span className="x-user-lrn">LRN {lrn}</span>}
             </span>
-          </button>
+            <span className="x-sr"> (Profile settings)</span>
+          </Link>
           <button ref={logoutButtonRef} type="button" className="x-iconbtn" onClick={handleLogout} aria-label="Logout" title="Logout">
             <LogOut size={18} aria-hidden="true" />
           </button>
@@ -296,7 +290,9 @@ const ClarityStudentLayout = ({ children }) => {
             onMenu={() => setPhoneMenuOpen(true)} menuButtonRef={phoneMenuRef} sheetId="student-phone-menu" />
           <PhoneMenuSheet id="student-phone-menu" open={phoneMenuOpen} onClose={() => setPhoneMenuOpen(false)}
             groups={phoneGroups} returnFocusRef={phoneMenuRef} closeKey={location.pathname}
-            profile={{ key: 'profile', label: 'Profile & password', href: '/student-dashboard/profile', current: onProfile, onSelect: () => navigate('/student-dashboard/profile') }}
+            profile={{ key: 'profile', label: name, sub: [studentLine, lrn && `LRN ${lrn}`].filter(Boolean).join(' · '), href: '/student-dashboard/profile',
+              avatar: <Avatar src={photoUrl} name={name} size={40} bg="transparent" color="currentColor" />,
+              current: onProfile, onSelect: () => navigate('/student-dashboard/profile') }}
             onSignOut={handleLogout} />
         </>
       )}

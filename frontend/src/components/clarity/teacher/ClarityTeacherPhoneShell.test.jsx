@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // SHELL: the Teacher Clarity shell on phones: no hamburger, the brand in the
 // top bar, the bottom tab bar (Overview, Plans, Grading, Attendance, Menu)
-// and the Menu sheet with the other teacher pages, Profile & password and
+// and the Menu sheet with the other teacher pages, the profile card and
 // Sign out.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -69,12 +69,12 @@ describe('SHELL teacher on phones', () => {
     expect(where()).toBe('/teacher-dashboard/lesson-plans');
   });
 
-  it('the Menu sheet: Students, then Teaching (Worksheets, Learning Materials), then School (Announcements), Profile & password, Sign out', () => {
+  it('the Menu sheet: Students, then Teaching (Worksheets, Learning Materials), then School (Announcements), the profile card, Sign out', () => {
     renderAt('/teacher-dashboard');
     const sheet = openMenu();
     expect(within(sheet).getAllByRole('group').map(g => g.getAttribute('aria-label'))).toEqual([null, 'Teaching', 'School']);
     expect([...sheet.querySelectorAll('.x-psheet-row')].map(r => r.textContent)).toEqual(
-      ['Students', 'Worksheets', 'Learning Materials', 'Announcements', 'Profile & password', 'Sign out']);
+      ['Students', 'Worksheets', 'Learning Materials', 'Announcements', 'STSample TeacherTeacher (Profile settings)', 'Sign out']);
   });
 
   it('a page inside the menu (also a sub-path) marks the Menu tab; choosing one closes the sheet', () => {
@@ -89,9 +89,9 @@ describe('SHELL teacher on phones', () => {
     expect(within(openMenu()).getByRole('link', { name: 'Worksheets' }).getAttribute('aria-current')).toBe('page');
   });
 
-  it('Profile & password from the sheet; Sign out asks with the same dialog', async () => {
+  it('the profile card from the sheet; Sign out asks with the same dialog', async () => {
     renderAt('/teacher-dashboard');
-    fireEvent.click(within(openMenu()).getByRole('link', { name: 'Profile & password' }));
+    fireEvent.click(within(openMenu()).getByRole('link', { name: /\(Profile settings\)$/ }));
     expect(where()).toBe('/teacher-dashboard/profile');
     expect(within(bar()).getByRole('button', { name: /^Menu/ }).className).toContain('on');
     fireEvent.click(within(openMenu()).getByRole('button', { name: 'Sign out' }));

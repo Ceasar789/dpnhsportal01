@@ -55,12 +55,12 @@ describe('V2a student shell', () => {
     expect(title().classList.contains('x-iconbtn')).toBe(false);
   });
 
-  it('Profile & password is in the drawer without opening the name card, and opens Profile', () => {
+  it('the profile card in the drawer opens Profile; there is no separate Profile & password item', () => {
     renderAt('/student-dashboard');
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
     const drawer = screen.getByRole('dialog', { name: 'Navigation' });
-    const entry = within(drawer).getByRole('link', { name: 'Profile & password' });
-    expect(within(drawer).getByRole('button', { name: 'Toggle profile menu' }).getAttribute('aria-expanded')).toBe('false');
+    const entry = within(drawer).getByRole('link', { name: /\(Profile settings\)$/ });
+    expect(within(drawer).queryByRole('link', { name: 'Profile & password' })).toBeNull();
     fireEvent.click(entry);
     expect(screen.getByTestId('where').textContent).toBe('/student-dashboard/profile');
     // The drawer closed on the way (hidden, so no accessible name): find it by its link.

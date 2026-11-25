@@ -14,8 +14,8 @@
 //   Done          submission status submitted or checked, or released.
 //   To do         not done, and due today, overdue, or with no due date.
 //   Upcoming      not done, and due after today.
-import { manilaDateToday, manilaInstant } from '../../../lib/taskFormatting';
-import { isHandout } from './tabs/studentAnswers';
+import { manilaDateToday, manilaInstant, TASK_TYPE_LABELS } from '../../../lib/taskFormatting';
+import { isAttachmentTask, isHandout } from './tabs/studentAnswers';
 
 export const VIEWS = ['todo', 'upcoming', 'done', 'activities', 'all'];
 export const VIEW_LABELS = { todo: 'To do', upcoming: 'Upcoming', done: 'Done', activities: 'Activities', all: 'All' };
@@ -96,6 +96,18 @@ export const groupStudentViews = (rows, now = new Date()) => {
     graded: groups.done.filter(row => row.submission?.released === true),
   };
 };
+
+// U-S3: the type a task shows on its badge (moved here from TasksTab so the
+// filter and the badge can never disagree). A teacher Activity is stored as
+// task_type 'worksheet' with no questions, or as an attachment worksheet.
+export const taskTypeLabel = sheet => (isHandout(sheet) || (isAttachmentTask(sheet) && sheet?.task_type === 'worksheet')
+  ? 'Activity' : (TASK_TYPE_LABELS[sheet?.task_type] || 'Task'));
+
+// The types present in these rows, A-Z, with how many tasks each has.
+export const taskTypeOptions = rows => [...rows.reduce((counts, row) => {
+  const label = taskTypeLabel(row.sheet);
+  return counts.set(label, (counts.get(label) || 0) + 1);
+}, new Map())].sort((a, b) => a[0].localeCompare(b[0]));
 
 // Missing (design p9): past due and never started. Overdue alone means past
 // due and not handed in; late work is still accepted and flagged (Q9).

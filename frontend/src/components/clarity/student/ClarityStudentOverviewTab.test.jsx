@@ -70,7 +70,8 @@ describe('layout from real data', () => {
     show(ClarityStudentOverviewTab);
     expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeTruthy();
     expect(screen.getByText('Your subjects, tasks and attendance at a glance.')).toBeTruthy();
-    expect(screen.getByText('Grade 8 · Mabini · ID: 136482910027 · School Year 2026-2027')).toBeTruthy();
+    expect(screen.getByText('Grade 8 · Mabini · School Year 2026-2027')).toBeTruthy();
+    expect(screen.getByText('LRN 136482910027')).toBeTruthy();
     expect(tiles()).toEqual([
       'Worksheet performance77%Average of 3 released scores',
       'Attendance75%3 of 4 recorded days',

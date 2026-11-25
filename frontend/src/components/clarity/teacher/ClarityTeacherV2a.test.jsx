@@ -58,23 +58,23 @@ describe('V2a teacher shell', () => {
     expect(title().previousElementSibling.classList.contains('x-menubtn')).toBe(true);
   });
 
-  it('Profile & password is in the drawer without opening the name card, and opens Profile', () => {
+  it('the profile card in the drawer opens Profile; there is no separate Profile & password item', () => {
     renderAt('/teacher-dashboard');
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
-    const entry = within(sidebar()).getByRole('link', { name: 'Profile & password' });
-    expect(within(sidebar()).getByRole('button', { name: 'Toggle profile menu' }).getAttribute('aria-expanded')).toBe('false');
+    const entry = within(sidebar()).getByRole('link', { name: /\(Profile settings\)$/ });
+    expect(within(sidebar()).queryByRole('link', { name: 'Profile & password' })).toBeNull();
     fireEvent.click(entry);
     expect(screen.getByTestId('where').textContent).toBe('/teacher-dashboard/profile');
     // The drawer closed on the way (hidden, so no accessible name): find it by its link.
     expect(sidebar().querySelector('a[href="/teacher-dashboard/profile"]').getAttribute('aria-current')).toBe('page');
   });
 
-  it('collapsed desktop sidebar: the entry keeps its name as an icon', () => {
+  it('collapsed desktop sidebar: the profile card keeps its name as an avatar', () => {
     h.desktop = true;
     renderAt('/teacher-dashboard');
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
-    const entry = within(sidebar()).getByRole('link', { name: 'Profile & password' });
-    expect(entry.textContent).toBe('');
-    expect(entry.getAttribute('title')).toBe('Profile & password');
+    const entry = within(sidebar()).getByRole('link', { name: /\(Profile settings\)$/ });
+    expect(entry.querySelector('.x-user-txt')).toBeNull();
+    expect(entry.getAttribute('title')).toMatch(/\(Profile settings\)$/);
   });
 });

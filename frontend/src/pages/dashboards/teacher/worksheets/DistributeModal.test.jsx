@@ -174,24 +174,26 @@ describe('student list', () => {
   }, 30000);
 });
 
-describe('checking mode', () => {
-  const radio = name => screen.getByRole('radio', { name: new RegExp(`^${name}`) });
+// U-PDF-T: the Auto-check / Manual check radios became one "AI checking" switch over the same
+// field: ON = 'auto' (was Auto-check), OFF = 'manual' (was Manual check); same default and locks.
+const aiSwitch = () => screen.getByRole('switch', { name: 'AI checking' });
+const isOn = () => aiSwitch().getAttribute('aria-checked') === 'true';
 
-  it('starts from the stored mode, and each option has a short explanation', async () => {
+describe('checking mode', () => {
+  it('starts from the stored mode, and each state has a short explanation', async () => {
     await open();
-    expect(radio('Auto-check').checked).toBe(true);
-    expect(radio('Manual check').checked).toBe(false);
-    expect(radio('Auto-check').disabled).toBe(false);
+    expect(isOn()).toBe(true);
+    expect(aiSwitch().disabled).toBe(false);
     expect(screen.getByText('Answers are marked for you when you open Check submissions.')).toBeTruthy();
-    expect(screen.getByText('You mark every answer yourself.')).toBeTruthy();
     cleanup();
     await open({ task: { ...quiz, checking_mode: 'manual' } });
-    expect(radio('Manual check').checked).toBe(true);
+    expect(isOn()).toBe(false);
+    expect(screen.getByText('You review every submission')).toBeTruthy();
   });
 
   it('passes the chosen mode as the fifth argument', async () => {
     const { distributeTask } = await open();
-    fireEvent.click(radio('Manual check'));
+    fireEvent.click(aiSwitch());
     toReview();
     await confirm();
     expect(distributeTask.mock.calls[0][4]).toBe('manual');
@@ -200,10 +202,9 @@ describe('checking mode', () => {
   it.each([['an Assignment', assignment], ['an Activity', activity],
     ['a task stored as auto with no items', { ...activity, checking_mode: 'auto' }]])('forces manual for %s', async (_name, task) => {
     const { distributeTask } = await open({ task });
-    expect(radio('Manual check').checked).toBe(true);
-    expect(radio('Manual check').disabled).toBe(true);
-    expect(radio('Auto-check').disabled).toBe(true);
-    expect(screen.getByText('Auto-check is not available for this task')).toBeTruthy();
+    expect(isOn()).toBe(false);
+    expect(aiSwitch().disabled).toBe(true);
+    expect(screen.getByText('AI checking is not available for this task')).toBeTruthy();
     toReview();
     await confirm();
     expect(distributeTask.mock.calls[0][4]).toBe('manual');
@@ -211,11 +212,10 @@ describe('checking mode', () => {
 
   it('locks to the stored mode once anyone has the task', async () => {
     const { distributeTask } = await open({ assignees: [{ student_id: 's4' }] });
-    expect(radio('Auto-check').checked).toBe(true);
-    expect(radio('Auto-check').disabled).toBe(true);
-    expect(radio('Manual check').disabled).toBe(true);
+    expect(isOn()).toBe(true);
+    expect(aiSwitch().disabled).toBe(true);
     expect(screen.getByText('Locked after the first distribution.')).toBeTruthy();
-    expect(screen.queryByText('Auto-check is not available for this task')).toBeNull();
+    expect(screen.queryByText('AI checking is not available for this task')).toBeNull();
     toReview();
     await confirm();
     expect(distributeTask.mock.calls[0][4]).toBe('auto');
@@ -225,9 +225,9 @@ describe('checking mode', () => {
 describe('checking mode lock priority', () => {
   it('a locked task keeps its stored mode even when it would otherwise be forced to manual', async () => {
     const { distributeTask } = await open({ task: { ...activity, checking_mode: 'auto' }, assignees: [{ student_id: 's4' }] });
-    expect(screen.getByRole('radio', { name: /^Auto-check/ }).checked).toBe(true);
+    expect(isOn()).toBe(true);
     expect(screen.getByText('Locked after the first distribution.')).toBeTruthy();
-    expect(screen.queryByText('Auto-check is not available for this task')).toBeNull();
+    expect(screen.queryByText('AI checking is not available for this task')).toBeNull();
     toReview();
     await confirm();
     expect(distributeTask.mock.calls[0][4]).toBe('auto');
@@ -280,7 +280,7 @@ describe('confirm step', () => {
     expect(text).toContain('Rizal');
     expect(within(dialog).getByText('2')).toBeTruthy();
     expect(text).toContain('2099-01-15 at 11:59 PM (Manila time)');
-    expect(text).toContain('Auto-check');
+    expect(text).toContain('AI checkingOn');
     expect(distributeTask).not.toHaveBeenCalled();
   });
 
@@ -399,7 +399,7 @@ describe('safety and existing behavior', () => {
     await open();
     expect(screen.getByRole('dialog', { name: 'Distribute "Cells Quiz"' })).toBeTruthy();
     for (const label of ['Section', 'Due date', 'Due hour', 'Due minute', 'AM or PM']) expect(screen.getByLabelText(label)).toBeTruthy();
-    expect(screen.getByRole('group', { name: 'Checking mode' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'AI checking' })).toBeTruthy();
   });
 
   it('a failed class list read stays a failure, not an empty class', async () => {

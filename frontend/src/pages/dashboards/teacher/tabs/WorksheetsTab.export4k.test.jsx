@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // 4k (R22, R49): Word copies (Student copy / Key to correction) and a print page for PDF, from the saved items and keys.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import WorksheetsTab from './WorksheetsTab';
 
 const { db, auth, counts, items } = vi.hoisted(() => ({ db: { rows: [] }, auth: { userData: { uid: 'teacher-1' } },
@@ -46,7 +46,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const docText = async blob => new TextDecoder().decode(new Uint8Array(await blob.arrayBuffer()));
 const show = async () => { render(<WorksheetsTab />); await screen.findByRole('heading', { name: 'Kept quiz' }); };
-const button = name => within(screen.getByRole('group', { name: 'Download Kept quiz' })).getByRole('button', { name });
+// U-PDF-T (design p18): the three exports moved from the card into the Preview's Download menu (same exports).
+const button = name => {
+  fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Download Kept quiz' }));
+  return screen.getAllByRole('menuitem').find(item => item.querySelector('.font-semibold').textContent === name);
+};
 
 describe('Worksheet downloads (4k)', () => {
   it('Student copy: a .docx with the question and options, no answer', async () => {

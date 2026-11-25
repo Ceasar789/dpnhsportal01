@@ -64,10 +64,13 @@ describe('PostToClassDialog (4d)', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Posting lesson plans is not available yet.'));
     expect(h.upserts).toHaveLength(0);
   });
-  it('the Lesson Plans tab shows Post to class only with the flag on', async () => {
-    const { readFileSync } = await import('node:fs');
+  it('U-PDF-T: the Lesson Plans tab no longer offers posting (the dialog and its flag stay, unhooked)', async () => {
+    const { existsSync, readFileSync } = await import('node:fs');
     const tab = readFileSync('src/pages/dashboards/teacher/tabs/LessonPlansTab.jsx', 'utf8');
-    expect(tab).toContain('{lessonPlanPostingFlagEnabled() && dayTaskEligible && <Btn variant="outline" onClick={() => setPostingPlan(plan)}>');
-    expect(tab).toContain('{postingPlan && lessonPlanPostingFlagEnabled() && <PostToClassDialog');
+    expect(tab).not.toContain('PostToClassDialog');
+    expect(tab).not.toContain('lessonPlanPostingFlagEnabled');
+    expect(tab).not.toContain('setPostingPlan');
+    expect(existsSync('src/pages/dashboards/teacher/lessonPlans/PostToClassDialog.jsx')).toBe(true);
+    expect(readFileSync('src/pages/dashboards/teacher/lessonPlans/postToClass.js', 'utf8')).toContain('VITE_LESSON_PLAN_POSTING_ENABLED');
   });
 });

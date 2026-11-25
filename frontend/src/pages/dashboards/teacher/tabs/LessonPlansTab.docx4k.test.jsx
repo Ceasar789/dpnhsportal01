@@ -92,7 +92,10 @@ describe('R22: Download Word', () => {
     mock.plans = [aiPlan];
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     const row = await card('States of Matter');
-    fireEvent.click(within(row).getByRole('button', { name: /^Download Word/ }));
+    // U-PDF-T: Word moved from the card into the plan view's Download menu (same export).
+    fireEvent.click(within(row).getByRole('button', { name: /^View and edit/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Download States of Matter' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Word \(\.docx\)/ }));
     expect(blobs).toHaveLength(1);
     expect(blobs[0].fileName).toBe('States of Matter.docx');
     const text = new TextDecoder().decode(new Uint8Array(await blobs[0].arrayBuffer()));

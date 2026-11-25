@@ -88,7 +88,9 @@ describe('R36: Edit as manual', () => {
     mock.plans = [aiPlan];
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     const row = await card('States of Matter');
-    fireEvent.click(within(row).getByRole('button', { name: /^Edit as manual/ }));
+    // U-PDF-T: "Edit as manual" moved from the card into the AI plan view as "Edit as manual copy" (same handler).
+    fireEvent.click(within(row).getByRole('button', { name: /^View and edit/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Edit as manual copy/ }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Manual ILAW Editor' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Name of Lesson' }).value).toBe('States of Matter');
     expect(screen.getByRole('textbox', { name: 'Learning Objectives, Monday' }).value).toBe('Name the states');

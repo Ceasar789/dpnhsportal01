@@ -51,9 +51,9 @@ const item = (menu, name) => within(menu).getByRole('menuitem', { name: new RegE
 
 describe('Encode scores while paper-score saving is gated off', () => {
   it.each([
-    ['a manual row', [manual], 'Hand quiz', {}, ['Distribute', 'Check submissions', 'Delete']],
-    ['an AI-generated row', [aiRow], 'AI worksheet', {}, ['Distribute', 'Check submissions']],
-    ['a distributed row', [manual], 'Hand quiz', { assigneeCounts: { m1: 2 } }, ['Distribute', 'Check submissions', 'Delete']],
+    ['a manual row', [manual], 'Hand quiz', {}, ['Rename', 'Distribute', 'Check submissions', 'Delete']],
+    ['an AI-generated row', [aiRow], 'AI worksheet', {}, ['Rename', 'Distribute', 'Check submissions']],
+    ['a distributed row', [manual], 'Hand quiz', { assigneeCounts: { m1: 2 } }, ['Rename', 'Distribute', 'Check submissions', 'Delete']],
   ])('%s has no Encode scores item; the rest of the menu is unchanged', async (_name, rows, title, extra, expected) => {
     hook.state = extra;
     await show(rows);
@@ -83,7 +83,7 @@ describe('Encode scores with the gate on', () => {
     hook.state = { paperScoreEncodingAvailable: true };
     await show([manual]);
     const menu = openMenu('Hand quiz');
-    expect(labels(menu)).toEqual(['Distribute', 'Check submissions', 'Encode scores', 'Delete']);
+    expect(labels(menu)).toEqual(['Rename', 'Distribute', 'Check submissions', 'Encode scores', 'Delete']);
     fireEvent.click(item(menu, 'Encode scores'));
     expect(screen.getByRole('region', { name: 'Mock encode scores' }).textContent).toBe('Hand quiz');
   });

@@ -93,19 +93,17 @@ describe('U-T2 Lesson Plans', () => {
     expect(screen.queryByText(/Generation creates a draft; it does not save the lesson plan/)).toBeNull();
   });
 
-  it('a saved plan: work buttons, then file buttons, then Delete apart; each button once', async () => {
+  it('a saved plan: View and edit, then Delete apart; each button once (U-PDF-T: exports live in the plan view)', async () => {
     mock.plans = [aiPlan];
     render(<MemoryRouter><LessonPlansTab /></MemoryRouter>);
     const row = await card('States of Matter');
     const work = within(row).getByRole('group', { name: 'Work on States of Matter' });
-    const files = within(row).getByRole('group', { name: 'Files of States of Matter' });
-    expect(names(work).slice(0, 2)).toEqual(['View and edit States of Matter', 'Edit as manual (opens a Manual ILAW copy of States of Matter)']);
-    expect(names(files)).toEqual(['Print saved version of States of Matter', 'Download PDF saved version of States of Matter', 'Download Word (.docx) States of Matter']);
+    expect(names(work)).toEqual(['View and edit States of Matter']);
+    // No source PDF, so the files row holds nothing and is not announced as a group.
+    expect(within(row).queryByRole('group', { name: 'Files of States of Matter' })).toBeNull();
     const del = within(row).getByRole('button', { name: 'Delete States of Matter' });
-    expect(work.contains(del) || files.contains(del)).toBe(false);
-    expect(files.parentElement.contains(del)).toBe(true);
-    expect(files.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(work.compareDocumentPosition(files) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(work.contains(del)).toBe(false);
+    expect(work.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const all = names(row);
     expect(new Set(all).size).toBe(all.length);
     for (const button of [...row.querySelectorAll('button')]) expect(button.className).not.toMatch(/\bml-auto\b/);

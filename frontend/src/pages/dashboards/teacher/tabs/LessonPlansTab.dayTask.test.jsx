@@ -11,9 +11,11 @@ vi.mock('../../../../context/AuthContext', () => ({ useAuth: () => ({ userData: 
 vi.mock('../../../../config/supabase', () => ({ supabase: {
   auth: { getSession: async () => ({ data: { session: { access_token: 'synthetic-token' } } }) },
   from(table) {
-    const chain = { select() { return chain; }, eq() { return chain; },
+    const chain = { select() { return chain; }, eq() { return chain; }, not() { return chain; },
       order: async () => ({ data: table === 'lesson_plans' ? mock.plans : [], error: null }),
-      then: resolve => Promise.resolve({ data: [], error: null }).then(resolve),
+      // U-PDF-T: one worksheet made from each plan before its last edit, so each eligible plan shows "Sync worksheet".
+      then: resolve => Promise.resolve({ data: table === 'worksheets' ? mock.plans.map(plan => ({ id: `ws-${plan.id}`,
+        created_at: '2026-01-01T00:00:00Z', source_lesson_plan_id: plan.id })) : [], error: null }).then(resolve),
       insert() { mock.writes.push(table); throw new Error('Unexpected database write'); } };
     return chain;
   },
@@ -63,11 +65,14 @@ const activity = () => ({ status: 'generated-day-task', saved: false, taskType: 
   sourceLessonPlan: { id: planId, title: 'Plant cells' }, title: 'Cell map', instructions: 'Objective: Describe cells.',
   questions: [], answerKey: [], activity: { language: 'en', title: 'Cell map' }, providerCalls: 1 });
 
-const taskButton = title => screen.queryByRole('button', { name: `Generate Task for ${title}`, hidden: true });
+// U-PDF-T: the card's Generate Task button moved to Worksheets → Generate worksheet; the same modal,
+// eligibility and save path stay reachable from the card through "Sync worksheet".
+const taskButton = title => screen.queryByRole('button', { name: new RegExp(`^Sync worksheet ?.make a new draft from ${title}.$`), hidden: true });
 const show = async (rows, props = {}) => {
-  mock.plans = rows;
+  mock.plans = rows.map(row => ({ updated_at: '2026-02-01T00:00:00Z', ...row }));
   render(<MemoryRouter><LessonPlansTab onGeneratedDraft={vi.fn()} {...props} /></MemoryRouter>);
   await screen.findByRole('heading', { name: rows[0].title });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); }); // the linked-worksheets read
 };
 const openModal = async (plan = aiPlan()) => {
   await show([plan]);
@@ -104,7 +109,7 @@ afterEach(() => {
 describe('Generate Task button', () => {
   it('appears for owned saved AI and Manual plans', async () => {
     await show([aiPlan(), manualPlan({ id: 'd137877f-b729-4e7e-b258-c6cbb18cced2' })]);
-    expect(taskButton('Plant cells').textContent).toBe('Generate Task');
+    expect(taskButton('Plant cells').textContent).toBe('Sync worksheet (make a new draft from Plant cells)');
     expect(taskButton('Manual cells')).toBeTruthy();
   });
 

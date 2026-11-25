@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Btn, Modal } from '../shared/ui';
+import DownloadMenu from '../shared/DownloadMenu';
+import useFillHeight from '../shared/useFillHeight';
+import '../shared/doc-scroll.css';
 import { savedWorksheetToDraft } from './savedWorksheetDraft';
 import WorksheetDraftDocument from './WorksheetDraftDocument';
 
@@ -8,9 +11,13 @@ const HEADINGS = { worksheet: 'ACTIVITY', quiz: 'QUIZ', assignment: 'ASSIGNMENT'
 
 // Unlike SavedWorksheetPreview, zero items is valid here: an Activity is a
 // header and directions with no questions.
-export default function SavedDayTaskPreview({ worksheet, loadItems, onClose, onEditQuestions = null }) {
+// U-PDF-T (design p18): `downloads` (optional) puts the worksheet's exports in a
+// Download menu in the title bar; the paper sits in its own scroll area.
+export default function SavedDayTaskPreview({ worksheet, loadItems, onClose, onEditQuestions = null, downloads = [] }) {
   const [state, setState] = useState({ status: 'loading' });
   const [showAnswerKey, setShowAnswerKey] = useState(false);
+  const paperRef = useRef(null);
+  useFillHeight(paperRef, { enabled: state.status === 'ready', min: 200, deps: [showAnswerKey] });
 
   useEffect(() => {
     let active = true;
@@ -25,18 +32,21 @@ export default function SavedDayTaskPreview({ worksheet, loadItems, onClose, onE
 
   const documentProps = { variant: 'day-task', heading: HEADINGS[worksheet.task_type], structuredDirections: worksheet.task_type === 'worksheet' };
 
-  return <Modal title={`Preview: ${worksheet.title}`} onClose={onClose} size="max-w-4xl" dismissible>
+  return <Modal title={`Preview: ${worksheet.title}`} onClose={onClose} size="max-w-4xl" dismissible
+    actions={downloads.length > 0 ? <DownloadMenu items={downloads} name={worksheet.title || 'worksheet'} /> : null}>
     {state.status === 'loading' && <p role="status">Loading this task...</p>}
     {state.status === 'failed' && <p role="alert">This task could not be loaded. Close this preview and try again.</p>}
     {state.status === 'ready' && <div className="space-y-4">
-      <WorksheetDraftDocument draft={state.draft} audience="student" {...documentProps} />
-      {state.draft.questions.length === 0 && worksheet.task_type !== 'worksheet'
-        && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>{onEditQuestions ? 'No questions yet. Use Edit questions to add some.' : 'No questions yet.'}</p>}
       {state.draft.questions.length > 0 && <label className="flex items-center gap-2 min-h-11 text-sm" style={{ color: 'var(--text)' }}>
         <input type="checkbox" checked={showAnswerKey} onChange={event => setShowAnswerKey(event.target.checked)} />
         Show teacher answer key
       </label>}
-      {showAnswerKey && <WorksheetDraftDocument draft={state.draft} audience="teacher" {...documentProps} />}
+      <div ref={paperRef} role="region" aria-label="Worksheet" tabIndex={0} className="t-doc-scroll space-y-4">
+        <WorksheetDraftDocument draft={state.draft} audience="student" {...documentProps} />
+        {state.draft.questions.length === 0 && worksheet.task_type !== 'worksheet'
+          && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>{onEditQuestions ? 'No questions yet. Use Edit questions to add some.' : 'No questions yet.'}</p>}
+        {showAnswerKey && <WorksheetDraftDocument draft={state.draft} audience="teacher" {...documentProps} />}
+      </div>
     </div>}
     {onEditQuestions && <div className="flex justify-end mt-4"><Btn variant="outline" onClick={onEditQuestions}>Edit questions</Btn></div>}
   </Modal>;

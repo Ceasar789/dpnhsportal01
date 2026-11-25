@@ -1,0 +1,21 @@
+/* U-PDF-T: a document (lesson plan body, worksheet preview) in its own scroll
+   area so the header above it stays in view. useFillHeight sets --t-doc-max.
+   Scoped class, tokens with classic fallbacks, no motion. */
+.t-doc-scroll {
+  max-height: var(--t-doc-max, none);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cl-mu, var(--text-muted, #64748b)) transparent;
+  border-radius: 10px;
+}
+.t-doc-scroll:focus-visible {
+  outline: 2px solid var(--cl-ac, var(--banner-accent, #1908df));
+  outline-offset: 2px;
+}
+/* Printing shows the whole document, not one scrolled window of it. */
+@media print {
+  .t-doc-scroll { max-height: none; overflow: visible; }
+}

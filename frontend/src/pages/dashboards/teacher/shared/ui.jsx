@@ -86,7 +86,10 @@ export const TD = ({ children, className = '' }) => {
 // field brought into view (for example when the on-screen keyboard opens)
 // sits clear of that region. Callers that do not pass `footer` render
 // exactly as before.
-export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible = false, escapeCloses = false, description, closeDisabled = false, footer }) => {
+// U-PDF-T: `actions` (optional) sit in the title bar beside Close and stay in view
+// while the body scrolls; `fullScreenOnPhone` (optional) fills a phone screen.
+// Without them the dialog renders exactly as before.
+export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible = false, escapeCloses = false, description, closeDisabled = false, footer, actions, fullScreenOnPhone = false }) => {
   const { dark } = useTheme();
   const overlayRef = useRef(null);
   const panelRef = useRef(null);
@@ -148,7 +151,7 @@ export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible
   }, [dismissible, escapeCloses, onClose]);
 
   return (
-    <div ref={overlayRef} className={`fixed inset-0 ${dark ? 'bg-black/55' : 'bg-black/40'} z-50 flex items-center justify-center p-4`}
+    <div ref={overlayRef} className={`fixed inset-0 ${dark ? 'bg-black/55' : 'bg-black/40'} z-50 flex items-center justify-center ${fullScreenOnPhone ? 'p-0 sm:p-4' : 'p-4'}`}
       onMouseDown={(event) => { if (event.target === event.currentTarget) event.currentTarget.dataset.fromBackdrop = '1'; }}
       onClick={(event) => {
         if (dismissible && event.target === event.currentTarget && event.currentTarget.dataset.fromBackdrop === '1') onClose();
@@ -156,10 +159,11 @@ export const Modal = ({ title, onClose, children, size = 'max-w-md', dismissible
       }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined} tabIndex={-1}
-        className={`rounded-xl w-full ${size} shadow-2xl flex flex-col max-h-viewport-85`}
+        className={fullScreenOnPhone ? `w-full ${size} shadow-2xl flex flex-col h-full sm:h-auto rounded-none sm:rounded-xl sm:max-h-[85dvh]` : `rounded-xl w-full ${size} shadow-2xl flex flex-col max-h-viewport-85`}
         style={{ backgroundColor: dark ? '#1e293b' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}` }}>
-        <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
-          <h2 id={titleId} className="text-lg font-bold" style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>
+        <div className={actions ? 'flex flex-wrap items-center gap-2 p-5 border-b flex-shrink-0' : 'flex items-center justify-between p-5 border-b flex-shrink-0'} style={{ borderColor: dark ? '#334155' : '#e2e8f0' }}>
+          <h2 id={titleId} className={actions ? 'text-lg font-bold min-w-0 flex-1 basis-40 break-words' : 'text-lg font-bold'} style={{ color: dark ? '#f1f5f9' : '#1a2b4a' }}>{title}</h2>
+          {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
           <button type="button" onClick={onClose} disabled={closeDisabled} aria-label={`Close ${title}`}
             className="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-50">
             <X size={20} aria-hidden="true" />

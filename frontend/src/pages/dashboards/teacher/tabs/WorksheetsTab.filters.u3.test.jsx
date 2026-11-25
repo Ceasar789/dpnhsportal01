@@ -70,10 +70,16 @@ describe('U-T3 filters', () => {
   });
 });
 
+// U-PDF-T: Rename moved from the card into its ⋯ menu (same dialog and update path).
+const rename = title => {
+  fireEvent.click(screen.getByRole('button', { name: `More actions for ${title}` }));
+  fireEvent.click(screen.getByRole('menuitem', { name: /^Rename/ }));
+};
+
 describe('U-T3 rename', () => {
   it('renames through the owner update path and shows the new title', async () => {
     await show();
-    fireEvent.click(screen.getByRole('button', { name: 'Rename Kept quiz' }));
+    rename('Kept quiz');
     const dialog = screen.getByRole('dialog', { name: 'Rename worksheet' });
     fireEvent.change(within(dialog).getByLabelText('Worksheet title'), { target: { value: '  Unit   quiz 2  ' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save title' }));
@@ -85,7 +91,7 @@ describe('U-T3 rename', () => {
 
   it('an empty title is refused before any write', async () => {
     await show();
-    fireEvent.click(screen.getByRole('button', { name: 'Rename Kept quiz' }));
+    rename('Kept quiz');
     const dialog = screen.getByRole('dialog', { name: 'Rename worksheet' });
     fireEvent.change(within(dialog).getByLabelText('Worksheet title'), { target: { value: '   ' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save title' }));
@@ -96,7 +102,7 @@ describe('U-T3 rename', () => {
   it('a refused or failed write keeps the dialog open with a friendly message; the old title stays', async () => {
     db.reply = { data: [], error: null };
     await show();
-    fireEvent.click(screen.getByRole('button', { name: 'Rename Kept quiz' }));
+    rename('Kept quiz');
     const dialog = screen.getByRole('dialog', { name: 'Rename worksheet' });
     fireEvent.change(within(dialog).getByLabelText('Worksheet title'), { target: { value: 'New name' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save title' }));

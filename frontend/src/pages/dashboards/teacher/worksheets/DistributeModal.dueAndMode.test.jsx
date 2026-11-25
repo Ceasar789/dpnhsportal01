@@ -39,7 +39,10 @@ const pick = (date, hour, minute, period) => {
 const review = () => screen.getByRole('button', { name: 'Review' });
 const confirmDialog = () => screen.queryByRole('dialog', { name: 'Confirm distribution' });
 const confirm = async () => { await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Confirm' })); }); };
-const radio = name => screen.getByRole('radio', { name: new RegExp(`^${name}`) });
+// U-PDF-T: the Auto-check / Manual check radios became one "AI checking" switch over the same
+// field: ON = 'auto' (was Auto-check), OFF = 'manual' (was Manual check); same default and locks.
+const aiSwitch = () => screen.getByRole('switch', { name: 'AI checking' });
+const isOn = () => aiSwitch().getAttribute('aria-checked') === 'true';
 // 2030-03-10 10:00:30 in Manila.
 const setManilaNow = (iso = '2030-03-10T02:00:30Z') => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(iso)); };
 
@@ -143,8 +146,8 @@ describe('Auto-check from the real items', () => {
     const { distributeTask } = await open({ loadItems: vi.fn(async () => withEssay) });
     await screen.findByText('Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.');
     expect(screen.queryByText('Auto-check is not available because this task has essay questions.')).toBeNull();
-    expect(radio('Auto-check').disabled).toBe(false);
-    expect(radio('Auto-check').checked).toBe(true);
+    expect(aiSwitch().disabled).toBe(false);
+    expect(isOn()).toBe(true);
     fireEvent.click(screen.getByRole('checkbox', { name: /Ana/ }));
     pick(FUTURE);
     fireEvent.click(review());
@@ -156,8 +159,8 @@ describe('Auto-check from the real items', () => {
     const loadItems = vi.fn(async () => objective);
     const { distributeTask } = await open({ loadItems });
     expect(loadItems).toHaveBeenCalledWith('task-1');
-    await vi.waitFor(() => expect(radio('Auto-check').disabled).toBe(false));
-    expect(radio('Auto-check').checked).toBe(true);
+    await vi.waitFor(() => expect(aiSwitch().disabled).toBe(false));
+    expect(isOn()).toBe(true);
     fireEvent.click(screen.getByRole('checkbox', { name: /Ana/ }));
     pick(FUTURE);
     fireEvent.click(review());
@@ -181,25 +184,25 @@ describe('Auto-check from the real items', () => {
 
   it('a failed load forces Manual with the message', async () => {
     await open({ loadItems: vi.fn(async () => null) });
-    expect(await screen.findByText('Could not check the questions, so Manual check will be used.')).toBeTruthy();
-    expect(radio('Manual check').checked).toBe(true);
-    expect(radio('Auto-check').disabled).toBe(true);
+    expect(await screen.findByText('Could not check the questions, so you will check this worksheet manually.')).toBeTruthy();
+    expect(isOn()).toBe(false);
+    expect(aiSwitch().disabled).toBe(true);
   });
 
   it('without the prop the old rule applies', async () => {
     await open({ task: { ...quiz, task_type: 'assignment', checking_mode: 'manual' } });
-    expect(screen.getByText('Auto-check is not available for this task')).toBeTruthy();
+    expect(screen.getByText('AI checking is not available for this task')).toBeTruthy();
     cleanup();
     await open();
-    expect(radio('Auto-check').disabled).toBe(false);
+    expect(aiSwitch().disabled).toBe(false);
     expect(screen.queryByText('Checking questions...')).toBeNull();
   });
 
   it('a locked task keeps its stored mode even with an essay', async () => {
     await open({ assignees: [{ student_id: 'x', section_id: 'advised' }], loadItems: vi.fn(async () => withEssay) });
     await act(async () => {});
-    expect(radio('Auto-check').checked).toBe(true);
-    expect(radio('Auto-check').disabled).toBe(true);
+    expect(isOn()).toBe(true);
+    expect(aiSwitch().disabled).toBe(true);
     expect(screen.getByText('Locked after the first distribution.')).toBeTruthy();
   });
 
@@ -211,24 +214,21 @@ describe('Auto-check from the real items', () => {
   });
 });
 
-// T1: Checking mode is the kit toggle; a forced mode is read with its reason.
+// T1: Checking mode is one switch (U-PDF-T: AI checking); a forced mode is read with its reason.
 describe('T1: the Checking mode toggle', () => {
   const describedText = el => (el.getAttribute('aria-describedby') || '').split(' ').filter(Boolean)
     .map(id => document.getElementById(id)?.textContent);
 
-  it('is the toggle, and a locked task reads "Locked after the first distribution." with each disabled option', async () => {
+  it('is the switch, and a locked task reads "Locked after the first distribution." with the disabled switch', async () => {
     await open({ assignees: [{ student_id: 'x', section_id: 'advised' }], loadItems: vi.fn(async () => objective) });
     await act(async () => {});
-    expect(screen.getByRole('group', { name: 'Checking mode' }).querySelector('.fk-tg')).toBeTruthy();
-    for (const name of ['Auto-check', 'Manual check']) {
-      expect(radio(name).disabled).toBe(true);
-      expect(describedText(radio(name)).join(' ')).toContain('Locked after the first distribution.');
-    }
+    expect(aiSwitch().disabled).toBe(true);
+    expect(describedText(aiSwitch()).join(' ')).toContain('Locked after the first distribution.');
   });
 
   it('a failed question check reads its reason with the forced Manual check', async () => {
     await open({ loadItems: vi.fn(async () => null) });
-    await screen.findByText('Could not check the questions, so Manual check will be used.');
-    expect(describedText(radio('Manual check')).join(' ')).toContain('Could not check the questions, so Manual check will be used.');
+    await screen.findByText('Could not check the questions, so you will check this worksheet manually.');
+    expect(describedText(aiSwitch()).join(' ')).toContain('Could not check the questions, so you will check this worksheet manually.');
   });
 });

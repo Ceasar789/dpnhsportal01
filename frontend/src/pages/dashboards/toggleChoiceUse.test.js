@@ -6,9 +6,16 @@ import { describe, expect, it } from 'vitest';
 const read = rel => readFileSync([`src/${rel}`, `frontend/src/${rel}`].find(existsSync), 'utf8').replace(/\r\n/g, '\n');
 const CONVERTED = {
   'pages/dashboards/teacher/worksheets/CreateTaskModal.jsx': '<ToggleChoice legend="Checking" name="create-task-checking"',
-  'pages/dashboards/teacher/worksheets/DistributeModal.jsx': '<ToggleChoice legend="Checking mode" name="teacher-distribute-mode"',
   'pages/dashboards/student/submissions/YourWorkPanel.jsx': "<ToggleChoice legend={editing ? 'Replace with' : 'Add your work as'} name={id('kind')}",
 };
+
+// U-PDF-T: Distribute's Checking mode is now one "AI checking" switch (role="switch"), not a
+// two-way choice, so it left this list; it keeps no radio of its own.
+it('U-PDF-T: Distribute has the AI checking switch and no radio', () => {
+  const text = read('pages/dashboards/teacher/worksheets/DistributeModal.jsx');
+  expect(text).toContain("role=\"switch\" aria-checked={checkingMode === 'auto'}");
+  expect(text).not.toContain('type="radio"');
+});
 
 describe('T1: converted choices use ToggleChoice', () => {
   for (const [file, use] of Object.entries(CONVERTED)) {

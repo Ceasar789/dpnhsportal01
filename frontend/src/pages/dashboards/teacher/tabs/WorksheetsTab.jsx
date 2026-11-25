@@ -13,13 +13,14 @@ import { permanentSaveUnavailable } from '../persistence/editorPersistence';
 import { weeklyJobClient } from '../persistence/weeklyJobClient';
 import {
   FileText, Plus, ExternalLink,
-  Loader2, MoreHorizontal, Pencil
+  Loader2, MoreHorizontal, Sparkles
 } from 'lucide-react';
 import { useTheme, useToast } from '../hooks';
 import { Card, Input, Modal, ConfirmDialog, Badge, Btn, Toast } from '../shared/ui';
 import { TASK_TYPES, TASK_TYPE_LABELS } from '../../../../lib/taskFormatting';
 import { useWorksheetAssessment } from '../worksheets/useWorksheetAssessment';
 import DistributeModal from '../worksheets/DistributeModal';
+import { sectionsForWorksheet } from '../worksheets/distributeSections';
 import CreateTaskModal from '../worksheets/CreateTaskModal';
 import { saveManualTask } from '../worksheets/manualTaskSave';
 import { AI_GENERATED, MANUAL, SOURCE_FILTERS, worksheetSource } from './worksheetSource';
@@ -27,9 +28,10 @@ import { docxFileName, downloadDocx } from '../../../../lib/docx';
 import { printBlocks } from '../../../../lib/printBlocks';
 import { worksheetDocxBlocks } from '../worksheets/worksheetDocx';
 import RenameWorksheetDialog from '../worksheets/RenameWorksheetDialog';
+import GenerateWorksheetDialog from '../dayTasks/GenerateWorksheetDialog';
+import DownloadMenu from '../shared/DownloadMenu';
 
 const STATUS_FILTERS = ['All', 'Drafts', 'Saved', 'Distributed'];
-const DOWNLOAD_BUTTON = 'min-h-11 px-3 rounded-lg text-xs font-semibold';
 import QuestionBuilderModal from '../worksheets/QuestionBuilderModal';
 import SavedWorksheetPreview from '../worksheets/SavedWorksheetPreview';
 import SavedDayTaskPreview from '../worksheets/SavedDayTaskPreview';
@@ -53,13 +55,14 @@ const isSavedCollectionDay = row => Boolean(row.collection_id) && Number.isInteg
 const manilaDate = ms => new Date(ms).toLocaleDateString('en-US',
   { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' });
 
-const WorksheetActions = ({ worksheet, onDistribute, onCheck, onEncode, onDownload, onDelete, busy,
+const WorksheetActions = ({ worksheet, onRename, onDistribute, onCheck, onEncode, onDownload, onDelete, busy,
   locked, lockReason, distributeReason }) => {
   const [open, setOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const actions = [
+    ...(onRename ? [{ label: 'Rename', run: onRename }] : []),
     { label: 'Distribute', run: onDistribute, disabled: Boolean(distributeReason), reason: distributeReason },
     { label: 'Check submissions', run: onCheck },
     ...(onEncode ? [{ label: 'Encode scores', run: onEncode }] : []),
@@ -231,6 +234,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
   const generatedEntryButtonRef = useRef(null);
   const worksheetsHeadingRef = useRef(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [generatingWorksheet, setGeneratingWorksheet] = useState(false);
   const [previewingWorksheet, setPreviewingWorksheet] = useState(null);
   const [savedPreviewWorksheet, setSavedPreviewWorksheet] = useState(null);
   const [dayTaskPreviewWorksheet, setDayTaskPreviewWorksheet] = useState(null);
@@ -513,6 +517,12 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
     }
   };
 
+  const worksheetDownloads = ws => (ws && ws.submission_mode !== 'attachment' ? [
+    { key: 'student', label: 'Student copy (.docx)', hint: 'Without answers', icon: 'file', run: () => { void exportWorksheet(ws, 'student'); } },
+    { key: 'key', label: 'Key to correction (.docx)', hint: 'With the answer key', icon: 'file', run: () => { void exportWorksheet(ws, 'key'); } },
+    { key: 'print', label: 'Print / PDF', hint: 'Opens the print page', icon: 'print', run: () => { void exportWorksheet(ws, 'print'); } },
+  ] : []);
+
   const filters = useMemo(() => {
     const subjects = [...new Set(worksheets.map(w => w.subject).filter(Boolean))].sort();
     return ['All', ...subjects];
@@ -681,6 +691,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
         </div>
         <div className="flex flex-wrap gap-3">
           <Btn disabled={!userData?.uid || !assessment.schoolYear} onClick={() => setCreatingTask(true)}><Plus size={16} /> Create Worksheet</Btn>
+          <Btn variant="outline" disabled={!userData?.uid} onClick={() => setGeneratingWorksheet(true)}><Sparkles size={16} aria-hidden="true" /> Generate worksheet</Btn>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
@@ -1036,12 +1047,6 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                     {distributedCount > 0 ? `Distributed · ${distributedCount}` : 'Not distributed'}
                   </Badge>
                 )}
-                {/* U-T3: rename a saved worksheet (the owner's existing update path). */}
-                <button type="button" onClick={() => setRenaming(ws)} aria-label={`Rename ${ws.title || 'worksheet'}`}
-                  className="min-h-11 px-3 rounded-lg text-sm font-semibold inline-flex items-center gap-1"
-                  style={{ color: 'var(--banner-accent)', border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>
-                  <Pencil size={14} aria-hidden="true" /> Rename
-                </button>
               </div>
             </div>
             <div className="mb-1"><Badge color="var(--banner-accent)" bg="var(--card2)">{worksheetSource(ws) === AI_GENERATED ? 'Powered by Gemini' : MANUAL}</Badge></div>
@@ -1055,7 +1060,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 style={{ backgroundColor: 'var(--banner-accent)', color: dark ? '#0f172a' : '#ffffff' }}>
                 {ws.file_url ? 'View' : 'Preview'}
               </button>
-              <WorksheetActions worksheet={ws} busy={deletingId === ws.id}
+              <WorksheetActions worksheet={ws} busy={deletingId === ws.id} onRename={() => setRenaming(ws)}
                 locked={!countKnown || distributedCount > 0} lockReason={countKnown && distributedCount > 0 ? 'Already distributed' : null}
                 distributeReason={distributeReason}
                 onDistribute={() => setDistributingTask(ws)}
@@ -1064,12 +1069,6 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
                 onDownload={() => downloadWorksheet(ws)}
                 onDelete={() => handleDelete(ws.id)} />
             </div>
-            {ws.submission_mode !== 'attachment' && <div className="flex flex-wrap gap-2 mt-2" role="group" aria-label={`Download ${ws.title || 'worksheet'}`}>
-              {[['student', 'Student copy (.docx)'], ['key', 'Key to correction (.docx)'], ['print', 'Print / PDF']].map(([kind, label]) => (
-                <button key={kind} type="button" onClick={() => exportWorksheet(ws, kind)} className={DOWNLOAD_BUTTON}
-                  style={{ color: 'var(--banner-accent)', border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>{label}</button>
-              ))}
-            </div>}
             {deletingId === ws.id && <p role="status" className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Deleting worksheet…</p>}
             {assessment.postingsError ? (
               <p className="text-[11px] mt-2 flex items-center gap-2" style={{ color: '#dc2626' }}>
@@ -1094,6 +1093,10 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       </div>
 
       {renaming && <RenameWorksheetDialog worksheet={renaming} onClose={() => setRenaming(null)} onRenamed={onRenamed} />}
+      {generatingWorksheet && userData?.uid && <GenerateWorksheetDialog teacherId={userData.uid}
+        onClose={() => setGeneratingWorksheet(false)}
+        onCreateManually={() => { setGeneratingWorksheet(false); setCreatingTask(true); }}
+        onSaved={() => { setGeneratingWorksheet(false); showToast('Saved as a Draft in Worksheets', 'success'); void fetchWorksheets(); }} />}
       {showAddModal && (
         <Modal title="Create Worksheet" onClose={requestCreateClose}>
           <form onSubmit={handleAddWorksheet} className="flex flex-col gap-4">
@@ -1125,11 +1128,13 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       {savedPreviewWorksheet && <SavedWorksheetPreview worksheet={savedPreviewWorksheet}
         loadItems={assessment.loadItems} onClose={() => setSavedPreviewWorksheet(null)} />}
       {dayTaskPreviewWorksheet && <SavedDayTaskPreview key={dayTaskPreviewWorksheet.id} worksheet={dayTaskPreviewWorksheet}
-        loadItems={assessment.loadItems} onClose={() => setDayTaskPreviewWorksheet(null)}
+        loadItems={assessment.loadItems} onClose={() => setDayTaskPreviewWorksheet(null)} downloads={worksheetDownloads(dayTaskPreviewWorksheet)}
         onEditQuestions={canEditQuestions(dayTaskPreviewWorksheet)
           ? () => editQuestionsFrom(dayTaskPreviewWorksheet, () => setDayTaskPreviewWorksheet(null)) : null} />}
       {showPreviewModal && previewingWorksheet && (
-        <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)} dismissible>
+        <Modal title={`Preview: ${previewingWorksheet.title}`} onClose={() => setShowPreviewModal(false)} dismissible
+          actions={worksheetDownloads(previewingWorksheet).length > 0
+            ? <DownloadMenu items={worksheetDownloads(previewingWorksheet)} name={previewingWorksheet.title || 'worksheet'} /> : null}>
           <div className="flex flex-col gap-4">
             <div>
               <p className="text-xs uppercase mb-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>File Information</p>
@@ -1202,7 +1207,7 @@ const WorksheetsTab = ({ generatedDraft, onGeneratedDraftChange, onDiscardGenera
       {distributingTask && (
         <DistributeModal
           task={distributingTask}
-          sections={assessment.mySections}
+          sections={sectionsForWorksheet(assessment.mySections, distributingTask)}
           sectionsError={assessment.sectionsError}
           onRetrySections={assessment.fetchMySections}
           loadClassList={assessment.loadClassList}

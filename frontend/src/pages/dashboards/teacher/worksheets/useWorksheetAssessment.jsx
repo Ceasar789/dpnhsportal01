@@ -44,7 +44,7 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     if (!userData?.uid) return;
 
     const { data: sched, error: schedError } = await withRetry(
-      () => supabase.from('schedules').select('section_id').eq('teacher_id', userData.uid),
+      () => supabase.from('schedules').select('section_id, subject_id').eq('teacher_id', userData.uid),
       { label: 'Teacher schedules fetch' }
     );
     if (schedError) {
@@ -83,9 +83,12 @@ export const useWorksheetAssessment = (showToast, { distributionEnabled = truste
     // that is both (an adviser also scheduled into their own section) must
     // dedupe to the advised copy, so advised is spread first: the dedupe
     // below keeps the FIRST occurrence of a given id.
+    // U-PDF-T: each section also carries the subjects this teacher is scheduled
+    // to teach there (Distribute narrows by the worksheet's subject and grade).
+    const subjectIds = id => [...new Set((sched || []).filter(s => s.section_id === id && s.subject_id).map(s => s.subject_id))];
     const merged = [
-      ...(advised || []).map(s => ({ ...s, isAdviser: true })),
-      ...scheduled.map(s => ({ ...s, isAdviser: false })),
+      ...(advised || []).map(s => ({ ...s, isAdviser: true, subjectIds: subjectIds(s.id) })),
+      ...scheduled.map(s => ({ ...s, isAdviser: false, subjectIds: subjectIds(s.id) })),
     ]
       .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
       .sort((a, b) => (b.isAdviser - a.isAdviser) || (a.name || '').localeCompare(b.name || ''));

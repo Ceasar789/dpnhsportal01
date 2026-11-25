@@ -17,7 +17,7 @@ import { friendlyError } from '../../../../lib/friendlyError';
 import { appErrorMessage } from '../../../../lib/appErrorMessage';
 import {
   Search, Trash2, Upload, Printer, FileEdit,
-  FileText, Loader2, Eye, Save, FileUp, AlertTriangle, Sparkles, Download
+  FileText, Loader2, Eye, Save, FileUp, AlertTriangle, Sparkles
 } from 'lucide-react';
 import { useToast } from '../hooks';
 import { Card, Input, Badge, Btn, Toast, Modal, ConfirmDialog } from '../shared/ui';
@@ -43,8 +43,6 @@ import { openSourcePdf } from '../lessonPlans/sourcePdf';
 import { outOfSyncByPlan } from '../lessonPlans/planSync';
 import { manualDraftFromAiPlan } from '../lessonPlans/aiToManual';
 import { lessonPlanDocxBlocks } from '../lessonPlans/lessonPlanDocx';
-import PostToClassDialog from '../lessonPlans/PostToClassDialog';
-import { lessonPlanPostingFlagEnabled } from '../lessonPlans/postToClass';
 import { docxFileName, downloadDocx } from '../../../../lib/docx';
 import { createGeneratedDraft, validateGeneratedWorksheet } from '../worksheets/generatedDraftModel';
 import { createWeeklyWorksheetCollection } from '../worksheets/weeklyWorksheetCollection';
@@ -54,6 +52,9 @@ import WeeklyGenerationProgress from './WeeklyGenerationProgress';
 import GenerateDayTaskModal from '../dayTasks/GenerateDayTaskModal';
 import { saveDayTaskDraft } from '../dayTasks/dayTaskSave';
 import '../ilaw/IlawActivePreview.css';
+import DownloadMenu from '../shared/DownloadMenu';
+import useFillHeight from '../shared/useFillHeight';
+import '../shared/doc-scroll.css';
 
 // Where the EduScribe API lives. Deployment sets VITE_API_BASE_URL.
 //
@@ -95,6 +96,14 @@ const PLAN_STATUS = {
   published: { color: 'var(--badge-green-fg)', bg: 'var(--badge-green-bg)' },
   archived: { color: 'var(--text-muted)', bg: 'var(--card2)' },
 };
+// U-PDF-T: "Subject · Grade · Academic Year" from the saved row, leaving out
+// whatever is not stored (never "Unknown", never a guessed year).
+const planFacts = (meta, withSubject) => [
+  withSubject && meta.subjectName && `Subject: ${meta.subjectName}`,
+  meta.gradeLevel && `Grade: ${meta.gradeLevel}`,
+  meta.schoolYear && `Academic Year: ${meta.schoolYear}`,
+].filter(Boolean).join(' · ');
+
 const planDate = value => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString();
@@ -204,7 +213,6 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   const [savedPrompt, setSavedPrompt] = useState(null);
   const aiHeadingRef = useRef(null); // R34 (4g)
   // R19/R20/R23 (4d): the plan being posted; only with VITE_LESSON_PLAN_POSTING_ENABLED=1.
-  const [postingPlan, setPostingPlan] = useState(null);
   // R43 (4i): worksheets made from these plans (id, created_at, source plan), best effort.
   const [planSheets, setPlanSheets] = useState([]);
   const dayTaskSavingRef = useRef(false);
@@ -1377,11 +1385,6 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
         filename: suggestLessonPlanFilename(plan.title) });
     } catch (error) { setManualCardError(error.message); }
   };
-  const printSavedAi = plan => {
-    void openLessonPlanPrint({
-      html: plan.objectives || '', filename: suggestLessonPlanFilename(plan.title), aiGenerated: true,
-    }).catch(error => setManualCardError(error instanceof Error ? error.message : 'The lesson plan could not be printed.'));
-  };
   const downloadSavedAi = async plan => {
     if (aiPdfInFlightRef.current) return;
     aiPdfInFlightRef.current = true;
@@ -1427,6 +1430,24 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
     try { parseAiIlawHtml(plan.objectives); return [plan.id, '']; }
     catch (error) { return [plan.id, error instanceof Error ? error.message : 'This plan cannot be exported as a PDF.']; }
   })), [plans]);
+  // U-PDF-T (design p16): the plan view carries the exports that used to sit on
+  // the card, for the SAVED version (exactly what the card buttons produced).
+  const viewedPlan = view === 'editor' && savedPlanId != null ? plans.find(plan => plan.id === savedPlanId) || null
+    : view === 'manual' && manualRecord ? plans.find(plan => plan.id === manualRecord.id) || null : null;
+  const viewedType = viewedPlan ? savedPlanType(viewedPlan) : null;
+  const viewDownloads = !viewedPlan ? [] : [
+    ['ai', 'manual'].includes(viewedType) && { key: 'word', label: 'Word (.docx)', hint: 'Editable copy', icon: 'file', run: () => {
+      try { downloadDocx(lessonPlanDocxBlocks(viewedPlan), docxFileName(viewedPlan.title)); }
+      catch { showToast('The Word file could not be made. Please try again.', 'error'); }
+    } },
+    viewedType === 'ai' && { key: 'pdf', label: aiPdfBusyId === viewedPlan.id ? 'Preparing PDF…' : 'PDF (.pdf)', hint: 'For printing or sharing', icon: 'file',
+      run: () => { void downloadSavedAi(viewedPlan); }, disabled: aiPdfBusyId !== null || Boolean(aiPdfUnavailableById.get(viewedPlan.id)) },
+    viewedType === 'manual' && { key: 'pdf', label: 'PDF (.pdf)', hint: 'For printing or sharing', icon: 'file', run: () => { void downloadManualMock(viewedPlan); } },
+  ].filter(Boolean);
+  const docRef = useRef(null);
+  const manualDocRef = useRef(null);
+  useFillHeight(docRef, { enabled: view === 'editor' && Boolean(ilawOutput), deps: [savedPlanId] });
+  useFillHeight(manualDocRef, { enabled: view === 'manual' && Boolean(activeTemporaryPlan), deps: [manualRecord?.id] });
   const visiblePlans = allPlans.filter(plan => {
     const mockState = plan.localMock ? parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState : null;
     // P4b: a saved plan is never filed under Draft (AI rows are stored as status draft).
@@ -1458,9 +1479,6 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
   return (
     <div className={`p-4 sm:p-6 space-y-5${view === 'manual' ? ' teacher-manual-ilaw-active' : ''}`}>
       <Toast toast={toast} shadow />
-      {postingPlan && lessonPlanPostingFlagEnabled() && <PostToClassDialog plan={postingPlan} teacherId={userData?.uid}
-        onClose={() => setPostingPlan(null)}
-        onPosted={() => { setPostingPlan(null); showToast('Lesson plan posted to the class.', 'success'); }} />}
       {promptPlan && <div role="region" aria-label="Next step" className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg"
         style={{ backgroundColor: 'var(--card2)', border: '1px solid var(--border)' }}>
         <p className="text-sm sm:flex-1 min-w-0 break-words" style={{ color: 'var(--text)' }}>
@@ -1479,7 +1497,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
         onConfirm={() => { const action = confirmAction.action; setConfirmAction(null); void action(); }} />}
       {safety.routeBlocker}
       {/* ── HEADER ── */}
-      <header ref={headerRef} className={view === 'editor' ? 'flex flex-col items-start gap-3 min-w-0' : 'flex flex-wrap items-start justify-between gap-3'}>
+      {/* U-PDF-T (design p16): in the plan view the title block and the actions share the top row on wide
+          screens, and the two fields sit side by side, so the document below gets the height. */}
+      <header ref={headerRef} className={view === 'editor' ? 'grid gap-x-4 gap-y-3 min-w-0 items-start lg:grid-cols-[minmax(0,1fr)_auto]' : 'flex flex-wrap items-start justify-between gap-3'}>
         <div className={view === 'editor' ? 'flex flex-col items-start gap-3 min-w-0 w-full' : view === 'manual' ? 'flex flex-col items-start gap-1 min-w-0' : 'flex flex-wrap items-center gap-3 min-w-0'}>
           {view === 'manual' && <button type="button" onClick={() => {
             const leave = () => {
@@ -1501,7 +1521,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
             }}
               className="flex items-center gap-1 min-h-[44px] text-sm font-medium hover:underline flex-shrink-0"
               style={{ color: 'var(--banner-accent)' }}>
-              ← Back
+              ← Back to Lesson Plans
             </button>
           )}
           <div className="min-w-0">
@@ -1509,6 +1529,12 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
               {view === 'editor' ? (currentPlanMeta?.title || 'ILAW Lesson Plan') : view === 'manual' ? 'Manual ILAW Editor' : 'Lesson Plans'}
             </h1>
             {view === 'list' && <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Create, review, and manage your lesson plans.</p>}
+            {viewedPlan && <p className="flex flex-wrap items-center gap-2 mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {viewedPlan.status && viewedPlan.status.toLowerCase() !== 'draft' && <Badge color={(PLAN_STATUS[viewedPlan.status] || PLAN_STATUS.draft).color}
+                bg={(PLAN_STATUS[viewedPlan.status] || PLAN_STATUS.draft).bg}>{viewedPlan.status}</Badge>}
+              {SAVED_PLAN_TYPE_LABEL[viewedType] && <Badge color="var(--banner-accent)" bg="var(--card2)">{SAVED_PLAN_TYPE_LABEL[viewedType]}</Badge>}
+              {viewedPlan.updated_at && <span>Last edited {planDate(viewedPlan.updated_at)}</span>}
+            </p>}
             {view === 'editor' && currentPlanMeta?.file_name && (
               <p className="text-xs break-all flex items-start gap-1 min-w-0" style={{ color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>
                 <FileText size={12} className="shrink-0" aria-hidden="true" />{currentPlanMeta.file_name}
@@ -1517,10 +1543,15 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
           </div>
         </div>
 
+        {view === 'manual' && viewDownloads.length > 0 && <div className="flex flex-wrap items-center gap-2">
+          <DownloadMenu items={viewDownloads} name={viewedPlan.title || 'lesson plan'} />
+        </div>}
+        {view === 'manual' && manualCardError && <p role="alert" className="w-full text-sm" style={{ color: 'var(--badge-red-fg)' }}>{manualCardError}</p>}
         {view === 'manual' && !manualSaveLive && <span role="status" className="rounded-lg px-3 py-2 text-sm font-medium" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--card2)', border: '1px solid var(--border)' }}>Local QA only · Not saved to EduScribe · Use synthetic content</span>}
 
+        {view === 'editor' && (savedPlanId != null || ilawOutput) && <div className="grid gap-3 sm:grid-cols-2 min-w-0 w-full lg:col-span-2">
         {view === 'editor' && savedPlanId != null && (
-          <div className="max-w-xl w-full">
+          <div className="min-w-0 w-full">
             <label htmlFor="saved-lesson-plan-title" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Lesson Plan Title</label>
             <Input id="saved-lesson-plan-title" value={titleDraft} disabled={saving} aria-invalid={Boolean(titleError)}
               aria-describedby={`saved-lesson-plan-title-help${titleError ? ' saved-lesson-plan-title-error' : ''}`}
@@ -1541,29 +1572,42 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
             {titleError && <p id="saved-lesson-plan-title-error" role="alert" className="text-xs mt-1" style={{ color: 'var(--badge-red-fg)' }}>{titleError}</p>}
           </div>
         )}
-        {view === 'editor' && savedPlanId != null && currentPlanMeta?.ai_generated && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Saved metadata — Subject: {currentPlanMeta.assignment.subjectName || 'Unknown'} · Grade: {currentPlanMeta.assignment.gradeLevel || 'Unknown'} · Academic Year: {currentPlanMeta.assignment.schoolYear || 'Unknown'}
+        {view === 'editor' && ilawOutput && <div className="min-w-0 w-full">
+          <label htmlFor="lesson-plan-download-name" className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>Suggested PDF filename</label>
+          <Input id="lesson-plan-download-name" className="w-full" value={downloadName} onChange={event => {
+            const name = event.target.value;
+            filenameValueRef.current = name;
+            filenameEditedRef.current = true;
+            setDownloadName(name);
+            if (savedPlanId != null && filenameOwnerRef.current === userData?.uid) {
+              const key = lessonPlanFilenamePreferenceKey(userData?.uid, savedPlanId);
+              if (key) filenameDraftsRef.current.set(key, name);
+              writeLessonPlanFilenamePreference(userData?.uid, savedPlanId, name);
+            }
+          }} aria-describedby="lesson-plan-download-name-help" autoComplete="off" spellCheck={false} />
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Choose Save as PDF in the browser print dialog. Check the filename there before saving.</p>
+          <p id="lesson-plan-download-name-help" className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            The suggested PDF filename is saved only on this device. It does not rename the Lesson Plan Title or the original uploaded PDF.
+          </p>
+        </div>}
+        </div>}
+        {view === 'editor' && savedPlanId != null && currentPlanMeta?.ai_generated && planFacts(currentPlanMeta.assignment, true) && <p className="text-sm lg:col-span-2" style={{ color: 'var(--text-muted)' }}>
+          Saved metadata — {planFacts(currentPlanMeta.assignment, true)}
         </p>}
-        {view === 'editor' && savedPlanId == null && !aiLessonPlanSaveFlagEnabled() && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        {view === 'editor' && savedPlanId == null && !aiLessonPlanSaveFlagEnabled() && <p role="status" className="text-sm lg:col-span-2" style={{ color: 'var(--text-muted)' }}>
           {import.meta.env.PROD
             ? 'Permanent AI Lesson Plan save is unavailable. Your generated draft remains editable on this page.'
             : 'Permanent AI Lesson Plan save is unavailable until the local trusted writer is enabled. Your generated draft remains editable on this page.'}
         </p>}
         {view === 'editor' && ilawOutput && (
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <div className="flex items-center gap-2 flex-wrap min-w-0 lg:col-start-2 lg:row-start-1 lg:justify-end">
             <Btn variant="outline" className="min-h-[44px]" onClick={handlePrint}><Printer size={15} aria-hidden="true" /> Print</Btn>
-            <label htmlFor="lesson-plan-download-name" className="text-sm font-medium" style={{ color: 'var(--text)' }}>Suggested PDF filename</label>
-            <Input id="lesson-plan-download-name" className="w-56 max-w-full" value={downloadName} onChange={event => {
-              const name = event.target.value;
-              filenameValueRef.current = name;
-              filenameEditedRef.current = true;
-              setDownloadName(name);
-              if (savedPlanId != null && filenameOwnerRef.current === userData?.uid) {
-                const key = lessonPlanFilenamePreferenceKey(userData?.uid, savedPlanId);
-                if (key) filenameDraftsRef.current.set(key, name);
-                writeLessonPlanFilenamePreference(userData?.uid, savedPlanId, name);
-              }
-            }} aria-describedby="lesson-plan-download-name-help" autoComplete="off" spellCheck={false} />
+            {viewDownloads.length > 0 && <DownloadMenu items={viewDownloads} name={viewedPlan.title || 'lesson plan'} align="left" />}
+            {viewedType === 'ai' && <Btn variant="outline" className="min-h-[44px]" onClick={() => {
+              const plan = viewedPlan;
+              if (editorDirty) requestConfirmation('Discard unsaved lesson-plan changes and open a Manual ILAW copy of this plan?', () => editAiAsManual(plan));
+              else editAiAsManual(plan);
+            }}>Edit as manual copy<span className="sr-only"> (opens a Manual ILAW copy of {viewedPlan.title || 'lesson plan'}; this AI plan is unchanged)</span></Btn>}
             {savedPlanId == null ? <AiPlanSaveAction apiBase={API_BASE} content={ilawOutput} title={currentPlanMeta?.title} busy={saving} onSave={handleSaveIlawPlan} />
               : <Btn variant="default" className="min-h-[44px]" onClick={handleSaveIlawPlan} busy={saving} disabled={saving}>
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
@@ -1571,10 +1615,8 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
               </Btn>}
           </div>
         )}
-        {view === 'editor' && ilawOutput && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Choose Save as PDF in the browser print dialog. Check the filename there before saving.</p>}
-        {view === 'editor' && ilawOutput && <p id="lesson-plan-download-name-help" className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          The suggested PDF filename is saved only on this device. It does not rename the Lesson Plan Title or the original uploaded PDF.
-        </p>}
+        {viewedType === 'ai' && aiPdfUnavailableById.get(viewedPlan.id) && <p className="text-xs lg:col-span-2" style={{ color: 'var(--text-muted)' }}>{aiPdfUnavailableById.get(viewedPlan.id)}</p>}
+        {viewedType === 'ai' && aiPdfError?.planId === viewedPlan.id && <p role="alert" className="text-sm lg:col-span-2" style={{ color: 'var(--badge-red-fg)' }}>{aiPdfError.message}</p>}
       </header>
       {safety.busyNotice && <p role="status" className="text-sm" style={{ color: 'var(--text-muted)' }}>{safety.busyNotice}</p>}
       {view === 'editor' && sourcePdfWarning && <p role="alert" className="rounded-lg border px-4 py-3 text-sm"
@@ -1740,18 +1782,17 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                     const worksheetPreview = (planType === 'ai' || (import.meta.env.DEV && planType === 'manual')) && (!plan.localMock || mockSaved)
                       ? worksheetEligibility(plan) : null;
                     const mockState = plan.localMock ? parseManualIlawV2(plan.objectives, { teacherId: userData.uid, planId: plan.id }).workflowState : null;
-                    const aiPdfUnavailable = planType === 'ai' ? aiPdfUnavailableById.get(plan.id) || '' : '';
                     return <li key={plan.id}>
                       <Card className="p-4 min-w-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <h3 className="font-semibold break-words" style={{ color: 'var(--text)' }}>{plan.title || 'Untitled lesson plan'}</h3>
                             <p className="text-sm mt-1 break-words" style={{ color: 'var(--text-muted)' }}>{plan.subject || 'Subject unavailable'} · {plan.created_at ? `Created ${planDate(plan.created_at)}` : 'Local session only'}</p>
-                            {planType === 'ai' && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                              Subject: {savedAiMetadata(plan).subjectName || 'Unknown'} · Grade: {savedAiMetadata(plan).gradeLevel || 'Unknown'} · Academic Year: {savedAiMetadata(plan).schoolYear || 'Unknown'}
+                            {planType === 'ai' && planFacts(savedAiMetadata(plan), true) && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                              {planFacts(savedAiMetadata(plan), true)}
                             </p>}
-                            {liveManualState && <p className="text-xs mt-1 break-words" style={{ color: 'var(--text-muted)' }}>
-                              Grade: {plan.grade_level || 'Unknown'} · Academic Year: {plan.academic_year || 'Unknown'}
+                            {liveManualState && planFacts(savedAiMetadata(plan), false) && <p className="text-xs mt-1 break-words" style={{ color: 'var(--text-muted)' }}>
+                              {planFacts(savedAiMetadata(plan), false)}
                             </p>}
                             {plan.updated_at && plan.updated_at !== plan.created_at && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Updated {planDate(plan.updated_at)}</p>}
                           </div>
@@ -1771,17 +1812,6 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                         <div className="lp-actions mt-3 grid gap-3">
                           <div role="group" aria-label={`Work on ${plan.title || 'lesson plan'}`} className="flex flex-wrap items-center gap-2">
                             <Btn variant="pastel" onClick={() => plan.localMock ? openManualMock(plan) : liveManualState ? openSavedManual(plan) : handleViewPlan(plan)}><Eye size={14} aria-hidden="true" />View and edit<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>
-                            {planType === 'ai' && !plan.localMock && <Btn variant="outline" onClick={() => editAiAsManual(plan)}>
-                              Edit as manual<span className="sr-only"> (opens a Manual ILAW copy of {plan.title || 'lesson plan'})</span></Btn>}
-                            {lessonPlanPostingFlagEnabled() && dayTaskEligible && <Btn variant="outline" onClick={() => setPostingPlan(plan)}>
-                              Post to class<span className="sr-only"> {plan.title || 'lesson plan'}</span></Btn>}
-                            {dayTaskEligible &&
-                              <button type="button" onClick={() => setDayTaskPlan(plan)} disabled={dayTaskPlan !== null || dayTaskSaving}
-                                aria-label={`Generate Task for ${plan.title || 'lesson plan'}`}
-                                className="min-h-11 px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
-                                style={{ color: 'var(--banner-accent)', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                                <Sparkles size={15} aria-hidden="true" />Generate Task
-                              </button>}
                             {jobClient.enabled && persistedJob?.planId === plan.id && worksheetRun === null &&
                               <Btn variant="outline" onClick={() => resumeWeeklyJob(plan)}>
                                 {persistedJob.jobId ? 'Resume weekly job' : 'Retry unconfirmed weekly request'}
@@ -1798,25 +1828,16 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                           </p>}
                           {/* R43 (4i): end */}
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                            <div role="group" aria-label={`Files of ${plan.title || 'lesson plan'}`} className="flex flex-wrap items-center gap-2">
-                              {planType === 'ai' && <Btn variant="outline" onClick={() => printSavedAi(plan)}>
-                                <Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
-                              </Btn>}
-                              {planType === 'ai' && <Btn variant="outline" className="min-h-[44px]" onClick={() => downloadSavedAi(plan)}
-                                disabled={Boolean(aiPdfUnavailable) || aiPdfBusyId !== null} busy={aiPdfBusyId === plan.id}>
-                                <Download size={14} aria-hidden="true" />{aiPdfBusyId === plan.id ? 'Preparing PDF…' : 'Download PDF'}
-                                <span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span>
-                              </Btn>}
-                              {(plan.localMock || liveManualState) && <>
+                            {/* Labelled as a group only when it holds something (an empty group reads as noise). */}
+                            <div role={plan.localMock || (planType !== 'manual' && (plan.file_url || plan.file_path)) ? 'group' : undefined}
+                              aria-label={plan.localMock || (planType !== 'manual' && (plan.file_url || plan.file_path)) ? `Files of ${plan.title || 'lesson plan'}` : undefined}
+                              className="flex flex-wrap items-center gap-2">
+                              {/* U-PDF-T: Print, PDF and Word moved into the plan view's Download menu (same exports). */}
+                              {plan.localMock && <>
                                 <Btn variant="outline" onClick={() => printManualMock(plan)}><Printer size={14} aria-hidden="true" />Print<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
                                 <Btn variant="outline" onClick={() => downloadManualMock(plan)}>Download PDF<span className="sr-only"> saved version of {plan.title || 'lesson plan'}</span></Btn>
                               </>}
                               {planType !== 'manual' && (plan.file_url || plan.file_path) && <button type="button" onClick={async () => { if (!(await openSourcePdf(plan, supabase))) showToast('The source PDF could not be opened. Please try again.', 'error'); }} className="min-h-11 text-sm font-semibold px-3 py-2 rounded-lg hover:underline" style={{ color: 'var(--banner-accent)' }}>Open source PDF ↗<span className="sr-only"> for {plan.title || 'lesson plan'}</span></button>}
-                              {/* R22 (4k): Word copy of the saved plan; PDF stays on its own button. */}
-                              {!plan.localMock && ['ai', 'manual'].includes(planType) && <Btn variant="outline" onClick={() => {
-                                try { downloadDocx(lessonPlanDocxBlocks(plan), docxFileName(plan.title)); }
-                                catch { showToast('The Word file could not be made. Please try again.', 'error'); }
-                              }}>Download Word<span className="sr-only"> (.docx) {plan.title || 'lesson plan'}</span></Btn>}
                             </div>
                             {!plan.localMock && <button type="button" onClick={() => handleDeletePlan(plan.id)} aria-label={`Delete ${plan.title || 'lesson plan'}`}
                               className="min-h-11 px-3 py-2 rounded-lg text-sm font-semibold hover:opacity-90" style={{ color: 'var(--badge-red-fg)', border: '1px solid var(--border)' }}>
@@ -1833,8 +1854,6 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                           <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Worksheet preview unavailable: {worksheetPreview.reason}</p>}
                         {import.meta.env.DEV && worksheetGenerationError?.planId === plan.id &&
                           <p role="alert" className="text-sm mt-2" style={{ color: 'var(--red)' }}>{worksheetGenerationError.message}</p>}
-                        {aiPdfUnavailable && <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{aiPdfUnavailable}</p>}
-                        {aiPdfError?.planId === plan.id && <p role="alert" className="text-sm mt-2" style={{ color: 'var(--badge-red-fg)' }}>{aiPdfError.message}</p>}
                       </Card>
                     </li>;
                   })}
@@ -1906,10 +1925,12 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
             Subject and grade: {manualAssignment.subjectName} · {manualAssignment.gradeLevel} · S.Y. {manualAssignment.schoolYear}</p>
           : <ManualAssignmentField teacherId={userData?.uid} value={manualAssignment} error={manualErrors.assignment}
             onChange={chooseManualAssignment} />}</div>}
+        <div ref={manualDocRef} role="region" aria-label="Lesson plan document" tabIndex={0} className="t-doc-scroll">
         <FullManualIlawEditor mode="active" manualDraft={activeTemporaryPlan} onManualDraftChange={next => {
           setTemporaryPlan(next); setManualErrors({}); setManualSaveError('');
         }} baselineDraft={manualBaseline} validationErrors={manualErrors}
           onFocusHeading={() => manualHeadingRef.current?.focus({ preventScroll: true })} />
+        </div>
         {manualSaveError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--badge-red-fg)' }}>{manualSaveError}</p>}
         {manualSaveLive ? <div data-manual-screen-only role="group" aria-label="Manual ILAW save actions" className="mt-5 pt-4 flex flex-wrap items-center gap-3" style={{ borderTop: '1px solid var(--border)' }}>
           {manualRecord?.workflowState !== 'saved' && <Btn variant="outline" className="min-h-[44px]" onClick={() => saveManualLive('draft')} busy={manualSaving}
@@ -1943,6 +1964,9 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
           {/* Editable ILAW output */}
           <Card className="p-4 sm:p-6" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <h2 className="text-base font-semibold mb-2" style={{ color: 'var(--text)' }}>Lesson plan editor</h2>
+            {saveError && <p role="alert" className="text-sm mb-3" style={{ color: 'var(--badge-red-fg)' }}>{saveError}</p>}
+            {saving && <p role="status" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>Saving lesson plan…</p>}
+            <div ref={docRef} role="region" aria-label="Lesson plan document" tabIndex={0} className="t-doc-scroll">
             {currentPlanMeta?.ai_generated && ilawOutput && (
               <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3"
                 style={{
@@ -1959,8 +1983,6 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
             <p id="lesson-editor-help" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
               Review the plan below. Select the editor to make changes, then print or download your draft.
             </p>
-            {saveError && <p role="alert" className="text-sm mb-3" style={{ color: 'var(--badge-red-fg)' }}>{saveError}</p>}
-            {saving && <p role="status" className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>Saving lesson plan…</p>}
             <div className={currentPlanMeta?.ai_generated ? "ilaw-active-header" : undefined}>{currentPlanMeta?.ai_generated && ilawOutput && !hasEmbeddedLetterhead && <IlawHybridHeader showLetterhead={!hasSchoolName} />}</div>
             {currentPlanMeta?.ai_generated && ilawOutput && hasEmbeddedLetterhead && (
               <span className="sr-only">DepEd logo, school seal, and EduScribe logo frame the existing lesson plan letterhead.</span>
@@ -1994,6 +2016,7 @@ const LessonPlansTab = ({ onGeneratedDraft, onCompletedWeeklyJobDraft, generated
                 color: currentPlanMeta?.ai_generated ? '#172b40' : 'var(--text)',
               }}
             />
+            </div>
           </Card>
         </div>
       )}

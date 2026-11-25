@@ -20,21 +20,22 @@
 // ============================================
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
+import { CheckSquare, Loader2, Lock, Send } from 'lucide-react';
 import { Modal, Btn } from '../shared/ui';
 import FormErrorSummary from '../../../../components/ui/form/FormErrorSummary';
 import { useTheme } from '../hooks';
 import { combineDateAndTime, DEFAULT_DUE_TIME, formatClockTime, isFutureManila, joinClockTime, manilaDateToday,
   splitClockTime } from '../../../../lib/taskFormatting';
 import useDialogSafety from './useDialogSafety';
-import ToggleChoice from '../../../../components/ui/form/ToggleChoice';
+import { AUTO_CHECK_TYPES, autoCheckTypesFlagEnabled } from './autoCheckTypes';
 
 const MAX_STUDENTS = 200;
-const CHECKING_MODES = [
-  { value: 'auto', label: 'Auto-check', help: 'Answers are marked for you when you open Check submissions.' },
-  { value: 'manual', label: 'Manual check', help: 'You mark every answer yourself.' },
-];
-const modeLabel = mode => CHECKING_MODES.find(option => option.value === mode)?.label;
+// U-PDF-T (AI checking OFF design): one switch over the same field as before.
+// ON stores checking_mode 'auto' (what Auto-check stored), OFF stores 'manual'
+// (what Manual check stored); same default, same locks and fallbacks.
+const MODE_SUMMARY = { auto: 'ON · AI checks the objective items', manual: 'OFF · You check this worksheet manually' };
+const TYPE_LABELS = { multiple_choice: 'Multiple choice', identification: 'Identification', true_false: 'True or false' };
+const modeLabel = mode => (mode === 'auto' ? 'On' : 'Off');
 const LATER_THAN_NOW = 'Choose a due time that is later than now.';
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -181,8 +182,9 @@ const DistributeModal = ({
   // Activity.
   const manualOnly = task.task_type === 'assignment' || !Number(task.items);
   const autoBlocked = manualOnly || itemCheck === 'failed';
-  const modeReason = manualOnly ? 'Auto-check is not available for this task'
-    : itemCheck === 'failed' ? 'Could not check the questions, so Manual check will be used.' : '';
+  const modeReason = manualOnly ? 'AI checking is not available for this task'
+    : itemCheck === 'failed' ? 'Could not check the questions, so you will check this worksheet manually.' : '';
+  const switchDisabled = saving || modeLocked || autoBlocked || itemCheck === 'loading';
   const checkingMode = modeLocked ? storedMode : autoBlocked ? 'manual' : chosenMode;
 
   const dueAt = combineDateAndTime(dueDate, dueTime);
@@ -354,15 +356,54 @@ const DistributeModal = ({
             {dueInvalid && <p id="teacher-distribute-due-error" role="alert" className="text-xs font-semibold" style={{ color: '#dc2626' }}>{timeError || dueMessage}</p>}
             {dueDate === '' && <p className="text-xs" style={muted}>{dueMessage}</p>}
 
-            <ToggleChoice legend="Checking mode" name="teacher-distribute-mode" options={CHECKING_MODES} value={checkingMode}
-              disabled={saving || modeLocked || autoBlocked || itemCheck === 'loading'} onChange={setChosenMode}
-              note={(modeLocked || (itemCheck === 'loading' && !manualOnly) || modeReason || (checkingMode === 'auto' && itemCheck === 'essay')) && <>
-                {modeLocked ? <p className="text-xs" style={muted}>Locked after the first distribution.</p>
-                  : itemCheck === 'loading' && !manualOnly ? <p role="status" className="text-xs" style={muted}>Checking questions...</p>
-                    : modeReason && <p className="text-xs" style={muted}>{modeReason}</p>}
-                {checkingMode === 'auto' && itemCheck === 'essay' && <p role="note" className="text-xs mt-1" style={muted}>
-                  Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.</p>}
-              </>} />
+            <section aria-labelledby="teacher-distribute-ai-h" className="rounded-xl p-4 grid gap-3"
+              style={{ border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)' }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 id="teacher-distribute-ai-h" className="text-sm font-semibold" style={{ color: 'var(--text)' }}>AI checking</h3>
+                  <p id="teacher-distribute-ai-state" className="text-xs mt-0.5" style={muted}>{MODE_SUMMARY[checkingMode]}</p>
+                </div>
+                <button type="button" role="switch" aria-checked={checkingMode === 'auto'} disabled={switchDisabled}
+                  aria-labelledby="teacher-distribute-ai-h"
+                  aria-describedby={`teacher-distribute-ai-state${modeLocked || (itemCheck === 'loading' && !manualOnly) || modeReason ? ' teacher-distribute-ai-reason' : ''}`}
+                  onClick={() => setChosenMode(checkingMode === 'auto' ? 'manual' : 'auto')}
+                  className="relative shrink-0 inline-flex items-center min-h-11 min-w-11 justify-center disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1908DF] rounded-full">
+                  <span aria-hidden="true" className="inline-flex items-center w-12 h-7 rounded-full p-1"
+                    style={{ backgroundColor: checkingMode === 'auto' ? 'var(--banner-accent, #1908DF)' : 'var(--border)',
+                      justifyContent: checkingMode === 'auto' ? 'flex-end' : 'flex-start' }}>
+                    <span className="block w-5 h-5 rounded-full" style={{ backgroundColor: '#ffffff', boxShadow: '0 1px 2px rgba(0,0,0,.25)' }} />
+                  </span>
+                </button>
+              </div>
+              {checkingMode === 'auto' ? <p className="text-sm" style={{ color: 'var(--text)' }}>Answers are marked for you when you open Check submissions.</p>
+                : <div className="rounded-lg p-3 grid gap-3 text-sm" style={{ backgroundColor: 'var(--card2)', border: '1px solid var(--border)' }}>
+                  <p className="flex items-start gap-2"><CheckSquare size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--banner-accent)' }} aria-hidden="true" />
+                    <span><strong style={{ color: 'var(--text)' }}>You review every submission</strong><span className="block" style={muted}>All question types, including multiple choice, identification, and true or false.</span></span></p>
+                  <p className="flex items-start gap-2"><Send size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--banner-accent)' }} aria-hidden="true" />
+                    <span><strong style={{ color: 'var(--text)' }}>You release the scores</strong><span className="block" style={muted}>Students see their score only after you release it in Grading.</span></span></p>
+                </div>}
+              {checkingMode === 'manual' && !switchDisabled && <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs" style={muted}>Want AI to check the objective items?</p>
+                <Btn variant="outline" className="min-h-11" onClick={() => setChosenMode('auto')}>Turn on AI checking</Btn>
+              </div>}
+              {autoCheckTypesFlagEnabled() && <div className="grid gap-2">
+                <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>AI checks these question types</p>
+                <ul className="grid gap-2">
+                  {AUTO_CHECK_TYPES.map(type => <li key={type} className="flex items-center gap-2 rounded-lg px-3 min-h-11 text-sm"
+                    style={{ border: '1px solid var(--border)', backgroundColor: 'var(--card2)', color: checkingMode === 'auto' ? 'var(--text)' : 'var(--text-muted)' }}>
+                    <CheckSquare size={16} aria-hidden="true" />{TYPE_LABELS[type]}</li>)}
+                  <li className="flex items-start gap-2 rounded-lg px-3 py-2 text-sm" style={{ border: '1px solid var(--border)', backgroundColor: 'var(--card2)' }}>
+                    <Lock size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+                    <span><strong style={{ color: 'var(--text)' }}>Essay, handwriting, drawing, arts</strong><span className="block text-xs" style={muted}>Always checked manually by you</span></span></li>
+                </ul>
+              </div>}
+              {/* The reason (lock, loading or forced manual) is also read with the switch. */}
+              {modeLocked ? <p id="teacher-distribute-ai-reason" className="text-xs" style={muted}>Locked after the first distribution.</p>
+                : itemCheck === 'loading' && !manualOnly ? <p id="teacher-distribute-ai-reason" role="status" className="text-xs" style={muted}>Checking questions...</p>
+                  : modeReason && <p id="teacher-distribute-ai-reason" className="text-xs" style={muted}>{modeReason}</p>}
+              {checkingMode === 'auto' && itemCheck === 'essay' && <p role="note" className="text-xs" style={muted}>
+                Objective items are scored automatically. Essay answers get a provisional mark; scores are released after you confirm.</p>}
+            </section>
 
             {result && (
               <p role={result.tone === 'error' ? 'alert' : 'status'} className="text-xs font-semibold" style={{
@@ -436,7 +477,7 @@ const DistributeModal = ({
         <dt style={muted}>Section</dt><dd>{sectionName}</dd>
         <dt style={muted}>Students</dt><dd>{selectedIds.length}</dd>
         <dt style={muted}>Due</dt><dd>{dueDate} at {formatClockTime(dueTime)} (Manila time)</dd>
-        <dt style={muted}>Checking mode</dt><dd>{modeLabel(checkingMode)}</dd>
+        <dt style={muted}>AI checking</dt><dd>{modeLabel(checkingMode)}</dd>
       </dl>
       <div className="flex flex-wrap justify-end gap-2">
         <Btn variant="outline" className="min-h-11" onClick={closeReview} disabled={saving}>Back</Btn>

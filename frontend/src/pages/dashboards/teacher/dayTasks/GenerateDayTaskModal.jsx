@@ -23,7 +23,7 @@ const toCount = value => (value.trim() === '' ? NaN : Number(value));
 const toInputs = counts => Object.fromEntries(QUIZ_ITEM_TYPES.map(type => [type, String(counts[type])]));
 
 // One document at a time, answers first: the teacher is reviewing before saving.
-function DocumentPreview({ result, plan, seconds, heading }) {
+export function DocumentPreview({ result, plan, seconds, heading }) {
   const [showAnswerKey, setShowAnswerKey] = useState(true);
   const isActivity = result.taskType === 'activity';
   const showReviewNote = showAnswerKey && result.taskType === 'assignment' && result.questions.some(question => question.essay);

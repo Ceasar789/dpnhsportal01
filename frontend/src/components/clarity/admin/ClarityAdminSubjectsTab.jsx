@@ -6,6 +6,11 @@
 // school year) for the grade cells and the teacher count. There is no
 // department column: the subjects table has no department.
 //
+// U-A-1 (A4): each grade cell says "Offered" or "Not offered" (the screen reader
+// hears "Offered in Grade 7"); below 768px the table reads as one card per
+// subject (G10 phone block in clarity-components.css), the grade name shown in
+// each chip there.
+//
 // TEMPORARY word-for-word copies from pages/dashboards/admin/tabs/SubjectsTab.jsx
 // (parity-tested in ClarityAdminSubjectsTab.test.jsx); after the defense the
 // classic tab and this one should share them:
@@ -67,7 +72,7 @@ const ClarityAdminSubjectsTab = () => {
         </div>
 
         <div className="x-card x-tw">
-          <table className="x-table">
+          <table className="x-table x-subj-table">
             <thead>
               <tr>
                 <th scope="col">Subject</th>
@@ -106,11 +111,11 @@ const ClarityAdminSubjectsTab = () => {
                   {loadReady && grades.map(g => (
                     <td key={g} className="x-sub-g">
                       {runsIn(s.id, g)
-                        ? <span className="x-sub-cell on"><span aria-hidden="true" className="x-sub-dot" /><span className="x-sr">Runs in {g}</span></span>
-                        : <span className="x-sub-cell"><span aria-hidden="true">—</span><span className="x-sr">Not in {g}</span></span>}
+                        ? <span className="x-sub-cell on"><span aria-hidden="true"><span className="x-sub-gl">{g} </span>Offered</span><span className="x-sr">Offered in {g}</span></span>
+                        : <span className="x-sub-cell"><span aria-hidden="true"><span className="x-sub-gl">{g} </span>Not offered</span><span className="x-sr">Not offered in {g}</span></span>}
                     </td>
                   ))}
-                  {loadReady && <td>{teacherCount(s.id)}</td>}
+                  {loadReady && <td data-label="Teachers">{teacherCount(s.id)}</td>}
                   <td>
                     <span className={s.is_active === false ? 'x-badge' : 'x-badge ok'}>{s.is_active === false ? 'Inactive' : 'Active'}</span>
                   </td>

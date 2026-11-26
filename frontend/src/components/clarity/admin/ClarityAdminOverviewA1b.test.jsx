@@ -38,12 +38,12 @@ const phoneBlock = css.slice(css.indexOf('@media (max-width: 767px) {'), css.ind
 
 afterEach(() => cleanup());
 
-describe('1. header: "Create user" centred against the title block', () => {
+describe('1. header: the title block, no "Create user" (U-A-1: Users has its own)', () => {
   it('the Overview header has the modifier class next to the shared one', () => {
     const { container } = show();
     const head = container.querySelector('.x-head');
     expect(head.className).toBe('x-head x-ov-head');
-    expect(within(head).getByRole('button', { name: 'Create user' })).toBeTruthy();
+    expect(within(head).queryByRole('button', { name: 'Create user' })).toBeNull();
   });
   it('the modifier centres it; the shared .x-head rule is untouched (flex-end)', () => {
     expect(rule('.x-ov-head.x-head')).toMatch(/align-items: center/);

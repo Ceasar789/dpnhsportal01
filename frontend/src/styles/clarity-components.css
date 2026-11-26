@@ -88,10 +88,16 @@ html.theme-clarity .x-sec-cap { margin: 4px 0 0; font-size: 12px; color: var(--c
 html.theme-clarity .x-sec-act { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
 html.theme-clarity .x-sec-setup { min-height: 40px; }
 html.theme-clarity .x-sub-g { text-align: center; }
-html.theme-clarity .x-sub-cell { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 22px; border-radius: 6px; background: var(--cl-bg); color: var(--cl-dim); }
+html.theme-clarity .x-sub-cell { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 2px 8px; border-radius: 6px; background: var(--cl-bg); color: var(--cl-mu); font-size: 12px; font-weight: 600; }
 html.theme-clarity .x-sub-cell.on { background: var(--cl-ok-s); color: var(--cl-ok); }
-html.theme-clarity .x-sub-dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; }
+html.theme-clarity .x-sub-gl { display: none; }
 html.theme-clarity .x-sub-msg { text-align: center; padding: 24px; }
+/* U-A-1: the Offered / Not offered pills, the status badge and the subject code never break inside a word (the
+   shared cells use anywhere); from 768px the eight columns get 8px sides so the table fits without its own scroll. */
+html.theme-clarity .x-table.x-subj-table .x-sub-cell, html.theme-clarity .x-table.x-subj-table .x-badge, html.theme-clarity .x-table.x-subj-table .nm span { overflow-wrap: normal; }
+@media (min-width: 768px) {
+  html.theme-clarity .x-table.x-subj-table th, html.theme-clarity .x-table.x-subj-table td { padding-left: 8px; padding-right: 8px; }
+}
 /* A3: Admin Schedules (weekly timetable for one section) and Calendar (week
    view of all-day event blocks; the month view is the classic one). */
 html.theme-clarity .x-sch-pick { min-width: min(220px, 100%); max-width: 100%; }
@@ -1203,6 +1209,22 @@ html.theme-clarity .x-tlp div:has(> section[aria-labelledby="saved-plans-heading
   html.theme-clarity .x-usr-table tbody td:first-child { grid-column: 1 / -1; }
   html.theme-clarity .x-usr-table tbody td:nth-child(3) { grid-column: 1 / -1; order: 1; }
   html.theme-clarity .x-usr-pick { min-height: 44px; }
+  /* U-A-1 (A4): the Subjects table reads as one card per subject (name and code, status and actions on the
+     first line; teachers; then the four grades as wrapped "Grade 7 Offered" chips). */
+  html.theme-clarity .x-table.x-subj-table { min-width: 0; }
+  html.theme-clarity .x-subj-table thead th { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }
+  html.theme-clarity .x-subj-table tbody tr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--cl-bd); }
+  html.theme-clarity .x-subj-table tbody td { display: block; min-width: 0; padding: 0; border: 0; }
+  html.theme-clarity .x-subj-table tbody td:first-child { flex: 1 1 7rem; }
+  html.theme-clarity .x-subj-table tbody td:nth-last-child(2) { order: 1; }
+  html.theme-clarity .x-subj-table tbody td:last-child { order: 2; }
+  html.theme-clarity .x-subj-table tbody td[data-label] { order: 3; flex-basis: 100%; }
+  html.theme-clarity .x-subj-table tbody td[data-label]::before { content: attr(data-label) ": "; font-weight: 600; color: var(--cl-tx); }
+  html.theme-clarity .x-subj-table tbody td.x-sub-g { order: 4; }
+  html.theme-clarity .x-subj-table .x-sub-gl { display: inline; }
+  html.theme-clarity .x-subj-table .x-iconbtn { width: 44px; height: 44px; }
+  html.theme-clarity .x-subj-table tbody tr:hover { background: var(--cl-table-hover); }
+  html.theme-clarity .x-subj-table tbody tr:hover td { background: transparent; }
 }
 
 /* G10: phones in landscape (e.g. 844x390) get the drawer layout but not the

@@ -51,14 +51,14 @@ describe('layout from real data', () => {
     expect(within(row('Science')).getByText('Inactive')).toBeTruthy();
   });
 
-  it('grade columns G7-G10 from the teaching load; a dot with text where the subject runs, "—" with text where it does not', () => {
+  it('grade columns G7-G10 from the teaching load; "Offered" where the subject runs, "Not offered" where it does not', () => {
     show();
     expect(headers()).toEqual(['Subject', 'G7', 'G8', 'G9', 'G10', 'Teachers', 'Status', 'Actions']);
     const math = row('Mathematics');
-    expect(within(math).getByText('Runs in Grade 7')).toBeTruthy();
-    expect(within(math).getByText('Runs in Grade 8')).toBeTruthy();
-    expect(within(math).getByText('Not in Grade 9')).toBeTruthy();
-    expect(within(row('Science')).getByText('Runs in Grade 10')).toBeTruthy();
+    expect(within(math).getByText('Offered in Grade 7')).toBeTruthy();
+    expect(within(math).getByText('Offered in Grade 8')).toBeTruthy();
+    expect(within(math).getByText('Not offered in Grade 9')).toBeTruthy();
+    expect(within(row('Science')).getByText('Offered in Grade 10')).toBeTruthy();
   });
 
   it('teacher count is the number of different teachers in the load', () => {
@@ -82,7 +82,7 @@ describe('layout from real data', () => {
     arrange(h.ctx);
     show();
     expect(headers()).toEqual(['Subject', 'Status', 'Actions']);
-    expect(table().textContent).not.toMatch(/Runs in|Not in/);
+    expect(table().textContent).not.toMatch(/Offered/i);
   });
 
   it('no department column and no invented values', () => {

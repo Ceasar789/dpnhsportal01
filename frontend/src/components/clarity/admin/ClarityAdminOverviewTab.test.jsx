@@ -135,12 +135,9 @@ describe('header', () => {
     expect(screen.getByText('Dela Paz National High School', { selector: '.x-sub' })).toBeTruthy();
     expect(screen.queryByText(/Academic Year/)).toBeNull();
   });
-  it('"Create user" opens the Users page and its create dialog', async () => {
+  it('no "Create user" in the Overview header (U-A-1: it lives on the Users page)', async () => {
     await show();
-    fireEvent.click(screen.getByRole('button', { name: 'Create user' }));
-    expect(h.ctx.setPageSpy).toHaveBeenCalledWith('users');
-    expect(h.ctx.openCreateUser).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('heading', { level: 1, name: 'User Management' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Create user' })).toBeNull();
   });
 });
 

@@ -9,7 +9,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-  Activity, ArrowRight, Calendar, FileText, Newspaper, Plus, Settings, Users,
+  Activity, ArrowRight, Calendar, FileText, Newspaper, Settings, Users,
 } from 'lucide-react';
 import { useAdminContext } from '../../../pages/dashboards/admin/AdminContext';
 import GettingStartedCard from '../GettingStartedCard';
@@ -177,13 +177,6 @@ const ClarityAdminOverviewTab = () => {
           <h1 className="x-h1">Dashboard Overview</h1>
           {subtitle && <p className="x-sub">{subtitle}</p>}
         </div>
-        {openCreateUser && setPage && (
-          <div className="x-act">
-            <button type="button" className="x-btn pri" onClick={createUser}>
-              <Plus size={16} aria-hidden="true" /> Create user
-            </button>
-          </div>
-        )}
       </div>
 
       {setPage && <GettingStartedCard role="admin" uid={currentUserId} steps={adminSteps(setPage)} />}

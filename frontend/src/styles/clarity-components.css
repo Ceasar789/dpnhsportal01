@@ -1352,3 +1352,52 @@ html.theme-clarity .x-tlm-mine { margin-top: 4px; }
 @media (max-width: 767px), (max-width: 1023.98px) and (max-height: 500px) {
   html.theme-clarity .x-tlm-gcard .x-btn, html.theme-clarity .x-tlm-allgrades { min-height: 44px; }
 }
+/* U-PDF-T-FIX-B (design p20, filter version): one filter row, the count, the
+   materials table (a stacked card per row on phones) and the Reuse and repost
+   dialog (one class select, a Select all box, one scrolling student column).
+   Tokens only, no motion, 40px controls, 44px and 16px selects on phones. */
+html.theme-clarity .x-tlm-filters .x-tlm-filter { flex: 0 1 180px; min-width: 0; }
+html.theme-clarity .x-tlm-filter .x-select { width: 100%; }
+html.theme-clarity .x-tlm-total { margin: 0 0 12px; }
+html.theme-clarity .x-tlm-classerr { margin-bottom: 12px; }
+html.theme-clarity .x-tlm-tablewrap { padding: 0; min-width: 0; }
+html.theme-clarity .x-tlm-skel { list-style: none; margin: 0; padding: 16px; display: grid; gap: 16px; }
+html.theme-clarity .x-tlm-skel li { display: flex; gap: 16px; }
+html.theme-clarity .x-tlm-table { width: 100%; border-collapse: collapse; }
+html.theme-clarity .x-tlm-table th, html.theme-clarity .x-tlm-table td { padding: 12px 16px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--cl-bd); overflow-wrap: break-word; }
+html.theme-clarity .x-tlm-table thead th { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--cl-dim); }
+html.theme-clarity .x-tlm-table tbody tr:last-child > * { border-bottom: 0; }
+html.theme-clarity .x-tlm-table tbody td { color: var(--cl-mu); }
+html.theme-clarity .x-tlm-tcell { font-weight: 600; color: var(--cl-tx); }
+html.theme-clarity .x-tlm-ticon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: 12px; border-radius: 8px; background: var(--cl-ac-s); color: var(--cl-ac); vertical-align: middle; }
+html.theme-clarity .x-tlm-tname { vertical-align: middle; }
+html.theme-clarity .x-tlm-rowact { text-align: right; }
+html.theme-clarity .x-tlm-acts { display: flex; justify-content: flex-end; gap: 6px; }
+html.theme-clarity .x-tlm-acts .x-btn { flex: none; min-height: 40px; text-decoration: none; }
+@media (max-width: 1279.98px) {
+  html.theme-clarity .x-tlm-acts { flex-wrap: wrap; }
+}
+html.theme-clarity .x-tlm-wide { width: 100%; }
+html.theme-clarity .x-tlm-who { min-width: 0; margin: 0; padding: 0; border: 0; }
+html.theme-clarity .x-tlm-all { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--cl-bd); border-radius: 10px 10px 0 0; font-weight: 600; color: var(--cl-tx); }
+html.theme-clarity .x-tlm-count { margin-left: auto; font-weight: 500; color: var(--cl-mu); }
+html.theme-clarity .x-tlm-roster { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; border: 1px solid var(--cl-bd); border-top: 0; border-radius: 0 0 10px 10px; }
+html.theme-clarity .x-tlm-roster li + li { border-top: 1px solid var(--cl-bd); }
+html.theme-clarity .x-tlm-student { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; color: var(--cl-tx); cursor: pointer; }
+html.theme-clarity .x-tlm-all input, html.theme-clarity .x-tlm-student input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--cl-ac); }
+html.theme-clarity .x-tlm-avatar { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9999px; background: var(--cl-ac-s); color: var(--cl-ac); font-size: 13px; font-weight: 700; }
+html.theme-clarity .x-tlm-sname { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 767px), (max-width: 1023.98px) and (max-height: 500px) {
+  html.theme-clarity .x-tlm-filters .x-search { flex-basis: 100%; max-width: none; }
+  html.theme-clarity .x-tlm-filters .x-tlm-filter { flex: 1 1 140px; }
+  html.theme-clarity .x-tlm-filter .x-select, html.theme-clarity .x-tlm-wide { min-height: 44px; font-size: 16px; }
+  html.theme-clarity .x-tlm-tablewrap { background: none; border: 0; box-shadow: none; }
+  html.theme-clarity .x-tlm-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  html.theme-clarity .x-tlm-table, html.theme-clarity .x-tlm-table tbody { display: block; }
+  html.theme-clarity .x-tlm-table tbody tr { display: grid; gap: 6px; margin-bottom: 12px; padding: 16px; border: 1px solid var(--cl-bd); border-radius: var(--cl-r); background: var(--cl-card); }
+  html.theme-clarity .x-tlm-table th, html.theme-clarity .x-tlm-table td { display: block; padding: 0; border: 0; }
+  html.theme-clarity .x-tlm-table td[data-label]::before { content: attr(data-label) ": "; font-weight: 600; color: var(--cl-dim); }
+  html.theme-clarity .x-tlm-rowact { padding-top: 6px; text-align: left; }
+  html.theme-clarity .x-tlm-acts { justify-content: flex-start; gap: 8px; }
+  html.theme-clarity .x-tlm-acts .x-btn { flex: 1 0 auto; min-height: 44px; }
+}

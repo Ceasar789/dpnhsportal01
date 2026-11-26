@@ -11,6 +11,7 @@ vi.mock('../../../pages/dashboards/teacher/lessonPlans/useQuickCreateAssignments
 vi.mock('./materials/materialsApi', () => ({
   listMaterials: vi.fn(), loadOfficialSchoolYear: vi.fn(), createFileMaterial: vi.fn(), createLinkMaterial: vi.fn(),
   updateMaterial: vi.fn(), deleteMaterial: vi.fn(), signedMaterialUrl: vi.fn(), openInNewTab: vi.fn(),
+  listMaterialClasses: vi.fn(), loadTeacherSections: vi.fn(), loadClassList: vi.fn(), shareMaterialToClass: vi.fn(),
 }));
 
 import * as api from './materials/materialsApi';
@@ -36,34 +37,40 @@ const show = async (rows = ROWS) => {
   await screen.findByRole('heading', { level: 1, name: 'Learning Materials' });
   await waitFor(() => expect(screen.queryByText('Loading learning materials…')).toBeNull());
 };
-const cards = () => [...document.querySelectorAll('.x-tlm-card')];
-// U-T4: grade cards (Grade 7-10) with counts and Open replace the grade chips.
-const gradeCards = () => [...document.querySelectorAll('.x-tlm-gcard')].map(c => [c.querySelector('.x-tlm-gname').textContent, c.querySelector('.x-tlm-gcount').textContent]);
-const openGrade = level => fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Open ${level}:`) }));
-const titles = () => cards().map(c => c.querySelector('.x-tlm-title').textContent);
+// U-PDF-T-FIX-B (design p20, filter version): a Grade dropdown replaces the grade cards.
+const cards = () => [...document.querySelectorAll('.x-tlm-table tbody tr')];
+const titles = () => cards().map(c => c.querySelector('.x-tlm-tname').textContent);
+const pickGrade = level => fireEvent.change(screen.getByRole('combobox', { name: 'Filter by grade' }), { target: { value: level } });
 
-beforeEach(() => { h.assign = { assignmentRows: ASSIGNMENTS, loadState: 'ready', retry: () => {} }; api.loadOfficialSchoolYear.mockResolvedValue('2026-2027'); });
+beforeEach(() => {
+  h.assign = { assignmentRows: ASSIGNMENTS, loadState: 'ready', retry: () => {} }; api.loadOfficialSchoolYear.mockResolvedValue('2026-2027');
+  api.listMaterialClasses.mockResolvedValue([]); api.loadTeacherSections.mockResolvedValue([]);
+});
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('Grade filter (4e)', () => {
-  it('a card per grade (Grade 7-10) with its count of the teacher\'s own materials (design p20)', async () => {
+  it('no grade cards: a Grade dropdown with All grades and Grade 7-10 (design p20, filter version)', async () => {
     await show();
-    expect(gradeCards()).toEqual([['Grade 7', '1 material'], ['Grade 8', '1 material'], ['Grade 9', '0 materials'], ['Grade 10', '0 materials']]);
-    expect(screen.queryByRole('button', { name: /^Show all grades/ })).toBeNull();
+    expect(document.querySelector('.x-tlm-gcard')).toBeNull();
+    expect([...screen.getByRole('combobox', { name: 'Filter by grade' }).options].map(o => o.textContent))
+      .toEqual(['All grades', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10']);
+    expect(screen.getByText('3 materials')).toBeTruthy();
   });
-  it('Open lists that grade only; Show all grades brings everything back', async () => {
+  it('a grade lists that grade only (a material with no grade only under All grades); All grades brings everything back', async () => {
     await show();
-    openGrade('Grade 8');
+    pickGrade('Grade 8');
     expect(titles()).toEqual(['Cell diagram']);
-    expect(screen.getByText('Grade 8 · Choose a subject')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Show all grades (3)' }));
+    expect(screen.getByText('1 material')).toBeTruthy();
+    pickGrade('');
     expect(titles()).toHaveLength(3);
   });
-  it('a grade with nothing yet says so for that grade', async () => {
+  it('a grade with nothing yet: no match, with Clear filters', async () => {
     await show([ROWS[0]]);
-    openGrade('Grade 9');
-    expect(screen.getByText('You have not added materials for Grade 9 yet.')).toBeTruthy();
+    pickGrade('Grade 9');
+    expect(screen.getByText('No materials match your search or filters.')).toBeTruthy();
     expect(titles()).toEqual([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(titles()).toEqual(['Cell diagram']);
   });
 });
 

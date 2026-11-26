@@ -1,8 +1,8 @@
 // ============================================
 // FILE: src/components/clarity/student/ClarityStudentMaterialsTab.jsx
 // Student Learning Materials (4e, design p21, Student #25, Q5): the teachers'
-// materials for the student's own grade and the subjects they are scheduled
-// for. OFF until VITE_STUDENT_LEARNING_MATERIALS_ENABLED=1, because today's
+// materials shared with the student's class (U-PDF-T-FIX-B: row level security
+// decides, the read has no grade or subject filter). OFF until VITE_STUDENT_LEARNING_MATERIALS_ENABLED=1, because today's
 // row level security lets only the owning teacher read learning_materials and
 // its files; the read policy is the proposed migration autorun/sql/4e.
 // Files open through a 5-minute signed link; links only when they are http(s).
@@ -32,7 +32,6 @@ export default function ClarityStudentMaterialsTab() {
   const grade = graph && !graph.fatalError ? normalizeGradeLevel(graph.enrolments?.[0]?.sections?.grade_level) : null;
   const sectionName = graph && !graph.fatalError ? graph.enrolments?.[0]?.sections?.name?.trim() || null : null;
   const [teachers, setTeachers] = useState(() => new Map());
-  const subjectIds = useMemo(() => (graph?.cardSubjectIds instanceof Set ? [...graph.cardSubjectIds] : []), [graph]);
   const [state, setState] = useState({ status: 'loading', rows: [] });
   const [subject, setSubject] = useState('');
   const [query, setQuery] = useState('');
@@ -43,12 +42,12 @@ export default function ClarityStudentMaterialsTab() {
   useEffect(() => {
     if (graphLoading) return undefined;
     let active = true;
-    listStudentMaterials({ grade, subjectIds })
+    listStudentMaterials()
       .then(rows => { if (active) setState({ status: 'ready', rows }); })
       .catch(() => { if (active) setState({ status: 'error', rows: [] }); });
     listMaterialTeachers().then(names => { if (active) setTeachers(names); });
     return () => { active = false; };
-  }, [graphLoading, grade, subjectIds, reload]);
+  }, [graphLoading, reload]);
 
   // [subject id, name, count], A-Z.
   const chips = useMemo(() => [...state.rows.filter(r => r.subjects?.name).reduce((map, r) => {
@@ -97,7 +96,7 @@ export default function ClarityStudentMaterialsTab() {
           </button>
         </div>
       </div>
-      <p className="x-slm-note" role="note"><Info size={16} aria-hidden="true" /> You only see materials your teachers posted to your section and subjects.</p>
+      <p className="x-slm-note" role="note"><Info size={16} aria-hidden="true" /> You only see materials your teachers shared with your class.</p>
       {openError && <p role="alert" className="x-cs">{openError}</p>}
       {chips.length > 1 && (
         <div className="x-tlm-chips" role="group" aria-label="Filter by subject">

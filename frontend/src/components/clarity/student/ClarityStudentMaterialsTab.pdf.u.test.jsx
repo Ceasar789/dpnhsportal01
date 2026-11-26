@@ -35,7 +35,7 @@ describe('U-PDF-S student Learning Materials', () => {
     render(<ClarityStudentMaterialsTab />);
     await screen.findByText('Cell Diagram');
     const note = screen.getByRole('note');
-    expect(note.textContent.trim()).toBe('You only see materials your teachers posted to your section and subjects.');
+    expect(note.textContent.trim()).toBe('You only see materials your teachers shared with your class.');
     expect(note.querySelector('svg')).toBeTruthy();
     expect([...document.querySelectorAll('.x-slm-n')].map(n => n.textContent)).toEqual(['3', '2', '1']);
     const bar = title => screen.getByRole('heading', { level: 2, name: title }).closest('li').querySelector('.x-slm-bar').className;

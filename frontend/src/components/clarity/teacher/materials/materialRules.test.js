@@ -161,15 +161,13 @@ describe('the form draft', () => {
     expect(draftProblem({ ...emptyDraft(), kind: 'link', title: 'T', url: 'https://example.org' })).toBeNull();
   });
 
-  it('row fields: trimmed, empty values become null, and a grade needs a subject', () => {
-    expect(rowFields({ ...emptyDraft(), title: '  Title  ', description: '  ', gradeLevel: 'Grade 7' }))
-      .toEqual({ title: 'Title', description: null, subject_id: null, grade_level: null });
-    expect(rowFields({ ...emptyDraft(), title: 'T', description: 'D', subjectId: 's1', gradeLevel: 'Grade 7' }))
-      .toEqual({ title: 'T', description: 'D', subject_id: 's1', grade_level: 'Grade 7' });
+  it('row fields (U-PDF-T-FIX-B): an edit writes only the trimmed title and description (empty becomes null)', () => {
+    expect(rowFields({ ...emptyDraft(), title: '  Title  ', description: '  ' })).toEqual({ title: 'Title', description: null });
+    expect(rowFields({ ...emptyDraft(), title: 'T', description: 'D' })).toEqual({ title: 'T', description: 'D' });
   });
 
-  it('an edit starts from the row', () => {
+  it('an edit starts from the row (no subject or grade in the draft)', () => {
     expect(draftFromRow({ kind: 'link', title: 'L', description: null, subject_id: 's1', grade_level: 'Grade 7', link_url: 'https://e.org' }))
-      .toEqual({ kind: 'link', title: 'L', description: '', subjectId: 's1', gradeLevel: 'Grade 7', url: 'https://e.org', file: null });
+      .toEqual({ kind: 'link', title: 'L', description: '', sectionId: '', url: 'https://e.org', file: null });
   });
 });

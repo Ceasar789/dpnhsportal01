@@ -44,7 +44,7 @@ describe('teacher tabs: skeleton while loading, gone when settled', () => {
     ['Students (#25)', ClarityTeacherStudentsTab, 'Loading student rosters…', '.x-tst-table'],
     ['Announcements (#30)', ClarityTeacherAnnouncementsTab, 'Loading announcements…', '.x-tan-list'],
     ['Grading (#27)', ClarityTeacherGradingTab, 'Loading your worksheets…', '.sk-row'],
-    ['Learning Materials (#26)', ClarityTeacherMaterialsTab, 'Loading learning materials…', '.x-tlm-grid'],
+    ['Learning Materials (#26)', ClarityTeacherMaterialsTab, 'Loading learning materials…', '.x-tlm-tablewrap'],
   ])('%s', async (_, Tab, text, shape) => {
     show(Tab);
     const status = await screen.findByText(text);

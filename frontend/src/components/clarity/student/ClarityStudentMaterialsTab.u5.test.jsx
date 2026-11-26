@@ -37,7 +37,7 @@ describe('U-S5 student Learning Materials', () => {
     h.rows = ROWS;
     render(<ClarityStudentMaterialsTab />);
     await screen.findByText('Cell Diagram');
-    expect(screen.getByText('You only see materials your teachers posted to your section and subjects.')).toBeTruthy();
+    expect(screen.getByText('You only see materials your teachers shared with your class.')).toBeTruthy();
     expect(screen.getByText('Slides, notes and links from your teachers · Grade 8 · Rizal')).toBeTruthy();
     const chips = within(screen.getByRole('group', { name: 'Filter by subject' })).getAllByRole('button').map(b => b.textContent);
     expect(chips).toEqual(['All 3', 'Mathematics 2', 'Science 1']);

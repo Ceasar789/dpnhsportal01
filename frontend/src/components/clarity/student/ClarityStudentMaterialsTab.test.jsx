@@ -26,12 +26,12 @@ describe('Student Learning Materials (4e)', () => {
     expect(studentMaterialsFlagEnabled({ VITE_STUDENT_LEARNING_MATERIALS_ENABLED: 'true' })).toBe(false);
     expect(studentMaterialsFlagEnabled({ VITE_STUDENT_LEARNING_MATERIALS_ENABLED: '1' })).toBe(true);
   });
-  it('asks only for the student grade and scheduled subjects; no grade or subject means no read', async () => {
-    await listStudentMaterials({ grade: 'Grade 8', subjectIds: ['sci'] });
-    expect(h.calls[0]).toEqual(expect.arrayContaining([['eq', 'grade_level', 'Grade 8'], ['in', 'subject_id', ['sci']]]));
-    expect(await listStudentMaterials({ grade: null, subjectIds: ['sci'] })).toEqual([]);
-    expect(await listStudentMaterials({ grade: 'Grade 8', subjectIds: [] })).toEqual([]);
+  it('U-PDF-T-FIX-B: one read with no grade or subject filter (row level security returns the class\'s rows)', async () => {
+    await listStudentMaterials();
     expect(h.calls).toHaveLength(1);
+    expect(h.calls[0][0]).toBe('learning_materials');
+    expect(h.calls[0].filter(c => Array.isArray(c) && (c[0] === 'eq' || c[0] === 'in'))).toEqual([]);
+    expect(h.calls[0]).toEqual(expect.arrayContaining([['order', 'created_at', { ascending: false }]]));
   });
   it('lists materials; an unsafe link is not made clickable', async () => {
     h.graph = graph;

@@ -7,10 +7,12 @@ import { withRetry } from '../../../lib/supabaseRetry';
 export const studentMaterialsFlagEnabled = (env = import.meta.env) => env?.VITE_STUDENT_LEARNING_MATERIALS_ENABLED === '1';
 const COLUMNS = 'id, teacher_id, title, description, subject_id, grade_level, kind, file_path, file_name, link_url, created_at, subjects(id, name)';
 
-export async function listStudentMaterials({ grade, subjectIds }, client = supabase) {
-  if (!grade || !subjectIds.length) return [];
+// U-PDF-T-FIX-B: materials are shared by CLASS. Row level security (the
+// class-materials SQL) returns exactly the rows shared with this student's
+// class, so the read has no grade or subject filter.
+export async function listStudentMaterials(client = supabase) {
   const { data, error } = await withRetry(() => client.from('learning_materials').select(COLUMNS)
-    .eq('grade_level', grade).in('subject_id', subjectIds).order('created_at', { ascending: false }),
+    .order('created_at', { ascending: false }),
   { label: 'Student learning materials fetch' });
   if (error || !Array.isArray(data)) throw new Error('Learning materials could not be loaded.');
   return data;

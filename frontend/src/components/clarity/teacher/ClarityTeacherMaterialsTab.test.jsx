@@ -15,6 +15,7 @@ vi.mock('../../../pages/dashboards/teacher/lessonPlans/useQuickCreateAssignments
 vi.mock('./materials/materialsApi', () => ({
   listMaterials: vi.fn(), loadOfficialSchoolYear: vi.fn(), createFileMaterial: vi.fn(), createLinkMaterial: vi.fn(),
   updateMaterial: vi.fn(), deleteMaterial: vi.fn(), signedMaterialUrl: vi.fn(), openInNewTab: vi.fn(),
+  listMaterialClasses: vi.fn(), loadTeacherSections: vi.fn(), loadClassList: vi.fn(), shareMaterialToClass: vi.fn(),
 }));
 
 import * as api from './materials/materialsApi';
@@ -34,19 +35,35 @@ const ROWS = [
     grade_level: 'Grade 7', file_path: `${UID}/b-list.pdf`, file_name: 'list.pdf', mime_type: 'application/pdf', size_bytes: 3 * 1024 * 1024, created_at: '2026-11-08T08:00:00Z' },
 ];
 
+// U-PDF-T-FIX-B: the teacher's real classes and the owner-readable shares.
+const CLASSES = [
+  { id: 's7', name: 'Rizal', grade_level: 'Grade 7' },
+  { id: 's8', name: 'Mabini', grade_level: 'Grade 8' },
+  { id: 's8b', name: 'Bonifacio', grade_level: 'Grade 8' },
+];
+const SHARES = [
+  { material_id: 'r1', section_id: 's8', all_students: true, sections: CLASSES[1] },
+  { material_id: 'r1', section_id: 's8b', all_students: true, sections: CLASSES[2] },
+  { material_id: 'r3', section_id: 's7', all_students: true, sections: CLASSES[0] },
+];
+
 const show = async (rows = ROWS) => {
   api.listMaterials.mockResolvedValue(rows);
   render(<ClarityTeacherMaterialsTab />);
   await screen.findByRole('heading', { level: 1, name: 'Learning Materials' });
   await waitFor(() => expect(screen.queryByText('Loading learning materials…')).toBeNull());
 };
-const cards = () => [...document.querySelectorAll('.x-tlm-card')];
-const card = title => cards().find(c => c.querySelector('.x-tlm-title').textContent === title);
+// U-PDF-T-FIX-B: a table row per material (a stacked card on phones).
+const cards = () => [...document.querySelectorAll('.x-tlm-table tbody tr')];
+const card = title => cards().find(c => c.querySelector('.x-tlm-tname').textContent === title);
+const titles = () => cards().map(c => c.querySelector('.x-tlm-tname').textContent);
 const dialog = name => screen.getByRole('dialog', { name });
 
 beforeEach(() => {
   h.assign = { assignmentRows: ASSIGNMENTS, loadState: 'ready', retry: vi.fn() };
   api.loadOfficialSchoolYear.mockResolvedValue('2026-2027');
+  api.listMaterialClasses.mockResolvedValue(SHARES);
+  api.loadTeacherSections.mockResolvedValue(CLASSES);
 });
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
@@ -80,19 +97,17 @@ describe('states (real data only)', () => {
 });
 
 describe('cards', () => {
-  it('type badge, title, subject · grade, description and size · date; missing parts are simply left out', async () => {
+  it('U-PDF-T-FIX-B: a row is title, Class, Type and Posted, with Open, Edit and Repost', async () => {
     await show();
-    const png = card('Cell diagram');
-    expect(png.querySelector('.x-tlm-badge').textContent).toBe('Image');
-    expect(png.querySelector('.x-tlm-sg').textContent).toBe('Science · Grade 8');
-    expect(png.querySelector('.x-tlm-desc').textContent).toBe('Labelled parts of a cell');
-    expect(png.querySelector('.x-tlm-meta').textContent).toMatch(/^2\.0 KB · /);
-    const link = card('DepEd K to 12');
-    expect(link.querySelector('.x-tlm-badge').textContent).toBe('Link');
-    expect(link.querySelector('.x-tlm-sg')).toBeNull();
-    expect(link.querySelector('.x-tlm-desc')).toBeNull();
-    expect(link.querySelector('.x-tlm-meta').textContent).toMatch(/^www\.deped\.gov\.ph · /);
-    expect(card('Reading list').querySelector('.x-tlm-badge').textContent).toBe('PDF');
+    expect(screen.getAllByRole('columnheader').map(c => c.textContent)).toEqual(['Title', 'Class', 'Type', 'Posted', 'Actions']);
+    const cells = title => [...card(title).querySelectorAll('th, td')].slice(0, 4).map(c => c.textContent);
+    expect(cells('Cell diagram')).toEqual(['Cell diagram', 'Grade 8 — Bonifacio +1', 'Image', 'Nov 10']);
+    expect(cells('DepEd K to 12')).toEqual(['DepEd K to 12', 'Private (only me)', 'Link', 'Nov 9']);
+    expect(cells('Reading list')).toEqual(['Reading list', 'Grade 7 — Rizal', 'PDF', 'Nov 8']);
+    for (const name of ['Open Reading list (opens in a new tab)', 'Edit Reading list', 'Repost Reading list']) {
+      expect(within(card('Reading list')).getByRole('button', { name })).toBeTruthy();
+    }
+    expect(screen.getByText('3 materials')).toBeTruthy();
   });
 
   it('a link opens in a new tab with rel="noopener noreferrer"', async () => {
@@ -127,18 +142,29 @@ describe('cards', () => {
   });
 });
 
-describe('search, subject chips and type filter', () => {
-  it('chips and types come only from the materials; filters combine and can be cleared', async () => {
+describe('search and the Grade, Section and Type filters (U-PDF-T-FIX-B)', () => {
+  it('real classes and types only; a material with no grade is under All grades only; filters combine and can be cleared', async () => {
     await show();
-    const chips = within(screen.getByRole('group', { name: 'Filter by subject' })).getAllByRole('button').map(b => b.textContent);
-    expect(chips).toEqual(['All subjects 3', 'English 1', 'Science 1']);
-    fireEvent.click(screen.getByRole('button', { name: 'Science 1' }));
-    expect(cards().map(c => c.querySelector('.x-tlm-title').textContent)).toEqual(['Cell diagram']);
-    fireEvent.click(screen.getByRole('button', { name: 'All subjects 3' }));
+    expect(screen.queryByRole('group', { name: 'Filter by subject' })).toBeNull();
+    const grade = screen.getByRole('combobox', { name: 'Filter by grade' });
+    const section = screen.getByRole('combobox', { name: 'Filter by section' });
+    expect([...grade.options].map(o => o.textContent)).toEqual(['All grades', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10']);
+    expect([...section.options].map(o => o.textContent))
+      .toEqual(['All sections', 'Grade 7 — Rizal', 'Grade 8 — Mabini', 'Grade 8 — Bonifacio', 'Private (only me)']);
+    fireEvent.change(grade, { target: { value: 'Grade 8' } });
+    expect(titles()).toEqual(['Cell diagram']);
+    expect([...section.options].map(o => o.textContent)).toEqual(['All sections', 'Grade 8 — Mabini', 'Grade 8 — Bonifacio', 'Private (only me)']);
+    fireEvent.change(grade, { target: { value: '' } });
+    fireEvent.change(section, { target: { value: 'private' } });
+    expect(titles()).toEqual(['DepEd K to 12']);
+    fireEvent.change(section, { target: { value: 's7' } });
+    expect(titles()).toEqual(['Reading list']);
+    fireEvent.change(section, { target: { value: '' } });
     const type = screen.getByRole('combobox', { name: 'Filter by type' });
     expect([...type.options].map(o => o.textContent)).toEqual(['All types', 'Image', 'Link', 'PDF']);
     fireEvent.change(type, { target: { value: 'Link' } });
     expect(cards()).toHaveLength(1);
+    expect(screen.getByText('1 material')).toBeTruthy();
     fireEvent.change(type, { target: { value: '' } });
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search learning materials' }), { target: { value: 'zzz' } });
     expect(screen.getByText('No materials match your search or filters.')).toBeTruthy();
@@ -163,26 +189,24 @@ describe('add, edit and delete', () => {
     api.createLinkMaterial.mockResolvedValue({ ok: true, row: saved });
     fireEvent.change(within(d).getByLabelText('Link address'), { target: { value: 'https://phet.colorado.edu' } });
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: ' Phet sims ' } });
-    fireEvent.change(within(d).getByLabelText(/^Subject/), { target: { value: 'sci' } });
-    fireEvent.change(within(d).getByLabelText(/^Grade/), { target: { value: 'Grade 7' } });
     fireEvent.click(within(d).getByRole('button', { name: 'Add material' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(api.createLinkMaterial).toHaveBeenCalledWith({
-      teacherId: UID, url: 'https://phet.colorado.edu', fields: { title: 'Phet sims', description: null, subject_id: 'sci', grade_level: 'Grade 7' },
+      teacherId: UID, url: 'https://phet.colorado.edu', fields: { title: 'Phet sims', description: null, subject_id: null, grade_level: null },
     });
-    expect(cards()[0].querySelector('.x-tlm-title').textContent).toBe('Phet sims');
+    expect(api.shareMaterialToClass).not.toHaveBeenCalled();
+    expect(titles()[0]).toBe('Phet sims');
   });
 
-  it('Add file: only the teacher\'s own subjects and their grades; the chosen file is sent', async () => {
+  it('Add file: no Subject or Grade; Grade and section lists the teacher\'s classes; the chosen file is sent', async () => {
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'Add material' }));
     const d = dialog('Add material');
-    const subject = within(d).getByLabelText(/^Subject/);
-    expect([...subject.options].map(o => o.textContent)).toEqual(['No subject', 'English', 'Science']);
-    const grade = within(d).getByLabelText(/^Grade/);
-    expect(grade.disabled).toBe(true);
-    fireEvent.change(subject, { target: { value: 'sci' } });
-    expect([...grade.options].map(o => o.textContent)).toEqual(['No grade', 'Grade 7', 'Grade 8']);
+    expect(within(d).queryByLabelText(/^Subject/)).toBeNull();
+    const section = within(d).getByLabelText(/^Grade and section/);
+    expect(section.value).toBe('');
+    expect([...section.options].map(o => o.textContent))
+      .toEqual(['Not shared (only me)', 'Grade 7 — Rizal', 'Grade 8 — Bonifacio', 'Grade 8 — Mabini']);
     const file = new File(['x'], 'Cells.docx', { type: '' });
     fireEvent.change(d.querySelector('#material-file'), { target: { files: [file] } });
     fireEvent.change(within(d).getByLabelText('Title'), { target: { value: 'Cells notes' } });
@@ -191,7 +215,7 @@ describe('add, edit and delete', () => {
     await waitFor(() => expect(api.createFileMaterial).toHaveBeenCalled());
     const call = api.createFileMaterial.mock.calls[0][0];
     expect(call.file).toBe(file);
-    expect(call.fields).toEqual({ title: 'Cells notes', description: null, subject_id: 'sci', grade_level: null });
+    expect(call.fields).toEqual({ title: 'Cells notes', description: null, subject_id: null, grade_level: null });
   });
 
   it('no double submit: while saving, Save is busy (not disabled), and a second click sends nothing', async () => {
@@ -230,7 +254,8 @@ describe('add, edit and delete', () => {
     fireEvent.click(within(card('Reading list')).getByRole('button', { name: 'Edit Reading list' }));
     const d = dialog('Edit material');
     expect(within(d).getByLabelText('Title').value).toBe('Reading list');
-    expect(within(d).getByLabelText(/^Subject/).value).toBe('eng');
+    expect(within(d).getByText('Shared with: Grade 7 — Rizal')).toBeTruthy();
+    expect(within(d).queryByLabelText(/^Subject/)).toBeNull();
     expect(d.querySelector('#material-file')).toBeNull();
     expect(within(d).getByText(/list\.pdf · PDF · 3\.0 MB/)).toBeTruthy();
     api.updateMaterial.mockResolvedValue({ ok: true, row: { ...ROWS[2], title: 'Reading list (Q2)' } });
@@ -255,14 +280,14 @@ describe('add, edit and delete', () => {
     expect((await screen.findByRole('alert', {}, { timeout: 2000 })).textContent).toMatch(/could not be removed automatically/);
   });
 
-  it('when the subjects cannot be loaded, the form says so and offers Retry', async () => {
-    h.assign = { assignmentRows: [], loadState: 'error', retry: vi.fn() };
+  it('when the classes cannot be loaded, the form says so and offers Retry', async () => {
+    api.loadTeacherSections.mockResolvedValueOnce(null).mockResolvedValue(CLASSES);
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'Add material' }));
     const d = dialog('Add material');
-    expect(within(d).getByText(/Your subjects could not be loaded/)).toBeTruthy();
+    expect(within(d).getByText(/Your classes could not be loaded/)).toBeTruthy();
     fireEvent.click(within(d).getByRole('button', { name: 'Retry' }));
-    expect(h.assign.retry).toHaveBeenCalled();
+    await waitFor(() => expect(api.loadTeacherSections).toHaveBeenCalledTimes(2));
   });
 });
 

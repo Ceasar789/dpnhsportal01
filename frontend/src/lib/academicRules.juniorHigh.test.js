@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { GRADE_LEVELS, NO_TEACHING_LOAD_MESSAGE, canTeachSection, isRetiredGradeLevel, normalizeGradeLevel } from './academicRules';
 import { buildManualTaskRow } from '../pages/dashboards/teacher/worksheets/manualTaskSave';
-import { draftProblem, subjectOptions } from '../components/clarity/teacher/materials/materialRules';
+import { classesByGrade, createFields, emptyDraft, subjectOptions } from '../components/clarity/teacher/materials/materialRules';
 import { eligibleQuickCreateSubjects, validateQuickCreateDraft } from '../pages/dashboards/teacher/lessonPlans/quickCreateModel';
 
 const row = (grade) => ({ subject_id: 'eng', grade_level: grade, subjects: { id: 'eng', name: 'English' } });
@@ -47,10 +47,12 @@ describe('frontend save rules refuse Grade 11/12', () => {
     expect(task('Grade 10')?.grade_level).toBe('Grade 10');
   });
 
-  it('a learning material with a subject', () => {
-    const draft = { kind: 'link', title: 'Notes', description: '', subjectId: 'eng', url: 'https://example.com/notes' };
-    expect(draftProblem({ ...draft, gradeLevel: 'Grade 12' })).toBe('Choose a grade level from Grade 7 to Grade 10.');
-    expect(draftProblem({ ...draft, gradeLevel: 'Grade 9' })).toBeNull();
+  it('a learning material takes only a Grade 7-10 class grade (U-PDF-T-FIX-B: the grade comes from the class)', () => {
+    const draft = { ...emptyDraft(), kind: 'link', title: 'Notes', url: 'https://example.com/notes' };
+    expect(createFields(draft, { id: 's12', name: 'Old', grade_level: 'Grade 12' }).grade_level).toBeNull();
+    expect(createFields(draft, { id: 's9', name: 'Rizal', grade_level: 'Grade 9' }).grade_level).toBe('Grade 9');
+    expect(classesByGrade([{ id: 's12', name: 'Old', grade_level: 'Grade 12' }, { id: 's9', name: 'Rizal', grade_level: 'Grade 9' }])
+      .map(([grade]) => grade)).toEqual(['Grade 9']);
   });
 
   it('a quick-create lesson plan only offers Grade 7-10 from the load', () => {

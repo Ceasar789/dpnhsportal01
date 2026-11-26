@@ -2,37 +2,32 @@
 // FILE: src/components/clarity/teacher/materials/MaterialFormModal.jsx
 // Learning Materials (M2): the Add / Edit dialog and the Delete confirm.
 // ClarityModal + useDialogSafety: unsaved-changes guard, busy while saving,
-// no double submit, close disabled while saving. Subject and grade come only
-// from the teacher's own teacher_subjects pairs.
+// no double submit, close disabled while saving.
+// U-PDF-T-FIX-B: no Subject or Grade. Add material has "Grade and section
+// (optional)" (the teacher's real classes); saving creates the material, then
+// shares it with that class. Edit shows "Shared with: ..." read-only.
 // ============================================
 
-import { useId, useMemo, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import ClarityModal from '../../ui/ClarityModal';
 import TeacherFilePicker from '../../../../pages/dashboards/teacher/shared/TeacherFilePicker';
 import useDialogSafety from '../../../../pages/dashboards/teacher/worksheets/useDialogSafety';
 import {
   DESCRIPTION_MAX, MATERIAL_ACCEPT, MATERIAL_FILE_GUIDANCE, TITLE_MAX,
-  descriptionProblem, draftFromRow, draftIsDirty, emptyDraft, fileProblem, formatBytes, linkProblem, rowFields, titleProblem, typeLabel,
+  classLabel, classesByGrade, createFields, descriptionProblem, draftFromRow, draftIsDirty, emptyDraft, fileProblem, formatBytes, linkProblem,
+  rowFields, sharedWithLine, titleProblem, typeLabel,
 } from './materialRules';
-import { createFileMaterial, createLinkMaterial, deleteMaterial, updateMaterial } from './materialsApi';
-import { NO_TEACHING_LOAD_MESSAGE, isRetiredGradeLevel } from '../../../../lib/academicRules';
+import { createFileMaterial, createLinkMaterial, deleteMaterial, shareMaterialToClass, updateMaterial } from './materialsApi';
+import { NO_TEACHING_LOAD_MESSAGE } from '../../../../lib/academicRules';
 import FormErrorSummary from '../../../ui/form/FormErrorSummary';
 import ToggleChoice from '../../../ui/form/ToggleChoice';
 
 const BUSY_LABEL = { uploading: 'Uploading…', saving: 'Saving…', deleting: 'Deleting…' };
 const KINDS = [{ value: 'file', label: 'File' }, { value: 'link', label: 'Link' }];
 
-// The teacher's subjects, plus the row's own subject and grade when they are
-// no longer in this year's load (so an edit never drops them silently).
-const choicesFor = (subjects, row) => {
-  const list = subjects.map(s => ({ ...s, grades: [...s.grades] }));
-  if (row?.subject_id && row.subjects?.name) {
-    let own = list.find(s => s.id === row.subject_id);
-    if (!own) { own = { id: row.subject_id, name: row.subjects.name, grades: [] }; list.push(own); }
-    if (row.grade_level && !own.grades.includes(row.grade_level)) own.grades.push(row.grade_level);
-  }
-  return list;
-};
+export const CLASS_HELP = 'Pick one of your classes, for example Grade 7 — Rizal, and only its students can see this material. '
+  + 'Leave it empty to keep it private. You can repost it to other classes later.';
+export const SHARE_FAILED_NOTE = "Saved, but couldn't share it with the class. You can repost it.";
 
 // U5: every problem with a draft, each on its field, in the order the fields appear
 // (the same rules as materialRules.draftProblem, which is unchanged).
@@ -41,10 +36,11 @@ const materialProblems = (draft, { editing = false, ids }) => [
   ['material-file', draft.kind === 'file' && !editing ? fileProblem(draft.file) : null],
   [ids.title, titleProblem(draft.title)],
   [ids.description, descriptionProblem(draft.description)],
-  [ids.grade, draft.subjectId && isRetiredGradeLevel(draft.gradeLevel) ? 'Choose a grade level from Grade 7 to Grade 10.' : null],
 ].filter(([, message]) => message).map(([fieldId, message]) => ({ fieldId, message }));
 
-const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsState, onRetrySubjects, onSaved, onDeleted, onClose }) => {
+const MaterialFormModal = ({
+  mode, row = null, teacherId, classes = [], classesState = 'ready', onRetryClasses, sharedWith = [], onSaved, onDeleted, onClose,
+}) => {
   const editing = mode === 'edit';
   const [baseline] = useState(() => (editing ? draftFromRow(row) : emptyDraft()));
   const [draft, setDraft] = useState(baseline);
@@ -54,14 +50,13 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
   const [attempt, setAttempt] = useState(0);
   const busyRef = useRef(false);
   const formId = useId();
-  const ids = { title: useId(), description: useId(), subject: useId(), grade: useId(), url: useId(), error: useId() };
+  const ids = { title: useId(), description: useId(), section: useId(), url: useId(), error: useId() };
 
   const dirty = draftIsDirty(draft, baseline);
   const { requestClose, routeBlocker, busyNotice } = useDialogSafety({
     dirty, pending: Boolean(busy), onClose, discardMessage: 'Discard this material?', leaveMessage: 'Discard this material?',
   });
-  const choices = useMemo(() => choicesFor(subjects, editing ? row : null), [subjects, editing, row]);
-  const grades = choices.find(s => s.id === draft.subjectId)?.grades ?? [];
+  const groups = classesByGrade(classes);
   const update = changes => setDraft(current => ({ ...current, ...changes }));
   // After a failed save the problems are re-checked on every change, so a fixed field clears at once.
   const problems = attempt ? materialProblems(draft, { editing, ids }) : [];
@@ -86,15 +81,22 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
     event?.preventDefault();
     if (busyRef.current) return;
     if (materialProblems(draft, { editing, ids }).length) { setAttempt(a => a + 1); return; }
-    const fields = rowFields(draft);
-    const result = await run(!editing && draft.kind === 'file' ? 'uploading' : 'saving', () => (editing
-      ? updateMaterial({ row, fields, url: draft.url })
-      : draft.kind === 'file'
-        ? createFileMaterial({ teacherId, file: draft.file, fields })
-        : createLinkMaterial({ teacherId, url: draft.url, fields })));
+    const section = editing ? null : classes.find(s => s.id === draft.sectionId) || null;
+    const fields = editing ? rowFields(draft) : createFields(draft, section);
+    const result = await run(!editing && draft.kind === 'file' ? 'uploading' : 'saving', async () => {
+      const saved = await (editing
+        ? updateMaterial({ row, fields, url: draft.url })
+        : draft.kind === 'file'
+          ? createFileMaterial({ teacherId, file: draft.file, fields })
+          : createLinkMaterial({ teacherId, url: draft.url, fields }));
+      if (!saved.ok || !section) return saved;
+      // The material (and its file) is saved; a failed share leaves it Private.
+      const shared = await shareMaterialToClass({ materialId: saved.row.id, sectionId: section.id });
+      return { ...saved, section, shareFailed: !shared.ok };
+    });
     if (!result) return;
     if (!result.ok) { setError(result.error); return; }
-    onSaved(result.row, editing);
+    onSaved(result.row, editing, { section: result.section || null, shareFailed: Boolean(result.shareFailed) });
   };
 
   const remove = async () => {
@@ -104,9 +106,9 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
     onDeleted(row, result.orphan);
   };
 
-  const subjectHint = subjectsState === 'loading' ? 'Loading your subjects…'
-    : subjectsState === 'error' ? 'Your subjects could not be loaded.'
-      : choices.length === 0 ? NO_TEACHING_LOAD_MESSAGE : '';
+  const classHint = classesState === 'loading' ? 'Loading your classes…'
+    : classesState === 'error' ? 'Your classes could not be loaded.'
+      : groups.length === 0 ? NO_TEACHING_LOAD_MESSAGE : '';
 
   return (
     <>
@@ -171,32 +173,34 @@ const MaterialFormModal = ({ mode, row = null, teacherId, subjects, subjectsStat
             {errorLine(ids.description)}
           </div>
 
-          <div className="x-tlm-row">
+          {editing ? (
             <div className="x-field">
-              <label className="x-label" htmlFor={ids.subject}>Subject <span className="x-tlm-opt">(optional)</span></label>
-              <select id={ids.subject} className="x-select" value={draft.subjectId} disabled={Boolean(busy) || choices.length === 0}
-                onChange={e => update({ subjectId: e.target.value, gradeLevel: '' })}>
-                <option value="">No subject</option>
-                {choices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <p className="x-label">Shared with</p>
+              <p className="x-tlm-filename">Shared with: {sharedWithLine(sharedWith)}</p>
+              <p className="x-hint">Use Repost to share it with another class.</p>
             </div>
+          ) : (
             <div className="x-field">
-              <label className="x-label" htmlFor={ids.grade}>Grade <span className="x-tlm-opt">(optional)</span></label>
-              <select id={ids.grade} className="x-select" value={draft.gradeLevel} disabled={Boolean(busy) || !draft.subjectId || grades.length === 0}
-                onChange={e => update({ gradeLevel: e.target.value })} {...errorProps(ids.grade)}>
-                <option value="">No grade</option>
-                {grades.map(g => <option key={g} value={g}>{g}</option>)}
+              <label className="x-label" htmlFor={ids.section}>Grade and section <span className="x-tlm-opt">(optional)</span></label>
+              <select id={ids.section} className="x-select x-tlm-wide" value={draft.sectionId} disabled={Boolean(busy) || classesState !== 'ready'}
+                aria-describedby={`${ids.section}-help`} onChange={e => update({ sectionId: e.target.value })}>
+                <option value="">Not shared (only me)</option>
+                {groups.map(([grade, sections]) => (
+                  <optgroup key={grade} label={grade}>
+                    {sections.map(section => <option key={section.id} value={section.id}>{classLabel(section)}</option>)}
+                  </optgroup>
+                ))}
               </select>
-              {errorLine(ids.grade)}
-            </div>
-          </div>
-          {subjectHint && (
-            <p className="x-hint x-tlm-subjhint" role={subjectsState === 'loading' ? 'status' : undefined}>
-              {subjectHint}
-              {subjectsState === 'error' && onRetrySubjects && (
-                <> <button type="button" className="x-btn gh x-tlm-retry" onClick={onRetrySubjects}>Retry</button></>
+              <p className="x-hint" id={`${ids.section}-help`}>{CLASS_HELP}</p>
+              {classHint && (
+                <p className="x-hint x-tlm-subjhint" role={classesState === 'loading' ? 'status' : undefined}>
+                  {classHint}
+                  {classesState === 'error' && onRetryClasses && (
+                    <> <button type="button" className="x-btn gh x-tlm-retry" onClick={onRetryClasses}>Retry</button></>
+                  )}
+                </p>
               )}
-            </p>
+            </div>
           )}
         </form>
         {routeBlocker}

@@ -90,31 +90,86 @@ export const filterMaterials = (rows, { query = '', subjectId = '', type = '' } 
 };
 
 // ---------- The form draft ----------
-export const emptyDraft = () => ({ kind: 'file', title: '', description: '', subjectId: '', gradeLevel: '', url: '', file: null });
+// U-PDF-T-FIX-B: no Subject or Grade fields. Add material has "Grade and section
+// (optional)" (sectionId, '' = Not shared); Edit changes title and description only.
+export const emptyDraft = () => ({ kind: 'file', title: '', description: '', sectionId: '', url: '', file: null });
 
 export const draftFromRow = row => ({
   kind: row.kind,
   title: row.title || '',
   description: row.description || '',
-  subjectId: row.subject_id || '',
-  gradeLevel: row.grade_level || '',
+  sectionId: '',
   url: row.kind === 'link' ? row.link_url || '' : '',
   file: null,
 });
 
-export const draftIsDirty = (draft, baseline) => ['kind', 'title', 'description', 'subjectId', 'gradeLevel', 'url']
+export const draftIsDirty = (draft, baseline) => ['kind', 'title', 'description', 'sectionId', 'url']
   .some(k => String(draft[k] ?? '') !== String(baseline[k] ?? '')) || Boolean(draft.file);
 
 // The first problem with a draft (null when it can be saved).
 export const draftProblem = (draft, { editing = false } = {}) => titleProblem(draft.title)
   || descriptionProblem(draft.description)
-  || (draft.kind === 'link' ? linkProblem(draft.url) : editing ? null : fileProblem(draft.file))
-  || (draft.subjectId && isRetiredGradeLevel(draft.gradeLevel) ? 'Choose a grade level from Grade 7 to Grade 10.' : null);
+  || (draft.kind === 'link' ? linkProblem(draft.url) : editing ? null : fileProblem(draft.file));
 
-// The shared columns of a row, from a draft (empty values become null).
+// The columns an edit changes (empty description becomes null). Subject and
+// grade are never written by an edit, so an old row keeps its subject.
 export const rowFields = draft => ({
   title: draft.title.trim(),
   description: draft.description.trim() || null,
-  subject_id: draft.subjectId || null,
-  grade_level: draft.subjectId && draft.gradeLevel ? draft.gradeLevel : null,
 });
+
+// A new material: no subject; the grade of the chosen class (Grade 7-10 only), or none when Private.
+export const createFields = (draft, section = null) => ({
+  ...rowFields(draft),
+  subject_id: null,
+  grade_level: section?.grade_level && !isRetiredGradeLevel(section.grade_level) ? section.grade_level : null,
+});
+
+// ---------- Classes (U-PDF-T-FIX-B) ----------
+export const PRIVATE_LABEL = 'Private (only me)';
+export const PRIVATE_SECTION = 'private';
+const byGradeThenName = (a, b) => `${a.grade_level} ${a.name}`.localeCompare(`${b.grade_level} ${b.name}`, undefined, { numeric: true });
+
+// "Grade 7 — Rizal" (only the parts that exist).
+export const classLabel = section => [section?.grade_level, section?.name].filter(Boolean).join(' — ');
+
+// The classes a material is shared to, A-Z by grade then name.
+export const sharesOf = (shares, materialId) => (shares || []).filter(s => s.material_id === materialId && s.sections)
+  .map(s => s.sections).sort(byGradeThenName);
+
+// The Class cell: "Grade 7 — Rizal", "Grade 7 — Rizal +2" or "Private (only me)".
+export const classCell = (classes) => {
+  if (!classes?.length) return PRIVATE_LABEL;
+  return classes.length === 1 ? classLabel(classes[0]) : `${classLabel(classes[0])} +${classes.length - 1}`;
+};
+
+// "Shared with: ..." in Edit: every class, or Private.
+export const sharedWithLine = classes => (classes?.length ? classes.map(classLabel).join(', ') : PRIVATE_LABEL);
+
+// The teacher's classes grouped by grade (Grade 7 first): [[grade, sections]].
+// An old Grade 11/12 section is never offered.
+export const classesByGrade = (sections) => {
+  const groups = new Map();
+  [...(sections || [])].sort(byGradeThenName).forEach((s) => {
+    if (!s?.id || !s.grade_level || isRetiredGradeLevel(s.grade_level)) return;
+    if (!groups.has(s.grade_level)) groups.set(s.grade_level, []);
+    groups.get(s.grade_level).push(s);
+  });
+  return [...groups];
+};
+
+// Grade, Section and Type filters plus the search. A material without a grade is
+// only under All grades. Section: a class id, PRIVATE_SECTION (no class) or ''.
+export const filterByClass = (rows, shares, { grade = '', sectionId = '' } = {}) => (rows || []).filter((r) => {
+  if (grade && r.grade_level !== grade) return false;
+  if (!sectionId) return true;
+  const classes = sharesOf(shares, r.id);
+  return sectionId === PRIVATE_SECTION ? classes.length === 0 : classes.some(s => s.id === sectionId);
+});
+
+// "Nov 18" (Manila), the Posted column.
+const POSTED = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' });
+export const postedDate = (iso) => {
+  const d = iso ? new Date(iso) : null;
+  return d && !Number.isNaN(d.getTime()) ? POSTED.format(d) : '';
+};

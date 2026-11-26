@@ -8,6 +8,7 @@
 
 import { supabase } from '../../../../config/supabase';
 import { withRetry } from '../../../../lib/supabaseRetry';
+import { friendlyError } from '../../../../lib/friendlyError';
 import { fileProblem, linkProblem, materialPath, mimeForFileName, safeLink, FILE_NAME_MAX } from './materialRules';
 
 export const MATERIALS_BUCKET = 'learning-materials';
@@ -134,6 +135,51 @@ export async function signedMaterialUrl(row, { client = supabase } = {}) {
     return !error && data?.signedUrl ? data.signedUrl : null;
   } catch {
     return null;
+  }
+}
+
+// ---------- Classes (U-PDF-T-FIX-B; needs the class-materials SQL) ----------
+// The teacher's real classes (schedules + advised) and a class's active roster are
+// read exactly as Distribute / postToClass.js read them.
+export { loadTeacherSections, loadClassList } from '../../../../pages/dashboards/teacher/lessonPlans/postToClass';
+
+// Which classes the teacher's materials are shared to, with each class's name and
+// grade. The join table's owner-only RLS returns only shares of the caller's own
+// materials. Throws when the read fails.
+export async function listMaterialClasses({ client = supabase, sleep } = {}) {
+  const { data, error } = await withRetry(
+    () => client.from('learning_material_classes').select('material_id, section_id, all_students, sections(id, name, grade_level)'),
+    { label: 'Learning material classes fetch', ...(sleep ? { sleep } : {}) },
+  );
+  if (error || !Array.isArray(data)) throw new Error('Learning material classes could not be loaded.');
+  return data;
+}
+
+// The share function's own codes (RAISE EXCEPTION 'CM_...'), as sentences. The
+// code is only READ from the error to pick one; friendlyError writes the text.
+export const SHARE_MESSAGES = Object.freeze({
+  CM_NOT_OWNER: 'Only the teacher who added this material can share it.',
+  CM_NOT_YOUR_CLASS: 'You can only share with your own classes.',
+  CM_GRADE_MISMATCH: 'This material is for another grade. Choose a class of the same grade.',
+  CM_ALREADY_POSTED: 'This material is already posted to that class.',
+  CM_NO_STUDENTS: 'Tick at least one student.',
+  CM_NOT_IN_CLASS: 'Some ticked students are no longer in this class. Close and try again.',
+});
+const SHARE_FAILED = 'The material could not be shared. Check your connection and try again.';
+export const shareError = (error) => {
+  const code = Object.keys(SHARE_MESSAGES).find(key => String(error?.message ?? '').includes(key));
+  return friendlyError(code ? { code } : error, { overrides: SHARE_MESSAGES, fallback: SHARE_FAILED });
+};
+
+// Share a material to one class: everyone (studentIds null) or the ticked students.
+// Not retried, so a share is never written twice.
+export async function shareMaterialToClass({ materialId, sectionId, studentIds = null, client = supabase }) {
+  try {
+    const { error } = await client.rpc('eduscribe_material_post_to_class',
+      { p_material: materialId, p_section: sectionId, p_student_ids: studentIds });
+    return error ? { ok: false, error: shareError(error) } : { ok: true };
+  } catch (thrown) {
+    return { ok: false, error: shareError(thrown) };
   }
 }
 

@@ -12,6 +12,7 @@ vi.mock('../../../pages/dashboards/teacher/lessonPlans/useQuickCreateAssignments
 vi.mock('./materials/materialsApi', () => ({
   listMaterials: vi.fn(), loadOfficialSchoolYear: vi.fn(), createFileMaterial: vi.fn(), createLinkMaterial: vi.fn(),
   updateMaterial: vi.fn(), deleteMaterial: vi.fn(), signedMaterialUrl: vi.fn(), openInNewTab: vi.fn(),
+  listMaterialClasses: vi.fn(), loadTeacherSections: vi.fn(), loadClassList: vi.fn(), shareMaterialToClass: vi.fn(),
 }));
 
 import * as api from './materials/materialsApi';
@@ -20,7 +21,10 @@ import ClarityTeacherMaterialsTab from './ClarityTeacherMaterialsTab';
 const M = (id, title, subject, grade) => ({ id, kind: 'link', title, description: null, subject_id: subject, subjects: { id: subject, name: subject === 'math' ? 'Mathematics' : 'Science' },
   grade_level: grade, link_url: 'https://example.org/x', created_at: '2026-11-10T08:00:00Z' });
 const ROWS = [M('1', 'Slides', 'math', 'Grade 8'), M('2', 'Practice', 'math', 'Grade 8'), M('3', 'Cells', 'sci', 'Grade 8'), M('4', 'Ratio', 'math', 'Grade 7')];
-beforeEach(() => { api.loadOfficialSchoolYear.mockResolvedValue('2026-2027'); });
+beforeEach(() => {
+  api.loadOfficialSchoolYear.mockResolvedValue('2026-2027');
+  api.listMaterialClasses.mockResolvedValue([]); api.loadTeacherSections.mockResolvedValue([]);
+});
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const settle = async () => {
   await screen.findByRole('heading', { level: 1, name: 'Learning Materials' });
@@ -45,29 +49,28 @@ describe('U-T4 the empty and error states', () => {
     expect(screen.queryByText('No learning materials yet.')).toBeNull();
     api.listMaterials.mockResolvedValue(ROWS);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByRole('heading', { level: 2, name: 'Slides' })).toBeTruthy();
+    expect(await screen.findByRole('rowheader', { name: 'Slides' })).toBeTruthy();
   });
 
   it('with own materials the empty card never shows (also while reloading)', async () => {
     api.listMaterials.mockResolvedValue(ROWS);
     render(<ClarityTeacherMaterialsTab />); await settle();
     expect(screen.queryByText(/have not added/)).toBeNull();
-    expect(screen.getByRole('heading', { level: 2, name: 'My materials' })).toBeTruthy();
+    expect(screen.getByRole('table', { name: 'Learning materials' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { level: 2, name: 'My materials' })).toBeNull();
   });
 });
 
-describe('U-T4 grade cards and subject counts (design p20)', () => {
-  it('Grade 7-10 cards with counts; Open shows that grade, its subject chips with counts', async () => {
+describe('U-PDF-T-FIX-B the Grade filter replaces the grade cards and subject chips (design p20, filter version)', () => {
+  it('no grade cards, subject chips or "My materials" heading; Grade 8 shows its count and rows', async () => {
     api.listMaterials.mockResolvedValue(ROWS);
     render(<ClarityTeacherMaterialsTab />); await settle();
-    const cards = [...document.querySelectorAll('.x-tlm-gcard')].map(c => c.textContent);
-    expect(cards).toEqual(['Grade 71 materialOpen', 'Grade 83 materialsOpen', 'Grade 90 materialsOpen', 'Grade 100 materialsOpen']);
-    fireEvent.click(screen.getByRole('button', { name: 'Open Grade 8: 3 materials' }));
-    expect(screen.getByRole('button', { name: 'Open Grade 8: 3 materials' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('Grade 8 · Choose a subject')).toBeTruthy();
-    expect(within(screen.getByRole('group', { name: 'Filter by subject' })).getAllByRole('button').map(b => b.textContent))
-      .toEqual(['All subjects 3', 'Mathematics 2', 'Science 1']);
-    expect(screen.getByRole('heading', { level: 2, name: 'My materials · Grade 8' })).toBeTruthy();
-    expect(screen.queryByRole('heading', { level: 2, name: 'Ratio' })).toBeNull();
+    expect(document.querySelector('.x-tlm-gcard')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Filter by subject' })).toBeNull();
+    expect(screen.getByText('4 materials')).toBeTruthy();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by grade' }), { target: { value: 'Grade 8' } });
+    expect(screen.getByText('3 materials')).toBeTruthy();
+    expect(within(screen.getByRole('table', { name: 'Learning materials' })).getAllByRole('rowheader').map(r => r.textContent))
+      .toEqual(['Slides', 'Practice', 'Cells']);
   });
 });
